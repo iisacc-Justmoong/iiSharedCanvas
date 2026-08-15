@@ -23,6 +23,8 @@ dependency-size review.
 - Write or update tests before implementing behavior.
 - Every source change updates the relevant document and test.
 - Use only build/ for generated build output.
+- Keep each public header beside its implementation in a module directory.
+  Never introduce separate include/ and src/ source trees.
 - After source changes, run a fresh configure, full build, all CTest tests,
   install staging, standalone installed-package consumption, and diff checks.
 - Do not claim file serialization or rendering until round-trip or golden

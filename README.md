@@ -58,6 +58,21 @@ For a tested host install, including an installed-package consumer check:
 ./install.sh
 ~~~
 
+## Source layout
+
+Public headers and their implementations share module directories. The project
+does not maintain separate include/ and src/ trees.
+
+~~~text
+iiSharedCanvas.h
+Document/
+  Document.h
+  Document.cpp
+Validation/
+  Validation.h
+  Validation.cpp
+~~~
+
 ## Minimal model usage
 
 ~~~cpp

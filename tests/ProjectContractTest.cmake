@@ -22,6 +22,10 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "Document/Document.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "Validation/Validation.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "BUILD_RPATH \"$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
@@ -44,9 +48,24 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakePresets.json"
              "\"binaryDir\": \"\${sourceDir}/build\"")
 
+if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/include"
+        OR EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src")
+    message(FATAL_ERROR "public headers and implementations must not use separate include/ or src/ trees")
+endif()
+
+foreach(module Document Validation)
+    if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${module}.h"
+            OR NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${module}.cpp")
+        message(FATAL_ERROR "${module} header and implementation must share one module directory")
+    endif()
+endforeach()
+
 file(GLOB_RECURSE core_sources
-     "${IISHAREDCANVAS_SOURCE_DIR}/include/*.h"
-     "${IISHAREDCANVAS_SOURCE_DIR}/src/*.cpp")
+     "${IISHAREDCANVAS_SOURCE_DIR}/iiSharedCanvas.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/Document/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/Document/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/Validation/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/Validation/*.cpp")
 foreach(source_file IN LISTS core_sources)
     file(READ "${source_file}" source_contents)
     if(source_contents MATCHES "#[ \t]*include[ \t]*[<\"]Q[A-Za-z]")

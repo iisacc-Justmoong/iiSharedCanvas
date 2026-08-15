@@ -24,18 +24,20 @@ if(IISHAREDCANVAS_BUILD_SHARED AND NOT EMSCRIPTEN)
 endif()
 
 add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
-        src/Document.cpp
-        src/Validation.cpp)
+        Document/Document.cpp
+        Document/Document.h
+        Validation/Validation.cpp
+        Validation/Validation.h)
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
 
 generate_export_header(iiSharedCanvas
-        EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h")
+        EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h")
 
 target_compile_features(iiSharedCanvas PUBLIC cxx_std_20)
 target_include_directories(iiSharedCanvas PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>)
 target_link_libraries(iiSharedCanvas PUBLIC
         iiPaintEngine::iiPaintEngine)
 if(APPLE OR UNIX)
@@ -65,12 +67,12 @@ install(TARGETS iiSharedCanvas
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES include/iiSharedCanvas.h
-        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(DIRECTORY include/iiSharedCanvas/
+install(FILES iiSharedCanvas.h
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
+install(DIRECTORY Document Validation
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 install(EXPORT iiSharedCanvasTargets
         FILE iiSharedCanvasTargets.cmake

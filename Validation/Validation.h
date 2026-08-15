@@ -1,7 +1,7 @@
 #pragma once
 
-#include "iiSharedCanvas/Document.h"
-#include "iiSharedCanvas/Export.h"
+#include "Document/Document.h"
+#include "Export.h"
 
 #include <string>
 #include <vector>
