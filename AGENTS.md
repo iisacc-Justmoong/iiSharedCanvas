@@ -42,3 +42,9 @@ dependency-size review.
 - Keyframe sampling is hold-only.
 - Layer order is bottom-to-top.
 - Rendering never mutates source assets.
+- BitmapEditor mutates only the explicitly bound RasterAsset and persists no
+  pointer trajectory or replay command.
+- BitmapItem is a selected-raster display/input adapter, not evidence that the
+  mixed-layer frame renderer or serializer is complete.
+- Qt Quick is consumed through the Qt targets exported transitively by the sole
+  package dependency, iiPaintEngine; product QML continues to use LVRS.

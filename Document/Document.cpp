@@ -17,6 +17,15 @@ const std::string &assetId(const Asset &asset) noexcept
     return std::visit([](const auto &value) -> const std::string & { return value.id; }, asset);
 }
 
+Asset *findAsset(Document &document, const std::string &id) noexcept
+{
+    const auto match = std::find_if(document.assets.begin(), document.assets.end(),
+                                    [&id](const Asset &asset) {
+                                        return assetId(asset) == id;
+                                    });
+    return match == document.assets.end() ? nullptr : &*match;
+}
+
 const Asset *findAsset(const Document &document, const std::string &id) noexcept
 {
     const auto match = std::find_if(document.assets.begin(), document.assets.end(),

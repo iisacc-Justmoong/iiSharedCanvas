@@ -30,7 +30,9 @@ echo "Installing iiSharedCanvas into ${INSTALL_PREFIX}"
 cmake --install "${BUILD_DIR}" --prefix "${INSTALL_PREFIX}" --config Release
 
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/iiSharedCanvas.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/Document.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/BitmapItem.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Validation/Validation.h"
 test -f "${INSTALL_PREFIX}/lib/cmake/iiSharedCanvas/iiSharedCanvasConfig.cmake"
 

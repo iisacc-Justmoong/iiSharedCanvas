@@ -24,6 +24,10 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "Document/Document.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "Bitmap/BitmapEditor.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "QtAdapter/BitmapItem.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "Validation/Validation.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "BUILD_RPATH \"$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>\"")
@@ -33,8 +37,12 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
              "find_dependency(iiPaintEngine 0.1.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "The only direct project dependency is iiPaintEngine 0.1.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`BitmapEditor` binds to a raster asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "No pointer trajectory, curve, dab stream, replay command")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
+             "`BitmapItem` is the Qt Quick display boundary")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1 uses hold sampling only")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
@@ -53,22 +61,41 @@ if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/include"
     message(FATAL_ERROR "public headers and implementations must not use separate include/ or src/ trees")
 endif()
 
-foreach(module Document Validation)
-    if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${module}.h"
-            OR NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${module}.cpp")
-        message(FATAL_ERROR "${module} header and implementation must share one module directory")
-    endif()
+foreach(module Bitmap Document QtAdapter Validation)
+    file(GLOB module_headers "${IISHAREDCANVAS_SOURCE_DIR}/${module}/*.h")
+    file(GLOB module_implementations "${IISHAREDCANVAS_SOURCE_DIR}/${module}/*.cpp")
+    foreach(module_header IN LISTS module_headers)
+        get_filename_component(source_name "${module_header}" NAME_WE)
+        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${source_name}.cpp")
+            message(FATAL_ERROR "${module_header} must have a co-located implementation")
+        endif()
+    endforeach()
+    foreach(module_implementation IN LISTS module_implementations)
+        get_filename_component(source_name "${module_implementation}" NAME_WE)
+        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${source_name}.h")
+            message(FATAL_ERROR "${module_implementation} must have a co-located header")
+        endif()
+    endforeach()
 endforeach()
 
 file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/iiSharedCanvas.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/Document/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/Document/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/Validation/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/Validation/*.cpp")
 foreach(source_file IN LISTS core_sources)
     file(READ "${source_file}" source_contents)
-    if(source_contents MATCHES "#[ \t]*include[ \t]*[<\"]Q[A-Za-z]")
+    if(source_contents MATCHES "#[ \t]*include[ \t]*<Q[A-Za-z]")
         message(FATAL_ERROR "Core source must not directly include Qt: ${source_file}")
     endif()
 endforeach()
+
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/BitmapEditor.cpp"
+             "appendRasterDabs")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/BitmapEditor.cpp"
+             "paintRasterSamples")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/QtAdapter/BitmapItem.cpp"
+             "QImage::Format_ARGB32")

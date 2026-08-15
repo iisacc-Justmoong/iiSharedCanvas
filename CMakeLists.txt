@@ -24,8 +24,12 @@ if(IISHAREDCANVAS_BUILD_SHARED AND NOT EMSCRIPTEN)
 endif()
 
 add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
+        Bitmap/BitmapEditor.cpp
+        Bitmap/BitmapEditor.h
         Document/Document.cpp
         Document/Document.h
+        QtAdapter/BitmapItem.cpp
+        QtAdapter/BitmapItem.h
         Validation/Validation.cpp
         Validation/Validation.h)
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
@@ -39,13 +43,16 @@ target_include_directories(iiSharedCanvas PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>)
 target_link_libraries(iiSharedCanvas PUBLIC
-        iiPaintEngine::iiPaintEngine)
+        iiPaintEngine::iiPaintEngine
+        Qt6::Qml
+        Qt6::Quick)
 if(APPLE OR UNIX)
     target_link_options(iiSharedCanvas INTERFACE
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 endif()
 
 set_target_properties(iiSharedCanvas PROPERTIES
+        AUTOMOC ON
         VERSION ${PROJECT_VERSION}
         SOVERSION ${PROJECT_VERSION_MAJOR})
 set_property(TARGET iiSharedCanvas APPEND PROPERTY
@@ -69,7 +76,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY Document Validation
+install(DIRECTORY Bitmap Document QtAdapter Validation
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
@@ -119,6 +126,24 @@ if(BUILD_TESTING)
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.PublicApi
             COMMAND iiSharedCanvasPublicApiTest)
+
+    add_executable(iiSharedCanvasBitmapEditorTest
+            tests/BitmapEditorTest.cpp)
+    target_link_libraries(iiSharedCanvasBitmapEditorTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.BitmapEditor
+            COMMAND iiSharedCanvasBitmapEditorTest)
+
+    add_executable(iiSharedCanvasBitmapItemRenderTest
+            tests/BitmapItemRenderTest.cpp)
+    target_compile_definitions(iiSharedCanvasBitmapItemRenderTest PRIVATE
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_link_libraries(iiSharedCanvasBitmapItemRenderTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.BitmapItemRender
+            COMMAND iiSharedCanvasBitmapItemRenderTest)
+    set_tests_properties(iiSharedCanvas.BitmapItemRender PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     add_test(NAME iiSharedCanvas.ProjectContract
             COMMAND ${CMAKE_COMMAND}

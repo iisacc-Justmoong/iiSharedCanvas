@@ -1,6 +1,6 @@
 # iiSharedCanvas blueprint
 
-Status: Phase 0 complete blueprint
+Status: Phase 0 complete; selected-bitmap authoring slice implemented
 
 ## 1. Product objective
 
@@ -18,7 +18,10 @@ its own mixed-media document model.
 
 ~~~mermaid
 flowchart LR
-    APP["Application / QML UI"] --> ISC["iiSharedCanvas"]
+    APP["Application / LVRS QML UI"] --> ITEM["BitmapItem"]
+    APP --> ISC["iiSharedCanvas"]
+    ITEM --> EDIT["BitmapEditor"]
+    EDIT --> DOC
     ISC --> DOC["Document + validation"]
     DOC --> STACK["Ordered layers"]
     DOC --> ASSETS["Asset registry"]
@@ -33,12 +36,13 @@ flowchart LR
     EVAL --> FUTURE
 ~~~
 
-iiPaintEngine owns bitmap editing, bitmap codecs, brush rasterization, ARGB
-pixel storage primitives, raster blend semantics, and raster transforms.
+iiPaintEngine owns bitmap codecs, brush rasterization, ARGB pixel storage
+primitives, raster blend semantics, and raster transforms.
 
 iiSharedCanvas owns mixed-content document identity, ordered layers, vector
 geometry, asset references, timeline semantics, cross-content validation, file
-format versioning, and eventually frame composition.
+format versioning, selected-raster editing coordination, and eventually frame
+composition.
 
 The application owns UI, tools, playback controls, selection experience,
 autosave policy, networking, and collaboration. The library name does not imply
@@ -107,6 +111,30 @@ pointer input
 No pointer trajectory, curve, dab stream, replay command, or retained brush
 stroke may be serialized by iiSharedCanvas. A brush preset may later be stored
 as optional authoring metadata, but rendered truth remains the pixels.
+
+### Implemented selected-bitmap authoring boundary
+
+`BitmapEditor` resolves a mutable `RasterAsset` by stable id on each operation,
+so document asset-vector relocation cannot leave a cached asset pointer. It
+accepts complete `RasterLayer` replacement for decoded bitmap input, direct
+pixel or rectangular patch edits, clear, and streaming brush/eraser input.
+Streaming input uses iiPaintEngine `RasterDabStream` only while a gesture is
+active, then commits directly into the asset pixels. No point list or replayable
+stroke is added to `Document`.
+
+Undo/redo stores a maximum of 32 full raster snapshots. This is intentionally
+the simplest correct first policy and makes a whole brush gesture atomic.
+Patch-based history should replace it only after real document sizes establish
+the required memory budget.
+
+`BitmapItem` is the Qt Quick display boundary for one selected raster asset. It
+converts the engine's ARGB storage into `QImage::Format_ARGB32` at paint time,
+uses nearest-neighbor scaling, and exposes mouse painting, explicit
+pressure-bearing stroke calls, clear, pixels, undo/redo, zoom, and pan. Its
+standalone `createBitmap` path owns a minimal one-layer document; its C++
+`bind` path edits a caller-owned document whose lifetime and GUI-thread access
+remain the caller's responsibility. This item does not compose document layers
+and does not serialize input events.
 
 ## 6. Render pipeline target
 
@@ -212,9 +240,11 @@ Complete when:
 
 Complete when:
 
-- iiPaintEngine bitmap editing can commit into a selected RasterAsset.
-- Undo/redo stores pixel patches or snapshots rather than stroke replay.
-- QML integration uses LVRS and remains outside the format core.
+- [x] iiPaintEngine bitmap editing can commit into a selected RasterAsset.
+- [x] Undo/redo stores pixel snapshots rather than stroke replay.
+- [x] A reusable Qt Quick bitmap item can display and manipulate that asset.
+- [ ] A product host integrates the registered item in an LVRS QML UI and
+  verifies its complete tool workflow.
 
 ### Phase 4 - product hardening
 

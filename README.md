@@ -1,13 +1,14 @@
 # iiSharedCanvas
 
-iiSharedCanvas is a C++20 document model for composing raster artwork, native
-vector paths, and frame-based raster or vector animation on one canvas.
+iiSharedCanvas is a C++20 document and authoring foundation for composing
+raster artwork, native vector paths, and frame-based raster or vector animation
+on one canvas.
 
-The repository is currently at the blueprint/bootstrap milestone. It contains
-the versioned in-memory model, validation rules, deterministic keyframe
-evaluation, CMake package export, and contract tests. File serialization and
-frame rendering are intentionally the next milestones, not features claimed as
-complete here.
+The repository contains the versioned in-memory model, validation rules,
+deterministic keyframe evaluation, an editable raster-asset boundary, a Qt
+Quick bitmap display item, CMake package export, and contract tests. File
+serialization and full mixed-layer frame rendering remain later milestones and
+are not claimed as complete.
 
 ## Content contract
 
@@ -24,11 +25,32 @@ iiSharedCanvas format. iiPaintEngine rasterizes brush input immediately, and
 iiSharedCanvas receives only the committed pixels. This keeps raster editing
 compatible with iiPaintEngine's bitmap-only contract.
 
+## Bitmap display and editing
+
+`BitmapEditor` binds to a raster asset by id and mutates that `RasterAsset`
+directly. It supports individual pixels, rectangular ARGB patches, whole
+`RasterLayer` replacement, clear, streamed brush/eraser input, dirty bounds,
+and undo/redo. Brush input is rasterized immediately through iiPaintEngine;
+only the resulting pixels live in the document. One brush gesture is one undo
+operation. The initial history policy retains at most 32 full raster snapshots
+for predictable behavior; patch-budget optimization remains a measured product
+hardening task.
+
+`BitmapItem` is a `QQuickPaintedItem` display and input adapter. It can bind an
+existing document raster asset or create an owned bitmap, renders ARGB pixels
+without smoothing, supports zoom and pan, and routes mouse or explicit
+pressure-bearing stroke calls into `BitmapEditor`. This displays one selected
+raster asset; it is not the future full document frame compositor. If another
+owner mutates a bound document directly, the UI owner must call `refresh()` on
+the GUI thread.
+
 ## Dependency
 
 The only direct project dependency is iiPaintEngine 0.1.0. Its exported CMake
-target supplies the raster types, blend modes, transforms, and its own
-transitive platform dependencies.
+target supplies the raster types, rasterizer, blend modes, transforms, and its
+Qt Core/Gui/Qml/Quick platform targets transitively. `BitmapItem` links those
+already-supplied Qt targets; iiSharedCanvas performs no second package
+discovery.
 
 ## Build and test
 
@@ -65,9 +87,15 @@ does not maintain separate include/ and src/ trees.
 
 ~~~text
 iiSharedCanvas.h
+Bitmap/
+  BitmapEditor.h
+  BitmapEditor.cpp
 Document/
   Document.h
   Document.cpp
+QtAdapter/
+  BitmapItem.h
+  BitmapItem.cpp
 Validation/
   Validation.h
   Validation.cpp
@@ -98,7 +126,22 @@ document.layers.push_back({
 if (!validate(document).ok()) {
     // Reject before serialization or rendering.
 }
+
+BitmapEditor editor(document, "frame-0");
+editor.setPixel(10, 10, 0xffffcc00U);
+editor.beginStroke({20.0, 20.0}, 1.0);
+editor.continueStroke({80.0, 40.0}, 1.0);
+editor.endStroke({80.0, 40.0}, 1.0);
 ~~~
+
+For Qt Quick hosts, call `registerIiSharedCanvasQmlTypes()` before loading the
+engine and use the `iiSharedCanvas 1.0` `Bitmap` type. Product QML must continue
+to use LVRS for the application UI; this library provides the canvas item, not
+a second UI framework.
+
+`iiSharedCanvas.BitmapItemRender` performs an offscreen real render and writes
+`build/test-output/bitmap-item.png`. Pixel assertions verify the original and
+edited ARGB values as well as nearest-neighbor zoom.
 
 ## Documents
 

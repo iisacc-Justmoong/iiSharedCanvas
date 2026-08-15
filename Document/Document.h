@@ -120,6 +120,8 @@ struct Document {
 
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Asset &asset) noexcept;
 IISHAREDCANVAS_EXPORT const std::string &assetId(const Asset &asset) noexcept;
+IISHAREDCANVAS_EXPORT Asset *findAsset(Document &document,
+                                       const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const Asset *findAsset(const Document &document,
                                              const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const Asset *resolveAssetAt(const Document &document,

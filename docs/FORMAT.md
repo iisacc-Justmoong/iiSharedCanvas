@@ -130,6 +130,13 @@ Brush input is not a manifest content kind. The brush output is stored as a
 raster asset after iiPaintEngine commits it. No trajectory, pressure point
 sequence, curve, dab sequence, or replay command belongs in an .iisc package.
 
+The current in-memory authoring adapter follows this contract now:
+`BitmapEditor` may hold a transient iiPaintEngine dab stream only while the
+pointer gesture is active, and writes the result into `RasterAsset::pixels`.
+Undo/redo entries are pixel snapshots and are not document content. Neither
+`BitmapItem` viewport state nor its input events are part of the logical
+package.
+
 ## Compatibility
 
 - A reader accepts the current major and a minor no newer than it implements.
