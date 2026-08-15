@@ -82,23 +82,26 @@ For a tested host install, including an installed-package consumer check:
 
 ## Source layout
 
-Public headers and their implementations share module directories. The project
-does not maintain separate include/ and src/ trees.
+Public headers and their implementations share module directories under
+`src/`. The source tree does not maintain a separate `include/` directory;
+installed packages still place public headers under the platform-standard
+include prefix.
 
 ~~~text
-iiSharedCanvas.h
-Bitmap/
-  BitmapEditor.h
-  BitmapEditor.cpp
-Document/
-  Document.h
-  Document.cpp
-QtAdapter/
-  BitmapItem.h
-  BitmapItem.cpp
-Validation/
-  Validation.h
-  Validation.cpp
+src/
+  iiSharedCanvas.h
+  Bitmap/
+    BitmapEditor.h
+    BitmapEditor.cpp
+  Document/
+    Document.h
+    Document.cpp
+  QtAdapter/
+    BitmapItem.h
+    BitmapItem.cpp
+  Validation/
+    Validation.h
+    Validation.cpp
 ~~~
 
 ## Minimal model usage

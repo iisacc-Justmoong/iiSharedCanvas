@@ -24,14 +24,14 @@ if(IISHAREDCANVAS_BUILD_SHARED AND NOT EMSCRIPTEN)
 endif()
 
 add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
-        Bitmap/BitmapEditor.cpp
-        Bitmap/BitmapEditor.h
-        Document/Document.cpp
-        Document/Document.h
-        QtAdapter/BitmapItem.cpp
-        QtAdapter/BitmapItem.h
-        Validation/Validation.cpp
-        Validation/Validation.h)
+        src/Bitmap/BitmapEditor.cpp
+        src/Bitmap/BitmapEditor.h
+        src/Document/Document.cpp
+        src/Document/Document.h
+        src/QtAdapter/BitmapItem.cpp
+        src/QtAdapter/BitmapItem.h
+        src/Validation/Validation.cpp
+        src/Validation/Validation.h)
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
 
 generate_export_header(iiSharedCanvas
@@ -39,7 +39,7 @@ generate_export_header(iiSharedCanvas
 
 target_compile_features(iiSharedCanvas PUBLIC cxx_std_20)
 target_include_directories(iiSharedCanvas PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>)
 target_link_libraries(iiSharedCanvas PUBLIC
@@ -74,9 +74,9 @@ install(TARGETS iiSharedCanvas
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES iiSharedCanvas.h
+install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY Bitmap Document QtAdapter Validation
+install(DIRECTORY src/Bitmap src/Document src/QtAdapter src/Validation
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"

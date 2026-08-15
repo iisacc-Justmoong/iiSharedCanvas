@@ -22,13 +22,15 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "Document/Document.cpp")
+             "src/Document/Document.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "Bitmap/BitmapEditor.cpp")
+             "src/Bitmap/BitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "QtAdapter/BitmapItem.cpp")
+             "src/QtAdapter/BitmapItem.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "Validation/Validation.cpp")
+             "src/Validation/Validation.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "$<BUILD_INTERFACE:\${CMAKE_CURRENT_SOURCE_DIR}/src>")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "BUILD_RPATH \"$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -56,36 +58,44 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakePresets.json"
              "\"binaryDir\": \"\${sourceDir}/build\"")
 
-if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/include"
-        OR EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src")
-    message(FATAL_ERROR "public headers and implementations must not use separate include/ or src/ trees")
+if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/include")
+    message(FATAL_ERROR "the source tree must not use a separate include/ directory")
+endif()
+if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
+    message(FATAL_ERROR "co-located public headers and implementations must live under src/")
 endif()
 
 foreach(module Bitmap Document QtAdapter Validation)
-    file(GLOB module_headers "${IISHAREDCANVAS_SOURCE_DIR}/${module}/*.h")
-    file(GLOB module_implementations "${IISHAREDCANVAS_SOURCE_DIR}/${module}/*.cpp")
+    if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}")
+        message(FATAL_ERROR "${module} must live under src/, not at the repository root")
+    endif()
+    file(GLOB module_headers "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/*.h")
+    file(GLOB module_implementations "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/*.cpp")
+    if(NOT module_headers OR NOT module_implementations)
+        message(FATAL_ERROR "src/${module} must contain co-located headers and implementations")
+    endif()
     foreach(module_header IN LISTS module_headers)
         get_filename_component(source_name "${module_header}" NAME_WE)
-        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${source_name}.cpp")
+        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.cpp")
             message(FATAL_ERROR "${module_header} must have a co-located implementation")
         endif()
     endforeach()
     foreach(module_implementation IN LISTS module_implementations)
         get_filename_component(source_name "${module_implementation}" NAME_WE)
-        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}/${source_name}.h")
+        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.h")
             message(FATAL_ERROR "${module_implementation} must have a co-located header")
         endif()
     endforeach()
 endforeach()
 
 file(GLOB_RECURSE core_sources
-     "${IISHAREDCANVAS_SOURCE_DIR}/iiSharedCanvas.h"
-     "${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/*.h"
-     "${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/*.cpp"
-     "${IISHAREDCANVAS_SOURCE_DIR}/Document/*.h"
-     "${IISHAREDCANVAS_SOURCE_DIR}/Document/*.cpp"
-     "${IISHAREDCANVAS_SOURCE_DIR}/Validation/*.h"
-     "${IISHAREDCANVAS_SOURCE_DIR}/Validation/*.cpp")
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.cpp")
 foreach(source_file IN LISTS core_sources)
     file(READ "${source_file}" source_contents)
     if(source_contents MATCHES "#[ \t]*include[ \t]*<Q[A-Za-z]")
@@ -93,9 +103,9 @@ foreach(source_file IN LISTS core_sources)
     endif()
 endforeach()
 
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/BitmapEditor.cpp"
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "appendRasterDabs")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/Bitmap/BitmapEditor.cpp"
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "paintRasterSamples")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/QtAdapter/BitmapItem.cpp"
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/BitmapItem.cpp"
              "QImage::Format_ARGB32")
