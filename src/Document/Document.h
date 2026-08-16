@@ -6,6 +6,7 @@
 #include <Layer/RasterLayer.h>
 #include <Transform/Transform.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -118,12 +119,43 @@ struct Document {
     std::vector<Layer> layers;
 };
 
+struct AssetReference {
+    std::size_t layerIndex = 0;
+    std::optional<std::size_t> keyframeIndex;
+};
+
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Asset &asset) noexcept;
 IISHAREDCANVAS_EXPORT const std::string &assetId(const Asset &asset) noexcept;
 IISHAREDCANVAS_EXPORT Asset *findAsset(Document &document,
                                        const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const Asset *findAsset(const Document &document,
                                              const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT RasterAsset *findRasterAsset(Document &document,
+                                                   const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const RasterAsset *findRasterAsset(const Document &document,
+                                                         const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT VectorAsset *findVectorAsset(Document &document,
+                                                   const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const VectorAsset *findVectorAsset(const Document &document,
+                                                         const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT std::optional<std::size_t> assetIndex(const Document &document,
+                                                           const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT Layer *findLayer(Document &document,
+                                      const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const Layer *findLayer(const Document &document,
+                                             const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT std::optional<std::size_t> layerIndex(const Document &document,
+                                                           const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT Keyframe *findKeyframe(KeyframedSource &source,
+                                            FrameIndex frame) noexcept;
+IISHAREDCANVAS_EXPORT const Keyframe *findKeyframe(const KeyframedSource &source,
+                                                  FrameIndex frame) noexcept;
+IISHAREDCANVAS_EXPORT std::optional<std::size_t> keyframeIndex(
+    const KeyframedSource &source,
+    FrameIndex frame) noexcept;
+IISHAREDCANVAS_EXPORT std::vector<AssetReference> assetReferences(
+    const Document &document,
+    const std::string &assetId);
 IISHAREDCANVAS_EXPORT const Asset *resolveAssetAt(const Document &document,
                                                   const Layer &layer,
                                                   FrameIndex frame) noexcept;

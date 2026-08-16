@@ -108,8 +108,26 @@ int main()
     brush.flow = 1.0;
     brush.opacity = 1.0;
     brush.hardness = 1.0;
+    brush.spacing = 0.0;
     brush.spacingRatio = 0.15;
+    brush.flowEnabled = true;
+    brush.opacityEnabled = true;
+    brush.hardnessEnabled = true;
+    brush.spacingEnabled = true;
+    brush.pressureToOpacityEnabled = true;
     expect(editor.setBrush(brush), "a finite brush configuration must be accepted");
+    expect(editor.brush().spacing == 0.0
+               && editor.brush().spacingEnabled
+               && editor.brush().flowEnabled
+           && editor.brush().opacityEnabled
+           && editor.brush().hardnessEnabled
+           && editor.brush().pressureToOpacityEnabled,
+           "the public bitmap brush contract must retain product-neutral feature toggles");
+    BitmapBrush zeroRatioBrush = brush;
+    zeroRatioBrush.spacingRatio = 0.0;
+    expect(editor.setBrush(zeroRatioBrush),
+           "a zero spacing ratio must remain a valid generic brush setting");
+    expect(editor.setBrush(brush), "the tested paint brush must be restorable");
     expect(editor.beginStroke({2.0, 8.0}, 1.0),
            "a bitmap brush stroke must begin on the selected raster");
     expect(editor.continueStroke({13.0, 8.0}, 1.0),
@@ -157,6 +175,23 @@ int main()
     editor.cancelStroke();
     expect(editor.pixels() && editor.pixels()->pixels == beforeCancelledStroke.pixels,
            "cancelling a stroke must restore pixels without replaying input");
+
+    BitmapBrush disabledFeatureBrush = brush;
+    disabledFeatureBrush.spacing = 3.0;
+    disabledFeatureBrush.flowEnabled = false;
+    disabledFeatureBrush.opacityEnabled = false;
+    disabledFeatureBrush.hardnessEnabled = false;
+    disabledFeatureBrush.spacingEnabled = false;
+    disabledFeatureBrush.pressureToOpacityEnabled = false;
+    expect(editor.setBrush(disabledFeatureBrush),
+           "brush feature toggles must be independently configurable");
+    expect(editor.brush().spacing == 3.0
+               && !editor.brush().flowEnabled
+               && !editor.brush().opacityEnabled
+               && !editor.brush().hardnessEnabled
+               && !editor.brush().spacingEnabled
+               && !editor.brush().pressureToOpacityEnabled,
+           "disabled brush features must survive the authoring boundary unchanged");
 
     RasterLayer replacement = makeRasterLayer(8, 6, 0xffabcdefU);
     expect(editor.replacePixels(replacement),

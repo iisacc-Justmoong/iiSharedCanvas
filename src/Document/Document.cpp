@@ -35,6 +35,131 @@ const Asset *findAsset(const Document &document, const std::string &id) noexcept
     return match == document.assets.end() ? nullptr : &*match;
 }
 
+RasterAsset *findRasterAsset(Document &document, const std::string &id) noexcept
+{
+    Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<RasterAsset>(asset) : nullptr;
+}
+
+const RasterAsset *findRasterAsset(const Document &document,
+                                   const std::string &id) noexcept
+{
+    const Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<RasterAsset>(asset) : nullptr;
+}
+
+VectorAsset *findVectorAsset(Document &document, const std::string &id) noexcept
+{
+    Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<VectorAsset>(asset) : nullptr;
+}
+
+const VectorAsset *findVectorAsset(const Document &document,
+                                   const std::string &id) noexcept
+{
+    const Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<VectorAsset>(asset) : nullptr;
+}
+
+std::optional<std::size_t> assetIndex(const Document &document,
+                                      const std::string &id) noexcept
+{
+    const auto match = std::find_if(document.assets.begin(), document.assets.end(),
+                                    [&id](const Asset &asset) {
+                                        return assetId(asset) == id;
+                                    });
+    if (match == document.assets.end()) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(std::distance(document.assets.begin(), match));
+}
+
+Layer *findLayer(Document &document, const std::string &id) noexcept
+{
+    const auto match = std::find_if(document.layers.begin(), document.layers.end(),
+                                    [&id](const Layer &layer) { return layer.id == id; });
+    return match == document.layers.end() ? nullptr : &*match;
+}
+
+const Layer *findLayer(const Document &document, const std::string &id) noexcept
+{
+    const auto match = std::find_if(document.layers.begin(), document.layers.end(),
+                                    [&id](const Layer &layer) { return layer.id == id; });
+    return match == document.layers.end() ? nullptr : &*match;
+}
+
+std::optional<std::size_t> layerIndex(const Document &document,
+                                      const std::string &id) noexcept
+{
+    const auto match = std::find_if(document.layers.begin(), document.layers.end(),
+                                    [&id](const Layer &layer) { return layer.id == id; });
+    if (match == document.layers.end()) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(std::distance(document.layers.begin(), match));
+}
+
+Keyframe *findKeyframe(KeyframedSource &source, FrameIndex frame) noexcept
+{
+    const auto match = std::lower_bound(
+        source.keyframes.begin(), source.keyframes.end(), frame,
+        [](const Keyframe &keyframe, FrameIndex requestedFrame) {
+            return keyframe.frame < requestedFrame;
+        });
+    return match != source.keyframes.end() && match->frame == frame ? &*match : nullptr;
+}
+
+const Keyframe *findKeyframe(const KeyframedSource &source, FrameIndex frame) noexcept
+{
+    const auto match = std::lower_bound(
+        source.keyframes.begin(), source.keyframes.end(), frame,
+        [](const Keyframe &keyframe, FrameIndex requestedFrame) {
+            return keyframe.frame < requestedFrame;
+        });
+    return match != source.keyframes.end() && match->frame == frame ? &*match : nullptr;
+}
+
+std::optional<std::size_t> keyframeIndex(const KeyframedSource &source,
+                                         FrameIndex frame) noexcept
+{
+    const auto match = std::lower_bound(
+        source.keyframes.begin(), source.keyframes.end(), frame,
+        [](const Keyframe &keyframe, FrameIndex requestedFrame) {
+            return keyframe.frame < requestedFrame;
+        });
+    if (match == source.keyframes.end() || match->frame != frame) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(std::distance(source.keyframes.begin(), match));
+}
+
+std::vector<AssetReference> assetReferences(const Document &document,
+                                            const std::string &referencedAssetId)
+{
+    std::vector<AssetReference> references;
+    for (std::size_t layerPosition = 0;
+         layerPosition < document.layers.size();
+         ++layerPosition) {
+        const LayerSource &source = document.layers[layerPosition].source;
+        if (const auto *staticSource = std::get_if<StaticSource>(&source)) {
+            if (staticSource->assetId == referencedAssetId) {
+                references.push_back({layerPosition, std::nullopt});
+            }
+            continue;
+        }
+
+        const auto &keyframed = std::get<KeyframedSource>(source);
+        for (std::size_t keyframePosition = 0;
+             keyframePosition < keyframed.keyframes.size();
+             ++keyframePosition) {
+            if (keyframed.keyframes[keyframePosition].assetId == referencedAssetId) {
+                references.push_back({layerPosition, keyframePosition});
+            }
+        }
+    }
+    return references;
+}
+
 const Asset *resolveAssetAt(const Document &document,
                             const Layer &layer,
                             FrameIndex frame) noexcept

@@ -151,8 +151,11 @@ bool BitmapEditor::setBrush(const BitmapBrush &value)
         || !inUnitRange(value.opacity)
         || !inUnitRange(value.flow)
         || !inUnitRange(value.hardness)
+        || !std::isfinite(value.spacing)
+        || value.spacing < 0.0
+        || value.spacing > 4096.0
         || !std::isfinite(value.spacingRatio)
-        || value.spacingRatio <= 0.0
+        || value.spacingRatio < 0.0
         || value.spacingRatio > 4.0) {
         setError("brush values are outside the supported finite range");
         return false;
@@ -510,14 +513,15 @@ BrushState BitmapEditor::brushState() const
     rasterizer.radius = static_cast<Types::Pixel>(std::max(1.0, std::ceil(m_brush.size * 0.5)));
     rasterizer.brushSize = m_brush.size;
     rasterizer.argb = m_brush.eraser ? 0xff000000U : m_brush.argb;
+    rasterizer.spacing = m_brush.spacing;
     rasterizer.spacingRatio = m_brush.spacingRatio;
-    rasterizer.spacingEnabled = true;
+    rasterizer.spacingEnabled = m_brush.spacingEnabled;
     rasterizer.opacity = m_brush.opacity;
-    rasterizer.opacityEnabled = true;
+    rasterizer.opacityEnabled = m_brush.opacityEnabled;
     rasterizer.flow = m_brush.flow;
-    rasterizer.flowEnabled = true;
+    rasterizer.flowEnabled = m_brush.flowEnabled;
     rasterizer.hardness = m_brush.hardness;
-    rasterizer.hardnessEnabled = true;
+    rasterizer.hardnessEnabled = m_brush.hardnessEnabled;
     rasterizer.blendMode = m_brush.eraser
         ? RasterBlendMode::DestinationOut
         : RasterBlendMode::SourceOver;
@@ -526,6 +530,7 @@ BrushState BitmapEditor::brushState() const
     dynamics.pressureToSize = 1.0;
     dynamics.pressureToFlow = 1.0;
     dynamics.pressureToOpacity = 1.0;
+    dynamics.pressureToOpacityEnabled = m_brush.pressureToOpacityEnabled;
     return {std::move(rasterizer), std::move(dynamics), BrushMaterial{}, m_nextStrokeSeed};
 }
 

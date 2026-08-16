@@ -101,6 +101,11 @@ int main()
     expect(contains(validate(invalidLayer), ValidationCode::InvalidLayer),
            "layer values must be finite");
 
+    Document unsupportedLayerBlend = validDocument();
+    unsupportedLayerBlend.layers.front().blendMode = RasterBlendMode::DestinationOut;
+    expect(contains(validate(unsupportedLayerBlend), ValidationCode::InvalidLayer),
+           "brush-only destination-out must not silently become a document layer blend mode");
+
     Document invalidVector = validDocument();
     auto &path = std::get<VectorAsset>(invalidVector.assets[1]).paths.front();
     path.commands.front() = LineTo{{1.0, 1.0}};

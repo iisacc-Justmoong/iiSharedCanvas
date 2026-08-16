@@ -54,6 +54,20 @@ bool hasFiniteTransform(const AffineTransform &transform) noexcept
         && std::isfinite(transform.translationY);
 }
 
+bool isSupportedLayerBlendMode(RasterBlendMode blendMode) noexcept
+{
+    switch (blendMode) {
+    case RasterBlendMode::SourceOver:
+    case RasterBlendMode::Multiply:
+    case RasterBlendMode::Screen:
+    case RasterBlendMode::Overlay:
+        return true;
+    case RasterBlendMode::DestinationOut:
+        return false;
+    }
+    return false;
+}
+
 void validateRasterAsset(const RasterAsset &asset,
                          std::size_t index,
                          ValidationResult &result)
@@ -186,9 +200,10 @@ ValidationResult validate(const Document &document)
         if (!std::isfinite(layer.opacity)
             || layer.opacity < 0.0
             || layer.opacity > 1.0
-            || !hasFiniteTransform(layer.transform)) {
+            || !hasFiniteTransform(layer.transform)
+            || !isSupportedLayerBlendMode(layer.blendMode)) {
             addIssue(result, ValidationCode::InvalidLayer, layerPath,
-                     "layer opacity and transform values must be finite and in range");
+                     "layer opacity, transform, and blend mode must be supported and in range");
         }
 
         if (const auto *source = std::get_if<StaticSource>(&layer.source)) {

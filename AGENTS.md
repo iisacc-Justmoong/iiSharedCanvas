@@ -5,6 +5,16 @@
 iiSharedCanvas composes static raster pixels, native vector paths, and
 keyframed raster or vector assets in one document.
 
+iiSharedCanvas is the authoritative canvas document, rendering, editing, and
+serialization standard for iisacc products. Consumer applications are
+downstream adopters. A consumer's existing model, QML property names, tool
+workflow, or release schedule must not define this library's public API.
+
+When a consumer and iiSharedCanvas differ, adapt the consumer through its own
+bridge or wrapper first. Change iiSharedCanvas only when the missing behavior
+belongs to the reusable canvas domain and is specified and tested here without
+product-specific names or assumptions.
+
 iiPaintEngine remains bitmap-only. Brush input must become committed pixels
 before crossing into iiSharedCanvas. Never persist a brush trajectory, raw
 pointer sequence, curve, dab stream, or replay command.
@@ -17,6 +27,15 @@ iiPaintEngine must not depend on iiSharedCanvas. The only direct dependency in
 the initial milestone is iiPaintEngine. Any additional archive, serialization,
 vector, text, or codec library requires an explicit maintenance, license, and
 dependency-size review.
+
+Consumer adoption is sequential, not a parallel compatibility exercise:
+
+1. Specify, implement, validate, version, and install iiSharedCanvas on its own.
+2. Freeze that library contract for the adoption task.
+3. Update each consumer to conform through consumer-owned integration code.
+
+Do not edit a consumer application in order to discover or shape an unfinished
+iiSharedCanvas API during the same implementation phase.
 
 ## Change rules
 
@@ -32,6 +51,8 @@ dependency-size review.
 - Unknown format versions and invalid references fail closed.
 - Prefer integer frames and rational rates over persisted floating timestamps.
 - Add abstraction only after repeated concrete changes show the need.
+- Keep source, tests, errors, QML types, and public documentation independent
+  of any named consumer product.
 
 ## Stable Phase 0 semantics
 
@@ -42,6 +63,9 @@ dependency-size review.
 - Keyframe sampling is hold-only.
 - Layer order is bottom-to-top.
 - Rendering never mutates source assets.
+- Persisted model fields remain public aggregate data. Use `DocumentEditor` for
+  validated structural edits; a rejected edit must preserve both document
+  state and editor revision.
 - BitmapEditor mutates only the explicitly bound RasterAsset and persists no
   pointer trajectory or replay command.
 - BitmapItem is a selected-raster display/input adapter, not evidence that the

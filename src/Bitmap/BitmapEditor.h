@@ -20,7 +20,13 @@ struct BitmapBrush {
     double opacity = 1.0;
     double flow = 1.0;
     double hardness = 1.0;
+    double spacing = 0.0;
     double spacingRatio = 0.15;
+    bool flowEnabled = true;
+    bool opacityEnabled = true;
+    bool hardnessEnabled = true;
+    bool spacingEnabled = true;
+    bool pressureToOpacityEnabled = true;
     bool eraser = false;
 };
 

@@ -2,13 +2,21 @@
 
 iiSharedCanvas is a C++20 document and authoring foundation for composing
 raster artwork, native vector paths, and frame-based raster or vector animation
-on one canvas.
+on one canvas. It is the authoritative canvas standard for iisacc products;
+applications adopt its model and format through application-owned adapters.
 
 The repository contains the versioned in-memory model, validation rules,
-deterministic keyframe evaluation, an editable raster-asset boundary, a Qt
-Quick bitmap display item, CMake package export, and contract tests. File
-serialization and full mixed-layer frame rendering remain later milestones and
-are not claimed as complete.
+deterministic keyframe evaluation, mixed raster/vector frame rendering, an
+editable raster-asset boundary, a Qt Quick bitmap display item, CMake package
+export, canonical `.iisc` serialization, and contract tests. Measured
+large-document and cross-platform hardening remain later milestones and are not
+claimed as complete.
+
+Consumer applications do not shape this public contract in parallel. A library
+change is completed and verified here first; consumers then conform to that
+fixed version through their own bridges. Existing product ViewModels, QML names,
+session-layer models, and tool conventions are not compatibility requirements
+for iiSharedCanvas.
 
 ## Content contract
 
@@ -25,6 +33,31 @@ iiSharedCanvas format. iiPaintEngine rasterizes brush input immediately, and
 iiSharedCanvas receives only the committed pixels. This keeps raster editing
 compatible with iiPaintEngine's bitmap-only contract.
 
+## Data access and structural editing
+
+Every persisted field remains directly available through the public aggregate
+types in `Document/Document.h`. Stable-id lookup helpers expose typed raster and
+vector assets, layers, exact keyframes, collection indices, and every static or
+keyframed reference to an asset.
+
+`DocumentEditor` is the validated structural mutation API. It edits canvas
+extent, frame rate/count, assets, layer properties/order/sources, keyframes, and
+vector path collections. Successful operations keep the complete document
+valid and increment a monotonic editor revision once. Rejected operations
+return a typed code, path, and message without partially changing the document.
+Asset renaming rewrites all references atomically; referenced asset removal is
+rejected instead of cascading silently.
+
+`CanvasItem::document()` exposes the bound raw document for C++ inspection.
+`CanvasItem::documentEditor()` exposes the bound structural editor, while
+`CanvasItem::editDocument()` is the preferred callback boundary because it
+rerenders the current frame, repairs selection, and clamps the current frame
+after a valid timeline shrink. Direct raw edits remain possible, but their
+owner must call `refresh()` and validate the result.
+
+See [docs/API.md](docs/API.md) for the complete data field, lookup, mutation,
+failure, lifetime, and threading contracts.
+
 ## Bitmap display and editing
 
 `BitmapEditor` binds to a raster asset by id and mutates that `RasterAsset`
@@ -40,17 +73,67 @@ hardening task.
 existing document raster asset or create an owned bitmap, renders ARGB pixels
 without smoothing, supports zoom and pan, and routes mouse or explicit
 pressure-bearing stroke calls into `BitmapEditor`. This displays one selected
-raster asset; it is not the future full document frame compositor. If another
+raster asset; it is not the full-document canvas item. If another
 owner mutates a bound document directly, the UI owner must call `refresh()` on
 the GUI thread.
+
+`CanvasItem` is the full-document Qt Quick boundary and is registered as
+`SharedCanvas`. It binds a caller-owned `Document` or creates an owned empty
+timeline, renders the current mixed frame, and exposes frame selection,
+nearest-neighbor zoom, and pan. A host can select a raster document layer and
+paint or erase it in document coordinates while every surrounding raster and
+vector layer remains visible. The item inverts the selected layer transform
+before committing pixels and exposes selected-layer undo/redo. Caller-owned
+model mutations become visible through `refresh()`.
+
+`createRasterDocument()` creates and selects one transparent raster layer for a
+product host that needs an immediately editable canvas. The authoring surface
+also exposes the brush spacing and feature toggles, three-point pressure curve,
+pressure-to-opacity switch, stabilizer strength, tool mode, live-stroke state,
+stroke count, and mouse/tablet input state. Whole-raster replacement accepts an
+iiPaintEngine `RasterLayer` directly, so image import does not require a
+temporary bitmap file. Rendering and edit commits are synchronous in version
+0.1; `livePreviewFrameIntervalMs` and `multithreadedEventsEnabled` are retained
+host configuration values but do not claim an asynchronous scheduler.
+
+## Mixed frame rendering
+
+`renderFrame(document, frame)` validates the complete document, resolves static
+or hold-sampled raster/vector assets, rasterizes native M/L/Q/C/Z vector paths,
+applies the complete iiPaintEngine affine matrix, clips to the document extent,
+and composites visible layers bottom-to-top. Source-over, multiply, screen, and
+overlay use iiPaintEngine composition semantics. Destination-out remains a
+brush/eraser operation and is rejected as a document layer blend mode.
+
+The CPU vector path uses deterministic 4x4 coverage sampling, even-odd fills,
+and round stroke footprints. Transformed raster and vector assets use
+nearest-neighbor sampling. A singular transform has an empty footprint. The
+renderer returns a transparent frame for a valid document with no layers and
+fails closed for invalid documents or out-of-range frames.
+
+## Durable `.iisc` format
+
+`encodeIisc()` and `decodeIisc()` round-trip every version 1 document field in
+a canonical little-endian binary container. Its 32-byte header carries the
+format version, exact payload size, and CRC-32 checksum. Raster payloads select
+raw ARGB32 or canonical run-length ARGB32, whichever is smaller. Native vector
+commands and keyframe references remain native data and are never silently
+rasterized.
+
+The reader checks the full container checksum before parsing, validates UTF-8,
+rejects future versions, unknown tags, truncation, trailing bytes, and
+non-canonical raster records, and enforces configurable byte, pixel, string,
+asset, layer, path, command, and keyframe limits before allocation. The binary
+container has no archive entry paths, so ZIP path traversal is structurally
+absent without introducing an archive or JSON dependency.
 
 ## Dependency
 
 The only direct project dependency is iiPaintEngine 0.1.0. Its exported CMake
 target supplies the raster types, rasterizer, blend modes, transforms, and its
-Qt Core/Gui/Qml/Quick platform targets transitively. `BitmapItem` links those
-already-supplied Qt targets; iiSharedCanvas performs no second package
-discovery.
+Qt Core/Gui/Qml/Quick platform targets transitively. `BitmapItem` and
+`CanvasItem` link those already-supplied Qt targets; iiSharedCanvas performs no
+second package discovery.
 
 ## Build and test
 
@@ -96,9 +179,19 @@ src/
   Document/
     Document.h
     Document.cpp
+    DocumentEditor.h
+    DocumentEditor.cpp
   QtAdapter/
     BitmapItem.h
     BitmapItem.cpp
+    CanvasItem.h
+    CanvasItem.cpp
+  Render/
+    FrameRenderer.h
+    FrameRenderer.cpp
+  Serialization/
+    IiscCodec.h
+    IiscCodec.cpp
   Validation/
     Validation.h
     Validation.cpp
@@ -135,22 +228,45 @@ editor.setPixel(10, 10, 0xffffcc00U);
 editor.beginStroke({20.0, 20.0}, 1.0);
 editor.continueStroke({80.0, 40.0}, 1.0);
 editor.endStroke({80.0, 40.0}, 1.0);
+
+const FrameRenderResult frame = renderFrame(document, 0);
+if (!frame.ok()) {
+    // Reject the frame and surface frame.message to the host.
+}
+
+const IiscEncodeResult encoded = encodeIisc(document);
+const IiscDecodeResult decoded = encoded.ok()
+    ? decodeIisc(encoded.bytes)
+    : IiscDecodeResult{};
 ~~~
 
 For Qt Quick hosts, call `registerIiSharedCanvasQmlTypes()` before loading the
-engine and use the `iiSharedCanvas 1.0` `Bitmap` type. Product QML must continue
-to use LVRS for the application UI; this library provides the canvas item, not
-a second UI framework.
+engine and import `iiSharedCanvas 1.0`. `Bitmap` is the isolated selected-asset
+item and `SharedCanvas` is the mixed-document item. Product QML must continue
+to use LVRS for the application UI; this library provides canvas items, not a
+second UI framework.
 
 `iiSharedCanvas.BitmapItemRender` performs an offscreen real render and writes
 `build/test-output/bitmap-item.png`. Pixel assertions verify the original and
 edited ARGB values as well as nearest-neighbor zoom.
+`iiSharedCanvas.FrameRenderer` uses exact pixel assertions for mixed static and
+keyframed raster/vector output, transforms, opacity, clipping, and every
+supported layer blend mode.
+`iiSharedCanvas.CanvasItemRender` constructs `SharedCanvas` through a real QML
+engine, verifies frame switching, external refresh, selected raster painting,
+inverse-transform input, and undo, and writes
+`build/test-output/shared-canvas-item.png`.
+`iiSharedCanvas.IiscCodec` verifies canonical byte-identical round-trip,
+frame-by-frame rendered-pixel identity, corruption and future-version failure,
+UTF-8, tag, trailing-data, and allocation-limit enforcement.
 
 ## Documents
 
+- docs/API.md defines public data ownership, stable-id lookup, validated
+  mutation, failure, lifetime, revision, and threading contracts.
 - docs/BLUEPRINT.md defines ownership, dependency direction, milestones, and
   completion gates.
-- docs/FORMAT.md defines the draft .iisc logical package and manifest contract.
+- docs/FORMAT.md defines the implemented canonical `.iisc` binary contract.
 - AGENTS.md fixes the engineering rules that future changes must preserve.
 
 ## License

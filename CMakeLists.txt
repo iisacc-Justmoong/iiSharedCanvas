@@ -28,8 +28,16 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/BitmapEditor.h
         src/Document/Document.cpp
         src/Document/Document.h
+        src/Document/DocumentEditor.cpp
+        src/Document/DocumentEditor.h
+        src/QtAdapter/CanvasItem.cpp
+        src/QtAdapter/CanvasItem.h
         src/QtAdapter/BitmapItem.cpp
         src/QtAdapter/BitmapItem.h
+        src/Render/FrameRenderer.cpp
+        src/Render/FrameRenderer.h
+        src/Serialization/IiscCodec.cpp
+        src/Serialization/IiscCodec.h
         src/Validation/Validation.cpp
         src/Validation/Validation.h)
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
@@ -76,7 +84,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY src/Bitmap src/Document src/QtAdapter src/Validation
+install(DIRECTORY src/Bitmap src/Document src/QtAdapter src/Render src/Serialization src/Validation
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
@@ -89,7 +97,7 @@ install(FILES cmake/iiSharedCanvasAppleQtCompatibility.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
-install(FILES README.md docs/BLUEPRINT.md docs/FORMAT.md
+install(FILES README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/iiSharedCanvas)
 
 configure_package_config_file(
@@ -112,6 +120,13 @@ if(BUILD_TESTING)
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.DocumentModel
             COMMAND iiSharedCanvasDocumentModelTest)
+
+    add_executable(iiSharedCanvasDocumentEditorTest
+            tests/DocumentEditorTest.cpp)
+    target_link_libraries(iiSharedCanvasDocumentEditorTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.DocumentEditor
+            COMMAND iiSharedCanvasDocumentEditorTest)
 
     add_executable(iiSharedCanvasValidationTest
             tests/ValidationTest.cpp)
@@ -144,6 +159,31 @@ if(BUILD_TESTING)
             COMMAND iiSharedCanvasBitmapItemRenderTest)
     set_tests_properties(iiSharedCanvas.BitmapItemRender PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(iiSharedCanvasFrameRendererTest
+            tests/FrameRendererTest.cpp)
+    target_link_libraries(iiSharedCanvasFrameRendererTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.FrameRenderer
+            COMMAND iiSharedCanvasFrameRendererTest)
+
+    add_executable(iiSharedCanvasCanvasItemRenderTest
+            tests/CanvasItemRenderTest.cpp)
+    target_compile_definitions(iiSharedCanvasCanvasItemRenderTest PRIVATE
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_link_libraries(iiSharedCanvasCanvasItemRenderTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.CanvasItemRender
+            COMMAND iiSharedCanvasCanvasItemRenderTest)
+    set_tests_properties(iiSharedCanvas.CanvasItemRender PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(iiSharedCanvasIiscCodecTest
+            tests/IiscCodecTest.cpp)
+    target_link_libraries(iiSharedCanvasIiscCodecTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.IiscCodec
+            COMMAND iiSharedCanvasIiscCodecTest)
 
     add_test(NAME iiSharedCanvas.ProjectContract
             COMMAND ${CMAKE_COMMAND}

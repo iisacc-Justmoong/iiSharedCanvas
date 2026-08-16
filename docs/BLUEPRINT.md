@@ -1,6 +1,6 @@
 # iiSharedCanvas blueprint
 
-Status: Phase 0 complete; selected-bitmap authoring slice implemented
+Status: Phases 0 through 3 complete; measured product hardening remains open
 
 ## 1. Product objective
 
@@ -14,13 +14,35 @@ The first commercial advantage is a reusable authoring interchange layer for
 future desktop, mobile, and web products without forcing each product to invent
 its own mixed-media document model.
 
+### 1.1 Specification authority
+
+iiSharedCanvas is the canonical canvas standard for iisacc. Its `Document`,
+rendering semantics, editing boundary, validation rules, and `.iisc` encoding
+are upstream contracts. Product applications consume those contracts; they do
+not co-own or redefine them.
+
+The library evolves from reusable canvas-domain requirements proven inside this
+repository. Product-specific ViewModels, QML property names, session objects,
+tool conventions, and compatibility aliases belong in consumer-owned adapters.
+If a product integration conflicts with iiSharedCanvas, the product is changed
+first. The library changes only when the requirement is general, is described
+without reference to one product, and passes its own model, render, format, and
+package gates.
+
+Development and adoption use separate phases. iiSharedCanvas is specified,
+implemented, tested, versioned, and installed independently; only then does a
+consumer adoption task begin against that fixed contract. Cross-repository
+parallel compatibility development is outside this project policy.
+
 ## 2. Boundary and ownership
 
 ~~~mermaid
 flowchart LR
     APP["Application / LVRS QML UI"] --> ITEM["BitmapItem"]
+    APP --> CANVAS["CanvasItem / SharedCanvas"]
     APP --> ISC["iiSharedCanvas"]
     ITEM --> EDIT["BitmapEditor"]
+    CANVAS --> EDIT
     EDIT --> DOC
     ISC --> DOC["Document + validation"]
     DOC --> STACK["Ordered layers"]
@@ -29,20 +51,32 @@ flowchart LR
     STACK --> ANIM["Keyframed source"]
     ASSETS --> RASTER["RasterAsset"]
     ASSETS --> VECTOR["VectorAsset"]
-    RASTER --> IIPE["iiPaintEngine RasterLayer"]
     ANIM --> EVAL["Frame evaluator"]
     STATIC --> EVAL
-    VECTOR --> FUTURE["Vector rasterizer - Phase 2"]
-    EVAL --> FUTURE
+    EVAL --> RESOLVED["Resolved asset"]
+    RESOLVED --> RASTER
+    RESOLVED --> VECTOR
+    VECTOR --> VRAST["CPU vector rasterizer"]
+    RASTER --> FRAME["FrameRenderer"]
+    VRAST --> FRAME
+    FRAME --> IIPE["iiPaintEngine compositor"]
+    CANVAS --> FRAME
 ~~~
 
 iiPaintEngine owns bitmap codecs, brush rasterization, ARGB pixel storage
-primitives, raster blend semantics, and raster transforms.
+primitives, raster blend semantics, and the affine transform type and coordinate
+semantics.
 
 iiSharedCanvas owns mixed-content document identity, ordered layers, vector
 geometry, asset references, timeline semantics, cross-content validation, file
-format versioning, selected-raster editing coordination, and eventually frame
-composition.
+format versioning, selected-raster editing coordination, and frame composition.
+
+All persisted model fields are public aggregate data. `DocumentEditor` is the
+safe structural mutation boundary over those aggregates: it provides stable-id
+lookup and explicit insert, replace, rename, move, and remove operations for
+the timeline, assets, layers, keyframes, and vector paths. Every accepted edit
+preserves full-document validation; rejected edits preserve the prior value.
+Bitmap pixels remain the responsibility of `BitmapEditor`.
 
 The application owns UI, tools, playback controls, selection experience,
 autosave policy, networking, and collaboration. The library name does not imply
@@ -136,9 +170,30 @@ standalone `createBitmap` path owns a minimal one-layer document; its C++
 remain the caller's responsibility. This item does not compose document layers
 and does not serialize input events.
 
-## 6. Render pipeline target
+`CanvasItem`, registered to QML as `SharedCanvas`, is the full-document display
+and raster-authoring boundary. It caches `renderFrame` output, switches timeline
+frames, applies nearest-neighbor zoom and pan, and can select a raster document
+layer for brush/eraser edits while the complete mixed frame remains visible.
+Input is expressed in document coordinates and inverted through the selected
+layer affine transform before `BitmapEditor` receives it. A caller-owned
+document remains authoritative and explicit `refresh()` observes external
+mutations. Application selection UX, tools, playback controls, and persistence
+remain outside the item.
 
-The future frame renderer will execute these steps:
+For an application bootstrap path, `createRasterDocument` installs one selected
+transparent raster asset and layer. `replaceSelectedPixels` supports decoded
+image import without file-system round trips. The Qt adapter exposes generic
+bitmap-authoring controls for brush features, spacing, a three-point pressure
+curve, pressure-opacity mapping, stabilizer value, tool mode, tablet/mouse
+state, and stroke count. The stabilizer is transient input smoothing and none
+of these settings enter the document format. Version 0.1 rerenders
+synchronously after edits; the preview interval and multithreaded-event
+properties preserve host configuration without asserting background rendering
+that is not implemented.
+
+## 6. Implemented render pipeline
+
+`renderFrame` executes these steps:
 
 1. Validate the document.
 2. Resolve one asset for each visible layer at the requested frame.
@@ -151,22 +206,27 @@ The future frame renderer will execute these steps:
 Static and animated content therefore share one render path after frame
 evaluation. There is no separate animation canvas.
 
-## 7. Serialization target
+Version 1 rasterizes M/L/Q/C/Z paths on the CPU with deterministic 4x4 coverage
+sampling, even-odd fills, and round stroke footprints. It applies the complete
+iiPaintEngine affine matrix with nearest-neighbor asset sampling and clips the
+result to the canvas. Source-over, multiply, screen, and overlay are delegated
+to the iiPaintEngine compositor. Destination-out remains a brush eraser mode
+and validation rejects it as a document layer blend mode.
 
-The logical package is described in FORMAT.md. The package transport is planned
-as a .iisc ZIP container with a manifest and separate assets. No archive or JSON
-library is introduced in Phase 0 because the user fixed the initial direct
-dependency set to iiPaintEngine only.
+## 7. Implemented serialization
 
-Before Phase 1 implementation, choose one of these evidence-based paths:
+The physical package is the canonical binary `.iisc` container defined in
+FORMAT.md. `encodeIisc` and `decodeIisc` use only the C++ standard library and
+therefore preserve the fixed direct dependency set. The 32-byte header records
+version, payload size, and CRC-32. The payload stores native raster/vector
+assets, ordered layers, transforms, and timeline references without archive
+paths or JSON parsing.
 
-- Approve a small maintained archive and JSON dependency after license and
-  maintenance review.
-- Define a compact binary container implemented with the C++ standard library.
-- Explicitly allow direct Qt Core use and make that dependency visible in
-  CMake rather than relying on transitive linkage.
-
-The current code does not pretend that an unimplemented serializer is complete.
+The writer chooses raw or run-length ARGB32 deterministically and emits one byte
+representation for a document. The reader verifies checksum and exact payload
+length before parsing, enforces configured aggregate limits before allocation,
+validates canonical UTF-8 and record tags, and validates the completed document
+before exposure.
 
 ## 8. Validation and security invariants
 
@@ -182,9 +242,10 @@ The current code does not pretend that an unimplemented serializer is complete.
 - Keyframes begin at zero, are strictly increasing, remain in range, and keep
   one content kind.
 
-The serializer milestone must additionally enforce archive size, entry count,
-decoded pixel count, recursion, path traversal, and checksum limits before
-allocating large buffers.
+Serialization enforces container size, decoded pixel, collection, vector,
+keyframe, and string limits before allocation. The binary transport has no
+archive entries or paths, so archive recursion and path traversal do not exist
+in version 1.
 
 ## 9. Dependency review
 
@@ -193,9 +254,9 @@ engine and already provides RasterLayer, brush rasterization, blend modes, and
 transforms. It is AGPL-3.0-only and carries Qt/LVRS transitively. iiSharedCanvas
 therefore starts under AGPL-3.0-only.
 
-No second direct dependency is present. ZIP, JSON, SVG, text shaping, GPU vector
-rendering, and media codecs remain explicit future decisions rather than hidden
-or vendored code.
+No second direct dependency is present. The `.iisc` codec uses the standard
+library; SVG, text shaping, GPU vector rendering, and media codecs remain
+explicit future decisions rather than hidden or vendored code.
 
 The CMake target records the imported iiPaintEngine library directory in its
 build and install rpath and also supplies the standard sibling-prefix fallback.
@@ -219,14 +280,19 @@ Complete when:
 
 ### Phase 1 - durable format
 
+Completed in the current implementation.
+
 Complete when:
 
 - .iisc writer and reader round-trip all Phase 0 types.
-- Canonical serialization and version migration tests pass.
+- Canonical serialization and version compatibility tests pass; version 1.0
+  has no earlier physical format requiring migration.
 - Corrupt, oversized, path-traversal, and future-version files fail closed.
 - Bitmap brush output round-trips as pixels without retained trajectories.
 
 ### Phase 2 - frame renderer
+
+Completed in the current implementation.
 
 Complete when:
 
@@ -243,8 +309,13 @@ Complete when:
 - [x] iiPaintEngine bitmap editing can commit into a selected RasterAsset.
 - [x] Undo/redo stores pixel snapshots rather than stroke replay.
 - [x] A reusable Qt Quick bitmap item can display and manipulate that asset.
-- [ ] A product host integrates the registered item in an LVRS QML UI and
-  verifies its complete tool workflow.
+- [x] A reusable Qt Quick mixed-document item renders frames and edits a
+  selected transformed raster layer.
+- [x] Public data lookup and `DocumentEditor` APIs expose validated structural
+  edits without requiring direct vector manipulation or partial invalid states.
+- [x] Product-neutral C++ and QML contract tests verify the authoring surface,
+  mixed raster/vector/timeline output, and native `.iisc` round trip without a
+  consumer application defining the API.
 
 ### Phase 4 - product hardening
 

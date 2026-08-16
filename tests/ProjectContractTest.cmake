@@ -24,9 +24,17 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Document/Document.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Document/DocumentEditor.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Bitmap/BitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/QtAdapter/BitmapItem.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/QtAdapter/CanvasItem.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Render/FrameRenderer.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Serialization/IiscCodec.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Validation/Validation.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -41,6 +49,14 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "The only direct project dependency is iiPaintEngine 0.1.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`BitmapEditor` binds to a raster asset by id")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`CanvasItem` is the full-document Qt Quick boundary")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`DocumentEditor` is the validated structural mutation API")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "A rejected edit never advances `revision()`")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "renameAsset")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "No pointer trajectory, curve, dab stream, replay command")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
@@ -48,9 +64,11 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1 uses hold sampling only")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Brush input is not a manifest content kind")
+             "Brush input is not a persisted content kind")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "ctest --test-dir")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Serialization/IiscCodec.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
              "GNU AFFERO GENERAL PUBLIC LICENSE")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
@@ -61,11 +79,21 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakePresets.json"
 if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/include")
     message(FATAL_ERROR "the source tree must not use a separate include/ directory")
 endif()
+
+# The repository contract keeps iiSharedCanvas upstream and product-neutral.
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
+             "iiSharedCanvas is the authoritative canvas document")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
+             "Consumer adoption is sequential, not a parallel compatibility exercise")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
+             "iiSharedCanvas is the canonical canvas standard for iisacc")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "Consumer applications do not shape this public contract in parallel")
 if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
     message(FATAL_ERROR "co-located public headers and implementations must live under src/")
 endif()
 
-foreach(module Bitmap Document QtAdapter Validation)
+foreach(module Bitmap Document QtAdapter Render Serialization Validation)
     if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}")
         message(FATAL_ERROR "${module} must live under src/, not at the repository root")
     endif()
@@ -94,6 +122,10 @@ file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Render/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Render/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Serialization/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Serialization/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.cpp")
 foreach(source_file IN LISTS core_sources)

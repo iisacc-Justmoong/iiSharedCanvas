@@ -1,5 +1,7 @@
 #include "QtAdapter/BitmapItem.h"
 
+#include "QtAdapter/CanvasItem.h"
+
 #include <QImage>
 #include <QMouseEvent>
 #include <QPainter>
@@ -556,6 +558,7 @@ int registerIiSharedCanvasQmlTypes()
     static int typeId = 0;
     std::call_once(once, [] {
         typeId = qmlRegisterType<BitmapItem>("iiSharedCanvas", 1, 0, "Bitmap");
+        qmlRegisterType<CanvasItem>("iiSharedCanvas", 1, 0, "SharedCanvas");
     });
     return typeId;
 }

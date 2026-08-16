@@ -32,9 +32,14 @@ cmake --install "${BUILD_DIR}" --prefix "${INSTALL_PREFIX}" --config Release
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/iiSharedCanvas.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/Document.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/DocumentEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/BitmapItem.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/CanvasItem.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Render/FrameRenderer.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Serialization/IiscCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Validation/Validation.h"
 test -f "${INSTALL_PREFIX}/lib/cmake/iiSharedCanvas/iiSharedCanvasConfig.cmake"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/API.md"
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
     \( -name 'libiiSharedCanvas.*' -o -name 'iiSharedCanvas.dll' \) | head -n 1)"

@@ -22,14 +22,32 @@ int main()
         StaticSource{"installed-raster"},
     });
 
+    DocumentEditor structure(document);
+    const DocumentEditResult renamed = structure.renameAsset(
+        "installed-raster", "installed-pixels");
+    const DocumentEditResult layerName = structure.setLayerName(
+        "installed-layer", "Edited installed package");
     const Asset *asset = resolveAssetAt(document, document.layers.front(), 0);
-    BitmapEditor editor(document, "installed-raster");
+    BitmapEditor editor(document, "installed-pixels");
     const bool edited = editor.setPixel(2, 1, 0xffaabbccU);
+    const FrameRenderResult rendered = renderFrame(document, 0);
+    const IiscEncodeResult encoded = encodeIisc(document);
+    const IiscDecodeResult decoded = encoded.ok()
+        ? decodeIisc(encoded.bytes)
+        : IiscDecodeResult{};
     return validate(document).ok()
         && asset
-        && assetId(*asset) == "installed-raster"
+        && renamed.ok()
+        && renamed.changed
+        && layerName.ok()
+        && document.layers.front().name == "Edited installed package"
+        && assetId(*asset) == "installed-pixels"
         && edited
         && editor.pixelAt(2, 1) == std::optional<std::uint32_t>{0xffaabbccU}
+        && rendered.ok()
+        && rasterLayerPixelAt(rendered.pixels, {2, 1}) == 0xffaabbccU
+        && decoded.ok()
+        && encodeIisc(decoded.document).bytes == encoded.bytes
         ? 0
         : 1;
 }

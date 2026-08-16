@@ -11,7 +11,15 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::Layer::blendMode), RasterB
 static_assert(std::variant_size_v<iiSharedCanvas::Asset> == 2);
 static_assert(std::variant_size_v<iiSharedCanvas::LayerSource> == 2);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::BitmapEditor>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::DocumentEditor>);
+static_assert(std::is_constructible_v<iiSharedCanvas::DocumentEditor,
+                                      iiSharedCanvas::Document &>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::DocumentEditResult::changed), bool>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::FrameRenderResult>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::IiscEncodeResult>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::IiscDecodeResult>);
 static_assert(std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::BitmapItem>);
+static_assert(std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::CanvasItem>);
 
 int main()
 {
