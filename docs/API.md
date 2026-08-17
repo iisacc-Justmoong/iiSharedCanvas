@@ -28,6 +28,11 @@ element pointer across a collection mutation; resolve the stable id again.
 `BitmapEditor` already follows this rule by resolving its bound raster asset id
 on every operation.
 
+`FrameRenderResult::ok()`, `IiscEncodeResult::ok()`, and
+`IiscDecodeResult::ok()` are inline aggregate inspectors. Their success test is
+available identically to static and shared-library consumers, including a
+Windows DLL build, without adding a separate exported member ABI.
+
 ## Lookup API
 
 `Document/Document.h` exposes mutable and const overloads where applicable:

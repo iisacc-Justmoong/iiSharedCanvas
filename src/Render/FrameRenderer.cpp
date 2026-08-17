@@ -428,11 +428,6 @@ FrameRenderResult errorResult(FrameRenderStatus status, std::string message)
 
 } // namespace
 
-bool FrameRenderResult::ok() const noexcept
-{
-    return status == FrameRenderStatus::Success;
-}
-
 FrameRenderResult renderFrame(const Document &document, FrameIndex frame)
 {
     const ValidationResult validation = validate(document);

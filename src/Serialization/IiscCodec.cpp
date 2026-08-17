@@ -929,16 +929,6 @@ private:
 
 } // namespace
 
-bool IiscEncodeResult::ok() const noexcept
-{
-    return error.code == IiscErrorCode::None;
-}
-
-bool IiscDecodeResult::ok() const noexcept
-{
-    return error.code == IiscErrorCode::None;
-}
-
 IiscEncodeResult encodeIisc(const Document &document, SerializationLimits limits)
 {
     const ValidationResult validation = validate(document);

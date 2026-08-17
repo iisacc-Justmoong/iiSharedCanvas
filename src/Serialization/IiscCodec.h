@@ -48,14 +48,20 @@ struct IiscEncodeResult {
     std::vector<std::uint8_t> bytes;
     IiscError error;
 
-    [[nodiscard]] bool ok() const noexcept;
+    [[nodiscard]] bool ok() const noexcept
+    {
+        return error.code == IiscErrorCode::None;
+    }
 };
 
 struct IiscDecodeResult {
     Document document;
     IiscError error;
 
-    [[nodiscard]] bool ok() const noexcept;
+    [[nodiscard]] bool ok() const noexcept
+    {
+        return error.code == IiscErrorCode::None;
+    }
 };
 
 IISHAREDCANVAS_EXPORT IiscEncodeResult encodeIisc(

@@ -156,6 +156,10 @@ layout, from $HOME/.local/iiPaintEngine.
 The generated library records the selected iiPaintEngine runtime directory and
 the standard sibling-install fallback so Debug, Release, and installed
 consumers resolve the same engine binary.
+The small `ok()` inspectors on frame-render and IISC codec result aggregates
+are header-inline. Windows shared-library consumers therefore do not depend on
+an unexported member symbol when inspecting a result returned by an exported
+operation.
 
 For a tested host install, including an installed-package consumer check:
 

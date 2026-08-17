@@ -19,7 +19,10 @@ struct FrameRenderResult {
     FrameRenderStatus status = FrameRenderStatus::Success;
     std::string message;
 
-    [[nodiscard]] bool ok() const noexcept;
+    [[nodiscard]] bool ok() const noexcept
+    {
+        return status == FrameRenderStatus::Success;
+    }
 };
 
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrame(const Document &document,
