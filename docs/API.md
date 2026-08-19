@@ -28,6 +28,58 @@ element pointer across a collection mutation; resolve the stable id again.
 `BitmapEditor` already follows this rule by resolving its bound raster asset id
 on every operation.
 
+`RasterAsset` is the document's image/pixel asset and `VectorAsset` is its
+native shape asset. These names describe the persisted representation rather
+than an importing application's file format. A decoded PNG, JPEG, or brush
+result therefore exposes the canonical `RasterLayer` dimensions and ARGB
+pixels; `.iisc` does not retain the source codec bytes or brush trajectory. A
+shape exposes its viewport, ordered paths, every M/L/Q/C/Z command and control
+point, fill color, stroke color, and stroke width without flattening.
+
+## Detailed document traversal
+
+`decodeIisc` returns the same public aggregate model used for authoring. It does
+not return an opaque document handle or a reduced summary. Callers may inspect
+every serialized layer, asset, path, pixel, source reference, and keyframe:
+
+~~~cpp
+const IiscDecodeResult decoded = decodeIisc(bytes);
+if (!decoded.ok()) {
+    // Surface decoded.error.code, offset, and message.
+}
+
+for (const Layer &layer : decoded.document.layers) {
+    const std::string &id = layer.id;
+    const double opacity = layer.opacity;
+    const AffineTransform &transform = layer.transform;
+
+    if (const auto *source = std::get_if<StaticSource>(&layer.source)) {
+        const Asset *asset = findAsset(decoded.document, source->assetId);
+        if (const auto *image = asset ? std::get_if<RasterAsset>(asset) : nullptr) {
+            const std::int32_t width = image->pixels.width;
+            const std::vector<std::uint32_t> &argb = image->pixels.pixels;
+        } else if (const auto *shape = asset ? std::get_if<VectorAsset>(asset) : nullptr) {
+            for (const VectorPath &path : shape->paths) {
+                const std::vector<PathCommand> &commands = path.commands;
+                const std::optional<SolidPaint> &fill = path.fill;
+                const std::optional<StrokeStyle> &stroke = path.stroke;
+            }
+        }
+    }
+}
+~~~
+
+`FrameRenderResult::ok()`, `IiscEncodeResult::ok()`, and
+`IiscDecodeResult::ok()` are inline aggregate inspectors. Their success test is
+available identically to static and shared-library consumers, including a
+Windows DLL build, without adding a separate exported member ABI.
+
+The references above are views into `decoded.document`; they remain valid only
+until the owning collection is structurally changed. Direct aggregate mutation
+is allowed, but callers must run `validate(decoded.document)` before rendering
+or re-encoding. `DocumentEditor` is the atomic alternative when an edit must
+preserve cross-reference invariants automatically.
+
 ## Lookup API
 
 `Document/Document.h` exposes mutable and const overloads where applicable:

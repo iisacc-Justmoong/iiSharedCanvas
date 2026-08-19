@@ -6,6 +6,7 @@
 #include <span>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -118,6 +119,82 @@ int main()
                && decoded.document.timeline.frameRate.numerator == 30000
                && decoded.document.timeline.frameRate.denominator == 1001,
            "round-trip must preserve UTF-8 names and rational frame rates exactly");
+
+    const RasterAsset *decodedImage = findRasterAsset(decoded.document, "raster/static");
+    expect(decodedImage
+               && decodedImage->pixels.width == 2
+               && decodedImage->pixels.height == 2
+               && decodedImage->pixels.pixels
+                   == std::vector<std::uint32_t>{
+                       0x00000000U, 0x80ff0000U, 0xff00ff00U, 0xff0000ffU},
+           "decoded image assets must expose their dimensions and exact ARGB pixels");
+
+    const VectorAsset *decodedShape = findVectorAsset(decoded.document, "vector-static");
+    expect(decodedShape
+               && decodedShape->viewport.width == 4
+               && decodedShape->viewport.height == 4
+               && decodedShape->paths.size() == 1,
+           "decoded shape assets must expose their viewport and ordered paths");
+    if (decodedShape && decodedShape->paths.size() == 1) {
+        const VectorPath &path = decodedShape->paths.front();
+        expect(path.commands.size() == 5
+                   && std::holds_alternative<MoveTo>(path.commands[0])
+                   && std::holds_alternative<LineTo>(path.commands[1])
+                   && std::holds_alternative<QuadraticTo>(path.commands[2])
+                   && std::holds_alternative<CubicTo>(path.commands[3])
+                   && std::holds_alternative<ClosePath>(path.commands[4]),
+               "decoded shapes must expose every native path command in paint order");
+        const auto *quadratic = std::get_if<QuadraticTo>(&path.commands[2]);
+        const auto *cubic = std::get_if<CubicTo>(&path.commands[3]);
+        expect(quadratic
+                   && quadratic->control.x == 4.0
+                   && quadratic->control.y == 2.0
+                   && quadratic->end.x == 4.0
+                   && quadratic->end.y == 4.0
+                   && cubic
+                   && cubic->control1.x == 3.0
+                   && cubic->control2.x == 1.0
+                   && cubic->end.y == 4.0,
+               "decoded shapes must expose control points and endpoints without flattening");
+        expect(path.fill
+                   && path.fill->argb == 0x80ffcc00U
+                   && path.stroke
+                   && path.stroke->paint.argb == 0xff010203U
+                   && path.stroke->width == 1.25,
+               "decoded shapes must expose fill and stroke details");
+    }
+
+    const Layer *decodedLayer = findLayer(decoded.document, "static-raster");
+    expect(decodedLayer
+               && decodedLayer->name == "Static raster / 한글"
+               && !decodedLayer->visible
+               && decodedLayer->opacity == 0.375
+               && decodedLayer->transform.m11 == 0.75
+               && decodedLayer->transform.m12 == 0.25
+               && decodedLayer->transform.m21 == -0.5
+               && decodedLayer->transform.m22 == 1.25
+               && decodedLayer->transform.translationX == 1.5
+               && decodedLayer->transform.translationY == -0.25
+               && decodedLayer->blendMode == RasterBlendMode::Screen,
+           "decoded layers must expose identity, visibility, opacity, transform, and blend mode");
+    const StaticSource *decodedStaticSource = decodedLayer
+        ? std::get_if<StaticSource>(&decodedLayer->source)
+        : nullptr;
+    expect(decodedStaticSource && decodedStaticSource->assetId == "raster/static",
+           "decoded layers must expose their stable asset reference");
+
+    const Layer *decodedAnimatedLayer = findLayer(decoded.document, "animated-vector");
+    const KeyframedSource *decodedTrack = decodedAnimatedLayer
+        ? std::get_if<KeyframedSource>(&decodedAnimatedLayer->source)
+        : nullptr;
+    expect(decodedTrack
+               && decodedTrack->kind == ContentKind::Vector
+               && decodedTrack->keyframes.size() == 2
+               && decodedTrack->keyframes[0].frame == 0
+               && decodedTrack->keyframes[0].assetId == "vector-frame-0"
+               && decodedTrack->keyframes[1].frame == 1
+               && decodedTrack->keyframes[1].assetId == "vector-frame-1",
+           "decoded animated layers must expose content kind and every keyframe reference");
 
     const IiscEncodeResult reencoded = encodeIisc(decoded.document);
     expect(reencoded.ok() && reencoded.bytes == encoded.bytes,

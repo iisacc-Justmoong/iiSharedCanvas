@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <variant>
 
 int main()
 {
@@ -22,6 +23,30 @@ int main()
         StaticSource{"installed-raster"},
     });
 
+    VectorPath shape;
+    shape.commands = {
+        MoveTo{{0.0, 0.0}},
+        LineTo{{3.0, 0.0}},
+        LineTo{{3.0, 3.0}},
+        ClosePath{},
+    };
+    shape.fill = SolidPaint{0xff00cc88U};
+    shape.stroke = StrokeStyle{SolidPaint{0xff102030U}, 0.75};
+    document.assets.emplace_back(VectorAsset{"installed-shape", {4, 4}, {shape}});
+
+    AffineTransform shapeTransform;
+    shapeTransform.translationX = 0.5;
+    shapeTransform.translationY = 1.0;
+    document.layers.push_back({
+        "installed-shape-layer",
+        "Detailed shape",
+        false,
+        0.625,
+        shapeTransform,
+        RasterBlendMode::Multiply,
+        StaticSource{"installed-shape"},
+    });
+
     DocumentEditor structure(document);
     const DocumentEditResult renamed = structure.renameAsset(
         "installed-raster", "installed-pixels");
@@ -35,6 +60,18 @@ int main()
     const IiscDecodeResult decoded = encoded.ok()
         ? decodeIisc(encoded.bytes)
         : IiscDecodeResult{};
+    const RasterAsset *decodedImage = decoded.ok()
+        ? findRasterAsset(decoded.document, "installed-pixels")
+        : nullptr;
+    const VectorAsset *decodedShape = decoded.ok()
+        ? findVectorAsset(decoded.document, "installed-shape")
+        : nullptr;
+    const Layer *decodedShapeLayer = decoded.ok()
+        ? findLayer(decoded.document, "installed-shape-layer")
+        : nullptr;
+    const StaticSource *decodedShapeSource = decodedShapeLayer
+        ? std::get_if<StaticSource>(&decodedShapeLayer->source)
+        : nullptr;
     return validate(document).ok()
         && asset
         && renamed.ok()
@@ -47,6 +84,27 @@ int main()
         && rendered.ok()
         && rasterLayerPixelAt(rendered.pixels, {2, 1}) == 0xffaabbccU
         && decoded.ok()
+        && decodedImage
+        && decodedImage->pixels.width == 4
+        && decodedImage->pixels.height == 4
+        && rasterLayerPixelAt(decodedImage->pixels, {2, 1}) == 0xffaabbccU
+        && decodedShape
+        && decodedShape->viewport.width == 4
+        && decodedShape->paths.size() == 1
+        && decodedShape->paths.front().commands.size() == 4
+        && decodedShape->paths.front().fill
+        && decodedShape->paths.front().fill->argb == 0xff00cc88U
+        && decodedShape->paths.front().stroke
+        && decodedShape->paths.front().stroke->width == 0.75
+        && decodedShapeLayer
+        && decodedShapeLayer->name == "Detailed shape"
+        && !decodedShapeLayer->visible
+        && decodedShapeLayer->opacity == 0.625
+        && decodedShapeLayer->transform.translationX == 0.5
+        && decodedShapeLayer->transform.translationY == 1.0
+        && decodedShapeLayer->blendMode == RasterBlendMode::Multiply
+        && decodedShapeSource
+        && decodedShapeSource->assetId == "installed-shape"
         && encodeIisc(decoded.document).bytes == encoded.bytes
         ? 0
         : 1;

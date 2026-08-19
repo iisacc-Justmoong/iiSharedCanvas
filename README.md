@@ -120,6 +120,14 @@ raw ARGB32 or canonical run-length ARGB32, whichever is smaller. Native vector
 commands and keyframe references remain native data and are never silently
 rasterized.
 
+Decoding exposes the complete public `Document` aggregate rather than an opaque
+file handle. Consumers can enumerate bottom-to-top `Layer` entries and inspect
+identity, name, visibility, opacity, transform, blend mode, and static or
+keyframed asset references. Image/pixel assets expose `RasterLayer` dimensions
+and ARGB pixels; native shape assets expose their viewport, ordered paths,
+M/L/Q/C/Z commands and control points, fill, and stroke. See `docs/API.md` for
+field-level traversal and validated mutation examples.
+
 The reader checks the full container checksum before parsing, validates UTF-8,
 rejects future versions, unknown tags, truncation, trailing bytes, and
 non-canonical raster records, and enforces configurable byte, pixel, string,
@@ -156,6 +164,10 @@ layout, from $HOME/.local/iiPaintEngine.
 The generated library records the selected iiPaintEngine runtime directory and
 the standard sibling-install fallback so Debug, Release, and installed
 consumers resolve the same engine binary.
+The small `ok()` inspectors on frame-render and IISC codec result aggregates
+are header-inline. Windows shared-library consumers therefore do not depend on
+an unexported member symbol when inspecting a result returned by an exported
+operation.
 
 For a tested host install, including an installed-package consumer check:
 

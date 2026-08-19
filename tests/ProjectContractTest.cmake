@@ -139,5 +139,9 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "appendRasterDabs")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "paintRasterSamples")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Render/FrameRenderer.h"
+             "return status == FrameRenderStatus::Success;")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Serialization/IiscCodec.h"
+             "return error.code == IiscErrorCode::None;")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/BitmapItem.cpp"
              "QImage::Format_ARGB32")
