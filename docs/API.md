@@ -13,8 +13,11 @@ convenience and safety boundaries over the same data rather than a second model.
 | --- | --- | --- |
 | `FormatVersion` | `major`, `minor` | Physical/model compatibility version |
 | `CanvasExtent` | `width`, `height` | Positive output size in pixels |
+| `CanvasMode` | `Finite`, `Infinite` | Whether the allocated region is a boundary or a movable window into world space |
+| `InfiniteCanvas` | `origin`, `chunkSize` | Allocated world origin and sparse raster chunk dimension |
 | `Timeline` | `frameRate`, `frameCount` | Rational playback rate and integer frame domain |
 | `RasterAsset` | `id`, `pixels` | Stable id and iiPaintEngine ARGB pixel storage |
+| `ChunkedRasterAsset` | `id`, `chunks` | Stable id and canonical sparse raster chunks for an infinite canvas |
 | `VectorAsset` | `id`, `viewport`, `paths` | Stable id and native vector paint data |
 | `VectorPath` | `commands`, `fill`, `stroke` | M/L/Q/C/Z geometry and solid paints |
 | `Layer` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `source` | One bottom-to-top compositing entry |
@@ -28,8 +31,9 @@ element pointer across a collection mutation; resolve the stable id again.
 `BitmapEditor` already follows this rule by resolving its bound raster asset id
 on every operation.
 
-`RasterAsset` is the document's image/pixel asset and `VectorAsset` is its
-native shape asset. These names describe the persisted representation rather
+`RasterAsset` is a finite document's contiguous image/pixel asset,
+`ChunkedRasterAsset` is an infinite document's sparse image/pixel asset, and
+`VectorAsset` is its native shape asset. These names describe the persisted representation rather
 than an importing application's file format. A decoded PNG, JPEG, or brush
 result therefore exposes the canonical `RasterLayer` dimensions and ARGB
 pixels; `.iisc` does not retain the source codec bytes or brush trajectory. A
@@ -85,6 +89,10 @@ preserve cross-reference invariants automatically.
 `Document/Document.h` exposes mutable and const overloads where applicable:
 
 - `findAsset`, `findRasterAsset`, and `findVectorAsset` resolve stable asset ids;
+- `findChunkedRasterAsset` resolves sparse raster identity, while
+  `findRasterChunk` resolves signed `(column, row)` coordinates;
+- `canvasOrigin` and `canvasRegion` expose zero-origin finite geometry or the
+  currently allocated infinite world region through one query;
 - `assetIndex` exposes the asset's current storage position;
 - `findLayer` and `layerIndex` resolve layer identity and bottom-to-top position;
 - `findKeyframe` and `keyframeIndex` perform exact-frame lookup, unlike
@@ -122,6 +130,7 @@ that made the document invalid and rejects further mutation as
 | Method | Operation |
 | --- | --- |
 | `setCanvasExtent` | Replace the positive output extent; it does not resample assets |
+| `ensureInfiniteCanvasRegion` | Union a requested world region into an infinite canvas and align growth outwards to chunk boundaries |
 | `setFrameRate` | Replace the non-zero rational frame rate |
 | `setFrameCount` | Resize the integer frame domain; rejects a shrink that would exclude a keyframe |
 
@@ -182,6 +191,26 @@ Fine-grained pixels belong to `BitmapEditor`, which exposes `pixelAt`,
 input, dirty bounds, revision, and pixel-snapshot undo/redo. Brush input always
 commits pixels and never becomes retained document geometry.
 
+`ChunkedBitmapEditor` provides the corresponding authoring boundary for a
+`ChunkedRasterAsset`. World coordinates, including negative coordinates, are
+mapped to signed chunk coordinates. It stores only chunks touched by non-empty
+replacement pixels or brush output; a missing chunk reads as transparent.
+Brush gestures, clear, full allocated-region replacement, dirty bounds, and
+undo/redo follow the same committed-pixel contract. Its current history policy
+snapshots the sparse chunk collection and never serializes input trajectories.
+
+`CanvasItem::selectedRasterPixels()` is a contiguous compatibility view. It
+returns finite raster storage directly and may materialize a sparse allocated
+region only up to 16,777,216 pixels. It returns null above that budget; large
+sparse callers traverse `ChunkedRasterAsset::chunks` or request a bounded
+`renderFrameRegion` instead of forcing a monolithic allocation.
+
+An infinite canvas is conceptually unbounded but operates on a finite allocated
+region at any instant. A camera owner asks `ensureInfiniteCanvasRegion` to cover
+the visible world region plus its chosen prefetch margin. The document origin
+and extent grow only when that demand crosses a chunk boundary. Existing chunk
+coordinates and pixels never move.
+
 ## CanvasItem integration
 
 `CanvasItem::document()` returns the bound aggregate and
@@ -195,10 +224,44 @@ const DocumentEditResult result = canvas.editDocument(
     });
 ~~~
 
-On success the item rerenders, resolves or clears the selected raster layer,
+On success the item schedules a rerender, resolves or clears the selected raster layer,
 emits its normal change signals, and clamps the displayed frame if the timeline
 became shorter. Code that mutates `*canvas.document()` directly must call
 `validate` and `canvas.refresh()` itself.
+
+`createInfiniteRasterDocument(width, height, chunkSize)` creates one selected,
+empty `ChunkedRasterAsset`. QML hosts read `infiniteCanvas`, `canvasOriginX`,
+`canvasOriginY`, and `canvasChunkSize`, then call
+`ensureInfiniteCanvasRegion(x, y, width, height)` as the camera moves. The
+returned map contains `changed` and exact `left`, `top`, `right`, and `bottom`
+growth in pixels so a host can resize its display item while preserving camera
+and overlay positions.
+
+`CanvasItem::refresh()` validates and snapshots the current document, then
+queues visible tiles; its boolean result means the request was accepted, not
+that pixels were already produced. `refreshAsync()` returns the new content
+revision. Observe `rendering` or `renderCompleted(requestId)` when a caller must
+wait for presentation. `residentTileCount` is capped at 64 and every texture is
+at most 512 by 512 pixels. `framePixels()` remains a compatibility view only
+when one full-resolution tile covers the entire document; it deliberately
+returns null for a large tiled frame.
+
+`gpuAccelerated` reports whether the active Qt Quick renderer is Metal,
+Vulkan, Direct3D, or OpenGL, while `graphicsBackend` exposes its name. The CPU
+worker still owns deterministic vector rasterization and iiPaintEngine blend
+semantics; the GPU owns texture upload, composition into the Qt Quick scene,
+nearest-neighbor sampling, pan, and zoom. A software Qt Quick backend continues
+to work but reports no GPU acceleration.
+
+For non-QML callers, `renderFrameRegion` renders one contained world region to
+an explicit output extent and `renderFrameTiles` validates once for a request
+batch. `AsyncFrameRenderer::request` takes a value snapshot or shared immutable
+snapshot, coalesces queued work to the newest request, and emits `finished` on
+its owning thread. `lastResult()` inspects the completed batch;
+`takeResult()` transfers tile storage without a GUI-thread pixel copy.
+During a live stroke, `livePreviewFrameIntervalMs` is the coalescing delay
+before the next immutable snapshot; the final commit still schedules the newest
+document state.
 
 ## Standalone example
 
@@ -222,12 +285,16 @@ pixels.setPixel(10, 10, 0xffffcc00U);
 
 ## Threading and persistence
 
-`Document`, `DocumentEditor`, `BitmapEditor`, and a bound `CanvasItem` are not
-internally synchronized. Mutate one document from one owning thread; Qt Quick
-items remain GUI-thread objects. Stable-id lookup prevents collection relocation
-from becoming a dangling cached asset pointer, but it does not make concurrent
-mutation safe.
+`Document`, `DocumentEditor`, `BitmapEditor`, `ChunkedBitmapEditor`, and a bound
+`CanvasItem` are not general-purpose synchronized mutation objects. Mutate one
+document from one owning thread; Qt Quick items remain GUI-thread objects.
+`CanvasItem` copies a validated immutable render snapshot before a worker sees
+it, so the worker never races caller mutation. `AsyncFrameRenderer` likewise
+owns or shares a const snapshot for the lifetime of a request. Stable-id lookup
+prevents collection relocation from becoming a dangling cached asset pointer,
+but it does not make concurrent mutation of the source document safe.
 
-Call `validate(document)` before `renderFrame` or `encodeIisc` after any direct
+Call `validate(document)` before `renderFrame`, `renderFrameRegion`, or
+`encodeIisc` after any direct
 aggregate mutation. The serializer persists only aggregate state; editor
 revision counters, undo stacks, selection, and callbacks are runtime state.

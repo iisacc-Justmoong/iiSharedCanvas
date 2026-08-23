@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <unordered_set>
@@ -85,6 +86,58 @@ void validateRasterAsset(const RasterAsset &asset,
     }
 }
 
+bool validChunkSize(std::int32_t chunkSize) noexcept
+{
+    return chunkSize >= 32 && chunkSize <= 4096
+        && (chunkSize & (chunkSize - 1)) == 0;
+}
+
+void validateChunkedRasterAsset(const Document &document,
+                                const ChunkedRasterAsset &asset,
+                                std::size_t index,
+                                ValidationResult &result)
+{
+    const std::string path = "assets[" + std::to_string(index) + "]";
+    if (document.canvasMode != CanvasMode::Infinite) {
+        addIssue(result, ValidationCode::InvalidRasterChunk, path,
+                 "chunked raster assets require an infinite canvas");
+        return;
+    }
+
+    std::unordered_set<std::uint64_t> coordinates;
+    const std::int32_t chunkSize = document.infiniteCanvas.chunkSize;
+    for (std::size_t chunkIndex = 0; chunkIndex < asset.chunks.size(); ++chunkIndex) {
+        const RasterChunk &chunk = asset.chunks[chunkIndex];
+        const std::string chunkPath = path + ".chunks[" + std::to_string(chunkIndex) + "]";
+        const std::uint64_t key = (static_cast<std::uint64_t>(
+                                       static_cast<std::uint32_t>(chunk.row)) << 32U)
+            | static_cast<std::uint32_t>(chunk.column);
+        const std::int64_t pixelX = static_cast<std::int64_t>(chunk.column) * chunkSize;
+        const std::int64_t pixelY = static_cast<std::int64_t>(chunk.row) * chunkSize;
+        const std::uint64_t expectedPixels = static_cast<std::uint64_t>(chunkSize)
+            * static_cast<std::uint64_t>(chunkSize);
+        if (!coordinates.insert(key).second
+            || pixelX < std::numeric_limits<std::int32_t>::min()
+            || pixelX > std::numeric_limits<std::int32_t>::max()
+            || pixelY < std::numeric_limits<std::int32_t>::min()
+            || pixelY > std::numeric_limits<std::int32_t>::max()
+            || chunk.pixels.width != chunkSize
+            || chunk.pixels.height != chunkSize
+            || chunk.pixels.pixels.size() != expectedPixels) {
+            addIssue(result, ValidationCode::InvalidRasterChunk, chunkPath,
+                     "chunk coordinates must be unique and each chunk must match the canvas chunk size");
+        }
+        if (chunkIndex > 0) {
+            const RasterChunk &prior = asset.chunks[chunkIndex - 1];
+            if (chunk.row < prior.row
+                || (chunk.row == prior.row && chunk.column <= prior.column)) {
+                addIssue(result, ValidationCode::InvalidRasterChunk, chunkPath,
+                         "raster chunks must use canonical row-major coordinate order");
+            }
+        }
+    }
+}
+
 void validateVectorAsset(const VectorAsset &asset,
                          std::size_t index,
                          ValidationResult &result)
@@ -159,6 +212,23 @@ ValidationResult validate(const Document &document)
         addIssue(result, ValidationCode::InvalidCanvasExtent, "extent",
                  "canvas extent must be positive");
     }
+    const std::int64_t canvasRight = static_cast<std::int64_t>(canvasOrigin(document).x)
+        + document.extent.width;
+    const std::int64_t canvasBottom = static_cast<std::int64_t>(canvasOrigin(document).y)
+        + document.extent.height;
+    if (document.canvasMode == CanvasMode::Infinite) {
+        if (document.formatVersion.minor < 1
+            || !validChunkSize(document.infiniteCanvas.chunkSize)
+            || canvasRight > std::numeric_limits<std::int32_t>::max()
+            || canvasBottom > std::numeric_limits<std::int32_t>::max()) {
+            addIssue(result, ValidationCode::InvalidInfiniteCanvas, "infiniteCanvas",
+                     "infinite canvas geometry requires format 1.1, a power-of-two 32-4096 px chunk, and bounded coordinates");
+        }
+    } else if (document.infiniteCanvas.origin.x != 0
+               || document.infiniteCanvas.origin.y != 0) {
+        addIssue(result, ValidationCode::InvalidInfiniteCanvas, "infiniteCanvas.origin",
+                 "a finite canvas must use the zero document origin");
+    }
     if (document.timeline.frameRate.numerator == 0
         || document.timeline.frameRate.denominator == 0
         || document.timeline.frameCount == 0) {
@@ -181,8 +251,13 @@ ValidationResult validate(const Document &document)
 
         if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
             validateRasterAsset(*raster, index, result);
+        } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
+            validateVectorAsset(*vector, index, result);
         } else {
-            validateVectorAsset(std::get<VectorAsset>(asset), index, result);
+            validateChunkedRasterAsset(document,
+                                       std::get<ChunkedRasterAsset>(asset),
+                                       index,
+                                       result);
         }
     }
 

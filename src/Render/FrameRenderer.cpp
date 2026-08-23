@@ -343,27 +343,80 @@ void paintCoverage(RasterLayer &target,
     }
 }
 
-RasterLayer rasterizeVector(const VectorAsset &asset)
+Point inverseTransformPoint(const AffineTransform &transform,
+                            Point output) noexcept
 {
-    RasterLayer result = makeRasterLayer(asset.viewport.width,
-                                         asset.viewport.height,
-                                         0x00000000U);
+    const double determinant = transform.m11 * transform.m22
+        - transform.m21 * transform.m12;
+    const double translatedX = output.x - transform.translationX;
+    const double translatedY = output.y - transform.translationY;
+    return {
+        (translatedX * transform.m22 - translatedY * transform.m21) / determinant,
+        (-translatedX * transform.m12 + translatedY * transform.m11) / determinant,
+    };
+}
+
+Bounds transformBounds(Bounds source,
+                       const AffineTransform &transform) noexcept
+{
+    Bounds result;
+    if (!source.valid()) {
+        return result;
+    }
+    const std::array<Point, 4> corners{
+        Point{source.left, source.top},
+        Point{source.right, source.top},
+        Point{source.left, source.bottom},
+        Point{source.right, source.bottom},
+    };
+    for (Point corner : corners) {
+        const DocumentPoint transformed = transformPoint(
+            transform, {corner.x, corner.y});
+        result.include({transformed.x, transformed.y});
+    }
+    return result;
+}
+
+RasterLayer rasterizeVector(const VectorAsset &asset,
+                            const AffineTransform &transform,
+                            int outputWidth,
+                            int outputHeight)
+{
+    RasterLayer result = makeRasterLayer(outputWidth, outputHeight, 0x00000000U);
+    const double determinant = transform.m11 * transform.m22
+        - transform.m21 * transform.m12;
+    if (std::abs(determinant) <= std::numeric_limits<double>::epsilon()) {
+        return result;
+    }
+
     for (const VectorPath &path : asset.paths) {
         const std::vector<Contour> contours = flattenPath(path);
-        const Bounds bounds = contourBounds(contours);
+        const Bounds sourceBounds = contourBounds(contours);
         if (path.fill) {
-            paintCoverage(result, bounds, path.fill->argb,
-                          [&](Point point) { return insideEvenOddFill(contours, point); });
+            paintCoverage(result,
+                          transformBounds(sourceBounds, transform),
+                          path.fill->argb,
+                          [&](Point point) {
+                              return insideEvenOddFill(
+                                  contours, inverseTransformPoint(transform, point));
+                          });
         }
         if (path.stroke) {
             const double radius = path.stroke->width * 0.5;
-            Bounds strokeBounds = bounds;
+            Bounds strokeBounds = sourceBounds;
             strokeBounds.left -= radius;
             strokeBounds.top -= radius;
             strokeBounds.right += radius;
             strokeBounds.bottom += radius;
-            paintCoverage(result, strokeBounds, path.stroke->paint.argb,
-                          [&](Point point) { return insideStroke(contours, point, radius); });
+            paintCoverage(result,
+                          transformBounds(strokeBounds, transform),
+                          path.stroke->paint.argb,
+                          [&](Point point) {
+                              return insideStroke(
+                                  contours,
+                                  inverseTransformPoint(transform, point),
+                                  radius);
+                          });
         }
     }
     return result;
@@ -418,11 +471,166 @@ RasterLayer transformedRaster(const RasterLayer &source,
     return result;
 }
 
+Bounds transformedBounds(const RasterLayer &source,
+                         const AffineTransform &transform) noexcept
+{
+    const std::array<DocumentPoint, 4> corners{
+        transformPoint(transform, {0.0, 0.0}),
+        transformPoint(transform, {static_cast<double>(source.width), 0.0}),
+        transformPoint(transform, {0.0, static_cast<double>(source.height)}),
+        transformPoint(transform,
+                       {static_cast<double>(source.width), static_cast<double>(source.height)}),
+    };
+    Bounds bounds;
+    for (DocumentPoint corner : corners) {
+        bounds.include({corner.x, corner.y});
+    }
+    return bounds;
+}
+
+bool intersectsOutput(const RasterLayer &source,
+                      const AffineTransform &transform,
+                      int outputWidth,
+                      int outputHeight) noexcept
+{
+    const Bounds bounds = transformedBounds(source, transform);
+    return bounds.valid()
+        && bounds.right > 0.0 && bounds.bottom > 0.0
+        && bounds.left < outputWidth && bounds.top < outputHeight;
+}
+
 FrameRenderResult errorResult(FrameRenderStatus status, std::string message)
 {
     FrameRenderResult result;
     result.status = status;
     result.message = std::move(message);
+    return result;
+}
+
+bool regionContainedByDocument(const Document &document,
+                               CanvasRegion region) noexcept
+{
+    if (region.extent.width <= 0 || region.extent.height <= 0) {
+        return false;
+    }
+    const CanvasRegion available = canvasRegion(document);
+    const std::int64_t requestedRight = static_cast<std::int64_t>(region.origin.x)
+        + region.extent.width;
+    const std::int64_t requestedBottom = static_cast<std::int64_t>(region.origin.y)
+        + region.extent.height;
+    const std::int64_t availableRight = static_cast<std::int64_t>(available.origin.x)
+        + available.extent.width;
+    const std::int64_t availableBottom = static_cast<std::int64_t>(available.origin.y)
+        + available.extent.height;
+    return region.origin.x >= available.origin.x
+        && region.origin.y >= available.origin.y
+        && requestedRight <= availableRight
+        && requestedBottom <= availableBottom;
+}
+
+bool validOutputExtent(CanvasExtent extent) noexcept
+{
+    if (extent.width <= 0 || extent.height <= 0) {
+        return false;
+    }
+    const std::uint64_t pixelCount = static_cast<std::uint64_t>(extent.width)
+        * static_cast<std::uint64_t>(extent.height);
+    return pixelCount <= std::numeric_limits<std::size_t>::max()
+        / sizeof(std::uint32_t);
+}
+
+FrameRenderResult renderValidatedFrameRegion(const Document &document,
+                                             FrameIndex frame,
+                                             CanvasRegion region,
+                                             CanvasExtent outputExtent)
+{
+    if (!regionContainedByDocument(document, region)
+        || !validOutputExtent(outputExtent)) {
+        return errorResult(FrameRenderStatus::InvalidRegion,
+                           "render region must be positive, bounded by the document, and have a valid output extent");
+    }
+
+    ::LayerStack engineLayers;
+    const double scaleX = static_cast<double>(outputExtent.width)
+        / static_cast<double>(region.extent.width);
+    const double scaleY = static_cast<double>(outputExtent.height)
+        / static_cast<double>(region.extent.height);
+    const auto outputTransform = [&](AffineTransform transform) {
+        transform.translationX -= region.origin.x;
+        transform.translationY -= region.origin.y;
+        transform.m11 *= scaleX;
+        transform.m21 *= scaleX;
+        transform.translationX *= scaleX;
+        transform.m12 *= scaleY;
+        transform.m22 *= scaleY;
+        transform.translationY *= scaleY;
+        return transform;
+    };
+    const auto appendOutputLayer = [&](RasterLayer pixels,
+                                       const iiSharedCanvas::Layer &documentLayer) {
+        ::Layer engineLayer;
+        engineLayer.surface = drawingSurfaceFromRasterLayer(std::move(pixels));
+        engineLayer.metadata.visible = true;
+        engineLayer.metadata.opacity = documentLayer.opacity;
+        engineLayer.metadata.blendMode = documentLayer.blendMode;
+        engineLayers.layers.push_back(std::move(engineLayer));
+    };
+    const auto appendRasterLayer = [&](const RasterLayer &source,
+                                       AffineTransform transform,
+                                       const iiSharedCanvas::Layer &documentLayer) {
+        transform = outputTransform(transform);
+        if (!intersectsOutput(source, transform,
+                              outputExtent.width, outputExtent.height)) {
+            return;
+        }
+        appendOutputLayer(transformedRaster(source,
+                                            transform,
+                                            outputExtent.width,
+                                            outputExtent.height),
+                          documentLayer);
+    };
+
+    for (const iiSharedCanvas::Layer &documentLayer : document.layers) {
+        if (!documentLayer.visible) {
+            continue;
+        }
+        const Asset *asset = resolveAssetAt(document, documentLayer, frame);
+        if (!asset) {
+            return errorResult(FrameRenderStatus::AssetResolutionFailed,
+                               "validated layer asset could not be resolved at the requested frame");
+        }
+
+        if (const auto *raster = std::get_if<RasterAsset>(asset)) {
+            appendRasterLayer(raster->pixels, documentLayer.transform, documentLayer);
+            continue;
+        }
+        if (const auto *vector = std::get_if<VectorAsset>(asset)) {
+            appendOutputLayer(rasterizeVector(*vector,
+                                              outputTransform(documentLayer.transform),
+                                              outputExtent.width,
+                                              outputExtent.height),
+                              documentLayer);
+            continue;
+        }
+
+        const auto &chunked = std::get<ChunkedRasterAsset>(*asset);
+        const std::int32_t chunkSize = document.infiniteCanvas.chunkSize;
+        for (const RasterChunk &chunk : chunked.chunks) {
+            const double chunkX = static_cast<double>(chunk.column) * chunkSize;
+            const double chunkY = static_cast<double>(chunk.row) * chunkSize;
+            AffineTransform transform = documentLayer.transform;
+            transform.translationX += transform.m11 * chunkX + transform.m21 * chunkY;
+            transform.translationY += transform.m12 * chunkX + transform.m22 * chunkY;
+            appendRasterLayer(chunk.pixels, transform, documentLayer);
+        }
+    }
+
+    FrameRenderResult result;
+    result.origin = region.origin;
+    result.pixels = compositeLayerStack(engineLayers,
+                                        outputExtent.width,
+                                        outputExtent.height,
+                                        0x00000000U);
     return result;
 }
 
@@ -441,43 +649,59 @@ FrameRenderResult renderFrame(const Document &document, FrameIndex frame)
                            "requested frame is outside the document timeline");
     }
 
-    ::LayerStack engineLayers;
-    for (const iiSharedCanvas::Layer &documentLayer : document.layers) {
-        if (!documentLayer.visible) {
-            continue;
-        }
-        const Asset *asset = resolveAssetAt(document, documentLayer, frame);
-        if (!asset) {
-            return errorResult(FrameRenderStatus::AssetResolutionFailed,
-                               "validated layer asset could not be resolved at the requested frame");
-        }
+    return renderValidatedFrameRegion(document,
+                                      frame,
+                                      canvasRegion(document),
+                                      document.extent);
+}
 
-        RasterLayer source = std::visit([](const auto &resolved) {
-            using ResolvedAsset = std::decay_t<decltype(resolved)>;
-            if constexpr (std::is_same_v<ResolvedAsset, RasterAsset>) {
-                return resolved.pixels;
-            } else {
-                return rasterizeVector(resolved);
-            }
-        }, *asset);
+FrameRenderResult renderFrameRegion(const Document &document,
+                                    FrameIndex frame,
+                                    CanvasRegion region,
+                                    CanvasExtent outputExtent)
+{
+    const ValidationResult validation = validate(document);
+    if (!validation.ok()) {
+        return errorResult(FrameRenderStatus::InvalidDocument,
+                           validation.issues.front().path + ": "
+                               + validation.issues.front().message);
+    }
+    if (frame >= document.timeline.frameCount) {
+        return errorResult(FrameRenderStatus::FrameOutOfRange,
+                           "requested frame is outside the document timeline");
+    }
+    return renderValidatedFrameRegion(document, frame, region, outputExtent);
+}
 
-        ::Layer engineLayer;
-        engineLayer.surface = drawingSurfaceFromRasterLayer(
-            transformedRaster(source,
-                              documentLayer.transform,
-                              document.extent.width,
-                              document.extent.height));
-        engineLayer.metadata.visible = true;
-        engineLayer.metadata.opacity = documentLayer.opacity;
-        engineLayer.metadata.blendMode = documentLayer.blendMode;
-        engineLayers.layers.push_back(std::move(engineLayer));
+FrameTileRenderResult renderFrameTiles(
+    const Document &document,
+    FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests)
+{
+    const ValidationResult validation = validate(document);
+    if (!validation.ok()) {
+        return {{}, FrameRenderStatus::InvalidDocument,
+                validation.issues.front().path + ": "
+                    + validation.issues.front().message};
+    }
+    if (frame >= document.timeline.frameCount) {
+        return {{}, FrameRenderStatus::FrameOutOfRange,
+                "requested frame is outside the document timeline"};
     }
 
-    FrameRenderResult result;
-    result.pixels = compositeLayerStack(engineLayers,
-                                        document.extent.width,
-                                        document.extent.height,
-                                        0x00000000U);
+    FrameTileRenderResult result;
+    result.tiles.reserve(requests.size());
+    for (const FrameRenderTileRequest &request : requests) {
+        FrameRenderResult tile = renderValidatedFrameRegion(
+            document, frame, request.region, request.outputExtent);
+        if (!tile.ok()) {
+            result.tiles.clear();
+            result.status = tile.status;
+            result.message = std::move(tile.message);
+            return result;
+        }
+        result.tiles.push_back({request.region, std::move(tile.pixels)});
+    }
     return result;
 }
 

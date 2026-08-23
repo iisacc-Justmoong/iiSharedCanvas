@@ -11,10 +11,12 @@ namespace iiSharedCanvas {
 enum class ValidationCode {
     UnsupportedFormatVersion,
     InvalidCanvasExtent,
+    InvalidInfiniteCanvas,
     InvalidTimeline,
     InvalidAssetId,
     DuplicateAssetId,
     InvalidRasterAsset,
+    InvalidRasterChunk,
     InvalidVectorAsset,
     DuplicateLayerId,
     InvalidLayer,

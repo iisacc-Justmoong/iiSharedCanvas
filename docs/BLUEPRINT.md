@@ -1,6 +1,7 @@
 # iiSharedCanvas blueprint
 
-Status: Phases 0 through 3 complete; measured product hardening remains open
+Status: Phases 0 through 3 complete; bounded large-canvas interaction complete;
+cross-platform product hardening remains open
 
 ## 1. Product objective
 
@@ -50,17 +51,22 @@ flowchart LR
     STACK --> STATIC["Static source"]
     STACK --> ANIM["Keyframed source"]
     ASSETS --> RASTER["RasterAsset"]
+    ASSETS --> CHUNKS["ChunkedRasterAsset"]
     ASSETS --> VECTOR["VectorAsset"]
     ANIM --> EVAL["Frame evaluator"]
     STATIC --> EVAL
     EVAL --> RESOLVED["Resolved asset"]
     RESOLVED --> RASTER
+    RESOLVED --> CHUNKS
     RESOLVED --> VECTOR
-    VECTOR --> VRAST["CPU vector rasterizer"]
+    VECTOR --> VRAST["Bounded CPU vector tile rasterizer"]
     RASTER --> FRAME["FrameRenderer"]
     VRAST --> FRAME
     FRAME --> IIPE["iiPaintEngine compositor"]
-    CANVAS --> FRAME
+    CANVAS --> ASYNC["AsyncFrameRenderer"]
+    ASYNC --> FRAME
+    FRAME --> TILES["LOD texture tiles"]
+    TILES --> GPU["Qt Quick scene graph / GPU transform"]
 ~~~
 
 iiPaintEngine owns bitmap codecs, brush rasterization, ARGB pixel storage
@@ -68,7 +74,7 @@ primitives, raster blend semantics, and the affine transform type and coordinate
 semantics.
 
 iiSharedCanvas owns mixed-content document identity, ordered layers, vector
-geometry, asset references, timeline semantics, cross-content validation, file
+geometry, sparse infinite-canvas chunk coordinates, asset references, timeline semantics, cross-content validation, file
 format versioning, selected-raster editing coordination, and frame composition.
 
 All persisted model fields are public aggregate data. `DocumentEditor` is the
@@ -76,7 +82,8 @@ safe structural mutation boundary over those aggregates: it provides stable-id
 lookup and explicit insert, replace, rename, move, and remove operations for
 the timeline, assets, layers, keyframes, and vector paths. Every accepted edit
 preserves full-document validation; rejected edits preserve the prior value.
-Bitmap pixels remain the responsibility of `BitmapEditor`.
+Finite bitmap pixels remain the responsibility of `BitmapEditor`; sparse
+infinite bitmap pixels remain the responsibility of `ChunkedBitmapEditor`.
 
 The application owns UI, tools, playback controls, selection experience,
 autosave policy, networking, and collaboration. The library name does not imply
@@ -94,12 +101,18 @@ iiPaintEngine must never reference iiSharedCanvas.
 
 ## 3. Core data model
 
-Document contains a format version, positive canvas extent, rational frame rate,
-frame count, asset registry, and ordered layer stack.
+Document contains a format version, finite/infinite mode, positive currently
+allocated canvas extent, optional world origin and chunk size, rational frame
+rate, frame count, asset registry, and ordered layer stack. A finite canvas is
+bounded at origin zero. An infinite canvas grows its allocated region outwards
+on chunk boundaries while its conceptual world remains unbounded within the
+supported signed coordinate domain.
 
 Asset is one of:
 
 - RasterAsset: stable id plus iiPaintEngine RasterLayer ARGB pixels.
+- ChunkedRasterAsset: stable id plus canonical row-major sparse RasterChunk
+  entries addressed by signed world column and row.
 - VectorAsset: stable id, positive viewport, and ordered paths.
 
 Vector v1 intentionally supports only the geometry required by the stated
@@ -161,6 +174,11 @@ the simplest correct first policy and makes a whole brush gesture atomic.
 Patch-based history should replace it only after real document sizes establish
 the required memory budget.
 
+`ChunkedBitmapEditor` applies the same committed-pixel brush contract in world
+coordinates. It allocates only chunks receiving raster samples; missing chunks
+are transparent. Sparse undo/redo snapshots the chunk collection, and region
+growth never rewrites a chunk's coordinates or pixel payload.
+
 `BitmapItem` is the Qt Quick display boundary for one selected raster asset. It
 converts the engine's ARGB storage into `QImage::Format_ARGB32` at paint time,
 uses nearest-neighbor scaling, and exposes mouse painting, explicit
@@ -171,14 +189,16 @@ remain the caller's responsibility. This item does not compose document layers
 and does not serialize input events.
 
 `CanvasItem`, registered to QML as `SharedCanvas`, is the full-document display
-and raster-authoring boundary. It caches `renderFrame` output, switches timeline
-frames, applies nearest-neighbor zoom and pan, and can select a raster document
+and raster-authoring boundary. It caches bounded LOD texture tiles, switches timeline
+frames, applies nearest-neighbor GPU zoom and pan, and can select a raster document
 layer for brush/eraser edits while the complete mixed frame remains visible.
 Input is expressed in document coordinates and inverted through the selected
 layer affine transform before `BitmapEditor` receives it. A caller-owned
 document remains authoritative and explicit `refresh()` observes external
-mutations. Application selection UX, tools, playback controls, and persistence
-remain outside the item.
+mutations. Its GUI thread snapshots validated document state, a coalescing
+worker renders only missing visible/prefetch tiles, and the Qt Quick scene graph
+uploads and transforms those tiles. Application selection UX, tools, playback
+controls, and persistence remain outside the item.
 
 For an application bootstrap path, `createRasterDocument` installs one selected
 transparent raster asset and layer. `replaceSelectedPixels` supports decoded
@@ -186,32 +206,48 @@ image import without file-system round trips. The Qt adapter exposes generic
 bitmap-authoring controls for brush features, spacing, a three-point pressure
 curve, pressure-opacity mapping, stabilizer value, tool mode, tablet/mouse
 state, and stroke count. The stabilizer is transient input smoothing and none
-of these settings enter the document format. Version 0.1 rerenders
-synchronously after edits; the preview interval and multithreaded-event
-properties preserve host configuration without asserting background rendering
-that is not implemented.
+of these settings enter the document format. Version 0.1 commits model edits
+synchronously but rerenders asynchronously after edits.
+`livePreviewFrameIntervalMs` bounds active-stroke snapshot scheduling, while
+the multithreaded-event property remains host input configuration. Superseded
+worker requests are coalesced by `AsyncFrameRenderer` independently.
+
+`createInfiniteRasterDocument` installs one selected empty sparse raster layer.
+The host supplies camera demand through `ensureInfiniteCanvasRegion`. The
+document unions that demand with its allocated world region and rounds each new
+edge outwards to a chunk boundary. `CanvasItem` exposes the world origin and
+returns exact four-side growth, leaving visual resizing and camera preservation
+to the consumer UI.
 
 ## 6. Implemented render pipeline
 
-`renderFrame` executes these steps:
+`renderFrame`, `renderFrameRegion`, and `renderFrameTiles` execute these steps:
 
 1. Validate the document.
-2. Resolve one asset for each visible layer at the requested frame.
-3. Convert vector assets into temporary raster surfaces at the requested output
-   resolution.
+2. Resolve one finite raster, sparse chunked raster, or vector asset for each
+   visible layer at the requested frame.
+3. Rasterize vector paths directly into the requested bounded output and cull
+   sparse chunks outside that region.
 4. Apply the iiPaintEngine affine transform and layer opacity.
 5. Composite bottom-to-top using iiPaintEngine blend semantics.
-6. Return one RasterLayer without mutating document assets.
+6. Return either the full frame or bounded world-region tiles without mutating
+   document assets.
 
 Static and animated content therefore share one render path after frame
 evaluation. There is no separate animation canvas.
 
-Version 1 rasterizes M/L/Q/C/Z paths on the CPU with deterministic 4x4 coverage
+Version 1 rasterizes M/L/Q/C/Z paths on a worker CPU with deterministic 4x4 coverage
 sampling, even-odd fills, and round stroke footprints. It applies the complete
 iiPaintEngine affine matrix with nearest-neighbor asset sampling and clips the
 result to the canvas. Source-over, multiply, screen, and overlay are delegated
 to the iiPaintEngine compositor. Destination-out remains a brush eraser mode
 and validation rejects it as a document layer blend mode.
+
+The Qt adapter selects a power-of-two LOD from viewport zoom, keeps no more
+than 64 resident 512-texel tiles, and coalesces queued renders to the newest
+immutable snapshot/request. Pan and zoom update a `QSGTransformNode`
+immediately. Hardware-backed Qt Quick then owns tile texture sampling and scene
+composition; software backends preserve correctness with the same nodes.
 
 ## 7. Implemented serialization
 
@@ -219,7 +255,8 @@ The physical package is the canonical binary `.iisc` container defined in
 FORMAT.md. `encodeIisc` and `decodeIisc` use only the C++ standard library and
 therefore preserve the fixed direct dependency set. The 32-byte header records
 version, payload size, and CRC-32. The payload stores native raster/vector
-assets, ordered layers, transforms, and timeline references without archive
+assets, sparse chunks, allocated world geometry, ordered layers, transforms,
+and timeline references without archive
 paths or JSON parsing.
 
 The writer chooses raw or run-length ARGB32 deterministically and emits one byte
@@ -232,6 +269,10 @@ before exposure.
 
 - Unknown newer format versions fail closed.
 - Canvas, raster, and vector extents are positive.
+- Infinite canvases require format 1.1+, a power-of-two chunk size from 32
+  through 4096, and signed coordinates whose allocated region remains bounded.
+- Sparse chunks are unique, row-major, and exactly the configured chunk size;
+  finite canvases reject sparse raster assets.
 - Raster dimensions equal the exact ARGB pixel count.
 - Asset ids and layer ids are non-empty and unique.
 - Every layer reference resolves.
@@ -254,8 +295,10 @@ engine and already provides RasterLayer, brush rasterization, blend modes, and
 transforms. It is AGPL-3.0-only and carries Qt/LVRS transitively. iiSharedCanvas
 therefore starts under AGPL-3.0-only.
 
-No second direct dependency is present. The `.iisc` codec uses the standard
-library; SVG, text shaping, GPU vector rendering, and media codecs remain
+No second direct dependency is present. Qt Core thread-pool/future primitives
+and the public Qt Quick scene graph arrive through iiPaintEngine's existing Qt
+targets. The `.iisc` codec uses the standard library; SVG, text shaping, GPU
+vector path rasterization, and media codecs remain
 explicit future decisions rather than hidden or vendored code.
 
 The CMake target records the imported iiPaintEngine library directory in its
@@ -316,12 +359,15 @@ Complete when:
 - [x] Product-neutral C++ and QML contract tests verify the authoring surface,
   mixed raster/vector/timeline output, and native `.iisc` round trip without a
   consumer application defining the API.
+- [x] Infinite documents grow an allocated region from camera demand and store,
+  render, edit, undo, and serialize sparse signed-coordinate raster chunks.
 
 ### Phase 4 - product hardening
 
 Complete when:
 
 - Cross-platform packages are installed and consumed on every target.
-- Large-document memory budgets, partial decode, thumbnails, autosave, and
-  crash recovery are measured.
+- [x] Interactive rendering uses bounded resident tiles, LOD, immutable worker
+  snapshots, and GPU scene transforms for tens-of-thousands-pixel canvases.
+- Partial decode, thumbnails, autosave, and crash recovery are measured.
 - Public API compatibility and file migration policy are published.

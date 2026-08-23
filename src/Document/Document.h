@@ -16,7 +16,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 0;
+inline constexpr std::uint16_t CurrentFormatMinor = 1;
 
 using FrameIndex = std::uint32_t;
 
@@ -28,6 +28,26 @@ struct FormatVersion {
 struct CanvasExtent {
     std::int32_t width = 0;
     std::int32_t height = 0;
+};
+
+struct CanvasOrigin {
+    std::int32_t x = 0;
+    std::int32_t y = 0;
+};
+
+struct CanvasRegion {
+    CanvasOrigin origin;
+    CanvasExtent extent;
+};
+
+enum class CanvasMode : std::uint8_t {
+    Finite,
+    Infinite,
+};
+
+struct InfiniteCanvas {
+    CanvasOrigin origin;
+    std::int32_t chunkSize = 256;
 };
 
 struct FrameRate {
@@ -72,13 +92,24 @@ struct RasterAsset {
     RasterLayer pixels;
 };
 
+struct RasterChunk {
+    std::int32_t column = 0;
+    std::int32_t row = 0;
+    RasterLayer pixels;
+};
+
+struct ChunkedRasterAsset {
+    std::string id;
+    std::vector<RasterChunk> chunks;
+};
+
 struct VectorAsset {
     std::string id;
     CanvasExtent viewport;
     std::vector<VectorPath> paths;
 };
 
-using Asset = std::variant<RasterAsset, VectorAsset>;
+using Asset = std::variant<RasterAsset, VectorAsset, ChunkedRasterAsset>;
 
 enum class ContentKind {
     Raster,
@@ -114,6 +145,8 @@ struct Layer {
 struct Document {
     FormatVersion formatVersion;
     CanvasExtent extent;
+    CanvasMode canvasMode = CanvasMode::Finite;
+    InfiniteCanvas infiniteCanvas;
     Timeline timeline;
     std::vector<Asset> assets;
     std::vector<Layer> layers;
@@ -126,6 +159,8 @@ struct AssetReference {
 
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Asset &asset) noexcept;
 IISHAREDCANVAS_EXPORT const std::string &assetId(const Asset &asset) noexcept;
+IISHAREDCANVAS_EXPORT CanvasOrigin canvasOrigin(const Document &document) noexcept;
+IISHAREDCANVAS_EXPORT CanvasRegion canvasRegion(const Document &document) noexcept;
 IISHAREDCANVAS_EXPORT Asset *findAsset(Document &document,
                                        const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const Asset *findAsset(const Document &document,
@@ -134,6 +169,18 @@ IISHAREDCANVAS_EXPORT RasterAsset *findRasterAsset(Document &document,
                                                    const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const RasterAsset *findRasterAsset(const Document &document,
                                                          const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT ChunkedRasterAsset *findChunkedRasterAsset(
+    Document &document,
+    const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const ChunkedRasterAsset *findChunkedRasterAsset(
+    const Document &document,
+    const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT RasterChunk *findRasterChunk(ChunkedRasterAsset &asset,
+                                                   std::int32_t column,
+                                                   std::int32_t row) noexcept;
+IISHAREDCANVAS_EXPORT const RasterChunk *findRasterChunk(const ChunkedRasterAsset &asset,
+                                                         std::int32_t column,
+                                                         std::int32_t row) noexcept;
 IISHAREDCANVAS_EXPORT VectorAsset *findVectorAsset(Document &document,
                                                    const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const VectorAsset *findVectorAsset(const Document &document,

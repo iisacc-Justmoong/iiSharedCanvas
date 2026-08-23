@@ -24,6 +24,21 @@ std::size_t insertionIndex(std::size_t requested, std::size_t size) noexcept
     return requested == AppendDocumentIndex ? size : requested;
 }
 
+std::int64_t floorToMultiple(std::int64_t value, std::int64_t step) noexcept
+{
+    const std::int64_t remainder = value % step;
+    return remainder < 0 ? value - remainder - step : value - remainder;
+}
+
+std::int64_t ceilToMultiple(std::int64_t value, std::int64_t step) noexcept
+{
+    const std::int64_t remainder = value % step;
+    if (remainder == 0) {
+        return value;
+    }
+    return remainder > 0 ? value - remainder + step : value - remainder;
+}
+
 template<typename Value>
 void moveElement(std::vector<Value> &values,
                  std::size_t sourceIndex,
@@ -162,6 +177,78 @@ DocumentEditResult DocumentEditor::setCanvasExtent(CanvasExtent extent)
     m_document->extent = extent;
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         m_document->extent = prior;
+        return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::ensureInfiniteCanvasRegion(CanvasRegion region)
+{
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    if (m_document->canvasMode != CanvasMode::Infinite) {
+        return reject(DocumentEditCode::InvalidArgument, "canvasMode",
+                      "canvas region growth requires an infinite canvas");
+    }
+    if (region.extent.width <= 0 || region.extent.height <= 0) {
+        return reject(DocumentEditCode::InvalidArgument, "region.extent",
+                      "requested canvas region must have a positive extent");
+    }
+
+    const std::int64_t requestedRight = static_cast<std::int64_t>(region.origin.x)
+        + region.extent.width;
+    const std::int64_t requestedBottom = static_cast<std::int64_t>(region.origin.y)
+        + region.extent.height;
+    const CanvasOrigin currentOrigin = m_document->infiniteCanvas.origin;
+    const std::int64_t currentRight = static_cast<std::int64_t>(currentOrigin.x)
+        + m_document->extent.width;
+    const std::int64_t currentBottom = static_cast<std::int64_t>(currentOrigin.y)
+        + m_document->extent.height;
+    const std::int64_t chunkSize = m_document->infiniteCanvas.chunkSize;
+
+    const std::int64_t nextLeft = floorToMultiple(
+        std::min<std::int64_t>(currentOrigin.x, region.origin.x), chunkSize);
+    const std::int64_t nextTop = floorToMultiple(
+        std::min<std::int64_t>(currentOrigin.y, region.origin.y), chunkSize);
+    const std::int64_t nextRight = ceilToMultiple(
+        std::max(currentRight, requestedRight), chunkSize);
+    const std::int64_t nextBottom = ceilToMultiple(
+        std::max(currentBottom, requestedBottom), chunkSize);
+    const std::int64_t nextWidth = nextRight - nextLeft;
+    const std::int64_t nextHeight = nextBottom - nextTop;
+    if (nextLeft < std::numeric_limits<std::int32_t>::min()
+        || nextTop < std::numeric_limits<std::int32_t>::min()
+        || nextRight > std::numeric_limits<std::int32_t>::max()
+        || nextBottom > std::numeric_limits<std::int32_t>::max()
+        || nextWidth <= 0
+        || nextHeight <= 0
+        || nextWidth > std::numeric_limits<std::int32_t>::max()
+        || nextHeight > std::numeric_limits<std::int32_t>::max()) {
+        return reject(DocumentEditCode::InvalidArgument, "region",
+                      "requested canvas region exceeds the supported coordinate range");
+    }
+
+    if (nextLeft == currentOrigin.x
+        && nextTop == currentOrigin.y
+        && nextWidth == m_document->extent.width
+        && nextHeight == m_document->extent.height) {
+        return unchanged();
+    }
+
+    const InfiniteCanvas priorCanvas = m_document->infiniteCanvas;
+    const CanvasExtent priorExtent = m_document->extent;
+    m_document->infiniteCanvas.origin = {
+        static_cast<std::int32_t>(nextLeft),
+        static_cast<std::int32_t>(nextTop),
+    };
+    m_document->extent = {
+        static_cast<std::int32_t>(nextWidth),
+        static_cast<std::int32_t>(nextHeight),
+    };
+    if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
+        m_document->infiniteCanvas = priorCanvas;
+        m_document->extent = priorExtent;
         return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
     }
     return applied();

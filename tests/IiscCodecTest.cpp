@@ -247,7 +247,8 @@ int main()
            "payload corruption must be detected by the container checksum");
 
     std::vector<std::uint8_t> unknownAssetKind = encoded.bytes;
-    unknownAssetKind[IiscHeaderSize + 24] = 0xffU;
+    constexpr std::size_t firstVersion11AssetKindOffset = IiscHeaderSize + 25;
+    unknownAssetKind[firstVersion11AssetKindOffset] = 0xffU;
     refreshPayloadChecksum(unknownAssetKind);
     expect(decodeIisc(unknownAssetKind).error.code == IiscErrorCode::InvalidData,
            "unknown canonical payload tags must fail closed after checksum verification");

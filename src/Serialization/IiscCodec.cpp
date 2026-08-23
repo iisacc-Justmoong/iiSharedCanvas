@@ -214,6 +214,7 @@ private:
 
 struct LimitTotals {
     std::uint64_t rasterPixels = 0;
+    std::uint64_t rasterChunks = 0;
     std::uint64_t vectorPaths = 0;
     std::uint64_t pathCommands = 0;
     std::uint64_t keyframes = 0;
@@ -354,6 +355,24 @@ IiscError checkDocumentLimits(const Document &document,
                            limits.maximumTotalRasterPixels)) {
                 return makeError(IiscErrorCode::LimitExceeded, 0,
                                  "raster pixel count exceeds the configured limit");
+            }
+            continue;
+        }
+
+        if (const auto *chunked = std::get_if<ChunkedRasterAsset>(&asset)) {
+            if (!addWithin(totals.rasterChunks,
+                           chunked->chunks.size(),
+                           limits.maximumRasterChunks)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0,
+                                 "raster chunk count exceeds the configured limit");
+            }
+            for (const RasterChunk &chunk : chunked->chunks) {
+                if (!addWithin(totals.rasterPixels,
+                               chunk.pixels.pixels.size(),
+                               limits.maximumTotalRasterPixels)) {
+                    return makeError(IiscErrorCode::LimitExceeded, 0,
+                                     "raster pixel count exceeds the configured limit");
+                }
             }
             continue;
         }
@@ -552,22 +571,45 @@ void writeVector(ByteWriter &writer, const VectorAsset &vector)
     }
 }
 
+void writeChunkedRaster(ByteWriter &writer, const ChunkedRasterAsset &chunked)
+{
+    writer.writeU32(static_cast<std::uint32_t>(chunked.chunks.size()));
+    for (const RasterChunk &chunk : chunked.chunks) {
+        writer.writeI32(chunk.column);
+        writer.writeI32(chunk.row);
+        writeRaster(writer, chunk.pixels);
+    }
+}
+
 void writePayload(ByteWriter &writer, const Document &document)
 {
     writer.writeI32(document.extent.width);
     writer.writeI32(document.extent.height);
+    if (document.formatVersion.minor >= 1) {
+        writer.writeU8(document.canvasMode == CanvasMode::Infinite ? 1U : 0U);
+        if (document.canvasMode == CanvasMode::Infinite) {
+            writer.writeI32(document.infiniteCanvas.origin.x);
+            writer.writeI32(document.infiniteCanvas.origin.y);
+            writer.writeI32(document.infiniteCanvas.chunkSize);
+        }
+    }
     writer.writeU32(document.timeline.frameRate.numerator);
     writer.writeU32(document.timeline.frameRate.denominator);
     writer.writeU32(document.timeline.frameCount);
 
     writer.writeU32(static_cast<std::uint32_t>(document.assets.size()));
     for (const Asset &asset : document.assets) {
-        writer.writeU8(std::holds_alternative<RasterAsset>(asset) ? 0U : 1U);
+        const std::uint8_t kind = std::holds_alternative<RasterAsset>(asset)
+            ? 0U
+            : (std::holds_alternative<VectorAsset>(asset) ? 1U : 2U);
+        writer.writeU8(kind);
         writer.writeString(assetId(asset));
         if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
             writeRaster(writer, raster->pixels);
+        } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
+            writeVector(writer, *vector);
         } else {
-            writeVector(writer, std::get<VectorAsset>(asset));
+            writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset));
         }
     }
 
@@ -613,6 +655,16 @@ public:
         Document document;
         document.formatVersion = version;
         document.extent = {m_reader.readI32(), m_reader.readI32()};
+        if (version.minor >= 1) {
+            const std::uint8_t canvasMode = m_reader.readU8();
+            if (canvasMode == 1U) {
+                document.canvasMode = CanvasMode::Infinite;
+                document.infiniteCanvas.origin = {m_reader.readI32(), m_reader.readI32()};
+                document.infiniteCanvas.chunkSize = m_reader.readI32();
+            } else if (canvasMode != 0U) {
+                m_reader.fail(IiscErrorCode::InvalidData, "unknown canvas mode tag");
+            }
+        }
         document.timeline.frameRate = {m_reader.readU32(), m_reader.readU32()};
         document.timeline.frameCount = m_reader.readU32();
 
@@ -634,6 +686,8 @@ public:
                 document.assets.emplace_back(RasterAsset{id, readRaster()});
             } else if (kind == 1) {
                 document.assets.emplace_back(readVector(id));
+            } else if (kind == 2 && version.minor >= 1) {
+                document.assets.emplace_back(readChunkedRaster(id));
             } else {
                 m_reader.fail(IiscErrorCode::InvalidData, "unknown asset kind tag");
             }
@@ -855,6 +909,23 @@ private:
             vector.paths.push_back(std::move(path));
         }
         return vector;
+    }
+
+    ChunkedRasterAsset readChunkedRaster(std::string id)
+    {
+        ChunkedRasterAsset chunked;
+        chunked.id = std::move(id);
+        const std::uint32_t chunkCount = limitedCount(m_limits.maximumRasterChunks,
+                                                       "raster chunk");
+        addTotal(m_totals.rasterChunks,
+                 chunkCount,
+                 m_limits.maximumRasterChunks,
+                 "raster chunk");
+        chunked.chunks.reserve(chunkCount);
+        for (std::uint32_t index = 0; index < chunkCount; ++index) {
+            chunked.chunks.push_back({m_reader.readI32(), m_reader.readI32(), readRaster()});
+        }
+        return chunked;
     }
 
     RasterBlendMode readBlendMode()

@@ -24,6 +24,7 @@ struct SerializationLimits {
     std::uint32_t maximumStringBytes = 1024U * 1024U;
     std::uint32_t maximumAssets = 65536U;
     std::uint32_t maximumLayers = 65536U;
+    std::uint32_t maximumRasterChunks = 1048576U;
 };
 
 enum class IiscErrorCode {

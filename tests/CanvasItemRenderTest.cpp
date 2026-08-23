@@ -1,11 +1,14 @@
 #include <iiSharedCanvas.h>
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QGuiApplication>
 #include <QImage>
 #include <QPainter>
 #include <QQmlComponent>
 #include <QQmlEngine>
+#include <QQuickWindow>
+#include <QThread>
 
 #include <iostream>
 #include <memory>
@@ -27,6 +30,12 @@ QImage render(iiSharedCanvas::CanvasItem &item, int width, int height)
 {
     item.setWidth(width);
     item.setHeight(height);
+    QElapsedTimer timeout;
+    timeout.start();
+    while (item.rendering() && timeout.elapsed() < 5000) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+        QThread::msleep(1);
+    }
     QImage output(width, height, QImage::Format_ARGB32);
     output.fill(Qt::transparent);
     QPainter painter(&output);
@@ -74,7 +83,9 @@ iiSharedCanvas::Document mixedDocument()
 
 int main(int argc, char **argv)
 {
-    qputenv("QT_QPA_PLATFORM", "offscreen");
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) {
+        qputenv("QT_QPA_PLATFORM", "offscreen");
+    }
     QGuiApplication application(argc, argv);
 
     using namespace iiSharedCanvas;
@@ -95,6 +106,11 @@ int main(int argc, char **argv)
            "CanvasItem must expose document readiness and extent");
     expect(item.frame() == 0 && item.frameCount() == 2,
            "CanvasItem must expose the current frame and timeline length");
+    expect(item.rendering() && item.renderTileSize() == 512,
+           "CanvasItem binding must schedule bounded asynchronous texture-tile rendering");
+    expect(!item.gpuAccelerated()
+               && item.graphicsBackend() == QStringLiteral("unavailable"),
+           "a detached CanvasItem must not falsely claim an active hardware backend");
 
     QImage output = render(item, 4, 4);
     expect(output.pixel(0, 0) == 0xff102030U,
@@ -218,6 +234,7 @@ int main(int argc, char **argv)
                && editableOwned.document()
                && editableOwned.document()->layers.front().opacity == 0.5,
            "CanvasItem must expose its structural editor and apply edits to owned document data");
+    render(editableOwned, 8, 6);
     const RasterLayer *editedFrame = editableOwned.framePixels();
     expect(editedFrame
                && rasterLayerPixelAt(*editedFrame, {0, 0}) == 0x80abcdefU,
@@ -253,6 +270,23 @@ int main(int argc, char **argv)
                && output.pixel(0, 0) == 0x00000000U,
            "transformed raster editing must land in the selected layer footprint only");
 
+    CanvasItem largeCanvas;
+    largeCanvas.setWidth(1024);
+    largeCanvas.setHeight(768);
+    expect(largeCanvas.createInfiniteRasterDocument(65536, 49152, 256)
+               && largeCanvas.documentReady(),
+           "a tens-of-thousands-pixel sparse canvas must bind without a monolithic frame allocation");
+    render(largeCanvas, 1024, 768);
+    expect(!largeCanvas.rendering()
+               && largeCanvas.residentTileCount() > 0
+               && largeCanvas.residentTileCount() <= 64
+               && largeCanvas.framePixels() == nullptr,
+           "large-canvas rendering must stay within the resident tile budget and avoid full-frame pixels");
+    const qulonglong largeRevision = largeCanvas.revision();
+    largeCanvas.panBy(-640.0, -384.0);
+    expect(largeCanvas.revision() == largeRevision,
+           "camera-only manipulation must remain a GPU transform and not recomposite document content");
+
     CanvasItem artifact;
     Document artifactDocument = mixedDocument();
     expect(artifact.bind(artifactDocument), "mixed render artifact document must bind");
@@ -263,6 +297,62 @@ int main(int argc, char **argv)
            "test output directory must be creatable inside build/");
     expect(artifactImage.save(outputDirectory + QStringLiteral("/shared-canvas-item.png")),
            "the mixed CanvasItem verification artifact must be written as PNG");
+
+    if (qEnvironmentVariableIntValue("IISHAREDCANVAS_VERIFY_GPU") == 1) {
+        QQuickWindow window;
+        window.resize(64, 64);
+        CanvasItem gpuItem(window.contentItem());
+        gpuItem.setWidth(64);
+        gpuItem.setHeight(64);
+        Document gpuDocument = mixedDocument();
+        expect(gpuItem.bind(gpuDocument),
+               "the hardware scene-graph probe document must bind");
+        gpuItem.setZoom(16.0);
+        window.show();
+
+        QElapsedTimer timeout;
+        timeout.start();
+        while ((gpuItem.rendering() || !gpuItem.gpuAccelerated())
+               && timeout.elapsed() < 5000) {
+            window.requestUpdate();
+            QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
+            QThread::msleep(1);
+        }
+        const QImage gpuFrame = window.grabWindow();
+        expect(gpuItem.gpuAccelerated()
+                   && gpuItem.graphicsBackend() != QStringLiteral("software"),
+               "the explicit hardware probe must use a Qt Quick GPU backend");
+        bool sawBackground = false;
+        bool sawVector = false;
+        for (int y = 0; y < gpuFrame.height(); ++y) {
+            for (int x = 0; x < gpuFrame.width(); ++x) {
+                const QRgb pixel = gpuFrame.pixel(x, y);
+                sawBackground = sawBackground || pixel == 0xff102030U;
+                sawVector = sawVector || pixel == 0xffffcc00U;
+            }
+        }
+        const bool gpuPixelsMatch = !gpuFrame.isNull()
+            && sawBackground && sawVector;
+        if (!gpuPixelsMatch && !gpuFrame.isNull()) {
+            std::cerr << "GPU probe backend="
+                      << gpuItem.graphicsBackend().toStdString()
+                      << " size=" << gpuFrame.width() << 'x' << gpuFrame.height()
+                      << " dpr=" << gpuFrame.devicePixelRatio()
+                      << " background=0x" << std::hex << gpuFrame.pixel(0, 0)
+                      << " sawBackground=" << sawBackground
+                      << " sawVector=" << sawVector
+                      << std::dec << '\n';
+        }
+        expect(gpuPixelsMatch,
+               "the GPU scene graph must present uploaded mixed-document texture tiles");
+        if (gpuPixelsMatch && gpuItem.gpuAccelerated()) {
+            std::cout << "GPU_BACKEND="
+                      << gpuItem.graphicsBackend().toStdString()
+                      << " GPU_FRAME=" << gpuFrame.width() << 'x'
+                      << gpuFrame.height() << '\n';
+        }
+        window.hide();
+    }
 
     return failures == 0 ? 0 : 1;
 }

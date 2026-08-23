@@ -1,32 +1,41 @@
 #pragma once
 
 #include "Bitmap/BitmapEditor.h"
+#include "Bitmap/ChunkedBitmapEditor.h"
 #include "Document/DocumentEditor.h"
 #include "Export.h"
+#include "QtAdapter/AsyncFrameRenderer.h"
 
 #include <QColor>
 #include <QPointF>
-#include <QQuickPaintedItem>
+#include <QQuickItem>
 #include <QString>
+#include <QVariantMap>
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 #include <string>
 #include <vector>
 
 class QEvent;
 class QMouseEvent;
 class QPainter;
+class QSGNode;
 class QTabletEvent;
 class QWheelEvent;
 
 namespace iiSharedCanvas {
 
-class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickPaintedItem {
+class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(bool documentReady READ documentReady NOTIFY documentChanged)
     Q_PROPERTY(int canvasWidth READ canvasWidth NOTIFY documentChanged)
     Q_PROPERTY(int canvasHeight READ canvasHeight NOTIFY documentChanged)
+    Q_PROPERTY(bool infiniteCanvas READ infiniteCanvas NOTIFY documentChanged)
+    Q_PROPERTY(int canvasOriginX READ canvasOriginX NOTIFY documentChanged)
+    Q_PROPERTY(int canvasOriginY READ canvasOriginY NOTIFY documentChanged)
+    Q_PROPERTY(int canvasChunkSize READ canvasChunkSize NOTIFY documentChanged)
     Q_PROPERTY(quint32 frame READ frame WRITE setFrame NOTIFY frameChanged)
     Q_PROPERTY(quint32 frameCount READ frameCount NOTIFY documentChanged)
     Q_PROPERTY(QString selectedLayerId READ selectedLayerId NOTIFY selectionChanged)
@@ -60,6 +69,11 @@ class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickPaintedItem {
     Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY viewportChanged)
     Q_PROPERTY(qreal panX READ panX WRITE setPanX NOTIFY viewportChanged)
     Q_PROPERTY(qreal panY READ panY WRITE setPanY NOTIFY viewportChanged)
+    Q_PROPERTY(bool rendering READ rendering NOTIFY renderingChanged)
+    Q_PROPERTY(int renderTileSize READ renderTileSize CONSTANT)
+    Q_PROPERTY(int residentTileCount READ residentTileCount NOTIFY residentTileCountChanged)
+    Q_PROPERTY(bool gpuAccelerated READ gpuAccelerated NOTIFY graphicsBackendChanged)
+    Q_PROPERTY(QString graphicsBackend READ graphicsBackend NOTIFY graphicsBackendChanged)
     Q_PROPERTY(qulonglong revision READ revision NOTIFY revisionChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
 
@@ -78,9 +92,21 @@ public:
 
     Q_INVOKABLE bool createDocument(int width, int height, quint32 frameCount = 1);
     Q_INVOKABLE bool createRasterDocument(int width, int height, quint32 frameCount = 1);
+    Q_INVOKABLE bool createInfiniteRasterDocument(int width,
+                                                  int height,
+                                                  int chunkSize = 256,
+                                                  quint32 frameCount = 1);
     [[nodiscard]] bool documentReady() const noexcept;
     [[nodiscard]] int canvasWidth() const noexcept;
     [[nodiscard]] int canvasHeight() const noexcept;
+    [[nodiscard]] bool infiniteCanvas() const noexcept;
+    [[nodiscard]] int canvasOriginX() const noexcept;
+    [[nodiscard]] int canvasOriginY() const noexcept;
+    [[nodiscard]] int canvasChunkSize() const noexcept;
+    Q_INVOKABLE QVariantMap ensureInfiniteCanvasRegion(qreal x,
+                                                       qreal y,
+                                                       qreal width,
+                                                       qreal height);
     [[nodiscard]] quint32 frame() const noexcept;
     void setFrame(quint32 frame);
     [[nodiscard]] quint32 frameCount() const noexcept;
@@ -160,10 +186,16 @@ public:
     Q_INVOKABLE void zoomAt(qreal factor, const QPointF &itemPosition);
 
     Q_INVOKABLE bool refresh();
+    Q_INVOKABLE qulonglong refreshAsync();
+    [[nodiscard]] bool rendering() const noexcept;
+    [[nodiscard]] int renderTileSize() const noexcept;
+    [[nodiscard]] int residentTileCount() const noexcept;
+    [[nodiscard]] bool gpuAccelerated() const noexcept;
+    [[nodiscard]] QString graphicsBackend() const;
     [[nodiscard]] qulonglong revision() const noexcept;
     [[nodiscard]] QString lastError() const;
 
-    void paint(QPainter *painter) override;
+    void paint(QPainter *painter);
 
 signals:
     void documentChanged();
@@ -179,6 +211,10 @@ signals:
     void inputStateChanged();
     void undoRedoChanged();
     void viewportChanged();
+    void renderingChanged();
+    void renderCompleted(qulonglong requestId);
+    void residentTileCountChanged();
+    void graphicsBackendChanged();
     void revisionChanged();
     void lastErrorChanged();
 
@@ -189,8 +225,18 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void mouseUngrabEvent() override;
     void wheelEvent(QWheelEvent *event) override;
+    QSGNode *updatePaintNode(QSGNode *oldNode,
+                             UpdatePaintNodeData *updatePaintNodeData) override;
+    void geometryChange(const QRectF &newGeometry,
+                        const QRectF &oldGeometry) override;
 
 private:
+    [[nodiscard]] bool chunkedRasterSelected() const noexcept;
+    [[nodiscard]] std::uint64_t activeEditorRevision() const noexcept;
+    [[nodiscard]] bool activeEditorCanUndo() const noexcept;
+    [[nodiscard]] bool activeEditorCanRedo() const noexcept;
+    [[nodiscard]] bool activeEditorStrokeActive() const noexcept;
+    [[nodiscard]] const std::string &activeEditorError() const noexcept;
     [[nodiscard]] Layer *selectedLayer() noexcept;
     [[nodiscard]] const Layer *selectedLayer() const noexcept;
     bool syncSelectedLayer();
@@ -205,18 +251,42 @@ private:
     void applyBrush(const BitmapBrush &brush);
     bool finishEdit(bool success);
     void notifyUndoRedo(bool priorCanUndo, bool priorCanRedo);
-    bool applyRenderedFrame(RasterLayer pixels);
+    struct CachedTile {
+        CanvasRegion region;
+        RasterLayer pixels;
+        std::uint64_t contentGeneration = 0;
+        std::uint64_t lastUse = 0;
+    };
+
+    void scheduleVisibleRender(bool contentChanged);
+    void startScheduledRender();
+    void applyAsyncRender(qulonglong requestId);
+    [[nodiscard]] std::vector<FrameRenderTileRequest> visibleTileRequests() const;
+    [[nodiscard]] bool hasCachedTile(const FrameRenderTileRequest &request) const noexcept;
+    void trimTileCache();
+    void clearTileCache();
+    void updateRenderingState();
     void setLastError(QString message);
 
     Document m_ownedDocument;
     Document *m_document = nullptr;
     DocumentEditor m_documentEditor;
     RasterLayer m_framePixels;
+    AsyncFrameRenderer m_asyncRenderer;
+    std::shared_ptr<const Document> m_renderSnapshot;
+    std::vector<CachedTile> m_tileCache;
     BitmapEditor m_editor;
+    ChunkedBitmapEditor m_chunkedEditor;
+    mutable RasterLayer m_selectedRasterCache;
     std::string m_selectedLayerId;
     FrameIndex m_frame = 0;
     std::uint64_t m_revision = 0;
+    std::uint64_t m_contentGeneration = 0;
+    std::uint64_t m_latestRequestContentGeneration = 0;
+    std::uint64_t m_tileCacheRevision = 0;
+    std::uint64_t m_tileUseCounter = 0;
     std::uint64_t m_strokeStartRevision = 0;
+    qulonglong m_latestAsyncRequest = 0;
     qreal m_zoom = 1.0;
     qreal m_panX = 0.0;
     qreal m_panY = 0.0;
@@ -236,6 +306,9 @@ private:
     std::vector<int> m_undoStrokeCounts;
     std::vector<int> m_redoStrokeCounts;
     bool m_panning = false;
+    bool m_documentValid = false;
+    bool m_renderSchedulePending = false;
+    bool m_reportedRendering = false;
     bool m_stabilizerActive = false;
     bool m_multithreadedEventsEnabled = true;
     bool m_tabletPointerActive = false;

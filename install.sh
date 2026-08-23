@@ -31,9 +31,11 @@ cmake --install "${BUILD_DIR}" --prefix "${INSTALL_PREFIX}" --config Release
 
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/iiSharedCanvas.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapEditor.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/ChunkedBitmapEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/Document.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/DocumentEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/BitmapItem.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/AsyncFrameRenderer.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/CanvasItem.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Render/FrameRenderer.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Serialization/IiscCodec.h"

@@ -26,6 +26,8 @@ endif()
 add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/BitmapEditor.cpp
         src/Bitmap/BitmapEditor.h
+        src/Bitmap/ChunkedBitmapEditor.cpp
+        src/Bitmap/ChunkedBitmapEditor.h
         src/Document/Document.cpp
         src/Document/Document.h
         src/Document/DocumentEditor.cpp
@@ -34,6 +36,8 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/QtAdapter/CanvasItem.h
         src/QtAdapter/BitmapItem.cpp
         src/QtAdapter/BitmapItem.h
+        src/QtAdapter/AsyncFrameRenderer.cpp
+        src/QtAdapter/AsyncFrameRenderer.h
         src/Render/FrameRenderer.cpp
         src/Render/FrameRenderer.h
         src/Serialization/IiscCodec.cpp
@@ -184,6 +188,22 @@ if(BUILD_TESTING)
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.IiscCodec
             COMMAND iiSharedCanvasIiscCodecTest)
+
+    add_executable(iiSharedCanvasInfiniteCanvasTest
+            tests/InfiniteCanvasTest.cpp)
+    target_link_libraries(iiSharedCanvasInfiniteCanvasTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.InfiniteCanvas
+            COMMAND iiSharedCanvasInfiniteCanvasTest)
+    set_tests_properties(iiSharedCanvas.InfiniteCanvas PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
+    add_executable(iiSharedCanvasAsyncFrameRendererTest
+            tests/AsyncFrameRendererTest.cpp)
+    target_link_libraries(iiSharedCanvasAsyncFrameRendererTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.AsyncFrameRenderer
+            COMMAND iiSharedCanvasAsyncFrameRendererTest)
 
     add_test(NAME iiSharedCanvas.ProjectContract
             COMMAND ${CMAKE_COMMAND}

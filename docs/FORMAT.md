@@ -6,7 +6,7 @@ Status: Implemented canonical binary contract.
 
 - Extension: `.iisc`
 - Media type: `application/vnd.iisacc.ii-shared-canvas`
-- Model version: major 1, minor 0
+- Current model version: major 1, minor 1
 - Integer byte order: little-endian
 - Floating-point representation: IEEE 754 binary64, stored as little-endian bits
 - Raster channel representation: 32-bit ARGB as defined by iiPaintEngine
@@ -51,6 +51,12 @@ The payload has one canonical sequence:
 ~~~text
 i32 canvasWidth
 i32 canvasHeight
+[if minor >= 1]
+  u8 canvasMode       // 0 finite, 1 infinite
+  [if canvasMode == 1]
+    i32 canvasOriginX
+    i32 canvasOriginY
+    i32 chunkSize
 u32 frameRateNumerator
 u32 frameRateDenominator
 u32 frameCount
@@ -65,12 +71,19 @@ Layer layers[layerCount]
 Assets and layers preserve their document vector order. Layers are ordered
 bottom-to-top.
 
+Version 1.1 adds infinite-canvas metadata between the extent and timeline.
+`canvasWidth` and `canvasHeight` describe the currently allocated render region,
+not a conceptual boundary. Its top-left world coordinate is
+`(canvasOriginX, canvasOriginY)`. The chunk size is a power of two from 32
+through 4096 pixels. Version 1.0 omits this block and always decodes as a finite
+canvas with origin `(0, 0)`.
+
 ## Assets
 
 Every asset starts with:
 
 ~~~text
-u8 kind       // 0 raster, 1 vector
+u8 kind       // 0 raster, 1 vector, 2 chunked raster (minor >= 1)
 string id
 ~~~
 
@@ -99,6 +112,25 @@ choice, so one raster has one canonical representation.
 Brush trajectories, pressure samples, curves, dabs, and replay commands cannot
 appear here. iiPaintEngine commits brush output first and `.iisc` stores only
 the resulting pixels.
+
+### Chunked raster asset
+
+~~~text
+u32 chunkCount
+repeat chunkCount:
+  i32 column
+  i32 row
+  RasterPayload pixels
+~~~
+
+`RasterPayload` is the width, height, pixel count, encoding, encoded byte count,
+and data sequence defined by Raster asset above; it does not repeat an id.
+Every chunk is exactly `chunkSize` by `chunkSize`. `(column, row)` identifies
+world pixel region `[column * chunkSize, (column + 1) * chunkSize)` by
+`[row * chunkSize, (row + 1) * chunkSize)`, including negative coordinates.
+Chunks are unique and encoded in ascending row then column order. Missing
+chunks are transparent and consume no raster payload. A chunked raster is valid
+only in an infinite canvas and first appears in version 1.1.
 
 ### Vector asset
 
@@ -200,6 +232,7 @@ input events, and UI tool state are not encoded.
 | Container bytes | 1 GiB |
 | Canvas or vector viewport pixels | 256 Mi pixels |
 | Total raster pixels | 256 Mi pixels |
+| Sparse raster chunks | 1,048,576 |
 | Assets | 65,536 |
 | Layers | 65,536 |
 | One string | 1 MiB |
@@ -222,6 +255,8 @@ for its device class.
   transforms, and timeline references. It must never silently rasterize vector
   assets, discard animation, or introduce retained brush trajectories.
 
-Version 1.0 is the first physical format, so no earlier physical version needs
-migration. Future minor or major support requires an explicit decoder and
-canonical re-encoder plus rendered-frame equivalence tests.
+Version 1.0 is the first physical format. Version 1.1 adds finite/infinite mode,
+an allocated-region world origin, a chunk size, and canonical sparse raster
+assets. A 1.0 document migrates on decode to finite mode at origin zero without
+changing pixels or rendering. Future minor or major support requires an explicit
+decoder and canonical re-encoder plus rendered-frame equivalence tests.

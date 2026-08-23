@@ -58,6 +58,7 @@ public:
     [[nodiscard]] const DocumentEditResult &lastResult() const noexcept;
 
     DocumentEditResult setCanvasExtent(CanvasExtent extent);
+    DocumentEditResult ensureInfiniteCanvasRegion(CanvasRegion region);
     DocumentEditResult setFrameRate(FrameRate frameRate);
     DocumentEditResult setFrameCount(FrameIndex frameCount);
 

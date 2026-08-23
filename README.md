@@ -6,11 +6,11 @@ on one canvas. It is the authoritative canvas standard for iisacc products;
 applications adopt its model and format through application-owned adapters.
 
 The repository contains the versioned in-memory model, validation rules,
-deterministic keyframe evaluation, mixed raster/vector frame rendering, an
-editable raster-asset boundary, a Qt Quick bitmap display item, CMake package
-export, canonical `.iisc` serialization, and contract tests. Measured
-large-document and cross-platform hardening remain later milestones and are not
-claimed as complete.
+deterministic keyframe evaluation, bounded mixed raster/vector tile rendering,
+an editable raster-asset boundary, sparse infinite-canvas chunks, asynchronous
+Qt Quick scene-graph presentation, CMake package export, canonical `.iisc`
+serialization, and contract tests. Cross-platform device profiling, partial
+decode, and crash-recovery hardening remain later milestones.
 
 Consumer applications do not shape this public contract in parallel. A library
 change is completed and verified here first; consumers then conform to that
@@ -24,6 +24,7 @@ for iiSharedCanvas.
 | --- | --- | --- |
 | Bitmap image | iiPaintEngine RasterLayer | Static layer |
 | iiPaintEngine brush | Committed ARGB pixels | Static or keyframed raster asset |
+| Infinite raster paint | Committed ARGB pixels in touched world chunks | Static sparse raster layer |
 | Vector path | M/L/Q/C/Z path commands with solid fill or stroke | Static layer |
 | Raster keyframes | Raster asset references at integer frames | Hold sampling |
 | Vector keyframes | Vector asset references at integer frames | Hold sampling |
@@ -69,6 +70,12 @@ operation. The initial history policy retains at most 32 full raster snapshots
 for predictable behavior; patch-budget optimization remains a measured product
 hardening task.
 
+`ChunkedBitmapEditor` stores only touched chunks in an infinite canvas. Signed
+world coordinates select canonical row/column chunks, missing chunks remain
+transparent, and each brush gesture commits pixels with one sparse undo entry.
+Camera movement changes the allocated world region on chunk boundaries without
+moving existing chunks or converting the document into one monolithic bitmap.
+
 `BitmapItem` is a `QQuickPaintedItem` display and input adapter. It can bind an
 existing document raster asset or create an owned bitmap, renders ARGB pixels
 without smoothing, supports zoom and pan, and routes mouse or explicit
@@ -78,13 +85,14 @@ owner mutates a bound document directly, the UI owner must call `refresh()` on
 the GUI thread.
 
 `CanvasItem` is the full-document Qt Quick boundary and is registered as
-`SharedCanvas`. It binds a caller-owned `Document` or creates an owned empty
-timeline, renders the current mixed frame, and exposes frame selection,
-nearest-neighbor zoom, and pan. A host can select a raster document layer and
+`SharedCanvas`. It is a `QQuickItem` whose worker renders only visible,
+prefetched 512-texel tiles from an immutable document snapshot. Qt Quick scene
+graph textures perform presentation, nearest-neighbor scaling, pan, and zoom on
+the active graphics backend instead of repainting a canvas-sized
+`QQuickPaintedItem` surface. A host can select a raster document layer and
 paint or erase it in document coordinates while every surrounding raster and
 vector layer remains visible. The item inverts the selected layer transform
-before committing pixels and exposes selected-layer undo/redo. Caller-owned
-model mutations become visible through `refresh()`.
+before committing pixels and exposes selected-layer undo/redo.
 
 `createRasterDocument()` creates and selects one transparent raster layer for a
 product host that needs an immediately editable canvas. The authoring surface
@@ -92,9 +100,18 @@ also exposes the brush spacing and feature toggles, three-point pressure curve,
 pressure-to-opacity switch, stabilizer strength, tool mode, live-stroke state,
 stroke count, and mouse/tablet input state. Whole-raster replacement accepts an
 iiPaintEngine `RasterLayer` directly, so image import does not require a
-temporary bitmap file. Rendering and edit commits are synchronous in version
-0.1; `livePreviewFrameIntervalMs` and `multithreadedEventsEnabled` are retained
-host configuration values but do not claim an asynchronous scheduler.
+temporary bitmap file. Model edits still commit atomically on the GUI owning
+thread, but frame changes, edits, and `refresh()` schedule coalesced background
+tile rendering. `rendering`, `renderCompleted`, `residentTileCount`,
+`gpuAccelerated`, and `graphicsBackend` expose that runtime state. Camera-only
+changes update the GPU scene transform immediately and request only missing
+prefetch tiles; they do not advance the document presentation revision.
+
+`createInfiniteRasterDocument()` creates the sparse equivalent with a small
+initial allocated region. `ensureInfiniteCanvasRegion()` grows that region
+outwards on chunk boundaries as the host camera reveals new world space. The
+item exposes the allocated world origin and reports each side's growth so a
+consumer can resize its visual surface without a visible camera jump.
 
 ## Mixed frame rendering
 
@@ -111,6 +128,14 @@ nearest-neighbor sampling. A singular transform has an empty footprint. The
 renderer returns a transparent frame for a valid document with no layers and
 fails closed for invalid documents or out-of-range frames.
 
+`renderFrameRegion` renders one world region into an explicitly bounded output
+extent. `renderFrameTiles` validates once and renders a batch of such requests;
+this is the core used by `AsyncFrameRenderer`. LOD output dimensions may be
+smaller than the world region, so a tens-of-thousands-pixel canvas never needs
+a canvas-sized display allocation. Sparse chunks are culled before temporary
+surfaces are created, and native vector paths rasterize directly into the tile
+output instead of allocating their full viewport.
+
 ## Durable `.iisc` format
 
 `encodeIisc()` and `decodeIisc()` round-trip every version 1 document field in
@@ -119,6 +144,10 @@ format version, exact payload size, and CRC-32 checksum. Raster payloads select
 raw ARGB32 or canonical run-length ARGB32, whichever is smaller. Native vector
 commands and keyframe references remain native data and are never silently
 rasterized.
+
+Version 1.1 adds finite/infinite canvas mode, an allocated world origin, a
+power-of-two chunk size, and canonical sparse raster assets. Version 1.0 files
+continue to decode as finite canvases at origin zero.
 
 Decoding exposes the complete public `Document` aggregate rather than an opaque
 file handle. Consumers can enumerate bottom-to-top `Layer` entries and inspect
@@ -139,9 +168,11 @@ absent without introducing an archive or JSON dependency.
 
 The only direct project dependency is iiPaintEngine 0.1.0. Its exported CMake
 target supplies the raster types, rasterizer, blend modes, transforms, and its
-Qt Core/Gui/Qml/Quick platform targets transitively. `BitmapItem` and
-`CanvasItem` link those already-supplied Qt targets; iiSharedCanvas performs no
-second package discovery.
+Qt Core/Gui/Qml/Quick platform targets transitively. `AsyncFrameRenderer` uses
+Qt Core `QPromise`, `QFutureWatcher`, and `QThreadPool`; `CanvasItem` uses the
+public Qt Quick scene graph texture API. These are already-supplied Qt targets,
+so iiSharedCanvas performs no second package discovery and adds no third-party
+runtime.
 
 ## Build and test
 
@@ -188,12 +219,16 @@ src/
   Bitmap/
     BitmapEditor.h
     BitmapEditor.cpp
+    ChunkedBitmapEditor.h
+    ChunkedBitmapEditor.cpp
   Document/
     Document.h
     Document.cpp
     DocumentEditor.h
     DocumentEditor.cpp
   QtAdapter/
+    AsyncFrameRenderer.h
+    AsyncFrameRenderer.cpp
     BitmapItem.h
     BitmapItem.cpp
     CanvasItem.h
@@ -268,9 +303,18 @@ supported layer blend mode.
 engine, verifies frame switching, external refresh, selected raster painting,
 inverse-transform input, and undo, and writes
 `build/test-output/shared-canvas-item.png`.
+With `IISHAREDCANVAS_VERIFY_GPU=1` on a windowed platform, the same executable
+also requires a hardware Qt Quick backend and verifies a captured scene-graph
+tile image; the normal offscreen CTest does not claim hardware execution.
 `iiSharedCanvas.IiscCodec` verifies canonical byte-identical round-trip,
 frame-by-frame rendered-pixel identity, corruption and future-version failure,
 UTF-8, tag, trailing-data, and allocation-limit enforcement.
+`iiSharedCanvas.InfiniteCanvas` verifies signed chunk addressing, camera-driven
+region growth, sparse paint, rendering, undo/redo, canonical 1.1 persistence,
+1.0 finite migration, and the Qt adapter's exact growth margins.
+`iiSharedCanvas.AsyncFrameRenderer` verifies a 65,536 by 49,152 sparse and
+native-vector document through bounded 128 by 128 LOD output, immutable worker
+snapshots, and owner-thread completion.
 
 ## Documents
 

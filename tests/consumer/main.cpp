@@ -56,6 +56,11 @@ int main()
     BitmapEditor editor(document, "installed-pixels");
     const bool edited = editor.setPixel(2, 1, 0xffaabbccU);
     const FrameRenderResult rendered = renderFrame(document, 0);
+    const FrameRenderTileRequest installedTileRequest{
+        {{0, 0}, {4, 4}}, {2, 2}};
+    const FrameTileRenderResult renderedTile = renderFrameTiles(
+        document, 0, {installedTileRequest});
+    AsyncFrameRenderer asyncRenderer;
     const IiscEncodeResult encoded = encodeIisc(document);
     const IiscDecodeResult decoded = encoded.ok()
         ? decodeIisc(encoded.bytes)
@@ -83,6 +88,10 @@ int main()
         && editor.pixelAt(2, 1) == std::optional<std::uint32_t>{0xffaabbccU}
         && rendered.ok()
         && rasterLayerPixelAt(rendered.pixels, {2, 1}) == 0xffaabbccU
+        && renderedTile.ok()
+        && renderedTile.tiles.size() == 1
+        && renderedTile.tiles.front().pixels.width == 2
+        && !asyncRenderer.busy()
         && decoded.ok()
         && decodedImage
         && decodedImage->pixels.width == 4

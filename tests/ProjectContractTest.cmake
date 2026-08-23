@@ -28,11 +28,15 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Bitmap/BitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Bitmap/ChunkedBitmapEditor.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/QtAdapter/BitmapItem.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/QtAdapter/CanvasItem.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Render/FrameRenderer.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/QtAdapter/AsyncFrameRenderer.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Serialization/IiscCodec.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -50,13 +54,21 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`BitmapEditor` binds to a raster asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`ChunkedBitmapEditor` stores only touched chunks")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`CanvasItem` is the full-document Qt Quick boundary")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`renderFrameRegion` renders one world region")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "graph textures perform presentation")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`DocumentEditor` is the validated structural mutation API")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "A rejected edit never advances `revision()`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "renameAsset")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "ensureInfiniteCanvasRegion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "No pointer trajectory, curve, dab stream, replay command")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
@@ -64,11 +76,17 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1 uses hold sampling only")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "Version 1.1 adds infinite-canvas metadata")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Brush input is not a persisted content kind")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "ctest --test-dir")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Serialization/IiscCodec.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Bitmap/ChunkedBitmapEditor.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "QtAdapter/AsyncFrameRenderer.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
              "GNU AFFERO GENERAL PUBLIC LICENSE")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
@@ -139,9 +157,24 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "appendRasterDabs")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "paintRasterSamples")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/ChunkedBitmapEditor.cpp"
+             "projectBrushDabs")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Render/FrameRenderer.h"
              "return status == FrameRenderStatus::Success;")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Serialization/IiscCodec.h"
              "return error.code == IiscErrorCode::None;")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/BitmapItem.cpp"
              "QImage::Format_ARGB32")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/CanvasItem.cpp"
+             "QSGSimpleTextureNode")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/CanvasItem.cpp"
+             "createTextureFromImage")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/CanvasItem.cpp"
+             "QSGTransformNode")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/AsyncFrameRenderer.cpp"
+             "QThreadPool::globalInstance()")
+
+file(READ "${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/CanvasItem.h" canvas_item_header)
+if(canvas_item_header MATCHES "QQuickPaintedItem")
+    message(FATAL_ERROR "CanvasItem must use bounded scene-graph tiles, not QQuickPaintedItem")
+endif()

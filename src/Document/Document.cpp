@@ -7,14 +7,26 @@ namespace iiSharedCanvas {
 
 ContentKind contentKind(const Asset &asset) noexcept
 {
-    return std::holds_alternative<RasterAsset>(asset)
-        ? ContentKind::Raster
-        : ContentKind::Vector;
+    return std::holds_alternative<VectorAsset>(asset)
+        ? ContentKind::Vector
+        : ContentKind::Raster;
 }
 
 const std::string &assetId(const Asset &asset) noexcept
 {
     return std::visit([](const auto &value) -> const std::string & { return value.id; }, asset);
+}
+
+CanvasOrigin canvasOrigin(const Document &document) noexcept
+{
+    return document.canvasMode == CanvasMode::Infinite
+        ? document.infiniteCanvas.origin
+        : CanvasOrigin{};
+}
+
+CanvasRegion canvasRegion(const Document &document) noexcept
+{
+    return {canvasOrigin(document), document.extent};
 }
 
 Asset *findAsset(Document &document, const std::string &id) noexcept
@@ -46,6 +58,42 @@ const RasterAsset *findRasterAsset(const Document &document,
 {
     const Asset *asset = findAsset(document, id);
     return asset ? std::get_if<RasterAsset>(asset) : nullptr;
+}
+
+ChunkedRasterAsset *findChunkedRasterAsset(Document &document,
+                                            const std::string &id) noexcept
+{
+    Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<ChunkedRasterAsset>(asset) : nullptr;
+}
+
+const ChunkedRasterAsset *findChunkedRasterAsset(const Document &document,
+                                                  const std::string &id) noexcept
+{
+    const Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<ChunkedRasterAsset>(asset) : nullptr;
+}
+
+RasterChunk *findRasterChunk(ChunkedRasterAsset &asset,
+                             std::int32_t column,
+                             std::int32_t row) noexcept
+{
+    const auto match = std::find_if(asset.chunks.begin(), asset.chunks.end(),
+                                    [column, row](const RasterChunk &chunk) {
+                                        return chunk.column == column && chunk.row == row;
+                                    });
+    return match == asset.chunks.end() ? nullptr : &*match;
+}
+
+const RasterChunk *findRasterChunk(const ChunkedRasterAsset &asset,
+                                   std::int32_t column,
+                                   std::int32_t row) noexcept
+{
+    const auto match = std::find_if(asset.chunks.begin(), asset.chunks.end(),
+                                    [column, row](const RasterChunk &chunk) {
+                                        return chunk.column == column && chunk.row == row;
+                                    });
+    return match == asset.chunks.end() ? nullptr : &*match;
 }
 
 VectorAsset *findVectorAsset(Document &document, const std::string &id) noexcept
