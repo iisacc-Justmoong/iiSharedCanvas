@@ -12,6 +12,7 @@
 #include <QString>
 #include <QVariantMap>
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -72,6 +73,7 @@ class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickItem {
     Q_PROPERTY(bool rendering READ rendering NOTIFY renderingChanged)
     Q_PROPERTY(int renderTileSize READ renderTileSize CONSTANT)
     Q_PROPERTY(int residentTileCount READ residentTileCount NOTIFY residentTileCountChanged)
+    Q_PROPERTY(int residentLayerTileCount READ residentLayerTileCount NOTIFY residentLayerTileCountChanged)
     Q_PROPERTY(bool gpuAccelerated READ gpuAccelerated NOTIFY graphicsBackendChanged)
     Q_PROPERTY(QString graphicsBackend READ graphicsBackend NOTIFY graphicsBackendChanged)
     Q_PROPERTY(qulonglong revision READ revision NOTIFY revisionChanged)
@@ -190,6 +192,7 @@ public:
     [[nodiscard]] bool rendering() const noexcept;
     [[nodiscard]] int renderTileSize() const noexcept;
     [[nodiscard]] int residentTileCount() const noexcept;
+    [[nodiscard]] int residentLayerTileCount() const noexcept;
     [[nodiscard]] bool gpuAccelerated() const noexcept;
     [[nodiscard]] QString graphicsBackend() const;
     [[nodiscard]] qulonglong revision() const noexcept;
@@ -214,6 +217,7 @@ signals:
     void renderingChanged();
     void renderCompleted(qulonglong requestId);
     void residentTileCountChanged();
+    void residentLayerTileCountChanged();
     void graphicsBackendChanged();
     void revisionChanged();
     void lastErrorChanged();
@@ -257,6 +261,16 @@ private:
         std::uint64_t contentGeneration = 0;
         std::uint64_t lastUse = 0;
     };
+    struct CachedLayerTile {
+        std::size_t layerIndex = 0;
+        std::string layerId;
+        CanvasRegion region;
+        RasterLayer pixels;
+        double opacity = 1.0;
+        RasterBlendMode blendMode = RasterBlendMode::SourceOver;
+        std::uint64_t contentGeneration = 0;
+        std::uint64_t lastUse = 0;
+    };
 
     void scheduleVisibleRender(bool contentChanged);
     void startScheduledRender();
@@ -264,6 +278,7 @@ private:
     [[nodiscard]] std::vector<FrameRenderTileRequest> visibleTileRequests() const;
     [[nodiscard]] bool hasCachedTile(const FrameRenderTileRequest &request) const noexcept;
     void trimTileCache();
+    [[nodiscard]] bool canPresentLayerTiles() const noexcept;
     void clearTileCache();
     void updateRenderingState();
     void setLastError(QString message);
@@ -275,6 +290,7 @@ private:
     AsyncFrameRenderer m_asyncRenderer;
     std::shared_ptr<const Document> m_renderSnapshot;
     std::vector<CachedTile> m_tileCache;
+    std::vector<CachedLayerTile> m_layerTileCache;
     BitmapEditor m_editor;
     ChunkedBitmapEditor m_chunkedEditor;
     mutable RasterLayer m_selectedRasterCache;

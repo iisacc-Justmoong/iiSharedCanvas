@@ -61,6 +61,8 @@ public:
     DocumentEditResult ensureInfiniteCanvasRegion(CanvasRegion region);
     DocumentEditResult setFrameRate(FrameRate frameRate);
     DocumentEditResult setFrameCount(FrameIndex frameCount);
+    DocumentEditResult setStableDiffusionMetadata(StableDiffusionMetadata metadata);
+    DocumentEditResult clearStableDiffusionMetadata();
 
     DocumentEditResult insertRasterAsset(std::string id,
                                          RasterLayer pixels,
@@ -95,7 +97,6 @@ public:
     DocumentEditResult setStaticSource(const std::string &layerId,
                                        std::string assetId);
     DocumentEditResult setKeyframedSource(const std::string &layerId,
-                                          ContentKind kind,
                                           std::vector<Keyframe> keyframes);
     DocumentEditResult moveLayer(const std::string &layerId,
                                  std::size_t destinationIndex);

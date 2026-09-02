@@ -11,6 +11,7 @@
 #include <QPainter>
 #include <QPointingDevice>
 #include <QQuickWindow>
+#include <QSGOpacityNode>
 #include <QSGRendererInterface>
 #include <QSGSimpleTextureNode>
 #include <QSGTransformNode>
@@ -29,6 +30,7 @@ namespace {
 
 constexpr int RenderTilePixelSize = 512;
 constexpr std::size_t MaximumResidentTiles = 64;
+constexpr std::size_t MaximumResidentLayerTiles = 256;
 constexpr std::uint64_t MaximumContiguousCompatibilityPixels = 16U * 1024U * 1024U;
 
 class CanvasSceneNode final : public QSGTransformNode {
@@ -302,13 +304,8 @@ bool CanvasItem::createRasterDocument(int width, int height, quint32 count)
     m_ownedDocument.timeline = {{24, 1}, count};
     m_ownedDocument.assets.emplace_back(
         RasterAsset{"canvas.raster.0", makeRasterLayer(width, height, 0x00000000U)});
-    m_ownedDocument.layers.push_back({
-        "canvas.layer.0",
-        "Raster",
-        true,
-        1.0,
-        {},
-        RasterBlendMode::SourceOver,
+    m_ownedDocument.layers.emplace_back(BitmapLayer{
+        {"canvas.layer.0", "Raster", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"canvas.raster.0"},
     });
     return bind(m_ownedDocument) && selectLayer(QStringLiteral("canvas.layer.0"));
@@ -330,13 +327,8 @@ bool CanvasItem::createInfiniteRasterDocument(int width,
     m_ownedDocument.extent = {width, height};
     m_ownedDocument.timeline = {{24, 1}, count};
     m_ownedDocument.assets.emplace_back(ChunkedRasterAsset{"canvas.raster.0", {}});
-    m_ownedDocument.layers.push_back({
-        "canvas.layer.0",
-        "Raster",
-        true,
-        1.0,
-        {},
-        RasterBlendMode::SourceOver,
+    m_ownedDocument.layers.emplace_back(BitmapLayer{
+        {"canvas.layer.0", "Raster", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"canvas.raster.0"},
     });
     return bind(m_ownedDocument) && selectLayer(QStringLiteral("canvas.layer.0"));
@@ -477,13 +469,17 @@ bool CanvasItem::selectLayer(const QString &layerId)
     const std::string requestedId = layerId.toUtf8().toStdString();
     const auto match = std::find_if(m_document->layers.begin(),
                                     m_document->layers.end(),
-                                    [&](const Layer &layer) { return layer.id == requestedId; });
+                                    [&](const Layer &layer) {
+                                        return layerProperties(layer).id == requestedId;
+                                    });
     if (match == m_document->layers.end()) {
         setLastError(QStringLiteral("document layer was not found"));
         return false;
     }
     const Asset *asset = resolveAssetAt(*m_document, *match, m_frame);
-    if (!asset || contentKind(*asset) != ContentKind::Raster) {
+    if (!std::holds_alternative<BitmapLayer>(*match)
+        || !asset
+        || contentKind(*asset) != ContentKind::Raster) {
         setLastError(QStringLiteral("selected layer does not resolve to raster content"));
         return false;
     }
@@ -1279,6 +1275,11 @@ int CanvasItem::residentTileCount() const noexcept
     return static_cast<int>(m_tileCache.size());
 }
 
+int CanvasItem::residentLayerTileCount() const noexcept
+{
+    return static_cast<int>(m_layerTileCache.size());
+}
+
 bool CanvasItem::gpuAccelerated() const noexcept
 {
     if (!window() || !window()->rendererInterface()) {
@@ -1546,23 +1547,25 @@ QSGNode *CanvasItem::updatePaintNode(QSGNode *oldNode,
     }
 
     const CanvasOrigin origin = canvasOrigin(*m_document);
-    for (const CachedTile &tile : m_tileCache) {
-        if (tile.pixels.width <= 0 || tile.pixels.height <= 0
-            || tile.pixels.width > std::numeric_limits<int>::max() / 4) {
-            continue;
+    const auto appendTextureNode = [&](QSGNode *parent,
+                                       const CanvasRegion &region,
+                                       const RasterLayer &pixels) {
+        if (pixels.width <= 0 || pixels.height <= 0
+            || pixels.width > std::numeric_limits<int>::max() / 4) {
+            return false;
         }
         const QImage image(
-            reinterpret_cast<const uchar *>(tile.pixels.pixels.data()),
-            tile.pixels.width,
-            tile.pixels.height,
-            tile.pixels.width * 4,
+            reinterpret_cast<const uchar *>(pixels.pixels.data()),
+            pixels.width,
+            pixels.height,
+            pixels.width * 4,
             QImage::Format_ARGB32);
         QSGTexture *texture = quickWindow->createTextureFromImage(
             image,
             QQuickWindow::CreateTextureOptions(QQuickWindow::TextureHasAlphaChannel)
                 | QQuickWindow::TextureCanUseAtlas);
         if (!texture) {
-            continue;
+            return false;
         }
 
         auto *textureNode = new QSGSimpleTextureNode;
@@ -1570,11 +1573,46 @@ QSGNode *CanvasItem::updatePaintNode(QSGNode *oldNode,
         textureNode->setOwnsTexture(true);
         textureNode->setFiltering(QSGTexture::Nearest);
         textureNode->setRect(
-            static_cast<qreal>(tile.region.origin.x - origin.x),
-            static_cast<qreal>(tile.region.origin.y - origin.y),
-            static_cast<qreal>(tile.region.extent.width),
-            static_cast<qreal>(tile.region.extent.height));
-        root->appendChildNode(textureNode);
+            static_cast<qreal>(region.origin.x - origin.x),
+            static_cast<qreal>(region.origin.y - origin.y),
+            static_cast<qreal>(region.extent.width),
+            static_cast<qreal>(region.extent.height));
+        parent->appendChildNode(textureNode);
+        return true;
+    };
+
+    if (canPresentLayerTiles()) {
+        for (std::size_t layerIndex = 0;
+             layerIndex < m_document->layers.size();
+             ++layerIndex) {
+            const auto firstTile = std::find_if(
+                m_layerTileCache.begin(), m_layerTileCache.end(),
+                [&](const CachedLayerTile &tile) {
+                    return tile.contentGeneration == m_contentGeneration
+                        && tile.layerIndex == layerIndex;
+                });
+            if (firstTile == m_layerTileCache.end()) {
+                continue;
+            }
+
+            auto *opacityNode = new QSGOpacityNode;
+            opacityNode->setOpacity(static_cast<float>(firstTile->opacity));
+            for (const CachedLayerTile &tile : m_layerTileCache) {
+                if (tile.contentGeneration == m_contentGeneration
+                    && tile.layerIndex == layerIndex) {
+                    appendTextureNode(opacityNode, tile.region, tile.pixels);
+                }
+            }
+            if (opacityNode->firstChild()) {
+                root->appendChildNode(opacityNode);
+            } else {
+                delete opacityNode;
+            }
+        }
+    } else {
+        for (const CachedTile &tile : m_tileCache) {
+            appendTextureNode(root, tile.region, tile.pixels);
+        }
     }
     return root;
 }
@@ -1637,6 +1675,14 @@ void CanvasItem::startScheduledRender()
                 && tile.pixels.width == request.outputExtent.width
                 && tile.pixels.height == request.outputExtent.height) {
                 tile.lastUse = ++m_tileUseCounter;
+                for (CachedLayerTile &layerTile : m_layerTileCache) {
+                    if (layerTile.contentGeneration == m_contentGeneration
+                        && sameRegion(layerTile.region, request.region)
+                        && layerTile.pixels.width == request.outputExtent.width
+                        && layerTile.pixels.height == request.outputExtent.height) {
+                        layerTile.lastUse = m_tileUseCounter;
+                    }
+                }
                 cached = true;
                 break;
             }
@@ -1664,14 +1710,17 @@ void CanvasItem::applyAsyncRender(qulonglong requestId)
         return;
     }
 
+    FrameLayerBatchRenderResult layerResult = m_asyncRenderer.takeLayerResult();
     FrameTileRenderResult result = m_asyncRenderer.takeResult();
-    if (!result.ok()) {
-        setLastError(QString::fromStdString(result.message));
+    if (!layerResult.ok() || !result.ok()) {
+        setLastError(QString::fromStdString(
+            layerResult.ok() ? result.message : layerResult.message));
         emit renderCompleted(requestId);
         return;
     }
 
     const int priorCount = residentTileCount();
+    const int priorLayerCount = residentLayerTileCount();
     for (FrameRenderTile &rendered : result.tiles) {
         m_tileCache.erase(
             std::remove_if(m_tileCache.begin(), m_tileCache.end(),
@@ -1685,6 +1734,32 @@ void CanvasItem::applyAsyncRender(qulonglong requestId)
             m_contentGeneration,
             ++m_tileUseCounter,
         });
+    }
+
+    for (const FrameRenderTileRequest &request : layerResult.requests) {
+        m_layerTileCache.erase(
+            std::remove_if(m_layerTileCache.begin(), m_layerTileCache.end(),
+                           [&](const CachedLayerTile &tile) {
+                               return regionsOverlap(tile.region, request.region);
+                           }),
+            m_layerTileCache.end());
+    }
+    for (FrameLayerTileRenderResult &layer : layerResult.layers) {
+        if (!layer.visible) {
+            continue;
+        }
+        for (FrameRenderTile &rendered : layer.tiles) {
+            m_layerTileCache.push_back({
+                layer.layerIndex,
+                layer.layerId,
+                rendered.region,
+                std::move(rendered.pixels),
+                layer.opacity,
+                layer.blendMode,
+                m_contentGeneration,
+                ++m_tileUseCounter,
+            });
+        }
     }
     trimTileCache();
 
@@ -1704,6 +1779,9 @@ void CanvasItem::applyAsyncRender(qulonglong requestId)
     ++m_tileCacheRevision;
     if (priorCount != residentTileCount()) {
         emit residentTileCountChanged();
+    }
+    if (priorLayerCount != residentLayerTileCount()) {
+        emit residentLayerTileCountChanged();
     }
     setLastError({});
     update();
@@ -1847,16 +1925,80 @@ void CanvasItem::trimTileCache()
             });
         m_tileCache.erase(oldest);
     }
+    while (m_layerTileCache.size() > MaximumResidentLayerTiles) {
+        const auto oldest = std::min_element(
+            m_layerTileCache.begin(), m_layerTileCache.end(),
+            [](const CachedLayerTile &left, const CachedLayerTile &right) {
+                return left.lastUse < right.lastUse;
+            });
+        m_layerTileCache.erase(oldest);
+    }
+}
+
+bool CanvasItem::canPresentLayerTiles() const noexcept
+{
+    if (!m_document || m_tileCache.empty() || m_layerTileCache.empty()) {
+        return false;
+    }
+
+    bool hasVisibleLayer = false;
+    for (const iiSharedCanvas::Layer &layer : m_document->layers) {
+        const LayerProperties &properties = layerProperties(layer);
+        if (!properties.visible) {
+            continue;
+        }
+        hasVisibleLayer = true;
+        if (properties.blendMode != RasterBlendMode::SourceOver) {
+            return false;
+        }
+    }
+    if (!hasVisibleLayer) {
+        return false;
+    }
+
+    bool hasCurrentTile = false;
+    for (const CachedTile &composed : m_tileCache) {
+        if (composed.contentGeneration != m_contentGeneration) {
+            continue;
+        }
+        hasCurrentTile = true;
+        for (std::size_t layerIndex = 0;
+             layerIndex < m_document->layers.size();
+             ++layerIndex) {
+            if (!layerProperties(m_document->layers[layerIndex]).visible) {
+                continue;
+            }
+            const bool found = std::any_of(
+                m_layerTileCache.begin(), m_layerTileCache.end(),
+                [&](const CachedLayerTile &tile) {
+                    return tile.contentGeneration == m_contentGeneration
+                        && tile.layerIndex == layerIndex
+                        && tile.blendMode == RasterBlendMode::SourceOver
+                        && sameRegion(tile.region, composed.region)
+                        && tile.pixels.width == composed.pixels.width
+                        && tile.pixels.height == composed.pixels.height;
+                });
+            if (!found) {
+                return false;
+            }
+        }
+    }
+    return hasCurrentTile;
 }
 
 void CanvasItem::clearTileCache()
 {
     const bool hadTiles = !m_tileCache.empty();
+    const bool hadLayerTiles = !m_layerTileCache.empty();
     m_tileCache.clear();
+    m_layerTileCache.clear();
     m_framePixels = {};
     ++m_tileCacheRevision;
     if (hadTiles) {
         emit residentTileCountChanged();
+    }
+    if (hadLayerTiles) {
+        emit residentLayerTileCountChanged();
     }
     update();
 }
@@ -1879,7 +2021,7 @@ Layer *CanvasItem::selectedLayer() noexcept
     const auto match = std::find_if(m_document->layers.begin(),
                                     m_document->layers.end(),
                                     [&](const Layer &layer) {
-                                        return layer.id == m_selectedLayerId;
+                                        return layerProperties(layer).id == m_selectedLayerId;
                                     });
     return match == m_document->layers.end() ? nullptr : &*match;
 }
@@ -1892,7 +2034,7 @@ const Layer *CanvasItem::selectedLayer() const noexcept
     const auto match = std::find_if(m_document->layers.begin(),
                                     m_document->layers.end(),
                                     [&](const Layer &layer) {
-                                        return layer.id == m_selectedLayerId;
+                                        return layerProperties(layer).id == m_selectedLayerId;
                                     });
     return match == m_document->layers.end() ? nullptr : &*match;
 }
@@ -1904,7 +2046,10 @@ bool CanvasItem::syncSelectedLayer()
     }
     Layer *layer = selectedLayer();
     const Asset *asset = layer ? resolveAssetAt(*m_document, *layer, m_frame) : nullptr;
-    if (!asset || contentKind(*asset) != ContentKind::Raster) {
+    if (!layer
+        || !std::holds_alternative<BitmapLayer>(*layer)
+        || !asset
+        || contentKind(*asset) != ContentKind::Raster) {
         clearSelection();
         return false;
     }
@@ -1943,7 +2088,7 @@ bool CanvasItem::mapDocumentToSelectedAsset(const QPointF &documentPosition,
         return false;
     }
 
-    const AffineTransform &transform = layer->transform;
+    const AffineTransform &transform = layerProperties(*layer).transform;
     const double determinant = transform.m11 * transform.m22
         - transform.m21 * transform.m12;
     if (std::abs(determinant) <= std::numeric_limits<double>::epsilon()) {

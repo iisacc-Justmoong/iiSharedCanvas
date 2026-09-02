@@ -23,6 +23,7 @@ enum class ValidationCode {
     MissingAsset,
     InvalidKeyframes,
     ContentKindMismatch,
+    InvalidStableDiffusionMetadata,
 };
 
 struct ValidationIssue {

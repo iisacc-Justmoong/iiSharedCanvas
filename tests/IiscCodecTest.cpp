@@ -82,19 +82,52 @@ iiSharedCanvas::Document completeDocument()
     transformed.m22 = 1.25;
     transformed.translationX = 1.5;
     transformed.translationY = -0.25;
-    document.layers.push_back({"static-raster", "Static raster / 한글", false, 0.375,
-                               transformed, RasterBlendMode::Screen,
-                               StaticSource{"raster/static"}});
-    document.layers.push_back({"static-vector", "Static vector", true, 0.875, {},
-                               RasterBlendMode::Multiply, StaticSource{"vector-static"}});
-    document.layers.push_back({"animated-raster", "Animated raster", true, 1.0, {},
-                               RasterBlendMode::SourceOver,
-                               KeyframedSource{ContentKind::Raster,
-                                               {{0, "raster-frame-0"}, {2, "raster-frame-2"}}}});
-    document.layers.push_back({"animated-vector", "Animated vector", true, 0.5, {},
-                               RasterBlendMode::Overlay,
-                               KeyframedSource{ContentKind::Vector,
-                                               {{0, "vector-frame-0"}, {1, "vector-frame-1"}}}});
+    document.layers.emplace_back(BitmapLayer{
+        {"static-raster", "Static raster / 한글", false, 0.375, transformed,
+         RasterBlendMode::Screen},
+        StaticSource{"raster/static"},
+    });
+    document.layers.emplace_back(VectorLayer{
+        {"static-vector", "Static vector", true, 0.875, {}, RasterBlendMode::Multiply},
+        StaticSource{"vector-static"},
+    });
+    document.layers.emplace_back(BitmapLayer{
+        {"animated-raster", "Animated raster", true, 1.0, {},
+         RasterBlendMode::SourceOver},
+        KeyframedSource{{{0, "raster-frame-0"}, {2, "raster-frame-2"}}},
+    });
+    document.layers.emplace_back(VectorLayer{
+        {"animated-vector", "Animated vector", true, 0.5, {}, RasterBlendMode::Overlay},
+        KeyframedSource{{{0, "vector-frame-0"}, {1, "vector-frame-1"}}},
+    });
+
+    StableDiffusionMetadata generation;
+    generation.positivePrompt = "editorial portrait, soft rim light";
+    generation.negativePrompt = "watermark, malformed hands";
+    generation.outputExtent = StableDiffusionImageExtent{1024, 1024};
+    generation.batchSize = 1;
+    generation.clipSkip = 2;
+    generation.samplingPasses.push_back({
+        "3", 998877665544ULL, 32, 6.25, "dpmpp_2m_sde", "karras", 1.0,
+        std::nullopt, std::nullopt,
+    });
+    generation.models.push_back({
+        "checkpoint", "portraitXL.safetensors", "12ab34cd", "sha256", {},
+    });
+    generation.loras.push_back({"skin-detail.safetensors", "55aa", 0.7, 0.65});
+    generation.software = "ComfyUI";
+    generation.softwareVersion = "0.3.x";
+    generation.createdAt = "2026-09-02T14:00:00Z";
+    generation.automatic1111Parameters =
+        "Steps: 32, Sampler: DPM++ 2M SDE, CFG scale: 6.25, Seed: 998877665544";
+    generation.comfyUi.promptJson =
+        R"json({"3":{"class_type":"KSampler","inputs":{"seed":998877665544,"steps":32,"cfg":6.25,"sampler_name":"dpmpp_2m_sde","scheduler":"karras","denoise":1.0}}})json";
+    generation.comfyUi.workflowJson =
+        R"json({"version":1,"state":{"lastNodeId":9},"nodes":[],"links":[]})json";
+    generation.comfyUi.extraPngInfo.push_back(
+        {"custom", R"json({"extension":"value"})json"});
+    generation.extraParameters.push_back({"controlNet", "depth"});
+    document.stableDiffusionMetadata = std::move(generation);
     return document;
 }
 
@@ -115,7 +148,25 @@ int main()
     expect(decoded.document.layers.size() == original.layers.size()
                && decoded.document.assets.size() == original.assets.size(),
            "round-trip must preserve every layer and asset");
-    expect(decoded.document.layers.front().name == "Static raster / 한글"
+    expect(decoded.document.formatVersion.minor == 2
+               && decoded.document.stableDiffusionMetadata
+               && original.stableDiffusionMetadata
+               && decoded.document.stableDiffusionMetadata
+                   == original.stableDiffusionMetadata,
+           "format 1.2 must round-trip typed generation settings and raw ComfyUI metadata exactly");
+    if (decoded.document.stableDiffusionMetadata) {
+        const StableDiffusionMetadata &generation =
+            *decoded.document.stableDiffusionMetadata;
+        expect(generation.samplingPasses.front().seed == 998877665544ULL
+                   && generation.samplingPasses.front().steps == 32
+                   && generation.samplingPasses.front().cfgScale == 6.25
+                   && generation.comfyUi.promptJson.find("KSampler")
+                       != std::string::npos
+                   && generation.comfyUi.workflowJson.find("\"nodes\"")
+                       != std::string::npos,
+               "decoded metadata must expose reproducible parameters and both ComfyUI JSON graphs");
+    }
+    expect(layerProperties(decoded.document.layers.front()).name == "Static raster / 한글"
                && decoded.document.timeline.frameRate.numerator == 30000
                && decoded.document.timeline.frameRate.denominator == 1001,
            "round-trip must preserve UTF-8 names and rational frame rates exactly");
@@ -165,49 +216,76 @@ int main()
     }
 
     const Layer *decodedLayer = findLayer(decoded.document, "static-raster");
+    const LayerProperties *decodedProperties = decodedLayer
+        ? &layerProperties(*decodedLayer)
+        : nullptr;
     expect(decodedLayer
-               && decodedLayer->name == "Static raster / 한글"
-               && !decodedLayer->visible
-               && decodedLayer->opacity == 0.375
-               && decodedLayer->transform.m11 == 0.75
-               && decodedLayer->transform.m12 == 0.25
-               && decodedLayer->transform.m21 == -0.5
-               && decodedLayer->transform.m22 == 1.25
-               && decodedLayer->transform.translationX == 1.5
-               && decodedLayer->transform.translationY == -0.25
-               && decodedLayer->blendMode == RasterBlendMode::Screen,
+               && std::holds_alternative<BitmapLayer>(*decodedLayer)
+               && decodedProperties
+               && decodedProperties->name == "Static raster / 한글"
+               && !decodedProperties->visible
+               && decodedProperties->opacity == 0.375
+               && decodedProperties->transform.m11 == 0.75
+               && decodedProperties->transform.m12 == 0.25
+               && decodedProperties->transform.m21 == -0.5
+               && decodedProperties->transform.m22 == 1.25
+               && decodedProperties->transform.translationX == 1.5
+               && decodedProperties->transform.translationY == -0.25
+               && decodedProperties->blendMode == RasterBlendMode::Screen,
            "decoded layers must expose identity, visibility, opacity, transform, and blend mode");
     const StaticSource *decodedStaticSource = decodedLayer
-        ? std::get_if<StaticSource>(&decodedLayer->source)
+        ? std::get_if<StaticSource>(&layerSource(*decodedLayer))
         : nullptr;
     expect(decodedStaticSource && decodedStaticSource->assetId == "raster/static",
            "decoded layers must expose their stable asset reference");
 
     const Layer *decodedAnimatedLayer = findLayer(decoded.document, "animated-vector");
     const KeyframedSource *decodedTrack = decodedAnimatedLayer
-        ? std::get_if<KeyframedSource>(&decodedAnimatedLayer->source)
+        ? std::get_if<KeyframedSource>(&layerSource(*decodedAnimatedLayer))
         : nullptr;
     expect(decodedTrack
-               && decodedTrack->kind == ContentKind::Vector
+               && decodedAnimatedLayer
+               && std::holds_alternative<VectorLayer>(*decodedAnimatedLayer)
+               && contentKind(*decodedAnimatedLayer) == ContentKind::Vector
                && decodedTrack->keyframes.size() == 2
                && decodedTrack->keyframes[0].frame == 0
                && decodedTrack->keyframes[0].assetId == "vector-frame-0"
                && decodedTrack->keyframes[1].frame == 1
                && decodedTrack->keyframes[1].assetId == "vector-frame-1",
-           "decoded animated layers must expose content kind and every keyframe reference");
+           "decoded animated layers must preserve concrete layer type and every keyframe reference");
 
     const IiscEncodeResult reencoded = encodeIisc(decoded.document);
     expect(reencoded.ok() && reencoded.bytes == encoded.bytes,
            "encoding must be canonical and byte-identical after round-trip");
+    Document documentWithoutGenerationMetadata = original;
+    documentWithoutGenerationMetadata.stableDiffusionMetadata.reset();
     for (FrameIndex frame = 0; frame < original.timeline.frameCount; ++frame) {
         const FrameRenderResult originalFrame = renderFrame(original, frame);
         const FrameRenderResult decodedFrame = renderFrame(decoded.document, frame);
+        const FrameRenderResult metadataFreeFrame =
+            renderFrame(documentWithoutGenerationMetadata, frame);
         expect(originalFrame.ok() && decodedFrame.ok()
+                   && metadataFreeFrame.ok()
                    && originalFrame.pixels.width == decodedFrame.pixels.width
                    && originalFrame.pixels.height == decodedFrame.pixels.height
-                   && originalFrame.pixels.pixels == decodedFrame.pixels.pixels,
-               "serialization must preserve exact rendered pixels at every timeline frame");
+                   && originalFrame.pixels.pixels == decodedFrame.pixels.pixels
+                   && originalFrame.pixels.pixels == metadataFreeFrame.pixels.pixels,
+               "generation metadata and serialization must not change rendered pixels at any timeline frame");
     }
+
+    Document legacyVersion11 = original;
+    legacyVersion11.formatVersion = {1, 1};
+    legacyVersion11.stableDiffusionMetadata.reset();
+    const IiscEncodeResult encodedVersion11 = encodeIisc(legacyVersion11);
+    const IiscDecodeResult decodedVersion11 = decodeIisc(encodedVersion11.bytes);
+    const IiscEncodeResult reencodedVersion11 = encodeIisc(decodedVersion11.document);
+    expect(encodedVersion11.ok() && decodedVersion11.ok()
+               && decodedVersion11.document.formatVersion.major == 1
+               && decodedVersion11.document.formatVersion.minor == 1
+               && !decodedVersion11.document.stableDiffusionMetadata
+               && reencodedVersion11.ok()
+               && reencodedVersion11.bytes == encodedVersion11.bytes,
+           "the 1.2 reader must preserve canonical metadata-free 1.1 containers byte-for-byte");
 
     Document invalid = original;
     invalid.extent.width = 0;
@@ -215,7 +293,7 @@ int main()
            "the writer must reject invalid documents before producing bytes");
 
     Document invalidUtf8 = original;
-    invalidUtf8.layers.front().name = std::string{"\xc0\xaf", 2};
+    layerProperties(invalidUtf8.layers.front()).name = std::string{"\xc0\xaf", 2};
     expect(encodeIisc(invalidUtf8).error.code == IiscErrorCode::InvalidDocument,
            "the writer must reject non-canonical UTF-8 document strings");
 
@@ -283,6 +361,29 @@ int main()
     assetLimits.maximumAssets = 1;
     expect(decodeIisc(encoded.bytes, assetLimits).error.code == IiscErrorCode::LimitExceeded,
            "declared collection limits must be enforced before collection allocation");
+
+    SerializationLimits metadataLimits;
+    metadataLimits.maximumMetadataEntries = 1;
+    expect(encodeIisc(original, metadataLimits).error.code
+               == IiscErrorCode::LimitExceeded
+               && decodeIisc(encoded.bytes, metadataLimits).error.code
+                   == IiscErrorCode::LimitExceeded,
+           "generation metadata collection limits must be enforced by writer and reader");
+
+    SerializationLimits metadataStringLimits;
+    metadataStringLimits.maximumMetadataStringBytes = 8;
+    expect(encodeIisc(original, metadataStringLimits).error.code
+               == IiscErrorCode::LimitExceeded
+               && decodeIisc(encoded.bytes, metadataStringLimits).error.code
+                   == IiscErrorCode::LimitExceeded,
+           "generation metadata string limits must be enforced by writer and reader");
+
+    metadataStringLimits.maximumMetadataStringBytes = 0;
+    expect(encodeIisc(original, metadataStringLimits).error.code
+               == IiscErrorCode::LimitExceeded
+               && decodeIisc(encoded.bytes, metadataStringLimits).error.code
+                   == IiscErrorCode::LimitExceeded,
+           "a zero generation metadata string limit must reject non-empty values symmetrically");
 
     return failures == 0 ? 0 : 1;
 }

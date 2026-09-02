@@ -2,8 +2,11 @@
 
 #include "Bitmap/BitmapEditor.h"
 #include "Bitmap/ChunkedBitmapEditor.h"
+#include "Camera/CameraRaw.h"
 #include "Document/Document.h"
 #include "Document/DocumentEditor.h"
+#include "Metadata/Automatic1111Metadata.h"
+#include "Metadata/StableDiffusionMetadata.h"
 #include "QtAdapter/BitmapItem.h"
 #include "QtAdapter/CanvasItem.h"
 #include "QtAdapter/AsyncFrameRenderer.h"

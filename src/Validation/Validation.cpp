@@ -193,7 +193,7 @@ void validateAssetReference(const Document &document,
     }
     if (requiredKind && contentKind(*asset) != *requiredKind) {
         addIssue(result, ValidationCode::ContentKindMismatch, path,
-                 "all keyframes in one track must reference the declared content kind");
+                 "the referenced asset kind must match the owning layer type");
     }
 }
 
@@ -235,6 +235,24 @@ ValidationResult validate(const Document &document)
         addIssue(result, ValidationCode::InvalidTimeline, "timeline",
                  "frame rate and frame count must be non-zero");
     }
+    if (document.stableDiffusionMetadata) {
+        if (document.formatVersion.minor < 2) {
+            addIssue(result,
+                     ValidationCode::InvalidStableDiffusionMetadata,
+                     "stableDiffusionMetadata",
+                     "Stable Diffusion metadata requires document format 1.2 or newer");
+        }
+        const StableDiffusionValidationResult metadataValidation =
+            validateStableDiffusionMetadata(*document.stableDiffusionMetadata);
+        for (const StableDiffusionValidationIssue &issue : metadataValidation.issues) {
+            addIssue(result,
+                     ValidationCode::InvalidStableDiffusionMetadata,
+                     issue.path.empty()
+                         ? "stableDiffusionMetadata"
+                         : "stableDiffusionMetadata." + issue.path,
+                     issue.message);
+        }
+    }
 
     std::unordered_set<std::string> assetIds;
     for (std::size_t index = 0; index < document.assets.size(); ++index) {
@@ -264,30 +282,33 @@ ValidationResult validate(const Document &document)
     std::unordered_set<std::string> layerIds;
     for (std::size_t index = 0; index < document.layers.size(); ++index) {
         const Layer &layer = document.layers[index];
+        const LayerProperties &properties = layerProperties(layer);
+        const LayerSource &sourceValue = layerSource(layer);
+        const ContentKind requiredKind = contentKind(layer);
         const std::string layerPath = "layers[" + std::to_string(index) + "]";
-        if (layer.id.empty()) {
+        if (properties.id.empty()) {
             addIssue(result, ValidationCode::InvalidLayer, layerPath + ".id",
                      "layer id must not be empty");
-        } else if (!layerIds.insert(layer.id).second) {
+        } else if (!layerIds.insert(properties.id).second) {
             addIssue(result, ValidationCode::DuplicateLayerId, layerPath + ".id",
                      "layer ids must be unique");
         }
-        if (!std::isfinite(layer.opacity)
-            || layer.opacity < 0.0
-            || layer.opacity > 1.0
-            || !hasFiniteTransform(layer.transform)
-            || !isSupportedLayerBlendMode(layer.blendMode)) {
+        if (!std::isfinite(properties.opacity)
+            || properties.opacity < 0.0
+            || properties.opacity > 1.0
+            || !hasFiniteTransform(properties.transform)
+            || !isSupportedLayerBlendMode(properties.blendMode)) {
             addIssue(result, ValidationCode::InvalidLayer, layerPath,
                      "layer opacity, transform, and blend mode must be supported and in range");
         }
 
-        if (const auto *source = std::get_if<StaticSource>(&layer.source)) {
+        if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
             validateAssetReference(document, source->assetId,
-                                   layerPath + ".source.assetId", result);
+                                   layerPath + ".source.assetId", result, &requiredKind);
             continue;
         }
 
-        const auto &source = std::get<KeyframedSource>(layer.source);
+        const auto &source = std::get<KeyframedSource>(sourceValue);
         if (source.keyframes.empty()) {
             addIssue(result, ValidationCode::InvalidKeyframes,
                      layerPath + ".source.keyframes",
@@ -318,7 +339,7 @@ ValidationResult validate(const Document &document)
                          "keyframe positions must be strictly increasing");
             }
             validateAssetReference(document, keyframe.assetId,
-                                   keyframePath + ".assetId", result, &source.kind);
+                                   keyframePath + ".assetId", result, &requiredKind);
         }
     }
 

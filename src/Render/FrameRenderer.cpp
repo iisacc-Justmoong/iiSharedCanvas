@@ -539,18 +539,31 @@ bool validOutputExtent(CanvasExtent extent) noexcept
         / sizeof(std::uint32_t);
 }
 
-FrameRenderResult renderValidatedFrameRegion(const Document &document,
-                                             FrameIndex frame,
-                                             CanvasRegion region,
-                                             CanvasExtent outputExtent)
+bool sameRegion(CanvasRegion first, CanvasRegion second) noexcept
 {
-    if (!regionContainedByDocument(document, region)
-        || !validOutputExtent(outputExtent)) {
-        return errorResult(FrameRenderStatus::InvalidRegion,
-                           "render region must be positive, bounded by the document, and have a valid output extent");
-    }
+    return first.origin.x == second.origin.x
+        && first.origin.y == second.origin.y
+        && first.extent.width == second.extent.width
+        && first.extent.height == second.extent.height;
+}
 
-    ::LayerStack engineLayers;
+bool validRequests(const Document &document,
+                   const std::vector<FrameRenderTileRequest> &requests) noexcept
+{
+    return std::all_of(requests.begin(), requests.end(), [&](const auto &request) {
+        return regionContainedByDocument(document, request.region)
+            && validOutputExtent(request.outputExtent);
+    });
+}
+
+FrameRenderResult renderLayerRegion(const Document &document,
+                                    const Asset &asset,
+                                    const LayerProperties &properties,
+                                    CanvasRegion region,
+                                    CanvasExtent outputExtent)
+{
+    ::LayerStack layerPieces;
+
     const double scaleX = static_cast<double>(outputExtent.width)
         / static_cast<double>(region.extent.width);
     const double scaleY = static_cast<double>(outputExtent.height)
@@ -566,71 +579,103 @@ FrameRenderResult renderValidatedFrameRegion(const Document &document,
         transform.translationY *= scaleY;
         return transform;
     };
-    const auto appendOutputLayer = [&](RasterLayer pixels,
-                                       const iiSharedCanvas::Layer &documentLayer) {
+    const auto appendOutputPiece = [&](RasterLayer pixels) {
         ::Layer engineLayer;
         engineLayer.surface = drawingSurfaceFromRasterLayer(std::move(pixels));
         engineLayer.metadata.visible = true;
-        engineLayer.metadata.opacity = documentLayer.opacity;
-        engineLayer.metadata.blendMode = documentLayer.blendMode;
-        engineLayers.layers.push_back(std::move(engineLayer));
+        engineLayer.metadata.opacity = 1.0;
+        engineLayer.metadata.blendMode = RasterBlendMode::SourceOver;
+        layerPieces.layers.push_back(std::move(engineLayer));
     };
     const auto appendRasterLayer = [&](const RasterLayer &source,
-                                       AffineTransform transform,
-                                       const iiSharedCanvas::Layer &documentLayer) {
+                                       AffineTransform transform) {
         transform = outputTransform(transform);
         if (!intersectsOutput(source, transform,
                               outputExtent.width, outputExtent.height)) {
             return;
         }
-        appendOutputLayer(transformedRaster(source,
+        appendOutputPiece(transformedRaster(source,
                                             transform,
                                             outputExtent.width,
-                                            outputExtent.height),
-                          documentLayer);
+                                            outputExtent.height));
     };
 
-    for (const iiSharedCanvas::Layer &documentLayer : document.layers) {
-        if (!documentLayer.visible) {
-            continue;
-        }
-        const Asset *asset = resolveAssetAt(document, documentLayer, frame);
-        if (!asset) {
-            return errorResult(FrameRenderStatus::AssetResolutionFailed,
-                               "validated layer asset could not be resolved at the requested frame");
-        }
-
-        if (const auto *raster = std::get_if<RasterAsset>(asset)) {
-            appendRasterLayer(raster->pixels, documentLayer.transform, documentLayer);
-            continue;
-        }
-        if (const auto *vector = std::get_if<VectorAsset>(asset)) {
-            appendOutputLayer(rasterizeVector(*vector,
-                                              outputTransform(documentLayer.transform),
-                                              outputExtent.width,
-                                              outputExtent.height),
-                              documentLayer);
-            continue;
-        }
-
-        const auto &chunked = std::get<ChunkedRasterAsset>(*asset);
+    if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
+        appendRasterLayer(raster->pixels, properties.transform);
+    } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
+        appendOutputPiece(rasterizeVector(*vector,
+                                          outputTransform(properties.transform),
+                                          outputExtent.width,
+                                          outputExtent.height));
+    } else {
+        const auto &chunked = std::get<ChunkedRasterAsset>(asset);
         const std::int32_t chunkSize = document.infiniteCanvas.chunkSize;
         for (const RasterChunk &chunk : chunked.chunks) {
             const double chunkX = static_cast<double>(chunk.column) * chunkSize;
             const double chunkY = static_cast<double>(chunk.row) * chunkSize;
-            AffineTransform transform = documentLayer.transform;
+            AffineTransform transform = properties.transform;
             transform.translationX += transform.m11 * chunkX + transform.m21 * chunkY;
             transform.translationY += transform.m12 * chunkX + transform.m22 * chunkY;
-            appendRasterLayer(chunk.pixels, transform, documentLayer);
+            appendRasterLayer(chunk.pixels, transform);
         }
     }
 
     FrameRenderResult result;
     result.origin = region.origin;
-    result.pixels = compositeLayerStack(engineLayers,
+    result.pixels = compositeLayerStack(layerPieces,
                                         outputExtent.width,
                                         outputExtent.height,
                                         0x00000000U);
+    return result;
+}
+
+FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
+    const Document &document,
+    FrameIndex frame,
+    std::size_t layerIndex,
+    const std::vector<FrameRenderTileRequest> &requests)
+{
+    const iiSharedCanvas::Layer &documentLayer = document.layers[layerIndex];
+    const LayerProperties &properties = layerProperties(documentLayer);
+
+    FrameLayerTileRenderResult result;
+    result.layerIndex = layerIndex;
+    result.layerId = properties.id;
+    result.visible = properties.visible;
+    result.opacity = properties.opacity;
+    result.blendMode = properties.blendMode;
+    if (!properties.visible) {
+        return result;
+    }
+
+    const Asset *asset = resolveAssetAt(document, documentLayer, frame);
+    if (!asset) {
+        result.status = FrameRenderStatus::AssetResolutionFailed;
+        result.message = "validated layer asset could not be resolved at the requested frame";
+        return result;
+    }
+
+    result.tiles.reserve(requests.size());
+    for (const FrameRenderTileRequest &request : requests) {
+        FrameRenderResult tile = renderLayerRegion(document,
+                                                   *asset,
+                                                   properties,
+                                                   request.region,
+                                                   request.outputExtent);
+        result.tiles.push_back({request.region, std::move(tile.pixels)});
+    }
+    return result;
+}
+
+FrameLayerBatchRenderResult layerBatchError(
+    FrameRenderStatus status,
+    std::string message,
+    std::vector<FrameRenderTileRequest> requests = {})
+{
+    FrameLayerBatchRenderResult result;
+    result.requests = std::move(requests);
+    result.status = status;
+    result.message = std::move(message);
     return result;
 }
 
@@ -638,21 +683,15 @@ FrameRenderResult renderValidatedFrameRegion(const Document &document,
 
 FrameRenderResult renderFrame(const Document &document, FrameIndex frame)
 {
-    const ValidationResult validation = validate(document);
-    if (!validation.ok()) {
-        return errorResult(FrameRenderStatus::InvalidDocument,
-                           validation.issues.front().path + ": "
-                               + validation.issues.front().message);
+    const FrameTileRenderResult tiles = renderFrameTiles(
+        document, frame, {{canvasRegion(document), document.extent}});
+    if (!tiles.ok()) {
+        return errorResult(tiles.status, tiles.message);
     }
-    if (frame >= document.timeline.frameCount) {
-        return errorResult(FrameRenderStatus::FrameOutOfRange,
-                           "requested frame is outside the document timeline");
-    }
-
-    return renderValidatedFrameRegion(document,
-                                      frame,
-                                      canvasRegion(document),
-                                      document.extent);
+    FrameRenderResult result;
+    result.origin = canvasRegion(document).origin;
+    result.pixels = tiles.tiles.front().pixels;
+    return result;
 }
 
 FrameRenderResult renderFrameRegion(const Document &document,
@@ -660,17 +699,165 @@ FrameRenderResult renderFrameRegion(const Document &document,
                                     CanvasRegion region,
                                     CanvasExtent outputExtent)
 {
+    const FrameTileRenderResult tiles = renderFrameTiles(
+        document, frame, {{region, outputExtent}});
+    if (!tiles.ok()) {
+        return errorResult(tiles.status, tiles.message);
+    }
+    FrameRenderResult result;
+    result.origin = region.origin;
+    result.pixels = tiles.tiles.front().pixels;
+    return result;
+}
+
+FrameLayerTileRenderResult renderFrameLayerTiles(
+    const Document &document,
+    FrameIndex frame,
+    std::size_t layerIndex,
+    const std::vector<FrameRenderTileRequest> &requests)
+{
     const ValidationResult validation = validate(document);
     if (!validation.ok()) {
-        return errorResult(FrameRenderStatus::InvalidDocument,
-                           validation.issues.front().path + ": "
-                               + validation.issues.front().message);
+        FrameLayerTileRenderResult result;
+        result.layerIndex = layerIndex;
+        result.status = FrameRenderStatus::InvalidDocument;
+        result.message = validation.issues.front().path + ": "
+            + validation.issues.front().message;
+        return result;
     }
     if (frame >= document.timeline.frameCount) {
-        return errorResult(FrameRenderStatus::FrameOutOfRange,
-                           "requested frame is outside the document timeline");
+        FrameLayerTileRenderResult result;
+        result.layerIndex = layerIndex;
+        result.status = FrameRenderStatus::FrameOutOfRange;
+        result.message = "requested frame is outside the document timeline";
+        return result;
     }
-    return renderValidatedFrameRegion(document, frame, region, outputExtent);
+    if (layerIndex >= document.layers.size()) {
+        FrameLayerTileRenderResult result;
+        result.layerIndex = layerIndex;
+        result.status = FrameRenderStatus::LayerOutOfRange;
+        result.message = "requested layer is outside the document layer stack";
+        return result;
+    }
+    if (!validRequests(document, requests)) {
+        FrameLayerTileRenderResult result;
+        result.layerIndex = layerIndex;
+        result.status = FrameRenderStatus::InvalidRegion;
+        result.message = "render region must be positive, bounded by the document, and have a valid output extent";
+        return result;
+    }
+    return renderValidatedFrameLayerTiles(document, frame, layerIndex, requests);
+}
+
+FrameLayerBatchRenderResult renderFrameLayers(
+    const Document &document,
+    FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests)
+{
+    const ValidationResult validation = validate(document);
+    if (!validation.ok()) {
+        return layerBatchError(FrameRenderStatus::InvalidDocument,
+                               validation.issues.front().path + ": "
+                                   + validation.issues.front().message,
+                               requests);
+    }
+    if (frame >= document.timeline.frameCount) {
+        return layerBatchError(FrameRenderStatus::FrameOutOfRange,
+                               "requested frame is outside the document timeline",
+                               requests);
+    }
+    if (!validRequests(document, requests)) {
+        return layerBatchError(FrameRenderStatus::InvalidRegion,
+                               "render region must be positive, bounded by the document, and have a valid output extent",
+                               requests);
+    }
+
+    FrameLayerBatchRenderResult result;
+    result.requests = requests;
+    result.layers.reserve(document.layers.size());
+    for (std::size_t layerIndex = 0; layerIndex < document.layers.size(); ++layerIndex) {
+        FrameLayerTileRenderResult layer = renderValidatedFrameLayerTiles(
+            document, frame, layerIndex, requests);
+        if (!layer.ok()) {
+            result.status = layer.status;
+            result.message = layer.message;
+        }
+        result.layers.push_back(std::move(layer));
+        if (!result.ok()) {
+            break;
+        }
+    }
+    return result;
+}
+
+FrameTileRenderResult composeFrameLayers(
+    const FrameLayerBatchRenderResult &layers)
+{
+    if (!layers.ok()) {
+        return {{}, layers.status, layers.message};
+    }
+
+    for (std::size_t layerIndex = 0; layerIndex < layers.layers.size(); ++layerIndex) {
+        const FrameLayerTileRenderResult &layer = layers.layers[layerIndex];
+        if (!layer.ok()) {
+            return {{}, layer.status, layer.message};
+        }
+        if (layer.layerIndex != layerIndex) {
+            return {{}, FrameRenderStatus::InvalidDocument,
+                    "layer render results must remain in bottom-to-top document order"};
+        }
+        if (layer.visible && layer.tiles.size() != layers.requests.size()) {
+            return {{}, FrameRenderStatus::InvalidRegion,
+                    "each visible layer must provide one tile per requested region"};
+        }
+    }
+
+    FrameTileRenderResult result;
+    result.tiles.reserve(layers.requests.size());
+    for (std::size_t requestIndex = 0;
+         requestIndex < layers.requests.size();
+         ++requestIndex) {
+        const FrameRenderTileRequest &request = layers.requests[requestIndex];
+        if (!validOutputExtent(request.outputExtent)) {
+            return {{}, FrameRenderStatus::InvalidRegion,
+                    "composed layer output extent must be positive and valid"};
+        }
+
+        ::LayerStack engineLayers;
+        engineLayers.layers.reserve(layers.layers.size());
+        for (const FrameLayerTileRenderResult &layer : layers.layers) {
+            if (!layer.visible) {
+                continue;
+            }
+            const FrameRenderTile &tile = layer.tiles[requestIndex];
+            const std::uint64_t expectedPixels =
+                static_cast<std::uint64_t>(request.outputExtent.width)
+                * static_cast<std::uint64_t>(request.outputExtent.height);
+            if (!sameRegion(tile.region, request.region)
+                || tile.pixels.width != request.outputExtent.width
+                || tile.pixels.height != request.outputExtent.height
+                || tile.pixels.pixels.size() != expectedPixels) {
+                return {{}, FrameRenderStatus::InvalidRegion,
+                        "layer tile geometry must match its requested region and output extent"};
+            }
+
+            ::Layer engineLayer;
+            engineLayer.surface = drawingSurfaceFromRasterLayer(tile.pixels);
+            engineLayer.metadata.visible = true;
+            engineLayer.metadata.opacity = layer.opacity;
+            engineLayer.metadata.blendMode = layer.blendMode;
+            engineLayers.layers.push_back(std::move(engineLayer));
+        }
+
+        result.tiles.push_back({
+            request.region,
+            compositeLayerStack(engineLayers,
+                                request.outputExtent.width,
+                                request.outputExtent.height,
+                                0x00000000U),
+        });
+    }
+    return result;
 }
 
 FrameTileRenderResult renderFrameTiles(
@@ -678,31 +865,7 @@ FrameTileRenderResult renderFrameTiles(
     FrameIndex frame,
     const std::vector<FrameRenderTileRequest> &requests)
 {
-    const ValidationResult validation = validate(document);
-    if (!validation.ok()) {
-        return {{}, FrameRenderStatus::InvalidDocument,
-                validation.issues.front().path + ": "
-                    + validation.issues.front().message};
-    }
-    if (frame >= document.timeline.frameCount) {
-        return {{}, FrameRenderStatus::FrameOutOfRange,
-                "requested frame is outside the document timeline"};
-    }
-
-    FrameTileRenderResult result;
-    result.tiles.reserve(requests.size());
-    for (const FrameRenderTileRequest &request : requests) {
-        FrameRenderResult tile = renderValidatedFrameRegion(
-            document, frame, request.region, request.outputExtent);
-        if (!tile.ok()) {
-            result.tiles.clear();
-            result.status = tile.status;
-            result.message = std::move(tile.message);
-            return result;
-        }
-        result.tiles.push_back({request.region, std::move(tile.pixels)});
-    }
-    return result;
+    return composeFrameLayers(renderFrameLayers(document, frame, requests));
 }
 
 } // namespace iiSharedCanvas

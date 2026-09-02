@@ -3,6 +3,7 @@
 #include "Document/Document.h"
 #include "Export.h"
 
+#include <cstddef>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,7 @@ enum class FrameRenderStatus {
     FrameOutOfRange,
     InvalidRegion,
     AssetResolutionFailed,
+    LayerOutOfRange,
 };
 
 struct FrameRenderResult {
@@ -49,6 +51,34 @@ struct FrameTileRenderResult {
     }
 };
 
+struct FrameLayerTileRenderResult {
+    std::size_t layerIndex = 0;
+    std::string layerId;
+    bool visible = false;
+    double opacity = 1.0;
+    RasterBlendMode blendMode = RasterBlendMode::SourceOver;
+    std::vector<FrameRenderTile> tiles;
+    FrameRenderStatus status = FrameRenderStatus::Success;
+    std::string message;
+
+    [[nodiscard]] bool ok() const noexcept
+    {
+        return status == FrameRenderStatus::Success;
+    }
+};
+
+struct FrameLayerBatchRenderResult {
+    std::vector<FrameRenderTileRequest> requests;
+    std::vector<FrameLayerTileRenderResult> layers;
+    FrameRenderStatus status = FrameRenderStatus::Success;
+    std::string message;
+
+    [[nodiscard]] bool ok() const noexcept
+    {
+        return status == FrameRenderStatus::Success;
+    }
+};
+
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrame(const Document &document,
                                                      FrameIndex frame);
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
@@ -60,5 +90,16 @@ IISHAREDCANVAS_EXPORT FrameTileRenderResult renderFrameTiles(
     const Document &document,
     FrameIndex frame,
     const std::vector<FrameRenderTileRequest> &requests);
+IISHAREDCANVAS_EXPORT FrameLayerTileRenderResult renderFrameLayerTiles(
+    const Document &document,
+    FrameIndex frame,
+    std::size_t layerIndex,
+    const std::vector<FrameRenderTileRequest> &requests);
+IISHAREDCANVAS_EXPORT FrameLayerBatchRenderResult renderFrameLayers(
+    const Document &document,
+    FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests);
+IISHAREDCANVAS_EXPORT FrameTileRenderResult composeFrameLayers(
+    const FrameLayerBatchRenderResult &layers);
 
 } // namespace iiSharedCanvas

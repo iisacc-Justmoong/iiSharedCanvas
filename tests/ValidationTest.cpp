@@ -37,9 +37,10 @@ iiSharedCanvas::Document validDocument()
     document.timeline = {{30, 1}, 30};
     document.assets.emplace_back(RasterAsset{"raster", makeRasterLayer(32, 32)});
     document.assets.emplace_back(VectorAsset{"vector", {32, 32}, {path}});
-    document.layers.push_back({"animated", "Animated", true, 1.0, {},
-                               RasterBlendMode::SourceOver,
-                               KeyframedSource{ContentKind::Raster, {{0, "raster"}}}});
+    document.layers.emplace_back(BitmapLayer{
+        {"animated", "Animated", true, 1.0, {}, RasterBlendMode::SourceOver},
+        KeyframedSource{{{0, "raster"}}},
+    });
     return document;
 }
 
@@ -55,21 +56,34 @@ int main()
            "duplicate asset ids must be rejected");
 
     Document mixedKeyframes = validDocument();
-    auto &source = std::get<KeyframedSource>(mixedKeyframes.layers[0].source);
+    auto &source = std::get<KeyframedSource>(layerSource(mixedKeyframes.layers[0]));
     source.keyframes.push_back({10, "vector"});
     expect(contains(validate(mixedKeyframes), ValidationCode::ContentKindMismatch),
            "one animated track must not mix raster and vector assets");
 
     Document unorderedKeyframes = validDocument();
-    auto &unordered = std::get<KeyframedSource>(unorderedKeyframes.layers[0].source);
+    auto &unordered = std::get<KeyframedSource>(layerSource(unorderedKeyframes.layers[0]));
     unordered.keyframes.push_back({0, "raster"});
     expect(contains(validate(unorderedKeyframes), ValidationCode::InvalidKeyframes),
            "keyframe positions must be unique and strictly increasing");
 
     Document missingAsset = validDocument();
-    std::get<KeyframedSource>(missingAsset.layers[0].source).keyframes[0].assetId = "missing";
+    std::get<KeyframedSource>(layerSource(missingAsset.layers[0])).keyframes[0].assetId = "missing";
     expect(contains(validate(missingAsset), ValidationCode::MissingAsset),
            "all layer sources must resolve to an asset");
+
+    Document bitmapLayerWithVector = validDocument();
+    layerSource(bitmapLayerWithVector.layers[0]) = StaticSource{"vector"};
+    expect(contains(validate(bitmapLayerWithVector), ValidationCode::ContentKindMismatch),
+           "a bitmap layer must reject a vector asset even for a static source");
+
+    Document vectorLayerWithBitmap = validDocument();
+    vectorLayerWithBitmap.layers[0] = VectorLayer{
+        {"vector-layer", "Vector", true, 1.0, {}, RasterBlendMode::SourceOver},
+        KeyframedSource{{{0, "raster"}}},
+    };
+    expect(contains(validate(vectorLayerWithBitmap), ValidationCode::ContentKindMismatch),
+           "a vector layer must reject a bitmap asset in every keyframe");
 
     Document invalidRaster = validDocument();
     std::get<RasterAsset>(invalidRaster.assets[0]).pixels.pixels.pop_back();
@@ -97,14 +111,41 @@ int main()
            "layer ids must be unique");
 
     Document invalidLayer = validDocument();
-    invalidLayer.layers.front().opacity = std::numeric_limits<double>::quiet_NaN();
+    layerProperties(invalidLayer.layers.front()).opacity =
+        std::numeric_limits<double>::quiet_NaN();
     expect(contains(validate(invalidLayer), ValidationCode::InvalidLayer),
            "layer values must be finite");
 
     Document unsupportedLayerBlend = validDocument();
-    unsupportedLayerBlend.layers.front().blendMode = RasterBlendMode::DestinationOut;
+    layerProperties(unsupportedLayerBlend.layers.front()).blendMode =
+        RasterBlendMode::DestinationOut;
     expect(contains(validate(unsupportedLayerBlend), ValidationCode::InvalidLayer),
            "brush-only destination-out must not silently become a document layer blend mode");
+
+    Document validGeneration = validDocument();
+    StableDiffusionMetadata generation;
+    generation.positivePrompt = "product photograph";
+    generation.samplingPasses.push_back({
+        "3", 1234, 30, 5.5, "dpmpp_2m", "karras", 1.0,
+        std::nullopt, std::nullopt,
+    });
+    generation.comfyUi.promptJson =
+        R"json({"3":{"class_type":"KSampler","inputs":{"seed":1234,"steps":30,"cfg":5.5}}})json";
+    validGeneration.stableDiffusionMetadata = generation;
+    expect(validate(validGeneration).ok(),
+           "a format 1.2 document must accept validated Stable Diffusion metadata");
+
+    Document invalidGeneration = validGeneration;
+    invalidGeneration.stableDiffusionMetadata->samplingPasses.front().steps = 0;
+    expect(contains(validate(invalidGeneration),
+                    ValidationCode::InvalidStableDiffusionMetadata),
+           "document validation must reject invalid generation parameters");
+
+    Document legacyGeneration = validGeneration;
+    legacyGeneration.formatVersion = {1, 1};
+    expect(contains(validate(legacyGeneration),
+                    ValidationCode::InvalidStableDiffusionMetadata),
+           "format 1.1 must not silently discard format 1.2 generation metadata");
 
     Document invalidVector = validDocument();
     auto &path = std::get<VectorAsset>(invalidVector.assets[1]).paths.front();
@@ -113,7 +154,7 @@ int main()
            "vector paths must start with MoveTo");
 
     Document outOfRangeKeyframe = validDocument();
-    std::get<KeyframedSource>(outOfRangeKeyframe.layers[0].source)
+    std::get<KeyframedSource>(layerSource(outOfRangeKeyframe.layers[0]))
         .keyframes.front().frame = outOfRangeKeyframe.timeline.frameCount;
     expect(contains(validate(outOfRangeKeyframe), ValidationCode::InvalidKeyframes),
            "keyframes must begin at zero and remain inside the timeline");

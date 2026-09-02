@@ -88,13 +88,8 @@ bool BitmapItem::createBitmap(int width, int height, const QColor &clearColor)
     m_ownedDocument.timeline = {{24, 1}, 1};
     m_ownedDocument.assets.emplace_back(
         RasterAsset{"bitmap", makeRasterLayer(width, height, clearColor.rgba())});
-    m_ownedDocument.layers.push_back({
-        "bitmap-layer",
-        "Bitmap",
-        true,
-        1.0,
-        {},
-        RasterBlendMode::SourceOver,
+    m_ownedDocument.layers.emplace_back(BitmapLayer{
+        {"bitmap-layer", "Bitmap", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"bitmap"},
     });
     return bind(m_ownedDocument, "bitmap");

@@ -31,7 +31,9 @@ public:
     [[nodiscard]] bool busy() const noexcept;
     [[nodiscard]] qulonglong lastCompletedRequest() const noexcept;
     [[nodiscard]] const FrameTileRenderResult &lastResult() const noexcept;
+    [[nodiscard]] const FrameLayerBatchRenderResult &lastLayerResult() const noexcept;
     FrameTileRenderResult takeResult() noexcept;
+    FrameLayerBatchRenderResult takeLayerResult() noexcept;
 
 signals:
     void busyChanged();

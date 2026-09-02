@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -219,6 +220,7 @@ struct LimitTotals {
     std::uint64_t pathCommands = 0;
     std::uint64_t keyframes = 0;
     std::uint64_t stringBytes = 0;
+    std::uint64_t metadataEntries = 0;
 };
 
 IiscError makeError(IiscErrorCode code, std::uint64_t offset, std::string message)
@@ -303,15 +305,18 @@ bool isValidUtf8(std::string_view value) noexcept
 
 IiscError trackString(const std::string &value,
                       const SerializationLimits &limits,
-                      LimitTotals &totals)
+                      LimitTotals &totals,
+                      std::optional<std::uint32_t> maximumStringBytes = std::nullopt)
 {
     if (!isValidUtf8(value)) {
         return makeError(IiscErrorCode::InvalidDocument, 0,
                          "document strings must contain canonical UTF-8");
     }
     const std::uint64_t size = value.size();
+    const std::uint32_t individualMaximum =
+        maximumStringBytes.value_or(limits.maximumStringBytes);
     if (size > std::numeric_limits<std::uint32_t>::max()
-        || size > limits.maximumStringBytes
+        || size > individualMaximum
         || !addWithin(totals.stringBytes, size, limits.maximumTotalStringBytes)) {
         return makeError(IiscErrorCode::LimitExceeded, 0,
                          "serialized string bytes exceed the configured limits");
@@ -404,20 +409,22 @@ IiscError checkDocumentLimits(const Document &document,
     }
 
     for (const Layer &layer : document.layers) {
-        for (const std::string *value : {&layer.id, &layer.name}) {
+        const LayerProperties &properties = layerProperties(layer);
+        const LayerSource &sourceValue = layerSource(layer);
+        for (const std::string *value : {&properties.id, &properties.name}) {
             if (IiscError error = trackString(*value, limits, totals);
                 error.code != IiscErrorCode::None) {
                 return error;
             }
         }
-        if (const auto *source = std::get_if<StaticSource>(&layer.source)) {
+        if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
             if (IiscError error = trackString(source->assetId, limits, totals);
                 error.code != IiscErrorCode::None) {
                 return error;
             }
             continue;
         }
-        const auto &source = std::get<KeyframedSource>(layer.source);
+        const auto &source = std::get<KeyframedSource>(sourceValue);
         if (source.keyframes.size() > std::numeric_limits<std::uint32_t>::max()
             || !addWithin(totals.keyframes,
                           source.keyframes.size(),
@@ -429,6 +436,101 @@ IiscError checkDocumentLimits(const Document &document,
             if (IiscError error = trackString(keyframe.assetId, limits, totals);
                 error.code != IiscErrorCode::None) {
                 return error;
+            }
+        }
+    }
+
+    if (document.stableDiffusionMetadata) {
+        const StableDiffusionMetadata &metadata = *document.stableDiffusionMetadata;
+        const auto trackMetadataString = [&](const std::string &value) {
+            return trackString(value,
+                               limits,
+                               totals,
+                               limits.maximumMetadataStringBytes);
+        };
+        const auto trackMetadataCount = [&](std::size_t count) {
+            if (count > std::numeric_limits<std::uint32_t>::max()
+                || !addWithin(totals.metadataEntries,
+                              count,
+                              limits.maximumMetadataEntries)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0,
+                                 "generation metadata entry count exceeds the configured limit");
+            }
+            return IiscError{};
+        };
+
+        for (const std::string *value : {
+                 &metadata.positivePrompt,
+                 &metadata.negativePrompt,
+                 &metadata.software,
+                 &metadata.softwareVersion,
+                 &metadata.createdAt,
+                 &metadata.automatic1111Parameters,
+                 &metadata.comfyUi.promptJson,
+                 &metadata.comfyUi.workflowJson,
+             }) {
+            if (IiscError error = trackMetadataString(*value);
+                error.code != IiscErrorCode::None) {
+                return error;
+            }
+        }
+
+        for (std::size_t count : {
+                 metadata.samplingPasses.size(),
+                 metadata.models.size(),
+                 metadata.loras.size(),
+                 metadata.comfyUi.extraPngInfo.size(),
+                 metadata.extraParameters.size(),
+             }) {
+            if (IiscError error = trackMetadataCount(count);
+                error.code != IiscErrorCode::None) {
+                return error;
+            }
+        }
+        for (const StableDiffusionSamplingPass &pass : metadata.samplingPasses) {
+            for (const std::string *value : {
+                     &pass.nodeId, &pass.samplerName, &pass.scheduler,
+                 }) {
+                if (IiscError error = trackMetadataString(*value);
+                    error.code != IiscErrorCode::None) {
+                    return error;
+                }
+            }
+        }
+        for (const StableDiffusionModelResource &model : metadata.models) {
+            for (const std::string *value : {
+                     &model.role, &model.name, &model.hash, &model.hashType,
+                     &model.uri,
+                 }) {
+                if (IiscError error = trackMetadataString(*value);
+                    error.code != IiscErrorCode::None) {
+                    return error;
+                }
+            }
+        }
+        for (const StableDiffusionLora &lora : metadata.loras) {
+            for (const std::string *value : {&lora.name, &lora.hash}) {
+                if (IiscError error = trackMetadataString(*value);
+                    error.code != IiscErrorCode::None) {
+                    return error;
+                }
+            }
+        }
+        for (const StableDiffusionMetadataEntry &entry
+             : metadata.comfyUi.extraPngInfo) {
+            for (const std::string *value : {&entry.key, &entry.value}) {
+                if (IiscError error = trackMetadataString(*value);
+                    error.code != IiscErrorCode::None) {
+                    return error;
+                }
+            }
+        }
+        for (const StableDiffusionMetadataEntry &entry : metadata.extraParameters) {
+            for (const std::string *value : {&entry.key, &entry.value}) {
+                if (IiscError error = trackMetadataString(*value);
+                    error.code != IiscErrorCode::None) {
+                    return error;
+                }
             }
         }
     }
@@ -581,6 +683,98 @@ void writeChunkedRaster(ByteWriter &writer, const ChunkedRasterAsset &chunked)
     }
 }
 
+void writeOptionalU32(ByteWriter &writer,
+                      const std::optional<std::uint32_t> &value)
+{
+    writer.writeU8(value ? 1U : 0U);
+    if (value) {
+        writer.writeU32(*value);
+    }
+}
+
+void writeOptionalU64(ByteWriter &writer,
+                      const std::optional<std::uint64_t> &value)
+{
+    writer.writeU8(value ? 1U : 0U);
+    if (value) {
+        writer.writeU64(*value);
+    }
+}
+
+void writeOptionalDouble(ByteWriter &writer,
+                         const std::optional<double> &value)
+{
+    writer.writeU8(value ? 1U : 0U);
+    if (value) {
+        writer.writeDouble(*value);
+    }
+}
+
+void writeStableDiffusionMetadata(ByteWriter &writer,
+                                  const StableDiffusionMetadata &metadata)
+{
+    writer.writeString(metadata.positivePrompt);
+    writer.writeString(metadata.negativePrompt);
+    writer.writeU8(metadata.outputExtent ? 1U : 0U);
+    if (metadata.outputExtent) {
+        writer.writeU32(metadata.outputExtent->width);
+        writer.writeU32(metadata.outputExtent->height);
+    }
+    writeOptionalU32(writer, metadata.batchSize);
+    writeOptionalU32(writer, metadata.clipSkip);
+
+    writer.writeU32(static_cast<std::uint32_t>(metadata.samplingPasses.size()));
+    for (const StableDiffusionSamplingPass &pass : metadata.samplingPasses) {
+        writer.writeString(pass.nodeId);
+        writeOptionalU64(writer, pass.seed);
+        writeOptionalU32(writer, pass.steps);
+        writeOptionalDouble(writer, pass.cfgScale);
+        writer.writeString(pass.samplerName);
+        writer.writeString(pass.scheduler);
+        writeOptionalDouble(writer, pass.denoiseStrength);
+        writeOptionalU32(writer, pass.startStep);
+        writeOptionalU32(writer, pass.endStep);
+    }
+
+    writer.writeU32(static_cast<std::uint32_t>(metadata.models.size()));
+    for (const StableDiffusionModelResource &model : metadata.models) {
+        writer.writeString(model.role);
+        writer.writeString(model.name);
+        writer.writeString(model.hash);
+        writer.writeString(model.hashType);
+        writer.writeString(model.uri);
+    }
+
+    writer.writeU32(static_cast<std::uint32_t>(metadata.loras.size()));
+    for (const StableDiffusionLora &lora : metadata.loras) {
+        writer.writeString(lora.name);
+        writer.writeString(lora.hash);
+        writer.writeDouble(lora.modelStrength);
+        writer.writeDouble(lora.clipStrength);
+    }
+
+    writer.writeString(metadata.software);
+    writer.writeString(metadata.softwareVersion);
+    writer.writeString(metadata.createdAt);
+    writer.writeString(metadata.automatic1111Parameters);
+    writer.writeString(metadata.comfyUi.promptJson);
+    writer.writeString(metadata.comfyUi.workflowJson);
+
+    writer.writeU32(static_cast<std::uint32_t>(
+        metadata.comfyUi.extraPngInfo.size()));
+    for (const StableDiffusionMetadataEntry &entry
+         : metadata.comfyUi.extraPngInfo) {
+        writer.writeString(entry.key);
+        writer.writeString(entry.value);
+    }
+
+    writer.writeU32(static_cast<std::uint32_t>(metadata.extraParameters.size()));
+    for (const StableDiffusionMetadataEntry &entry : metadata.extraParameters) {
+        writer.writeString(entry.key);
+        writer.writeString(entry.value);
+    }
+}
+
 void writePayload(ByteWriter &writer, const Document &document)
 {
     writer.writeI32(document.extent.width);
@@ -615,29 +809,38 @@ void writePayload(ByteWriter &writer, const Document &document)
 
     writer.writeU32(static_cast<std::uint32_t>(document.layers.size()));
     for (const Layer &layer : document.layers) {
-        writer.writeString(layer.id);
-        writer.writeString(layer.name);
-        writer.writeU8(layer.visible ? 1U : 0U);
-        writer.writeDouble(layer.opacity);
-        writer.writeDouble(layer.transform.m11);
-        writer.writeDouble(layer.transform.m12);
-        writer.writeDouble(layer.transform.m21);
-        writer.writeDouble(layer.transform.m22);
-        writer.writeDouble(layer.transform.translationX);
-        writer.writeDouble(layer.transform.translationY);
-        writer.writeU8(encodedBlendMode(layer.blendMode));
-        if (const auto *source = std::get_if<StaticSource>(&layer.source)) {
+        const LayerProperties &properties = layerProperties(layer);
+        const LayerSource &sourceValue = layerSource(layer);
+        writer.writeString(properties.id);
+        writer.writeString(properties.name);
+        writer.writeU8(properties.visible ? 1U : 0U);
+        writer.writeDouble(properties.opacity);
+        writer.writeDouble(properties.transform.m11);
+        writer.writeDouble(properties.transform.m12);
+        writer.writeDouble(properties.transform.m21);
+        writer.writeDouble(properties.transform.m22);
+        writer.writeDouble(properties.transform.translationX);
+        writer.writeDouble(properties.transform.translationY);
+        writer.writeU8(encodedBlendMode(properties.blendMode));
+        if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
             writer.writeU8(0);
             writer.writeString(source->assetId);
             continue;
         }
-        const auto &source = std::get<KeyframedSource>(layer.source);
+        const auto &source = std::get<KeyframedSource>(sourceValue);
         writer.writeU8(1);
-        writer.writeU8(source.kind == ContentKind::Raster ? 0U : 1U);
+        writer.writeU8(contentKind(layer) == ContentKind::Raster ? 0U : 1U);
         writer.writeU32(static_cast<std::uint32_t>(source.keyframes.size()));
         for (const Keyframe &keyframe : source.keyframes) {
             writer.writeU32(keyframe.frame);
             writer.writeString(keyframe.assetId);
+        }
+    }
+    if (document.formatVersion.minor >= 2) {
+        writer.writeU8(document.stableDiffusionMetadata ? 1U : 0U);
+        if (document.stableDiffusionMetadata) {
+            writeStableDiffusionMetadata(writer,
+                                         *document.stableDiffusionMetadata);
         }
     }
 }
@@ -696,7 +899,10 @@ public:
         const std::uint32_t layerCount = limitedCount(m_limits.maximumLayers, "layer");
         document.layers.reserve(layerCount);
         for (std::uint32_t index = 0; index < layerCount; ++index) {
-            document.layers.push_back(readLayer());
+            document.layers.push_back(readLayer(document));
+        }
+        if (version.minor >= 2 && readBoolean()) {
+            document.stableDiffusionMetadata = readStableDiffusionMetadata();
         }
         return document;
     }
@@ -723,12 +929,13 @@ private:
         }
     }
 
-    std::string readString()
+    std::string readStringWithLimit(std::uint32_t maximum,
+                                    const char *kind)
     {
         const std::uint32_t size = m_reader.readU32();
-        if (size > m_limits.maximumStringBytes) {
+        if (size > maximum) {
             m_reader.fail(IiscErrorCode::LimitExceeded,
-                          "string length exceeds the configured limit");
+                          std::string(kind) + " length exceeds the configured limit");
         }
         addTotal(m_totals.stringBytes,
                  size,
@@ -743,6 +950,17 @@ private:
         return value;
     }
 
+    std::string readString()
+    {
+        return readStringWithLimit(m_limits.maximumStringBytes, "string");
+    }
+
+    std::string readMetadataString()
+    {
+        return readStringWithLimit(m_limits.maximumMetadataStringBytes,
+                                   "generation metadata string");
+    }
+
     bool readBoolean()
     {
         const std::uint8_t value = m_reader.readU8();
@@ -750,6 +968,122 @@ private:
             m_reader.fail(IiscErrorCode::InvalidData, "boolean value must be zero or one");
         }
         return value != 0;
+    }
+
+    std::optional<std::uint32_t> readOptionalU32()
+    {
+        if (!readBoolean()) {
+            return std::nullopt;
+        }
+        return m_reader.readU32();
+    }
+
+    std::optional<std::uint64_t> readOptionalU64()
+    {
+        if (!readBoolean()) {
+            return std::nullopt;
+        }
+        return m_reader.readU64();
+    }
+
+    std::optional<double> readOptionalDouble()
+    {
+        if (!readBoolean()) {
+            return std::nullopt;
+        }
+        return m_reader.readDouble();
+    }
+
+    std::uint32_t readMetadataCount(const char *kind)
+    {
+        const std::uint32_t count = limitedCount(m_limits.maximumMetadataEntries,
+                                                 kind);
+        addTotal(m_totals.metadataEntries,
+                 count,
+                 m_limits.maximumMetadataEntries,
+                 "generation metadata entry");
+        return count;
+    }
+
+    StableDiffusionMetadata readStableDiffusionMetadata()
+    {
+        StableDiffusionMetadata metadata;
+        metadata.positivePrompt = readMetadataString();
+        metadata.negativePrompt = readMetadataString();
+        if (readBoolean()) {
+            metadata.outputExtent = StableDiffusionImageExtent{
+                m_reader.readU32(), m_reader.readU32(),
+            };
+        }
+        metadata.batchSize = readOptionalU32();
+        metadata.clipSkip = readOptionalU32();
+
+        const std::uint32_t samplingPassCount =
+            readMetadataCount("generation sampling pass");
+        metadata.samplingPasses.reserve(samplingPassCount);
+        for (std::uint32_t index = 0; index < samplingPassCount; ++index) {
+            StableDiffusionSamplingPass pass;
+            pass.nodeId = readMetadataString();
+            pass.seed = readOptionalU64();
+            pass.steps = readOptionalU32();
+            pass.cfgScale = readOptionalDouble();
+            pass.samplerName = readMetadataString();
+            pass.scheduler = readMetadataString();
+            pass.denoiseStrength = readOptionalDouble();
+            pass.startStep = readOptionalU32();
+            pass.endStep = readOptionalU32();
+            metadata.samplingPasses.push_back(std::move(pass));
+        }
+
+        const std::uint32_t modelCount =
+            readMetadataCount("generation model resource");
+        metadata.models.reserve(modelCount);
+        for (std::uint32_t index = 0; index < modelCount; ++index) {
+            metadata.models.push_back({
+                readMetadataString(),
+                readMetadataString(),
+                readMetadataString(),
+                readMetadataString(),
+                readMetadataString(),
+            });
+        }
+
+        const std::uint32_t loraCount = readMetadataCount("generation LoRA");
+        metadata.loras.reserve(loraCount);
+        for (std::uint32_t index = 0; index < loraCount; ++index) {
+            metadata.loras.push_back({
+                readMetadataString(),
+                readMetadataString(),
+                m_reader.readDouble(),
+                m_reader.readDouble(),
+            });
+        }
+
+        metadata.software = readMetadataString();
+        metadata.softwareVersion = readMetadataString();
+        metadata.createdAt = readMetadataString();
+        metadata.automatic1111Parameters = readMetadataString();
+        metadata.comfyUi.promptJson = readMetadataString();
+        metadata.comfyUi.workflowJson = readMetadataString();
+
+        const std::uint32_t comfyExtraCount =
+            readMetadataCount("ComfyUI extension metadata");
+        metadata.comfyUi.extraPngInfo.reserve(comfyExtraCount);
+        for (std::uint32_t index = 0; index < comfyExtraCount; ++index) {
+            metadata.comfyUi.extraPngInfo.push_back({
+                readMetadataString(), readMetadataString(),
+            });
+        }
+
+        const std::uint32_t extraParameterCount =
+            readMetadataCount("generation extra parameter");
+        metadata.extraParameters.reserve(extraParameterCount);
+        for (std::uint32_t index = 0; index < extraParameterCount; ++index) {
+            metadata.extraParameters.push_back({
+                readMetadataString(), readMetadataString(),
+            });
+        }
+        return metadata;
     }
 
     Point readPoint()
@@ -956,41 +1290,53 @@ private:
         }
     }
 
-    Layer readLayer()
+    Layer readLayer(const Document &document)
     {
-        Layer layer;
-        layer.id = readString();
-        layer.name = readString();
-        layer.visible = readBoolean();
-        layer.opacity = m_reader.readDouble();
-        layer.transform.m11 = m_reader.readDouble();
-        layer.transform.m12 = m_reader.readDouble();
-        layer.transform.m21 = m_reader.readDouble();
-        layer.transform.m22 = m_reader.readDouble();
-        layer.transform.translationX = m_reader.readDouble();
-        layer.transform.translationY = m_reader.readDouble();
-        layer.blendMode = readBlendMode();
+        LayerProperties properties;
+        properties.id = readString();
+        properties.name = readString();
+        properties.visible = readBoolean();
+        properties.opacity = m_reader.readDouble();
+        properties.transform.m11 = m_reader.readDouble();
+        properties.transform.m12 = m_reader.readDouble();
+        properties.transform.m21 = m_reader.readDouble();
+        properties.transform.m22 = m_reader.readDouble();
+        properties.transform.translationX = m_reader.readDouble();
+        properties.transform.translationY = m_reader.readDouble();
+        properties.blendMode = readBlendMode();
 
+        LayerSource source;
+        ContentKind kind = ContentKind::Raster;
         const std::uint8_t sourceKind = m_reader.readU8();
         if (sourceKind == 0) {
-            layer.source = StaticSource{readString()};
+            StaticSource staticSource{readString()};
+            const Asset *asset = findAsset(document, staticSource.assetId);
+            if (!asset) {
+                m_reader.fail(IiscErrorCode::InvalidData,
+                              "static layer source references an unknown asset id");
+            }
+            kind = contentKind(*asset);
+            source = std::move(staticSource);
         } else if (sourceKind == 1) {
-            KeyframedSource source;
-            source.kind = readContentKind();
+            KeyframedSource keyframed;
+            kind = readContentKind();
             const std::uint32_t keyframeCount = m_reader.readU32();
             addTotal(m_totals.keyframes,
                      keyframeCount,
                      m_limits.maximumTotalKeyframes,
                      "keyframe");
-            source.keyframes.reserve(keyframeCount);
+            keyframed.keyframes.reserve(keyframeCount);
             for (std::uint32_t index = 0; index < keyframeCount; ++index) {
-                source.keyframes.push_back({m_reader.readU32(), readString()});
+                keyframed.keyframes.push_back({m_reader.readU32(), readString()});
             }
-            layer.source = std::move(source);
+            source = std::move(keyframed);
         } else {
             m_reader.fail(IiscErrorCode::InvalidData, "unknown layer source tag");
         }
-        return layer;
+        if (kind == ContentKind::Raster) {
+            return BitmapLayer{std::move(properties), std::move(source)};
+        }
+        return VectorLayer{std::move(properties), std::move(source)};
     }
 
     ByteReader &m_reader;

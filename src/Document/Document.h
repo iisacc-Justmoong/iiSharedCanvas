@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Export.h"
+#include "Metadata/StableDiffusionMetadata.h"
 
 #include <Core/RasterBlendMode.h>
 #include <Layer/RasterLayer.h>
@@ -16,7 +17,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 1;
+inline constexpr std::uint16_t CurrentFormatMinor = 2;
 
 using FrameIndex = std::uint32_t;
 
@@ -126,21 +127,31 @@ struct Keyframe {
 };
 
 struct KeyframedSource {
-    ContentKind kind = ContentKind::Raster;
     std::vector<Keyframe> keyframes;
 };
 
 using LayerSource = std::variant<StaticSource, KeyframedSource>;
 
-struct Layer {
+struct LayerProperties {
     std::string id;
     std::string name;
     bool visible = true;
     double opacity = 1.0;
     AffineTransform transform;
     RasterBlendMode blendMode = RasterBlendMode::SourceOver;
+};
+
+struct BitmapLayer {
+    LayerProperties properties;
     LayerSource source;
 };
+
+struct VectorLayer {
+    LayerProperties properties;
+    LayerSource source;
+};
+
+using Layer = std::variant<BitmapLayer, VectorLayer>;
 
 struct Document {
     FormatVersion formatVersion;
@@ -150,6 +161,7 @@ struct Document {
     Timeline timeline;
     std::vector<Asset> assets;
     std::vector<Layer> layers;
+    std::optional<StableDiffusionMetadata> stableDiffusionMetadata;
 };
 
 struct AssetReference {
@@ -158,7 +170,12 @@ struct AssetReference {
 };
 
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Asset &asset) noexcept;
+IISHAREDCANVAS_EXPORT ContentKind contentKind(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const std::string &assetId(const Asset &asset) noexcept;
+IISHAREDCANVAS_EXPORT LayerProperties &layerProperties(Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT const LayerProperties &layerProperties(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT LayerSource &layerSource(Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT const LayerSource &layerSource(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT CanvasOrigin canvasOrigin(const Document &document) noexcept;
 IISHAREDCANVAS_EXPORT CanvasRegion canvasRegion(const Document &document) noexcept;
 IISHAREDCANVAS_EXPORT Asset *findAsset(Document &document,
@@ -191,6 +208,14 @@ IISHAREDCANVAS_EXPORT Layer *findLayer(Document &document,
                                       const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const Layer *findLayer(const Document &document,
                                              const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT BitmapLayer *findBitmapLayer(Document &document,
+                                                   const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const BitmapLayer *findBitmapLayer(const Document &document,
+                                                         const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT VectorLayer *findVectorLayer(Document &document,
+                                                   const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const VectorLayer *findVectorLayer(const Document &document,
+                                                         const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT std::optional<std::size_t> layerIndex(const Document &document,
                                                            const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT Keyframe *findKeyframe(KeyframedSource &source,

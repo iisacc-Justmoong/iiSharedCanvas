@@ -1,6 +1,7 @@
 #include <iiSharedCanvas.h>
 
 #include <iostream>
+#include <limits>
 #include <string>
 #include <utility>
 
@@ -43,24 +44,13 @@ iiSharedCanvas::Document makeDocument()
         VectorAsset{"vector-a", {8, 8}, {rectangle(0xff00ff00U)}});
     document.assets.emplace_back(
         VectorAsset{"vector-b", {8, 8}, {rectangle(0xff0000ffU)}});
-    document.layers.push_back({
-        "paint",
-        "Paint",
-        true,
-        1.0,
-        {},
-        RasterBlendMode::SourceOver,
+    document.layers.emplace_back(BitmapLayer{
+        {"paint", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"raster-a"},
     });
-    document.layers.push_back({
-        "motion",
-        "Motion",
-        true,
-        1.0,
-        {},
-        RasterBlendMode::SourceOver,
-        KeyframedSource{ContentKind::Vector,
-                        {{0, "vector-a"}, {6, "vector-b"}}},
+    document.layers.emplace_back(VectorLayer{
+        {"motion", "Motion", true, 1.0, {}, RasterBlendMode::SourceOver},
+        KeyframedSource{{{0, "vector-a"}, {6, "vector-b"}}},
     });
     return document;
 }
@@ -84,7 +74,7 @@ int main()
     expect(assetIndex(document, "vector-a") == std::optional<std::size_t>{1}
                && layerIndex(document, "motion") == std::optional<std::size_t>{1},
            "stable ids must resolve to current collection indices");
-    const auto &initialSource = std::get<KeyframedSource>(document.layers[1].source);
+    const auto &initialSource = std::get<KeyframedSource>(layerSource(document.layers[1]));
     expect(findKeyframe(initialSource, 6) != nullptr
                && keyframeIndex(initialSource, 6) == std::optional<std::size_t>{1},
            "exact keyframe lookup must be distinct from hold sampling");
@@ -108,6 +98,46 @@ int main()
            "shrinking a timeline across an existing keyframe must fail without mutation");
     expect(editor.setFrameCount(18).changed && document.timeline.frameCount == 18,
            "a valid timeline expansion must apply");
+
+    StableDiffusionMetadata generation;
+    generation.positivePrompt = "architectural concept art";
+    generation.negativePrompt = "watermark";
+    generation.samplingPasses.push_back({
+        "3", 42, 24, 7.0, "euler", "normal", 1.0, std::nullopt, std::nullopt,
+    });
+    generation.software = "ComfyUI";
+    generation.comfyUi.promptJson =
+        R"json({"3":{"class_type":"KSampler","inputs":{"seed":42,"steps":24,"cfg":7.0}}})json";
+    const DocumentEditResult metadataEdit =
+        editor.setStableDiffusionMetadata(generation);
+    expect(metadataEdit.ok() && metadataEdit.changed
+               && document.stableDiffusionMetadata == generation,
+           "Stable Diffusion generation metadata must be atomically editable");
+    const std::uint64_t beforeMetadataNoOp = editor.revision();
+    expect(!editor.setStableDiffusionMetadata(generation).changed
+               && editor.revision() == beforeMetadataNoOp,
+           "setting identical generation metadata must not advance revision");
+    StableDiffusionMetadata invalidGeneration = generation;
+    invalidGeneration.samplingPasses.front().cfgScale =
+        std::numeric_limits<double>::quiet_NaN();
+    const DocumentEditResult rejectedMetadata =
+        editor.setStableDiffusionMetadata(invalidGeneration);
+    expect(!rejectedMetadata.ok()
+               && rejectedMetadata.code == DocumentEditCode::ValidationRejected
+               && document.stableDiffusionMetadata == generation
+               && editor.revision() == beforeMetadataNoOp,
+           "invalid generation metadata must preserve the prior metadata and revision");
+    expect(editor.clearStableDiffusionMetadata().changed
+               && !document.stableDiffusionMetadata,
+           "generation metadata must be explicitly removable without touching canvas content");
+
+    Document legacyMetadataDocument = makeDocument();
+    legacyMetadataDocument.formatVersion = {1, 1};
+    DocumentEditor legacyMetadataEditor(legacyMetadataDocument);
+    expect(legacyMetadataEditor.setStableDiffusionMetadata(generation).changed
+               && legacyMetadataDocument.formatVersion.minor == 2
+               && legacyMetadataDocument.stableDiffusionMetadata == generation,
+           "adding generation metadata to an older document must atomically migrate it to format 1.2");
 
     expect(editor.insertRasterAsset("raster-b", makeRasterLayer(4, 4, 0xffaabbccU), 1).changed
                && assetIndex(document, "raster-b") == std::optional<std::size_t>{1},
@@ -134,7 +164,8 @@ int main()
 
     expect(editor.renameAsset("raster-a", "paint-pixels").changed
                && findAsset(document, "raster-a") == nullptr
-               && std::get<StaticSource>(findLayer(document, "paint")->source).assetId == "paint-pixels",
+               && std::get<StaticSource>(layerSource(*findLayer(document, "paint"))).assetId
+                    == "paint-pixels",
            "renaming an asset must atomically rewrite every layer reference");
     expect(editor.moveAsset("paint-pixels", document.assets.size() - 1).changed
                && assetIndex(document, "paint-pixels") == document.assets.size() - 1,
@@ -144,14 +175,9 @@ int main()
                && referencedRemoval.code == DocumentEditCode::AssetReferenced,
            "referenced assets must not be silently removed");
 
-    Layer overlay{
-        "overlay",
-        "Overlay",
-        true,
-        0.75,
-        {},
-        RasterBlendMode::Screen,
-        StaticSource{"raster-b"},
+    Layer overlay = VectorLayer{
+        {"overlay", "Overlay", true, 0.75, {}, RasterBlendMode::Screen},
+        StaticSource{"vector-c"},
     };
     expect(editor.insertLayer(overlay, 1).changed
                && layerIndex(document, "overlay") == std::optional<std::size_t>{1},
@@ -159,10 +185,11 @@ int main()
     expect(editor.insertLayer(overlay).code == DocumentEditCode::DuplicateLayerId,
            "layer identity must remain unique across insertion APIs");
     Layer replacement = overlay;
-    replacement.name = "Replacement overlay";
-    replacement.opacity = 0.625;
+    layerProperties(replacement).name = "Replacement overlay";
+    layerProperties(replacement).opacity = 0.625;
     expect(editor.replaceLayer("overlay", replacement).changed
-               && findLayer(document, "overlay")->name == "Replacement overlay",
+               && layerProperties(*findLayer(document, "overlay")).name
+                    == "Replacement overlay",
            "a complete layer must be replaceable through one validated operation");
     expect(editor.setLayerName("overlay", "Highlights").changed
                && editor.setLayerVisible("overlay", false).changed
@@ -177,14 +204,14 @@ int main()
     const DocumentEditResult invalidOpacity = editor.setLayerOpacity("overlay", 1.5);
     expect(!invalidOpacity.ok()
                && invalidOpacity.code == DocumentEditCode::ValidationRejected
-               && findLayer(document, "overlay")->opacity == 0.5
+               && layerProperties(*findLayer(document, "overlay")).opacity == 0.5
                && editor.revision() == beforeInvalidOpacity,
            "invalid layer values must restore the prior field and revision");
     AffineTransform transform;
     transform.translationX = 3.0;
     transform.translationY = 2.0;
     expect(editor.setLayerTransform("overlay", transform).changed
-               && findLayer(document, "overlay")->transform.translationX == 3.0,
+               && layerProperties(*findLayer(document, "overlay")).transform.translationX == 3.0,
            "the complete affine transform must be replaceable");
     expect(editor.renameLayer("overlay", "highlights").changed
                && findLayer(document, "overlay") == nullptr,
@@ -192,32 +219,56 @@ int main()
     expect(editor.moveLayer("highlights", document.layers.size() - 1).changed
                && layerIndex(document, "highlights") == document.layers.size() - 1,
            "bottom-to-top layer order must be explicitly mutable");
-    expect(editor.setStaticSource("highlights", "vector-c").changed
-               && std::get<StaticSource>(findLayer(document, "highlights")->source).assetId == "vector-c",
+    const std::uint64_t beforeKindMismatch = editor.revision();
+    const DocumentEditResult kindMismatch = editor.setStaticSource("highlights", "raster-b");
+    expect(!kindMismatch.ok()
+               && kindMismatch.code == DocumentEditCode::AssetKindMismatch
+               && editor.revision() == beforeKindMismatch
+               && std::holds_alternative<VectorLayer>(*findLayer(document, "highlights"))
+               && std::get<StaticSource>(layerSource(*findLayer(document, "highlights"))).assetId
+                    == "vector-c",
+           "a vector layer must reject a bitmap source without changing type, source, or revision");
+    expect(editor.setStaticSource("highlights", "vector-b").changed
+               && std::get<StaticSource>(layerSource(*findLayer(document, "highlights"))).assetId
+                    == "vector-b",
            "a layer source must be replaceable with a static asset reference");
     expect(editor.insertKeyframe("highlights", {4, "vector-c"}).code
                == DocumentEditCode::SourceNotKeyframed,
            "keyframe operations must identify a static source precisely");
-    expect(editor.setKeyframedSource("highlights", ContentKind::Vector,
+    expect(editor.setKeyframedSource("highlights",
                                      {{0, "vector-a"}, {8, "vector-b"}}).changed,
            "a layer source must be replaceable with a validated keyframe track");
 
+    const std::uint64_t beforeKeyframeKindMismatch = editor.revision();
+    const DocumentEditResult keyframeKindMismatch = editor.insertKeyframe(
+        "highlights", {4, "raster-b"});
+    expect(!keyframeKindMismatch.ok()
+               && keyframeKindMismatch.code == DocumentEditCode::AssetKindMismatch
+               && editor.revision() == beforeKeyframeKindMismatch
+               && findKeyframe(std::get<KeyframedSource>(
+                                   layerSource(*findLayer(document, "highlights"))), 4)
+                    == nullptr,
+           "a vector layer must reject a bitmap keyframe without partial insertion");
     expect(editor.insertKeyframe("highlights", {4, "vector-c"}).changed
-               && keyframeIndex(std::get<KeyframedSource>(findLayer(document, "highlights")->source), 4)
+               && keyframeIndex(std::get<KeyframedSource>(
+                                    layerSource(*findLayer(document, "highlights"))), 4)
                     == std::optional<std::size_t>{1},
            "keyframes must be inserted in chronological order from frame values");
     expect(editor.insertKeyframe("highlights", {4, "vector-c"}).code
                == DocumentEditCode::DuplicateKeyframe,
            "duplicate exact-frame insertion must have a typed rejection");
     expect(editor.setKeyframeAsset("highlights", 4, "vector-b").changed
-               && findKeyframe(std::get<KeyframedSource>(findLayer(document, "highlights")->source), 4)->assetId
+               && findKeyframe(std::get<KeyframedSource>(
+                                   layerSource(*findLayer(document, "highlights"))), 4)->assetId
                     == "vector-b",
            "a keyframe asset reference must be independently replaceable");
     expect(editor.moveKeyframe("highlights", 4, 5).changed
-               && findKeyframe(std::get<KeyframedSource>(findLayer(document, "highlights")->source), 5),
+               && findKeyframe(std::get<KeyframedSource>(
+                                   layerSource(*findLayer(document, "highlights"))), 5),
            "a non-initial keyframe must be moveable to another unoccupied frame");
     expect(editor.removeKeyframe("highlights", 5).changed
-               && findKeyframe(std::get<KeyframedSource>(findLayer(document, "highlights")->source), 5) == nullptr,
+               && findKeyframe(std::get<KeyframedSource>(
+                                   layerSource(*findLayer(document, "highlights"))), 5) == nullptr,
            "non-initial keyframes must be removable");
     const DocumentEditResult initialKeyframeRemoval = editor.removeKeyframe("highlights", 0);
     expect(!initialKeyframeRemoval.ok()
@@ -260,7 +311,7 @@ int main()
     const DocumentEditResult invalidDocument = guarded.setLayerName("paint", "Ignored");
     expect(!invalidDocument.ok()
                && invalidDocument.code == DocumentEditCode::InvalidDocument
-               && findLayer(externallyChanged, "paint")->name == "Paint"
+               && layerProperties(*findLayer(externallyChanged, "paint")).name == "Paint"
                && guarded.revision() == 0,
            "the editor must detect and avoid extending an externally invalidated aggregate");
     guarded.unbind();

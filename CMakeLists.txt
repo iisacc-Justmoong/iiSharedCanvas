@@ -28,10 +28,16 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/BitmapEditor.h
         src/Bitmap/ChunkedBitmapEditor.cpp
         src/Bitmap/ChunkedBitmapEditor.h
+        src/Camera/CameraRaw.cpp
+        src/Camera/CameraRaw.h
         src/Document/Document.cpp
         src/Document/Document.h
         src/Document/DocumentEditor.cpp
         src/Document/DocumentEditor.h
+        src/Metadata/Automatic1111Metadata.cpp
+        src/Metadata/Automatic1111Metadata.h
+        src/Metadata/StableDiffusionMetadata.cpp
+        src/Metadata/StableDiffusionMetadata.h
         src/QtAdapter/CanvasItem.cpp
         src/QtAdapter/CanvasItem.h
         src/QtAdapter/BitmapItem.cpp
@@ -88,7 +94,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY src/Bitmap src/Document src/QtAdapter src/Render src/Serialization src/Validation
+install(DIRECTORY src/Bitmap src/Camera src/Document src/Metadata src/QtAdapter src/Render src/Serialization src/Validation
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
@@ -118,6 +124,27 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 
 if(BUILD_TESTING)
+    add_executable(iiSharedCanvasAutomatic1111MetadataTest
+            tests/Automatic1111MetadataTest.cpp)
+    target_link_libraries(iiSharedCanvasAutomatic1111MetadataTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.Automatic1111Metadata
+            COMMAND iiSharedCanvasAutomatic1111MetadataTest)
+
+    add_executable(iiSharedCanvasStableDiffusionMetadataTest
+            tests/StableDiffusionMetadataTest.cpp)
+    target_link_libraries(iiSharedCanvasStableDiffusionMetadataTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.StableDiffusionMetadata
+            COMMAND iiSharedCanvasStableDiffusionMetadataTest)
+
+    add_executable(iiSharedCanvasCameraRawTest
+            tests/CameraRawTest.cpp)
+    target_link_libraries(iiSharedCanvasCameraRawTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.CameraRaw
+            COMMAND iiSharedCanvasCameraRawTest)
+
     add_executable(iiSharedCanvasDocumentModelTest
             tests/DocumentModelTest.cpp)
     target_link_libraries(iiSharedCanvasDocumentModelTest PRIVATE

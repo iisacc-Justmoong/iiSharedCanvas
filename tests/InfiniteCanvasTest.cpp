@@ -28,13 +28,8 @@ iiSharedCanvas::Document makeInfiniteDocument()
     document.extent = {128, 96};
     document.timeline = {{24, 1}, 1};
     document.assets.emplace_back(ChunkedRasterAsset{"paint", {}});
-    document.layers.push_back({
-        "paint-layer",
-        "Paint",
-        true,
-        1.0,
-        {},
-        RasterBlendMode::SourceOver,
+    document.layers.emplace_back(BitmapLayer{
+        {"paint-layer", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"paint"},
     });
     return document;

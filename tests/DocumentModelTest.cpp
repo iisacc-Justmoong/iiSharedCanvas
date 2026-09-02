@@ -43,18 +43,24 @@ iiSharedCanvas::Document makeDocument()
     document.assets.emplace_back(makeVectorAsset("vector-frame-0", 0xff00ff00U));
     document.assets.emplace_back(makeVectorAsset("vector-frame-12", 0xff0000ffU));
 
-    document.layers.push_back({"layer-raster", "Raster", true, 1.0, {},
-                               RasterBlendMode::SourceOver, StaticSource{"raster-static"}});
-    document.layers.push_back({"layer-vector", "Vector", true, 1.0, {},
-                               RasterBlendMode::SourceOver, StaticSource{"vector-static"}});
-    document.layers.push_back({"layer-animated-raster", "Animated raster", true, 1.0, {},
-                               RasterBlendMode::SourceOver,
-                               KeyframedSource{ContentKind::Raster,
-                                               {{0, "raster-frame-0"}, {24, "raster-frame-24"}}}});
-    document.layers.push_back({"layer-animated-vector", "Animated vector", true, 1.0, {},
-                               RasterBlendMode::SourceOver,
-                               KeyframedSource{ContentKind::Vector,
-                                               {{0, "vector-frame-0"}, {12, "vector-frame-12"}}}});
+    document.layers.emplace_back(BitmapLayer{
+        {"layer-raster", "Raster", true, 1.0, {}, RasterBlendMode::SourceOver},
+        StaticSource{"raster-static"},
+    });
+    document.layers.emplace_back(VectorLayer{
+        {"layer-vector", "Vector", true, 1.0, {}, RasterBlendMode::SourceOver},
+        StaticSource{"vector-static"},
+    });
+    document.layers.emplace_back(BitmapLayer{
+        {"layer-animated-raster", "Animated raster", true, 1.0, {},
+         RasterBlendMode::SourceOver},
+        KeyframedSource{{{0, "raster-frame-0"}, {24, "raster-frame-24"}}},
+    });
+    document.layers.emplace_back(VectorLayer{
+        {"layer-animated-vector", "Animated vector", true, 1.0, {},
+         RasterBlendMode::SourceOver},
+        KeyframedSource{{{0, "vector-frame-0"}, {12, "vector-frame-12"}}},
+    });
     return document;
 }
 
@@ -67,6 +73,15 @@ int main()
     const Document document = makeDocument();
     expect(validate(document).ok(),
            "a document must accept static raster, static vector, and keyframed raster/vector layers together");
+    expect(std::holds_alternative<BitmapLayer>(document.layers[0])
+               && std::holds_alternative<VectorLayer>(document.layers[1])
+               && contentKind(document.layers[0]) == ContentKind::Raster
+               && contentKind(document.layers[1]) == ContentKind::Vector,
+           "the layer variant must expose bitmap and vector identity directly");
+    expect(findBitmapLayer(document, "layer-raster") != nullptr
+               && findVectorLayer(document, "layer-vector") != nullptr
+               && findVectorLayer(document, "layer-raster") == nullptr,
+           "typed layer lookup must never return a layer of the other content kind");
 
     const Asset *staticRaster = resolveAssetAt(document, document.layers[0], 47);
     expect(staticRaster && assetId(*staticRaster) == "raster-static",

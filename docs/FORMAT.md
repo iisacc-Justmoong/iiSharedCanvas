@@ -6,7 +6,7 @@ Status: Implemented canonical binary contract.
 
 - Extension: `.iisc`
 - Media type: `application/vnd.iisacc.ii-shared-canvas`
-- Current model version: major 1, minor 1
+- Current model version: major 1, minor 2
 - Integer byte order: little-endian
 - Floating-point representation: IEEE 754 binary64, stored as little-endian bits
 - Raster channel representation: 32-bit ARGB as defined by iiPaintEngine
@@ -66,6 +66,11 @@ Asset assets[assetCount]
 
 u32 layerCount
 Layer layers[layerCount]
+
+[if minor >= 2]
+  bool hasStableDiffusionMetadata
+  [if hasStableDiffusionMetadata]
+    StableDiffusionMetadata generation
 ~~~
 
 Assets and layers preserve their document vector order. Layers are ordered
@@ -77,6 +82,22 @@ not a conceptual boundary. Its top-left world coordinate is
 `(canvasOriginX, canvasOriginY)`. The chunk size is a power of two from 32
 through 4096 pixels. Version 1.0 omits this block and always decodes as a finite
 canvas with origin `(0, 0)`.
+
+Version 1.2 appends optional Stable Diffusion generation metadata after the
+layer collection. Appending the block leaves every earlier offset and record unchanged.
+Version 1.0 and 1.1 end immediately after the layer collection and therefore
+decode with no generation metadata.
+
+Within the existing 1.2 metadata record, `automatic1111Parameters` contains the
+complete infotext extracted from an AUTOMATIC1111 image carrier.
+AUTOMATIC1111 infotext remains byte-exact during canonical `.iisc` round-trip; parsing creates
+a separate decoded view and never rewrites this string. PNG `parameters`, EXIF
+`UserComment`, or other carrier identity is not persisted because extraction
+belongs to the importing adapter. Unknown or duplicate parameter pairs remain
+recoverable from this authoritative string even when their final semantic value
+is also projected into typed fields or `extraParameters`. This compatibility
+reader changes no 1.2 binary field or offset and therefore requires no format
+version increment.
 
 ## Assets
 
@@ -191,21 +212,111 @@ x' = x * m11 + y * m21 + translationX
 y' = x * m12 + y * m22 + translationY
 ~~~
 
-Source kind 0 is static and stores one asset-id string. Source kind 1 is
-keyframed and stores:
+Source kind 0 is static and stores one asset-id string. Its concrete layer type
+is the referenced asset kind. Source kind 1 is keyframed and stores:
 
 ~~~text
-u8 contentKind       // 0 raster, 1 vector
+u8 contentKind       // 0 BitmapLayer, 1 VectorLayer
 u32 keyframeCount
 repeat keyframeCount:
   u32 frame
   string assetId
 ~~~
 
+The decoder materializes every entry as a type-distinguished `BitmapLayer` or
+`VectorLayer`. The in-memory `KeyframedSource` does not duplicate this type;
+the encoded keyframed `contentKind` is the owning layer's canonical type tag.
+Validation rejects a static or keyframed reference whose asset kind differs from
+the owning layer.
+
 Version 1 uses hold sampling only. The selected asset is the last keyframe at
 or before the requested frame. The first keyframe is zero, positions are
 strictly increasing, frames remain within `[0, frameCount)`, and one track never
 mixes raster and vector assets.
+
+## Stable Diffusion generation metadata
+
+The optional version 1.2 record is encoded in this exact order:
+
+~~~text
+string positivePrompt
+string negativePrompt
+bool hasOutputExtent
+[if hasOutputExtent]
+  u32 outputWidth
+  u32 outputHeight
+OptionalU32 batchSize
+OptionalU32 clipSkip
+
+u32 samplingPassCount
+repeat samplingPassCount:
+  string nodeId
+  OptionalU64 seed
+  OptionalU32 steps
+  OptionalF64 cfgScale
+  string samplerName
+  string scheduler
+  OptionalF64 denoiseStrength
+  OptionalU32 startStep
+  OptionalU32 endStep
+
+u32 modelCount
+repeat modelCount:
+  string role
+  string name
+  string hash
+  string hashType
+  string uri
+
+u32 loraCount
+repeat loraCount:
+  string name
+  string hash
+  f64 modelStrength
+  f64 clipStrength
+
+string software
+string softwareVersion
+string createdAt
+string automatic1111Parameters
+string comfyUiPromptJson
+string comfyUiWorkflowJson
+
+u32 comfyUiExtraPngInfoCount
+repeat comfyUiExtraPngInfoCount:
+  string key
+  string jsonValue
+
+u32 extraParameterCount
+repeat extraParameterCount:
+  string key
+  string value
+~~~
+
+`OptionalU32`, `OptionalU64`, and `OptionalF64` are a canonical boolean presence
+byte followed by the indicated primitive only when present. Output extent,
+batch size, CLIP skip, and step count are positive when present. CFG is finite
+and non-negative; denoise strength is finite from zero through one; start step
+does not exceed end step. A sampling pass contains at least one setting.
+
+Model resources require a role and name. A role may identify a checkpoint, VAE,
+ControlNet, or another consumer-understood model class. Hash, hash type, and URI
+are provenance strings rather than trusted resolvers. LoRA strengths are finite.
+No checkpoint, VAE, LoRA, embedding, or custom-node binary is embedded by this
+record.
+
+ComfyUI `prompt` and `workflow` values are independent, optional JSON objects.
+Their UTF-8 bytes are retained exactly; the writer does not parse and re-emit
+them. `prompt` represents the API execution graph and `workflow` represents the
+UI-restoration graph. Extra PNG-info keys are non-empty, unique, and cannot be
+the reserved `prompt` or `workflow` names; their values are complete JSON
+values. Generic extra-parameter keys are non-empty and unique, while their
+values are opaque UTF-8.
+
+An attached metadata record must contain at least one prompt, setting,
+resource, compatibility payload, or extension. It is untrusted authoring and
+provenance data: decoding never executes a graph, resolves a URI, loads a model,
+or changes rendered pixels.
 
 ## Render contract
 
@@ -216,12 +327,25 @@ deterministic CPU rasterization with a 4x4 coverage grid per pixel. Resolved
 layers are composited bottom-to-top using iiPaintEngine opacity and blend
 semantics.
 
+Layer-parallel rendering does not change the persisted layer order. Isolated
+layer tiles, worker completion order, resident texture caches, and the final
+composed tile are runtime state only. Composition always restores the encoded
+bottom-to-top order before applying opacity and blend mode.
+
 ## Authoring-only state
 
 Brush input is not a persisted content kind. `BitmapEditor` may retain a
 transient iiPaintEngine dab stream only while a pointer gesture is active.
 `BitmapItem` and `CanvasItem` viewport state, layer selection, undo history,
 input events, and UI tool state are not encoded.
+
+`CameraRawData` is not encoded by `.iisc` version 1.1 and remains outside
+version 1.2. It is decoded/import state containing sensor samples and
+capture/calibration metadata, not a canvas asset or a third layer kind. A host
+must explicitly process it into committed
+ARGB pixels and then create a `RasterAsset` if the result belongs in a document.
+No manufacturer RAW bytes, CFA payload, RAW profile, or implicit demosaicing
+settings are added to the current container.
 
 ## Default reader limits
 
@@ -236,7 +360,9 @@ input events, and UI tool state are not encoded.
 | Assets | 65,536 |
 | Layers | 65,536 |
 | One string | 1 MiB |
+| One generation-metadata string | 16 MiB |
 | Total string bytes | 64 MiB |
+| Generation-metadata entries across passes, models, LoRAs, and extension lists | 65,536 |
 | Vector paths | 1,048,576 |
 | Path commands | 16,777,216 |
 | Keyframes | 16,777,216 |
@@ -258,5 +384,9 @@ for its device class.
 Version 1.0 is the first physical format. Version 1.1 adds finite/infinite mode,
 an allocated-region world origin, a chunk size, and canonical sparse raster
 assets. A 1.0 document migrates on decode to finite mode at origin zero without
-changing pixels or rendering. Future minor or major support requires an explicit
-decoder and canonical re-encoder plus rendered-frame equivalence tests.
+changing pixels or rendering. Version 1.2 appends optional Stable Diffusion
+generation metadata. A 1.0 or 1.1 document decodes without that optional value
+and re-encodes byte-identically unless a caller explicitly attaches metadata;
+`DocumentEditor` then upgrades it atomically to 1.2. Future minor or major
+support requires an explicit decoder and canonical re-encoder plus
+rendered-frame equivalence tests.

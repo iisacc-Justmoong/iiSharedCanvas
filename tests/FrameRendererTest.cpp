@@ -52,10 +52,20 @@ iiSharedCanvas::VectorAsset makeFilledRectangle(std::string id,
     return {std::move(id), {width, height}, {std::move(path)}};
 }
 
-iiSharedCanvas::Layer staticLayer(std::string id, std::string assetId)
+iiSharedCanvas::Layer staticBitmapLayer(std::string id, std::string assetId)
 {
-    return {std::move(id), "Layer", true, 1.0, {}, RasterBlendMode::SourceOver,
-            iiSharedCanvas::StaticSource{std::move(assetId)}};
+    return iiSharedCanvas::BitmapLayer{
+        {std::move(id), "Layer", true, 1.0, {}, RasterBlendMode::SourceOver},
+        iiSharedCanvas::StaticSource{std::move(assetId)},
+    };
+}
+
+iiSharedCanvas::Layer staticVectorLayer(std::string id, std::string assetId)
+{
+    return iiSharedCanvas::VectorLayer{
+        {std::move(id), "Layer", true, 1.0, {}, RasterBlendMode::SourceOver},
+        iiSharedCanvas::StaticSource{std::move(assetId)},
+    };
 }
 
 } // namespace
@@ -69,8 +79,45 @@ int main()
         document.assets.emplace_back(RasterAsset{"background", makeRasterLayer(4, 4, 0xff0000ffU)});
         document.assets.emplace_back(makeFilledRectangle("vector", 4, 4, 1.0, 1.0, 3.0, 3.0,
                                                          0xffff0000U));
-        document.layers.push_back(staticLayer("background-layer", "background"));
-        document.layers.push_back(staticLayer("vector-layer", "vector"));
+        document.layers.push_back(staticBitmapLayer("background-layer", "background"));
+        document.layers.push_back(staticVectorLayer("vector-layer", "vector"));
+
+        const FrameRenderTileRequest fullRequest{canvasRegion(document), document.extent};
+        const FrameLayerBatchRenderResult layers = renderFrameLayers(
+            document, 0, {fullRequest});
+        expect(layers.ok() && layers.layers.size() == 2,
+               "a mixed frame must expose one render result per document layer");
+        expect(layers.layers[0].layerIndex == 0
+                   && layers.layers[0].layerId == "background-layer"
+                   && layers.layers[0].tiles.size() == 1
+                   && pixelAt(layers.layers[0].tiles.front().pixels, 1, 1)
+                       == 0xff0000ffU,
+               "the bottom bitmap must render into its own layer tile");
+        expect(layers.layers[1].layerIndex == 1
+                   && layers.layers[1].layerId == "vector-layer"
+                   && layers.layers[1].tiles.size() == 1
+                   && pixelAt(layers.layers[1].tiles.front().pixels, 0, 0)
+                       == 0x00000000U
+                   && pixelAt(layers.layers[1].tiles.front().pixels, 1, 1)
+                       == 0xffff0000U,
+               "the top vector must remain isolated from lower pixels in its layer tile");
+        const FrameTileRenderResult composedLayers = composeFrameLayers(layers);
+        expect(composedLayers.ok()
+                   && composedLayers.tiles.size() == 1
+                   && pixelAt(composedLayers.tiles.front().pixels, 1, 1)
+                       == 0xffff0000U,
+               "layer tiles must compose in stable bottom-to-top order");
+
+        const FrameLayerTileRenderResult vectorOnly = renderFrameLayerTiles(
+            document, 0, 1, {fullRequest});
+        expect(vectorOnly.ok()
+                   && vectorOnly.layerId == "vector-layer"
+                   && vectorOnly.tiles.size() == 1
+                   && pixelAt(vectorOnly.tiles.front().pixels, 0, 0) == 0x00000000U,
+               "one document layer must be independently renderable without lower layers");
+        expect(renderFrameLayerTiles(document, 0, 2, {fullRequest}).status
+                   == FrameRenderStatus::LayerOutOfRange,
+               "an invalid layer index must fail closed");
 
         const FrameRenderResult result = renderFrame(document, 0);
         expect(result.ok(), "static raster and vector layers must render into one frame");
@@ -88,8 +135,8 @@ int main()
     {
         Document document = makeDocument(3, 1);
         document.assets.emplace_back(RasterAsset{"translated", makeRasterLayer(1, 1, 0xffff0000U)});
-        Layer layer = staticLayer("translated-layer", "translated");
-        layer.transform.translationX = 1.0;
+        Layer layer = staticBitmapLayer("translated-layer", "translated");
+        layerProperties(layer).transform.translationX = 1.0;
         document.layers.push_back(layer);
 
         const FrameRenderResult result = renderFrame(document, 0);
@@ -104,29 +151,51 @@ int main()
         Document document = makeDocument(1, 1);
         document.assets.emplace_back(RasterAsset{"blue", makeRasterLayer(1, 1, 0xff0000ffU)});
         document.assets.emplace_back(RasterAsset{"red", makeRasterLayer(1, 1, 0xffff0000U)});
-        document.layers.push_back(staticLayer("blue-layer", "blue"));
-        Layer red = staticLayer("red-layer", "red");
-        red.opacity = 0.5;
+        document.layers.push_back(staticBitmapLayer("blue-layer", "blue"));
+        Layer red = staticBitmapLayer("red-layer", "red");
+        layerProperties(red).opacity = 0.5;
         document.layers.push_back(red);
+
+        const FrameLayerBatchRenderResult opacityLayers = renderFrameLayers(
+            document, 0, {{{{0, 0}, {1, 1}}, {1, 1}}});
+        expect(opacityLayers.ok()
+                   && opacityLayers.layers[1].opacity == 0.5
+                   && pixelAt(opacityLayers.layers[1].tiles.front().pixels, 0, 0)
+                       == 0xffff0000U,
+               "layer rendering must preserve unmodified pixels and carry opacity as metadata");
+
+        layerProperties(document.layers.back()).visible = false;
+        const FrameLayerBatchRenderResult hiddenLayers = renderFrameLayers(
+            document, 0, {{{{0, 0}, {1, 1}}, {1, 1}}});
+        const FrameTileRenderResult hiddenComposite = composeFrameLayers(hiddenLayers);
+        expect(hiddenLayers.ok()
+                   && hiddenLayers.layers.size() == 2
+                   && !hiddenLayers.layers.back().visible
+                   && hiddenLayers.layers.back().tiles.empty()
+                   && hiddenComposite.ok()
+                   && pixelAt(hiddenComposite.tiles.front().pixels, 0, 0)
+                       == 0xff0000ffU,
+               "a hidden layer must retain ordered metadata without allocating layer tiles");
+        layerProperties(document.layers.back()).visible = true;
 
         const FrameRenderResult result = renderFrame(document, 0);
         expect(result.ok() && pixelAt(result.pixels, 0, 0) == 0xff800080U,
                "layer opacity must be applied by iiPaintEngine composition");
 
-        document.layers.back().opacity = 1.0;
-        document.layers.back().blendMode = RasterBlendMode::Multiply;
+        layerProperties(document.layers.back()).opacity = 1.0;
+        layerProperties(document.layers.back()).blendMode = RasterBlendMode::Multiply;
         const FrameRenderResult multiplied = renderFrame(document, 0);
         expect(multiplied.ok() && pixelAt(multiplied.pixels, 0, 0) == 0xff000000U,
                "supported iiPaintEngine layer blend modes must remain exact");
 
-        document.layers.back().blendMode = RasterBlendMode::Screen;
+        layerProperties(document.layers.back()).blendMode = RasterBlendMode::Screen;
         const FrameRenderResult screened = renderFrame(document, 0);
         expect(screened.ok() && pixelAt(screened.pixels, 0, 0) == 0xffff00ffU,
                "screen layer blending must remain owned by iiPaintEngine");
 
         std::get<RasterAsset>(document.assets[0]).pixels.pixels[0] = 0xff202020U;
         std::get<RasterAsset>(document.assets[1]).pixels.pixels[0] = 0xffffffffU;
-        document.layers.back().blendMode = RasterBlendMode::Overlay;
+        layerProperties(document.layers.back()).blendMode = RasterBlendMode::Overlay;
         const FrameRenderResult overlaid = renderFrame(document, 0);
         expect(overlaid.ok() && pixelAt(overlaid.pixels, 0, 0) == 0xff404040U,
                "overlay layer blending must remain owned by iiPaintEngine");
@@ -137,12 +206,13 @@ int main()
         RasterLayer source = makeRasterLayer(2, 1, 0xffff0000U);
         source.pixels[1] = 0xff00ff00U;
         document.assets.emplace_back(RasterAsset{"rotated", std::move(source)});
-        Layer layer = staticLayer("rotated-layer", "rotated");
-        layer.transform.m11 = 0.0;
-        layer.transform.m12 = 1.0;
-        layer.transform.m21 = -1.0;
-        layer.transform.m22 = 0.0;
-        layer.transform.translationX = 2.0;
+        Layer layer = staticBitmapLayer("rotated-layer", "rotated");
+        LayerProperties &properties = layerProperties(layer);
+        properties.transform.m11 = 0.0;
+        properties.transform.m12 = 1.0;
+        properties.transform.m21 = -1.0;
+        properties.transform.m22 = 0.0;
+        properties.transform.translationX = 2.0;
         document.layers.push_back(layer);
 
         const FrameRenderResult result = renderFrame(document, 0);
@@ -158,10 +228,11 @@ int main()
         Document document = makeDocument(1, 1, 2);
         document.assets.emplace_back(RasterAsset{"raster-0", makeRasterLayer(1, 1, 0xffff0000U)});
         document.assets.emplace_back(RasterAsset{"raster-1", makeRasterLayer(1, 1, 0xff00ff00U)});
-        document.layers.push_back({"animated-raster", "Animated raster", true, 1.0, {},
-                                   RasterBlendMode::SourceOver,
-                                   KeyframedSource{ContentKind::Raster,
-                                                   {{0, "raster-0"}, {1, "raster-1"}}}});
+        document.layers.emplace_back(BitmapLayer{
+            {"animated-raster", "Animated raster", true, 1.0, {},
+             RasterBlendMode::SourceOver},
+            KeyframedSource{{{0, "raster-0"}, {1, "raster-1"}}},
+        });
 
         expect(pixelAt(renderFrame(document, 0).pixels, 0, 0) == 0xffff0000U
                    && pixelAt(renderFrame(document, 1).pixels, 0, 0) == 0xff00ff00U,
@@ -174,10 +245,11 @@ int main()
                                                          0xff0000ffU));
         document.assets.emplace_back(makeFilledRectangle("vector-1", 1, 1, 0.0, 0.0, 1.0, 1.0,
                                                          0xffffffffU));
-        document.layers.push_back({"animated-vector", "Animated vector", true, 1.0, {},
-                                   RasterBlendMode::SourceOver,
-                                   KeyframedSource{ContentKind::Vector,
-                                                   {{0, "vector-0"}, {1, "vector-1"}}}});
+        document.layers.emplace_back(VectorLayer{
+            {"animated-vector", "Animated vector", true, 1.0, {},
+             RasterBlendMode::SourceOver},
+            KeyframedSource{{{0, "vector-0"}, {1, "vector-1"}}},
+        });
 
         expect(pixelAt(renderFrame(document, 0).pixels, 0, 0) == 0xff0000ffU
                    && pixelAt(renderFrame(document, 1).pixels, 0, 0) == 0xffffffffU,
@@ -194,7 +266,7 @@ int main()
         };
         path.stroke = StrokeStyle{SolidPaint{0xffffffffU}, 1.0};
         document.assets.emplace_back(VectorAsset{"curves", {5, 5}, {path}});
-        document.layers.push_back(staticLayer("curve-layer", "curves"));
+        document.layers.push_back(staticVectorLayer("curve-layer", "curves"));
 
         const FrameRenderResult result = renderFrame(document, 0);
         expect(result.ok() && ((pixelAt(result.pixels, 2, 1) >> 24U) & 0xffU) > 0,

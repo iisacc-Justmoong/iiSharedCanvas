@@ -70,12 +70,14 @@ iiSharedCanvas::Document mixedDocument()
     document.assets.emplace_back(RasterAsset{"background-0", makeRasterLayer(4, 4, 0xff102030U)});
     document.assets.emplace_back(RasterAsset{"background-1", makeRasterLayer(4, 4, 0xff304050U)});
     document.assets.emplace_back(filledRectangle("vector", 4, 4, 0xffffcc00U));
-    document.layers.push_back({"background", "Background", true, 1.0, {},
-                               RasterBlendMode::SourceOver,
-                               KeyframedSource{ContentKind::Raster,
-                                               {{0, "background-0"}, {1, "background-1"}}}});
-    document.layers.push_back({"vector", "Vector", true, 1.0, {},
-                               RasterBlendMode::SourceOver, StaticSource{"vector"}});
+    document.layers.emplace_back(BitmapLayer{
+        {"background", "Background", true, 1.0, {}, RasterBlendMode::SourceOver},
+        KeyframedSource{{{0, "background-0"}, {1, "background-1"}}},
+    });
+    document.layers.emplace_back(VectorLayer{
+        {"vector", "Vector", true, 1.0, {}, RasterBlendMode::SourceOver},
+        StaticSource{"vector"},
+    });
     return document;
 }
 
@@ -113,6 +115,9 @@ int main(int argc, char **argv)
            "a detached CanvasItem must not falsely claim an active hardware backend");
 
     QImage output = render(item, 4, 4);
+    expect(item.residentTileCount() == 1
+               && item.residentLayerTileCount() == 2,
+           "CanvasItem must retain one independent texture tile for each visible layer");
     expect(output.pixel(0, 0) == 0xff102030U,
            "CanvasItem must display the resolved raster background");
     expect(output.pixel(1, 1) == 0xffffcc00U,
@@ -232,7 +237,7 @@ int main(int argc, char **argv)
                && editableOwned.documentEditor()
                && editableOwned.documentEditor()->revision() == 1
                && editableOwned.document()
-               && editableOwned.document()->layers.front().opacity == 0.5,
+               && layerProperties(editableOwned.document()->layers.front()).opacity == 0.5,
            "CanvasItem must expose its structural editor and apply edits to owned document data");
     render(editableOwned, 8, 6);
     const RasterLayer *editedFrame = editableOwned.framePixels();
@@ -252,9 +257,11 @@ int main(int argc, char **argv)
     transformedDocument.timeline = {{24, 1}, 1};
     transformedDocument.assets.emplace_back(
         RasterAsset{"paint", makeRasterLayer(1, 1, 0x00000000U)});
-    Layer transformedLayer{"paint-layer", "Paint", true, 1.0, {},
-                           RasterBlendMode::SourceOver, StaticSource{"paint"}};
-    transformedLayer.transform.translationX = 1.0;
+    Layer transformedLayer = BitmapLayer{
+        {"paint-layer", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
+        StaticSource{"paint"},
+    };
+    layerProperties(transformedLayer).transform.translationX = 1.0;
     transformedDocument.layers.push_back(transformedLayer);
     CanvasItem transformedItem;
     expect(transformedItem.bind(transformedDocument)
@@ -280,6 +287,8 @@ int main(int argc, char **argv)
     expect(!largeCanvas.rendering()
                && largeCanvas.residentTileCount() > 0
                && largeCanvas.residentTileCount() <= 64
+               && largeCanvas.residentLayerTileCount() > 0
+               && largeCanvas.residentLayerTileCount() <= 64
                && largeCanvas.framePixels() == nullptr,
            "large-canvas rendering must stay within the resident tile budget and avoid full-frame pixels");
     const qulonglong largeRevision = largeCanvas.revision();

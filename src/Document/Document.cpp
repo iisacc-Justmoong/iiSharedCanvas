@@ -12,9 +12,44 @@ ContentKind contentKind(const Asset &asset) noexcept
         : ContentKind::Raster;
 }
 
+ContentKind contentKind(const Layer &layer) noexcept
+{
+    return std::holds_alternative<VectorLayer>(layer)
+        ? ContentKind::Vector
+        : ContentKind::Raster;
+}
+
 const std::string &assetId(const Asset &asset) noexcept
 {
     return std::visit([](const auto &value) -> const std::string & { return value.id; }, asset);
+}
+
+LayerProperties &layerProperties(Layer &layer) noexcept
+{
+    return std::visit([](auto &value) -> LayerProperties & {
+        return value.properties;
+    }, layer);
+}
+
+const LayerProperties &layerProperties(const Layer &layer) noexcept
+{
+    return std::visit([](const auto &value) -> const LayerProperties & {
+        return value.properties;
+    }, layer);
+}
+
+LayerSource &layerSource(Layer &layer) noexcept
+{
+    return std::visit([](auto &value) -> LayerSource & {
+        return value.source;
+    }, layer);
+}
+
+const LayerSource &layerSource(const Layer &layer) noexcept
+{
+    return std::visit([](const auto &value) -> const LayerSource & {
+        return value.source;
+    }, layer);
 }
 
 CanvasOrigin canvasOrigin(const Document &document) noexcept
@@ -125,22 +160,54 @@ std::optional<std::size_t> assetIndex(const Document &document,
 Layer *findLayer(Document &document, const std::string &id) noexcept
 {
     const auto match = std::find_if(document.layers.begin(), document.layers.end(),
-                                    [&id](const Layer &layer) { return layer.id == id; });
+                                    [&id](const Layer &layer) {
+                                        return layerProperties(layer).id == id;
+                                    });
     return match == document.layers.end() ? nullptr : &*match;
 }
 
 const Layer *findLayer(const Document &document, const std::string &id) noexcept
 {
     const auto match = std::find_if(document.layers.begin(), document.layers.end(),
-                                    [&id](const Layer &layer) { return layer.id == id; });
+                                    [&id](const Layer &layer) {
+                                        return layerProperties(layer).id == id;
+                                    });
     return match == document.layers.end() ? nullptr : &*match;
+}
+
+BitmapLayer *findBitmapLayer(Document &document, const std::string &id) noexcept
+{
+    Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<BitmapLayer>(layer) : nullptr;
+}
+
+const BitmapLayer *findBitmapLayer(const Document &document,
+                                   const std::string &id) noexcept
+{
+    const Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<BitmapLayer>(layer) : nullptr;
+}
+
+VectorLayer *findVectorLayer(Document &document, const std::string &id) noexcept
+{
+    Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<VectorLayer>(layer) : nullptr;
+}
+
+const VectorLayer *findVectorLayer(const Document &document,
+                                   const std::string &id) noexcept
+{
+    const Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<VectorLayer>(layer) : nullptr;
 }
 
 std::optional<std::size_t> layerIndex(const Document &document,
                                       const std::string &id) noexcept
 {
     const auto match = std::find_if(document.layers.begin(), document.layers.end(),
-                                    [&id](const Layer &layer) { return layer.id == id; });
+                                    [&id](const Layer &layer) {
+                                        return layerProperties(layer).id == id;
+                                    });
     if (match == document.layers.end()) {
         return std::nullopt;
     }
@@ -188,7 +255,7 @@ std::vector<AssetReference> assetReferences(const Document &document,
     for (std::size_t layerPosition = 0;
          layerPosition < document.layers.size();
          ++layerPosition) {
-        const LayerSource &source = document.layers[layerPosition].source;
+        const LayerSource &source = layerSource(document.layers[layerPosition]);
         if (const auto *staticSource = std::get_if<StaticSource>(&source)) {
             if (staticSource->assetId == referencedAssetId) {
                 references.push_back({layerPosition, std::nullopt});
@@ -216,11 +283,14 @@ const Asset *resolveAssetAt(const Document &document,
         return nullptr;
     }
 
-    if (const auto *source = std::get_if<StaticSource>(&layer.source)) {
-        return findAsset(document, source->assetId);
+    const ContentKind requiredKind = contentKind(layer);
+    const LayerSource &sourceValue = layerSource(layer);
+    if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
+        const Asset *asset = findAsset(document, source->assetId);
+        return asset && contentKind(*asset) == requiredKind ? asset : nullptr;
     }
 
-    const auto &source = std::get<KeyframedSource>(layer.source);
+    const auto &source = std::get<KeyframedSource>(sourceValue);
     const auto next = std::upper_bound(
         source.keyframes.begin(), source.keyframes.end(), frame,
         [](FrameIndex requestedFrame, const Keyframe &keyframe) {
@@ -231,7 +301,7 @@ const Asset *resolveAssetAt(const Document &document,
     }
 
     const Asset *asset = findAsset(document, std::prev(next)->assetId);
-    if (!asset || contentKind(*asset) != source.kind) {
+    if (!asset || contentKind(*asset) != requiredKind) {
         return nullptr;
     }
     return asset;

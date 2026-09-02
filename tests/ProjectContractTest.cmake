@@ -30,6 +30,12 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Bitmap/ChunkedBitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Camera/CameraRaw.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Metadata/Automatic1111Metadata.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Metadata/StableDiffusionMetadata.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/QtAdapter/BitmapItem.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/QtAdapter/CanvasItem.cpp")
@@ -63,6 +69,28 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "graph textures perform presentation")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`DocumentEditor` is the validated structural mutation API")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`BitmapLayer | VectorLayer` variant")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`CameraRawData` is a format-neutral decoded Camera RAW aggregate")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "Each visible document layer is an independent asynchronous render unit")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`StableDiffusionMetadata` preserves typed generation parameters")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`parseAutomatic1111Infotext` reads the extracted infotext")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "ComfyUI `prompt` and `workflow` JSON")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "`Layer` | `BitmapLayer \\| VectorLayer`")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "`validateCameraRaw` validates the Camera RAW aggregate independently")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "renderFrameLayerTiles")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "validateStableDiffusionMetadata")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "findAutomatic1111Parameter")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "A rejected edit never advances `revision()`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
@@ -73,18 +101,38 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "No pointer trajectory, curve, dab stream, replay command")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "`BitmapItem` is the Qt Quick display boundary")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
+             "Camera RAW file decoding, demosaicing, and tone")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
+             "AUTOMATIC1111 image-carrier extraction")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
+             "Layers render concurrently from one immutable document snapshot")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1 uses hold sampling only")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1.1 adds infinite-canvas metadata")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Brush input is not a persisted content kind")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "`CameraRawData` is not encoded by `.iisc` version 1.1")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "Layer-parallel rendering does not change the persisted layer order")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "Version 1.2 appends optional Stable Diffusion generation metadata")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "AUTOMATIC1111 infotext remains byte-exact")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "ctest --test-dir")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Serialization/IiscCodec.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Bitmap/ChunkedBitmapEditor.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Camera/CameraRaw.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Metadata/Automatic1111Metadata.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Metadata/StableDiffusionMetadata.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "QtAdapter/AsyncFrameRenderer.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
@@ -111,7 +159,7 @@ if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
     message(FATAL_ERROR "co-located public headers and implementations must live under src/")
 endif()
 
-foreach(module Bitmap Document QtAdapter Render Serialization Validation)
+foreach(module Bitmap Camera Document Metadata QtAdapter Render Serialization Validation)
     if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}")
         message(FATAL_ERROR "${module} must live under src/, not at the repository root")
     endif()
@@ -138,6 +186,10 @@ file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Camera/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Camera/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Metadata/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Metadata/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Render/*.h"
@@ -173,6 +225,8 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/CanvasItem.cpp"
              "QSGTransformNode")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/AsyncFrameRenderer.cpp"
              "QThreadPool::globalInstance()")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/AsyncFrameRenderer.cpp"
+             "remainingWorkers")
 
 file(READ "${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/CanvasItem.h" canvas_item_header)
 if(canvas_item_header MATCHES "QQuickPaintedItem")

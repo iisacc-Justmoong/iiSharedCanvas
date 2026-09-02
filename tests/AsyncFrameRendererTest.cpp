@@ -36,13 +36,8 @@ iiSharedCanvas::Document makeLargeDocument()
     chunk.pixels = makeRasterLayer(256, 256, 0x00000000U);
     chunk.pixels.pixels[static_cast<std::size_t>(18) * 256U + 22U] = 0xff22d3eeU;
     document.assets.emplace_back(ChunkedRasterAsset{"paint", {std::move(chunk)}});
-    document.layers.push_back({
-        "paint-layer",
-        "Paint",
-        true,
-        1.0,
-        {},
-        RasterBlendMode::SourceOver,
+    document.layers.emplace_back(BitmapLayer{
+        {"paint-layer", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"paint"},
     });
     return document;
@@ -66,8 +61,41 @@ iiSharedCanvas::Document makeLargeVectorDocument()
     path.fill = SolidPaint{0xffffcc00U};
     document.assets.emplace_back(
         VectorAsset{"shape", {65536, 49152}, {std::move(path)}});
-    document.layers.push_back({
-        "shape-layer", "Shape", true, 1.0, {}, RasterBlendMode::SourceOver,
+    document.layers.emplace_back(VectorLayer{
+        {"shape-layer", "Shape", true, 1.0, {}, RasterBlendMode::SourceOver},
+        StaticSource{"shape"},
+    });
+    return document;
+}
+
+iiSharedCanvas::Document makeTwoLayerDocument()
+{
+    using namespace iiSharedCanvas;
+
+    Document document;
+    document.extent = {128, 128};
+    document.timeline = {{24, 1}, 1};
+    document.assets.emplace_back(
+        RasterAsset{"background", makeRasterLayer(128, 128, 0xff102030U)});
+
+    VectorPath path;
+    path.commands = {
+        MoveTo{{32.0, 32.0}},
+        LineTo{{96.0, 32.0}},
+        LineTo{{96.0, 96.0}},
+        LineTo{{32.0, 96.0}},
+        ClosePath{},
+    };
+    path.fill = SolidPaint{0xffffcc00U};
+    document.assets.emplace_back(
+        VectorAsset{"shape", {128, 128}, {std::move(path)}});
+    document.layers.emplace_back(BitmapLayer{
+        {"background-layer", "Background", true, 1.0, {},
+         RasterBlendMode::SourceOver},
+        StaticSource{"background"},
+    });
+    document.layers.emplace_back(VectorLayer{
+        {"shape-layer", "Shape", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"shape"},
     });
     return document;
@@ -135,6 +163,35 @@ int main(int argc, char **argv)
     expect(completed.tiles.size() == 1
                && rasterLayerPixelAt(completed.tiles.front().pixels, {5, 4}) == 0xff22d3eeU,
            "the worker must render an immutable request snapshot, not concurrently read caller mutations");
+    expect(renderer.lastLayerResult().ok()
+               && renderer.lastLayerResult().layers.size() == 1
+               && renderer.lastLayerResult().layers.front().layerId == "paint-layer",
+           "the asynchronous result must retain its independently rendered layer batch");
+
+    Document twoLayers = makeTwoLayerDocument();
+    const FrameRenderTileRequest fullTwoLayerTile{
+        {{0, 0}, {128, 128}}, {128, 128}};
+    completedRequest = 0;
+    const qulonglong twoLayerRequest = renderer.request(
+        twoLayers, 0, {fullTwoLayerTile});
+    timeout.start();
+    loop.exec();
+    const FrameLayerBatchRenderResult &parallelLayers = renderer.lastLayerResult();
+    expect(completedRequest == twoLayerRequest
+               && parallelLayers.ok()
+               && parallelLayers.layers.size() == 2
+               && parallelLayers.layers[0].layerId == "background-layer"
+               && parallelLayers.layers[1].layerId == "shape-layer",
+           "parallel asynchronous work must return separate layers in document order");
+    expect(rasterLayerPixelAt(parallelLayers.layers[0].tiles.front().pixels,
+                              {64, 64}) == 0xff102030U
+               && rasterLayerPixelAt(parallelLayers.layers[1].tiles.front().pixels,
+                                     {0, 0}) == 0x00000000U
+               && rasterLayerPixelAt(parallelLayers.layers[1].tiles.front().pixels,
+                                     {64, 64}) == 0xffffcc00U
+               && rasterLayerPixelAt(renderer.lastResult().tiles.front().pixels,
+                                     {64, 64}) == 0xffffcc00U,
+           "each asynchronous layer tile must stay isolated before final tile composition");
 
     document = makeLargeDocument();
     completedRequest = 0;

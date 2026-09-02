@@ -11,6 +11,15 @@ One canvas document must present these content classes together in layer order:
 2. Static native vector paths.
 3. Raster or vector assets selected by keyframes on a timeline.
 
+An adjacent import model may carry decoded Camera RAW sensor samples and common
+capture/calibration metadata until a caller explicitly processes them into
+committed raster pixels. RAW sensor data is not a third document layer type.
+
+An optional document recipe may retain Stable Diffusion prompts, sampler
+settings, model identity, exact ComfyUI graph metadata, and lossless
+AUTOMATIC1111 infotext. It describes how content was generated or refined but
+is not rendered content and does not add an inference runtime.
+
 The first commercial advantage is a reusable authoring interchange layer for
 future desktop, mobile, and web products without forcing each product to invent
 its own mixed-media document model.
@@ -42,10 +51,16 @@ flowchart LR
     APP["Application / LVRS QML UI"] --> ITEM["BitmapItem"]
     APP --> CANVAS["CanvasItem / SharedCanvas"]
     APP --> ISC["iiSharedCanvas"]
+    APP --> CRAW["CameraRawData import model"]
+    APP --> A1111["Automatic1111Infotext parser"]
+    APP --> SDMETA["StableDiffusionMetadata recipe"]
+    CRAW -. "explicit RAW processing" .-> RASTER
+    A1111 --> SDMETA
     ITEM --> EDIT["BitmapEditor"]
     CANVAS --> EDIT
     EDIT --> DOC
     ISC --> DOC["Document + validation"]
+    SDMETA --> DOC
     DOC --> STACK["Ordered layers"]
     DOC --> ASSETS["Asset registry"]
     STACK --> STATIC["Static source"]
@@ -75,7 +90,8 @@ semantics.
 
 iiSharedCanvas owns mixed-content document identity, ordered layers, vector
 geometry, sparse infinite-canvas chunk coordinates, asset references, timeline semantics, cross-content validation, file
-format versioning, selected-raster editing coordination, and frame composition.
+format versioning, Stable Diffusion recipe metadata, selected-raster editing
+coordination, and frame composition.
 
 All persisted model fields are public aggregate data. `DocumentEditor` is the
 safe structural mutation boundary over those aggregates: it provides stable-id
@@ -86,8 +102,12 @@ Finite bitmap pixels remain the responsibility of `BitmapEditor`; sparse
 infinite bitmap pixels remain the responsibility of `ChunkedBitmapEditor`.
 
 The application owns UI, tools, playback controls, selection experience,
-autosave policy, networking, and collaboration. The library name does not imply
-that real-time collaboration is part of this milestone.
+autosave policy, networking, collaboration, and the selected Camera RAW decoder
+and processing pipeline. Camera RAW file decoding, demosaicing, and tone
+rendering remain outside the generic data objects. AUTOMATIC1111 image-carrier extraction,
+Stable Diffusion inference, model resolution/download, graph execution, and
+trust policy likewise remain application or adapter responsibilities. The library name does not
+imply that real-time collaboration is part of this milestone.
 
 Dependency direction is one-way:
 
@@ -100,6 +120,35 @@ Application
 iiPaintEngine must never reference iiSharedCanvas.
 
 ## 3. Core data model
+
+`CameraRawData` is independent from `Document`. It owns one unsigned integer
+sensor payload plus color, camera, lens, and capture metadata. Its sensor image
+distinguishes CFA, monochrome, and interleaved linear RAW; retains bit depth,
+orientation, active area, default crop, indexed channels, CFA and black-level
+repeat patterns, and white levels; and stores samples in row-pixel-plane order.
+The color profile retains optional as-shot neutral coordinates and one or more
+finite XYZ-to-camera matrices. This boundary can receive data from DNG, LibRaw,
+or a future platform decoder without making any one decoder the core model.
+
+The Camera RAW objects do not decode files, own source-file bytes, apply
+linearization or black subtraction, demosaic, color-convert, tone-map, create a
+`RasterAsset`, enter the layer stack, or change `.iisc` persistence. Those are
+explicit pipeline stages whose policy varies by decoder and product.
+
+`StableDiffusionMetadata` is optional state owned by `Document`. Typed prompts,
+output settings, sampler passes, model resources, LoRAs, software identity, and
+extension entries support direct inspection. Raw ComfyUI `prompt` and
+`workflow` JSON remain separate because the first is the API execution graph
+and the second restores the UI graph. The strings are syntax-checked and
+preserved exactly; iiSharedCanvas does not interpret custom nodes, execute the
+graph, fetch model resources, or attach the recipe to one particular layer.
+
+`Automatic1111Infotext` is a lossless compatibility view over extracted
+AUTOMATIC1111 parameters text. It preserves the complete text and ordered
+key/value sequence while projecting portable prompts, dimensions, sampling
+passes, model resources, and version data into `StableDiffusionMetadata`.
+Unknown extension fields stay available and malformed typed data fails closed.
+The image container and model runtime remain outside this object.
 
 Document contains a format version, finite/infinite mode, positive currently
 allocated canvas extent, optional world origin and chunk size, rational frame
@@ -120,12 +169,20 @@ goal: move, line, quadratic curve, cubic curve, close, solid fill, and solid
 stroke. Text, gradients, masks, boolean operations, and effects are not
 predicted into the first model.
 
+Layer is a public variant of two complete, structurally parallel types:
+
+- BitmapLayer: shared LayerProperties plus one source that may reference only a
+  RasterAsset or ChunkedRasterAsset.
+- VectorLayer: shared LayerProperties plus one source that may reference only a
+  VectorAsset.
+
 Layer source is one of:
 
 - StaticSource: one asset id.
-- KeyframedSource: one declared content kind and a strictly increasing list of
-  frame-to-asset references.
+- KeyframedSource: a strictly increasing list of frame-to-asset references. Its
+  content kind is fixed by the owning BitmapLayer or VectorLayer.
 
+Neither a static nor a keyframed layer source can cross its owning layer type.
 One keyframed source cannot mix raster and vector assets. The first keyframe is
 at frame zero. Every keyframe is inside the document frame count. This makes
 evaluation deterministic and eliminates undefined pre-roll behavior.
@@ -221,20 +278,28 @@ to the consumer UI.
 
 ## 6. Implemented render pipeline
 
-`renderFrame`, `renderFrameRegion`, and `renderFrameTiles` execute these steps:
+`renderFrame`, `renderFrameRegion`, and `renderFrameTiles` execute these steps
+through the public layer-rendering boundary:
 
 1. Validate the document.
 2. Resolve one finite raster, sparse chunked raster, or vector asset for each
    visible layer at the requested frame.
-3. Rasterize vector paths directly into the requested bounded output and cull
-   sparse chunks outside that region.
-4. Apply the iiPaintEngine affine transform and layer opacity.
-5. Composite bottom-to-top using iiPaintEngine blend semantics.
-6. Return either the full frame or bounded world-region tiles without mutating
+3. Rasterize each layer into isolated bounded tiles, applying its affine
+   transform while preserving full-strength pixels and carrying opacity and
+   blend mode as metadata.
+4. Composite those layer tiles bottom-to-top using iiPaintEngine opacity and
+   blend semantics.
+5. Return either the full frame or bounded world-region tiles without mutating
    document assets.
 
 Static and animated content therefore share one render path after frame
 evaluation. There is no separate animation canvas.
+
+`renderFrameLayerTiles` is the independently addressable layer operation,
+`renderFrameLayers` returns a stable ordered batch, and `composeFrameLayers`
+is the explicit composition boundary. Layers render concurrently from one immutable document snapshot. `AsyncFrameRenderer` uses no more layer workers
+than the global Qt thread pool allows, joins their results in document order,
+then performs the final composition without exposing a partial frame.
 
 Version 1 rasterizes M/L/Q/C/Z paths on a worker CPU with deterministic 4x4 coverage
 sampling, even-odd fills, and round stroke footprints. It applies the complete
@@ -244,10 +309,13 @@ to the iiPaintEngine compositor. Destination-out remains a brush eraser mode
 and validation rejects it as a document layer blend mode.
 
 The Qt adapter selects a power-of-two LOD from viewport zoom, keeps no more
-than 64 resident 512-texel tiles, and coalesces queued renders to the newest
-immutable snapshot/request. Pan and zoom update a `QSGTransformNode`
-immediately. Hardware-backed Qt Quick then owns tile texture sampling and scene
-composition; software backends preserve correctness with the same nodes.
+than 64 resident composed 512-texel tiles and 256 isolated layer tiles, and
+coalesces queued renders to the newest immutable snapshot/request. Pan and zoom
+update a `QSGTransformNode` immediately. Source-over layers are uploaded under
+independent scene-graph opacity nodes; multiply, screen, overlay, or an
+incomplete layer cache uses the deterministic iiPaintEngine composite tile.
+Hardware-backed Qt Quick then owns tile texture sampling and scene composition;
+software backends preserve correctness with the same nodes.
 
 ## 7. Implemented serialization
 
@@ -256,8 +324,9 @@ FORMAT.md. `encodeIisc` and `decodeIisc` use only the C++ standard library and
 therefore preserve the fixed direct dependency set. The 32-byte header records
 version, payload size, and CRC-32. The payload stores native raster/vector
 assets, sparse chunks, allocated world geometry, ordered layers, transforms,
-and timeline references without archive
-paths or JSON parsing.
+timeline references, and optional format-1.2 generation metadata without
+archive paths. ComfyUI JSON is retained as exact UTF-8 and receives bounded
+syntax validation rather than graph parsing or normalization.
 
 The writer chooses raw or run-length ARGB32 deterministically and emits one byte
 representation for a document. The reader verifies checksum and exact payload
@@ -266,6 +335,17 @@ validates canonical UTF-8 and record tags, and validates the completed document
 before exposure.
 
 ## 8. Validation and security invariants
+
+Camera RAW validation is separate from document validation:
+
+- Sensor extent, significant bit depth, sample-plane count, and exact sample
+  storage must agree without integer overflow.
+- Active area is contained by the sensor and default crop by the active area.
+- CFA cells reference existing channels; linear planes correspond to channels.
+- Black/white levels, as-shot neutral coordinates, color matrices, lens ranges,
+  and capture values must be finite, correctly sized, and physically ordered.
+- Bounds-checked access returns no value for invalid coordinates or malformed
+  patterns and never performs implicit image processing.
 
 - Unknown newer format versions fail closed.
 - Canvas, raster, and vector extents are positive.
@@ -281,10 +361,16 @@ before exposure.
 - A vector path begins with MoveTo and has visible fill or stroke.
 - Timeline rate and frame count are non-zero.
 - Keyframes begin at zero, are strictly increasing, remain in range, and keep
-  one content kind.
+  the content kind fixed by their owning BitmapLayer or VectorLayer.
+- Stable Diffusion metadata requires format 1.2, contains at least one payload,
+  keeps dimensions and discrete counts positive, and keeps sampler/LoRA numeric
+  values finite and inside their defined ranges.
+- ComfyUI prompt and workflow payloads are JSON objects; extension values are
+  valid JSON under unique non-reserved keys. All such metadata remains
+  untrusted and is never executed by validation or rendering.
 
 Serialization enforces container size, decoded pixel, collection, vector,
-keyframe, and string limits before allocation. The binary transport has no
+keyframe, metadata-entry, and string limits before allocation. The binary transport has no
 archive entries or paths, so archive recursion and path traversal do not exist
 in version 1.
 
@@ -300,6 +386,41 @@ and the public Qt Quick scene graph arrive through iiPaintEngine's existing Qt
 targets. The `.iisc` codec uses the standard library; SVG, text shaping, GPU
 vector path rasterization, and media codecs remain
 explicit future decisions rather than hidden or vendored code.
+
+[ComfyUI's workflow metadata documentation](https://docs.comfy.org/development/api-development/workflow-metadata),
+[Workflow API format](https://docs.comfy.org/development/api-development/workflow-api-format),
+and [metadata writer](https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_api/latest/_ui.py)
+were reviewed for the `prompt`, `workflow`, KSampler, and `extra_pnginfo`
+contracts. [nlohmann/json 3.12.0](https://github.com/nlohmann/json) was also
+reviewed as an active, MIT-licensed single-header implementation. It was not
+introduced because this module preserves open-ended JSON verbatim and needs
+only bounded syntax validation; adding a package and installed dependency for
+that narrow role would increase maintenance and consumer surface. The bounded
+standard-library validator never normalizes the authoritative strings.
+
+AUTOMATIC1111's official
+[infotext parser](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/infotext_utils.py),
+[infotext writer](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/processing.py),
+[image metadata reader/writer](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/images.py),
+and [checkpoint hash model](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/sd_models.py)
+were reviewed for prompts, open-ended fields, carrier keys, Hires defaults, and
+current/legacy hash meaning. A bounded standard-library parser is sufficient
+after carrier extraction, so no Python, Pillow, EXIF, image codec, or WebUI
+runtime is introduced.
+
+[Adobe DNG 1.7.1](https://helpx.adobe.com/camera-raw/desktop/dng-and-file-formats/digital-negative.html)
+was reviewed as the current public reference for CFA and LinearRaw
+interpretation, orientation, active/crop geometry, repeating black levels,
+per-plane white levels, as-shot neutral coordinates, and camera color matrices.
+The aggregates reuse those common concepts without copying DNG tag numbers,
+implementing TIFF/DNG transport, or claiming DNG conformance.
+
+[LibRaw](https://github.com/LibRaw/LibRaw) was reviewed for proprietary-camera
+decoding. It is actively maintained, supports a broad camera set, and is
+dual-licensed LGPL-2.1 or CDDL-1.0. It also adds a native decoder/codec surface
+whose maintenance and distribution cost is unnecessary for in-memory objects.
+It is therefore not added now; a future decoder adapter can depend on it
+without forcing iiSharedCanvas core or every consumer to do so.
 
 The CMake target records the imported iiPaintEngine library directory in its
 build and install rpath and also supplies the standard sibling-prefix fallback.
@@ -317,6 +438,9 @@ Complete when:
 - Git and CMake project exist.
 - iiPaintEngine is the only direct dependency.
 - Mixed static/animated raster and vector document model builds.
+- Format-neutral Camera RAW aggregates and independent validation build.
+- Typed Stable Diffusion metadata and exact ComfyUI graph preservation build.
+- Lossless AUTOMATIC1111 infotext parsing and typed common projection build.
 - Validation and hold evaluation are tested.
 - Installable CMake package and standalone consumer are verified.
 - Blueprint and format documents match the code.
@@ -328,6 +452,8 @@ Completed in the current implementation.
 Complete when:
 
 - .iisc writer and reader round-trip all Phase 0 types.
+- Format 1.2 round-trips generation metadata while 1.0 and 1.1 remain
+  byte-canonical and metadata-free.
 - Canonical serialization and version compatibility tests pass; version 1.0
   has no earlier physical format requiring migration.
 - Corrupt, oversized, path-traversal, and future-version files fail closed.

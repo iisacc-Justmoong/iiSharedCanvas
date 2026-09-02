@@ -22,9 +22,11 @@ struct SerializationLimits {
     std::uint64_t maximumTotalKeyframes = 16ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumTotalStringBytes = 64ULL * 1024ULL * 1024ULL;
     std::uint32_t maximumStringBytes = 1024U * 1024U;
+    std::uint32_t maximumMetadataStringBytes = 16U * 1024U * 1024U;
     std::uint32_t maximumAssets = 65536U;
     std::uint32_t maximumLayers = 65536U;
     std::uint32_t maximumRasterChunks = 1048576U;
+    std::uint32_t maximumMetadataEntries = 65536U;
 };
 
 enum class IiscErrorCode {
