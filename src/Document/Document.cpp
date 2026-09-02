@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <unordered_map>
 
 namespace iiSharedCanvas {
 
@@ -50,6 +51,15 @@ const LayerSource &layerSource(const Layer &layer) noexcept
     return std::visit([](const auto &value) -> const LayerSource & {
         return value.source;
     }, layer);
+}
+
+bool layerExistsAt(const Document &document,
+                   const Layer &layer,
+                   FrameIndex frame) noexcept
+{
+    const std::optional<LayerFrameRange> &range = layerProperties(layer).frameRange;
+    return frame < document.timeline.frameCount
+        && (!range || (frame >= range->firstFrame && frame <= range->lastFrame));
 }
 
 CanvasOrigin canvasOrigin(const Document &document) noexcept
@@ -214,61 +224,128 @@ std::optional<std::size_t> layerIndex(const Document &document,
     return static_cast<std::size_t>(std::distance(document.layers.begin(), match));
 }
 
-Keyframe *findKeyframe(KeyframedSource &source, FrameIndex frame) noexcept
+Frame *findFrame(Document &document, FrameIndex frame) noexcept
 {
     const auto match = std::lower_bound(
-        source.keyframes.begin(), source.keyframes.end(), frame,
-        [](const Keyframe &keyframe, FrameIndex requestedFrame) {
-            return keyframe.frame < requestedFrame;
+        document.frames.begin(), document.frames.end(), frame,
+        [](const Frame &value, FrameIndex requestedFrame) {
+            return value.index < requestedFrame;
         });
-    return match != source.keyframes.end() && match->frame == frame ? &*match : nullptr;
+    return match != document.frames.end() && match->index == frame ? &*match : nullptr;
 }
 
-const Keyframe *findKeyframe(const KeyframedSource &source, FrameIndex frame) noexcept
+const Frame *findFrame(const Document &document, FrameIndex frame) noexcept
 {
     const auto match = std::lower_bound(
-        source.keyframes.begin(), source.keyframes.end(), frame,
-        [](const Keyframe &keyframe, FrameIndex requestedFrame) {
-            return keyframe.frame < requestedFrame;
+        document.frames.begin(), document.frames.end(), frame,
+        [](const Frame &value, FrameIndex requestedFrame) {
+            return value.index < requestedFrame;
         });
-    return match != source.keyframes.end() && match->frame == frame ? &*match : nullptr;
+    return match != document.frames.end() && match->index == frame ? &*match : nullptr;
 }
 
-std::optional<std::size_t> keyframeIndex(const KeyframedSource &source,
-                                         FrameIndex frame) noexcept
+std::optional<std::size_t> frameIndex(const Document &document,
+                                      FrameIndex frame) noexcept
 {
     const auto match = std::lower_bound(
-        source.keyframes.begin(), source.keyframes.end(), frame,
-        [](const Keyframe &keyframe, FrameIndex requestedFrame) {
-            return keyframe.frame < requestedFrame;
+        document.frames.begin(), document.frames.end(), frame,
+        [](const Frame &value, FrameIndex requestedFrame) {
+            return value.index < requestedFrame;
         });
-    if (match == source.keyframes.end() || match->frame != frame) {
+    if (match == document.frames.end() || match->index != frame) {
         return std::nullopt;
     }
-    return static_cast<std::size_t>(std::distance(source.keyframes.begin(), match));
+    return static_cast<std::size_t>(std::distance(document.frames.begin(), match));
+}
+
+Keyframe *findKeyframe(Frame &frame, const std::string &layerId) noexcept
+{
+    const auto match = std::lower_bound(
+        frame.keyframes.begin(), frame.keyframes.end(), layerId,
+        [](const Keyframe &keyframe, const std::string &requestedLayerId) {
+            return keyframe.layerId < requestedLayerId;
+        });
+    return match != frame.keyframes.end() && match->layerId == layerId
+        ? &*match
+        : nullptr;
+}
+
+const Keyframe *findKeyframe(const Frame &frame,
+                             const std::string &layerId) noexcept
+{
+    const auto match = std::lower_bound(
+        frame.keyframes.begin(), frame.keyframes.end(), layerId,
+        [](const Keyframe &keyframe, const std::string &requestedLayerId) {
+            return keyframe.layerId < requestedLayerId;
+        });
+    return match != frame.keyframes.end() && match->layerId == layerId
+        ? &*match
+        : nullptr;
+}
+
+Keyframe *findKeyframe(Document &document,
+                       const std::string &layerId,
+                       FrameIndex frame) noexcept
+{
+    Frame *owner = findFrame(document, frame);
+    return owner ? findKeyframe(*owner, layerId) : nullptr;
+}
+
+const Keyframe *findKeyframe(const Document &document,
+                             const std::string &layerId,
+                             FrameIndex frame) noexcept
+{
+    const Frame *owner = findFrame(document, frame);
+    return owner ? findKeyframe(*owner, layerId) : nullptr;
+}
+
+std::optional<std::size_t> keyframeIndex(const Frame &frame,
+                                         const std::string &layerId) noexcept
+{
+    const auto match = std::lower_bound(
+        frame.keyframes.begin(), frame.keyframes.end(), layerId,
+        [](const Keyframe &keyframe, const std::string &requestedLayerId) {
+            return keyframe.layerId < requestedLayerId;
+        });
+    if (match == frame.keyframes.end() || match->layerId != layerId) {
+        return std::nullopt;
+    }
+    return static_cast<std::size_t>(std::distance(frame.keyframes.begin(), match));
 }
 
 std::vector<AssetReference> assetReferences(const Document &document,
                                             const std::string &referencedAssetId)
 {
     std::vector<AssetReference> references;
+    std::unordered_map<std::string, std::size_t> layerIndices;
+    layerIndices.reserve(document.layers.size());
     for (std::size_t layerPosition = 0;
          layerPosition < document.layers.size();
          ++layerPosition) {
+        layerIndices.emplace(
+            layerProperties(document.layers[layerPosition]).id,
+            layerPosition);
         const LayerSource &source = layerSource(document.layers[layerPosition]);
         if (const auto *staticSource = std::get_if<StaticSource>(&source)) {
             if (staticSource->assetId == referencedAssetId) {
-                references.push_back({layerPosition, std::nullopt});
+                references.push_back({layerPosition, std::nullopt, std::nullopt});
             }
-            continue;
         }
-
-        const auto &keyframed = std::get<KeyframedSource>(source);
+    }
+    for (std::size_t framePosition = 0;
+         framePosition < document.frames.size();
+         ++framePosition) {
+        const Frame &frame = document.frames[framePosition];
         for (std::size_t keyframePosition = 0;
-             keyframePosition < keyframed.keyframes.size();
+             keyframePosition < frame.keyframes.size();
              ++keyframePosition) {
-            if (keyframed.keyframes[keyframePosition].assetId == referencedAssetId) {
-                references.push_back({layerPosition, keyframePosition});
+            const Keyframe &keyframe = frame.keyframes[keyframePosition];
+            if (keyframe.assetId == referencedAssetId) {
+                const auto owner = layerIndices.find(keyframe.layerId);
+                if (owner != layerIndices.end()) {
+                    references.push_back(
+                        {owner->second, framePosition, keyframePosition});
+                }
             }
         }
     }
@@ -282,6 +359,9 @@ const Asset *resolveAssetAt(const Document &document,
     if (frame >= document.timeline.frameCount) {
         return nullptr;
     }
+    if (!layerExistsAt(document, layer, frame)) {
+        return nullptr;
+    }
 
     const ContentKind requiredKind = contentKind(layer);
     const LayerSource &sourceValue = layerSource(layer);
@@ -290,21 +370,28 @@ const Asset *resolveAssetAt(const Document &document,
         return asset && contentKind(*asset) == requiredKind ? asset : nullptr;
     }
 
-    const auto &source = std::get<KeyframedSource>(sourceValue);
-    const auto next = std::upper_bound(
-        source.keyframes.begin(), source.keyframes.end(), frame,
-        [](FrameIndex requestedFrame, const Keyframe &keyframe) {
-            return requestedFrame < keyframe.frame;
-        });
-    if (next == source.keyframes.begin()) {
+    const auto *source = std::get_if<KeyframedSource>(&sourceValue);
+    if (!source) {
         return nullptr;
     }
-
-    const Asset *asset = findAsset(document, std::prev(next)->assetId);
-    if (!asset || contentKind(*asset) != requiredKind) {
+    const auto next = std::upper_bound(source->frameIndices.begin(),
+                                       source->frameIndices.end(),
+                                       frame);
+    if (next == source->frameIndices.begin()) {
         return nullptr;
     }
-    return asset;
+    const FrameIndex ownerFrame = *std::prev(next);
+    const Frame *owner = findFrame(document, ownerFrame);
+    if (!owner) {
+        return nullptr;
+    }
+    const Keyframe *keyframe = findKeyframe(
+        *owner, layerProperties(layer).id);
+    if (!keyframe) {
+        return nullptr;
+    }
+    const Asset *asset = findAsset(document, keyframe->assetId);
+    return asset && contentKind(*asset) == requiredKind ? asset : nullptr;
 }
 
 } // namespace iiSharedCanvas

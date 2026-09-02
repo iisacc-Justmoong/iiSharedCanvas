@@ -20,6 +20,14 @@ endif()
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "project(iiSharedCanvas VERSION 0.3.0 LANGUAGES CXX)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "COMPATIBILITY ExactVersion")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
+             "find_package(iiSharedCanvas 0.3.0 CONFIG REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Document/Document.cpp")
@@ -32,7 +40,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Camera/CameraRaw.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "src/Metadata/Automatic1111Metadata.cpp")
+             "src/Metadata/StableDiffusionGenerationParameters.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Metadata/StableDiffusionMetadata.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -46,7 +54,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Serialization/IiscCodec.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Timeline/TimelineProject.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Timeline/TimelineEditor.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Validation/Validation.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/Vector/VectorEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "$<BUILD_INTERFACE:\${CMAKE_CURRENT_SOURCE_DIR}/src>")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -70,7 +84,19 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`DocumentEditor` is the validated structural mutation API")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`VectorEditor` binds to a vector asset by id")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`BitmapLayer | VectorLayer` variant")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "every `Frame` directly owns its")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`KeyframedSource::frameIndices` is a derived")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "The current C++ package version is 0.3.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`LayerProperties::frameRange` optionally stores an inclusive")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`setLayerFrameRange` sets or")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`CameraRawData` is a format-neutral decoded Camera RAW aggregate")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -78,9 +104,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`StableDiffusionMetadata` preserves typed generation parameters")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "`parseAutomatic1111Infotext` reads the extracted infotext")
+             "`parseStableDiffusionGenerationParameters` reads Stable Diffusion generation-")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "ComfyUI `prompt` and `workflow` JSON")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "`TimelineProject` is the application-neutral authoring model")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "Container and codec identifiers are open strings")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "`Layer` | `BitmapLayer \\| VectorLayer`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
@@ -90,13 +120,31 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "validateStableDiffusionMetadata")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "findAutomatic1111Parameter")
+             "findStableDiffusionGenerationParameter")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "A rejected edit never advances `revision()`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "renameAsset")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "insertKeyframedLayer")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "`LayerFrameRange` | `firstFrame`, `lastFrame`")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "`setLayerFrameRange` | Set or clear the optional inclusive existence range")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "`layerExistsAt` reports whether a layer exists")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "canonical ascending `layerId` order")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "Possibly empty collection; every stored frame is non-empty")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "ensureInfiniteCanvasRegion")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "appendQuadraticBezierTo")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "`TimelineTrack` is a variant")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
+             "setRenderVideoCodec")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "No pointer trajectory, curve, dab stream, replay command")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
@@ -104,11 +152,17 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "Camera RAW file decoding, demosaicing, and tone")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "AUTOMATIC1111 image-carrier extraction")
+             "generation-metadata carrier extraction")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "Layers render concurrently from one immutable document snapshot")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
+             "`TimelineProject` is independent from the canvas `Document`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1 uses hold sampling only")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "`Document::frames` owns strictly increasing")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "Sparse frames that own keys")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1.1 adds infinite-canvas metadata")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
@@ -120,7 +174,9 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Version 1.2 appends optional Stable Diffusion generation metadata")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "AUTOMATIC1111 infotext remains byte-exact")
+             "Generation-parameters text remains byte-exact")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
+             "`TimelineProject` is not encoded by `.iisc` version 1.3")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "ctest --test-dir")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
@@ -130,11 +186,23 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Camera/CameraRaw.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "Metadata/Automatic1111Metadata.h")
+             "Metadata/StableDiffusionGenerationParameters.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Metadata/StableDiffusionMetadata.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "QtAdapter/AsyncFrameRenderer.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Timeline/TimelineProject.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Timeline/TimelineEditor.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "Vector/VectorEditor.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
+             "libiiSharedCanvas.0.3.0.dylib")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
+             "setLayerFrameRange")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
+             "layerExistsAt")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
              "GNU AFFERO GENERAL PUBLIC LICENSE")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
@@ -145,6 +213,16 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakePresets.json"
 if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/include")
     message(FATAL_ERROR "the source tree must not use a separate include/ directory")
 endif()
+
+file(GLOB_RECURSE public_headers
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/*.h")
+foreach(public_header IN LISTS public_headers)
+    file(READ "${public_header}" public_header_contents)
+    if(public_header_contents MATCHES "[Aa]utomatic1111")
+        message(FATAL_ERROR
+                "Public API must use format-domain names, not a producer name: ${public_header}")
+    endif()
+endforeach()
 
 # The repository contract keeps iiSharedCanvas upstream and product-neutral.
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
@@ -159,7 +237,7 @@ if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
     message(FATAL_ERROR "co-located public headers and implementations must live under src/")
 endif()
 
-foreach(module Bitmap Camera Document Metadata QtAdapter Render Serialization Validation)
+foreach(module Bitmap Camera Document Metadata QtAdapter Render Serialization Timeline Validation Vector)
     if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}")
         message(FATAL_ERROR "${module} must live under src/, not at the repository root")
     endif()
@@ -196,8 +274,12 @@ file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Render/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Serialization/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Serialization/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Timeline/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Timeline/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.h"
-     "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.cpp")
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Vector/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Vector/*.cpp")
 foreach(source_file IN LISTS core_sources)
     file(READ "${source_file}" source_contents)
     if(source_contents MATCHES "#[ \t]*include[ \t]*<Q[A-Za-z]")

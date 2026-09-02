@@ -76,7 +76,7 @@ struct StableDiffusionMetadata {
     std::string software;
     std::string softwareVersion;
     std::string createdAt;
-    std::string automatic1111Parameters;
+    std::string generationParametersText;
     ComfyUiMetadata comfyUi;
     std::vector<StableDiffusionMetadataEntry> extraParameters;
 

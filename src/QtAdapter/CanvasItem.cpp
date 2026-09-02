@@ -1944,7 +1944,7 @@ bool CanvasItem::canPresentLayerTiles() const noexcept
     bool hasVisibleLayer = false;
     for (const iiSharedCanvas::Layer &layer : m_document->layers) {
         const LayerProperties &properties = layerProperties(layer);
-        if (!properties.visible) {
+        if (!properties.visible || !layerExistsAt(*m_document, layer, m_frame)) {
             continue;
         }
         hasVisibleLayer = true;
@@ -1965,7 +1965,9 @@ bool CanvasItem::canPresentLayerTiles() const noexcept
         for (std::size_t layerIndex = 0;
              layerIndex < m_document->layers.size();
              ++layerIndex) {
-            if (!layerProperties(m_document->layers[layerIndex]).visible) {
+            const Layer &layer = m_document->layers[layerIndex];
+            if (!layerProperties(layer).visible
+                || !layerExistsAt(*m_document, layer, m_frame)) {
                 continue;
             }
             const bool found = std::any_of(

@@ -344,7 +344,7 @@ bool hasMetadataPayload(const StableDiffusionMetadata &metadata) noexcept
         || !metadata.software.empty()
         || !metadata.softwareVersion.empty()
         || !metadata.createdAt.empty()
-        || !metadata.automatic1111Parameters.empty()
+        || !metadata.generationParametersText.empty()
         || !metadata.comfyUi.promptJson.empty()
         || !metadata.comfyUi.workflowJson.empty()
         || !metadata.comfyUi.extraPngInfo.empty()

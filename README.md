@@ -3,7 +3,8 @@
 iiSharedCanvas is a C++20 document and authoring foundation for composing
 raster artwork, native vector paths, and frame-based raster or vector animation
 on one canvas. It also provides format-neutral decoded Camera RAW authoring
-data for import pipelines. It is the authoritative canvas standard for iisacc
+data for import pipelines and a format-neutral video-editing timeline model.
+It is the authoritative canvas standard for iisacc
 products; applications adopt its model and format through application-owned
 adapters.
 
@@ -30,8 +31,8 @@ for iiSharedCanvas.
 | Decoded Camera RAW | Unsigned sensor samples plus calibration and capture metadata | Import-side aggregate, not a document layer |
 | Stable Diffusion recipe | Typed generation settings plus exact workflow metadata | Optional document metadata, never render content |
 | Vector path | M/L/Q/C/Z path commands with solid fill or stroke | Static layer |
-| Raster keyframes | Raster asset references at integer frames | Hold sampling |
-| Vector keyframes | Vector asset references at integer frames | Hold sampling |
+| Raster keyframes | Frame-owned raster asset references | Integer-frame hold sampling |
+| Vector keyframes | Frame-owned vector asset references | Integer-frame hold sampling |
 
 Brush trajectories, dab sequences, and replay commands are never part of the
 iiSharedCanvas format. iiPaintEngine rasterizes brush input immediately, and
@@ -74,16 +75,22 @@ model and CLIP strengths. Software identity, creation time, an unmodified
 AUTOMATIC1111 parameters string, and namespaced extension values cover common
 round-trip cases without flattening a multi-stage recipe into one sampler.
 
-`parseAutomatic1111Infotext` reads the extracted infotext used by
-AUTOMATIC1111 without making an image codec part of the canvas model. It keeps
-the complete source text, multiline positive and negative prompts, and every
-ordered key/value pair, including duplicate and future extension keys. JSON-
+`parseStableDiffusionGenerationParameters` reads Stable Diffusion generation-
+parameters text without making a producer or image codec part of the canvas
+model. AUTOMATIC1111 is the reference-compatible producer, not the public type
+identity. The parser keeps the complete source text, multiline positive and
+negative prompts, and every ordered key/value pair, including duplicate and
+future extension keys. JSON-
 quoted values decode commas, colons, escapes, and Unicode for typed access;
-`findAutomatic1111Parameter` follows AUTOMATIC1111's last-value-wins behavior.
+`findStableDiffusionGenerationParameter` follows AUTOMATIC1111's last-value-wins behavior.
 The common projection maps output size, batch and CLIP settings, base and Hires
 sampler passes, checkpoint/VAE/Hires/refiner resources, software version, and
 10-character SHA-256 prefixes. Unmapped settings remain unique generic extras,
 while the raw infotext remains authoritative and byte-exact.
+
+The text format alone cannot prove which application wrote it. Parsing does
+not fill `StableDiffusionMetadata::software`; a carrier adapter that has
+verified producer information may set that provenance field explicitly.
 
 The compatibility boundary follows AUTOMATIC1111's official
 [`parse_generation_parameters`](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/infotext_utils.py),
@@ -112,19 +119,87 @@ clear the recipe atomically and upgrades a legacy document to format 1.2 when
 metadata is first attached. Rendering ignores the recipe and therefore remains
 pixel-identical with or without it.
 
+## Video editing timeline data
+
+`TimelineProject` is the application-neutral authoring model for a non-linear
+video editor. It owns media sources and their original/proxy representations,
+typed video/audio/subtitle/data streams, any number of sequences, typed tracks
+and clips, transitions, effects and parameter automation, markers, bins, link
+groups, and independent render profiles. This model is deliberately separate
+from `Document::timeline`: the latter remains the compact integer-frame domain
+for canvas layers, while a video project needs multiple time bases, media
+references, audio sample timing, and delivery settings.
+
+Time values are signed 64-bit ticks interpreted by an explicit positive
+`TimelineTimeBase`. Frame rates are exact rationals, so sequence and delivery
+settings may independently use 24, 30, 60, 24000/1001, 30000/1001, or
+60000/1001 without persisted floating-point timestamps. Source video timing
+separately retains constant- or variable-frame-rate mode, nominal/average/
+minimum/maximum rates, and per-sample PTS, optional DTS, duration, keyframe,
+byte offset, and byte size. Timecode counting, including drop-frame counting,
+does not replace media timestamps. Media, nested-sequence, and generated clip
+sources each supply a source time base. With no loop or time map, the rational
+playback rate must exactly relate source duration to sequence duration; an
+explicit time map is authoritative and therefore requires a unit playback rate.
+
+Container and codec identifiers are open strings rather than closed enums.
+Common technical fields cover container brands, MIME types and extensions;
+codec profile, level, tag, implementation and bitrate; video extent, pixel
+aspect, pixel format, chroma, scan, alpha and HDR color data; and audio sample
+rate, layout, format and loudness. Ordered typed option lists preserve future
+muxer, decoder, and encoder parameters without changing the public API.
+Original, proxy, and optimized representations reuse logical stream ids only
+when stream kind, time base, start, and duration are identical; switching a
+representation can therefore change codec or resolution without changing a
+clip's source-trim meaning.
+
+`validateTimelineProject` fails closed on invalid rationals and numeric values,
+duplicate identities or properties, missing references, stream/track kind
+mismatches, invalid ranges and samples, automation order, transitions, and
+render profiles. Visual clips require a sequence canvas, audio clips require a
+mix sample rate/layout, transition alignment is checked against its adjacent
+cut, and subtitle image cues must resolve representation attachments.
+`TimelineEditor` is the validated structural mutation API for
+sources, sequences, tracks, clips, and render profiles. It also changes FPS,
+container, and video/audio codecs atomically; a rejected edit preserves both
+the project and editor revision. An invalid rebind also preserves the existing
+binding and revision instead of detaching the editor.
+
+These objects describe editable media, but do not probe, decode, encode, mux,
+render, or serialize it. Runtime codec availability and media I/O belong to a
+consumer adapter. The model uses only the C++ standard library; adding FFmpeg
+or another media dependency requires a separate maintenance, license, and
+dependency-size review. `TimelineProject` is not encoded by `.iisc` version 1.3.
+
 ## Data access and structural editing
 
 Every persisted field remains directly available through the public aggregate
 types in `Document/Document.h`. Stable-id lookup helpers expose typed raster and
-vector assets, layers, exact keyframes, collection indices, and every static or
-keyframed reference to an asset.
+vector assets, sparse frames, exact keyframes, collection indices, and every
+static or keyframed reference to an asset.
 
 The ordered layer stack is a `BitmapLayer | VectorLayer` variant. Both concrete
 types have the same `LayerProperties + LayerSource` structure, while validation
 and `DocumentEditor` reject every cross-type asset reference. Bitmap layers may
 hold only finite or chunked raster assets; vector layers may hold only native
-vector assets. A keyframed source inherits its content kind from its owning
-layer instead of persisting a second mutable kind in memory.
+vector assets. `LayerProperties::frameRange` optionally stores an inclusive
+`LayerFrameRange {firstFrame, lastFrame}`. Both boundaries belong to the layer;
+an absent range means that the layer exists throughout the current document
+timeline. A range limits rendering, not animation storage, so frame-owned
+keyframes outside it remain valid and become effective again if the range is
+later extended. `Document::frames` owns the sparse ordered frame records, and
+every `Frame` directly owns its `{layerId, assetId}` keyframes. A frame may
+therefore hold raster and vector keys together without either layer owning a
+second keyframe collection. `KeyframedSource::frameIndices` is a derived
+secondary index, not keyframe ownership: it contains the exact increasing set
+of frames that own a key for that layer. Validation rejects every missing,
+extra, duplicate, or out-of-order index entry.
+
+`Frame::keyframes` uses canonical ascending `layerId` order. Exact lookup and
+hold sampling therefore use binary search over the layer's derived owner-frame
+index and the selected frame. Direct aggregate authors must update the frame
+owners and derived index together and then call `validate`; `DocumentEditor`
+and `decodeIisc` maintain both sides automatically.
 
 `DocumentEditor` is the validated structural mutation API. It edits canvas
 extent, frame rate/count, assets, layer properties/order/sources, keyframes, and
@@ -132,7 +207,13 @@ vector path collections. Successful operations keep the complete document
 valid and increment a monotonic editor revision once. Rejected operations
 return a typed code, path, and message without partially changing the document.
 Asset renaming rewrites all references atomically; referenced asset removal is
-rejected instead of cascading silently.
+rejected instead of cascading silently. An invalid rebind preserves the current
+document and revision. `insertKeyframedLayer` inserts an animated layer and all
+of its frame-owned keys as one validated commit. `setLayerFrameRange` sets or
+clears the optional inclusive existence range atomically and upgrades an older
+document to format 1.3 only when a range is committed. A rejected range restores
+both the prior layer and format version. Shrinking `frameCount` is likewise
+rejected if it would exclude an explicit layer boundary or a keyframe.
 
 `CanvasItem::document()` exposes the bound raw document for C++ inspection.
 `CanvasItem::documentEditor()` exposes the bound structural editor, while
@@ -202,6 +283,25 @@ outwards on chunk boundaries as the host camera reveals new world space. The
 item exposes the allocated world origin and reports each side's growth so a
 consumer can resize its visual surface without a visible camera jump.
 
+## Native vector editing
+
+`VectorEditor` binds to a vector asset by id and resolves that stable identity
+for every operation. It creates, inserts, reorders, and removes paths; edits the
+vector viewport and fill/stroke paint; and works on native path commands without
+rasterizing them. Linear segments use `appendLineTo`, while quadratic and cubic
+Bezier segments use `appendQuadraticBezierTo` and `appendCubicBezierTo`.
+`setAnchorPoint` moves the endpoint of M/L/Q/C commands and `setControlPoint`
+addresses the one quadratic or two cubic control points.
+
+Every command edit is performed on a path copy and committed through the
+validated `DocumentEditor` replacement boundary. Non-finite coordinates,
+missing paint, invalid stroke widths, missing assets, wrong content kinds, and
+out-of-range indices therefore fail without partially changing the document or
+advancing `revision()`. `ClosePath` has no editable anchor, and direct batch
+mutation remains available through the public aggregate followed by
+`validate(document)`. The editor owns no hidden geometry, input trajectory, or
+serialized history.
+
 ## Mixed frame rendering
 
 `renderFrame(document, frame)` validates the complete document, resolves static
@@ -220,11 +320,19 @@ fails closed for invalid documents or out-of-range frames.
 `renderFrameLayerTiles` renders one selected document layer without lower-layer
 pixels. `renderFrameLayers` validates once and returns every layer in stable
 document order with visibility, opacity, and blend metadata; `composeFrameLayers`
-performs the separate deterministic composition step. `renderFrameRegion` renders one world region into an explicitly bounded output extent, and
-`renderFrameTiles` renders a request batch as compatibility conveniences built
-on that layer boundary.
-`AsyncFrameRenderer` assigns layer work to a bounded number of global thread-pool
-workers and retains both the isolated batch and its composite. LOD output dimensions may be
+performs the separate deterministic composition step. A present layer
+`frameRange` includes both `firstFrame` and `lastFrame`; outside that range the
+isolated layer keeps its identity and order but reports `visible == false`,
+allocates no tiles, and contributes nothing to composition. An absent range
+means the layer is eligible for the whole timeline.
+`renderFrameRegion` renders one world region into an explicitly bounded output
+extent. `renderFrameTiles` renders a request batch as a compatibility
+convenience built on that layer boundary.
+`AsyncFrameRenderer` validates each immutable request snapshot exactly once on
+the thread pool before dispatching any layer worker. An invalid snapshot returns
+that preflight error without producing partial layer output; a valid snapshot
+assigns layer work to a bounded number of global thread-pool workers and retains
+both the isolated batch and its composite. LOD output dimensions may be
 smaller than the world region, so a tens-of-thousands-pixel canvas never needs
 a canvas-sized display allocation. Sparse chunks are culled before temporary
 surfaces are created, and native vector paths rasterize directly into the tile
@@ -252,7 +360,8 @@ without affecting layer rendering.
 Decoding exposes the complete public `Document` aggregate rather than an opaque
 file handle. Consumers can enumerate bottom-to-top `Layer` variants, distinguish
 `BitmapLayer` from `VectorLayer`, and inspect identity, name, visibility,
-opacity, transform, blend mode, and static or keyframed asset references.
+opacity, transform, blend mode, static references, and sparse frames that
+directly own animated layer references.
 Image/pixel assets expose `RasterLayer` dimensions
 and ARGB pixels; native shape assets expose their viewport, ordered paths,
 M/L/Q/C/Z commands and control points, fill, and stroke. See `docs/API.md` for
@@ -334,6 +443,12 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
+The current C++ package version is 0.3.0 with SOVERSION 0.3 and exact-version
+CMake package matching. Adding the optional layer frame range changes the
+public C++ ABI from 0.2.x, so an existing consumer must rebuild against 0.3.0.
+The `.iisc` format advances independently to 1.3 for this field; 1.0 through
+1.2 files remain byte-compatible and canonical re-encoding is tested.
+
 For a tested host install, including an installed-package consumer check:
 
 ~~~sh
@@ -364,8 +479,8 @@ src/
     DocumentEditor.h
     DocumentEditor.cpp
   Metadata/
-    Automatic1111Metadata.h
-    Automatic1111Metadata.cpp
+    StableDiffusionGenerationParameters.h
+    StableDiffusionGenerationParameters.cpp
     StableDiffusionMetadata.h
     StableDiffusionMetadata.cpp
   QtAdapter/
@@ -384,6 +499,9 @@ src/
   Validation/
     Validation.h
     Validation.cpp
+  Vector/
+    VectorEditor.h
+    VectorEditor.cpp
 ~~~
 
 ## Minimal model usage
@@ -400,8 +518,9 @@ document.assets.emplace_back(
     RasterAsset{"frame-0", makeRasterLayer(1920, 1080)});
 document.layers.emplace_back(BitmapLayer{
     {"paint", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
-    KeyframedSource{{{0, "frame-0"}}},
+    KeyframedSource{{0}},
 });
+document.frames.push_back({0, {{"paint", "frame-0"}}});
 
 if (!validate(document).ok()) {
     // Reject before serialization or rendering.
@@ -434,7 +553,7 @@ second UI framework.
 `build/test-output/bitmap-item.png`. Pixel assertions verify the original and
 edited ARGB values as well as nearest-neighbor zoom.
 `iiSharedCanvas.FrameRenderer` uses exact pixel assertions for mixed static and
-keyframed raster/vector output, transforms, opacity, clipping, and every
+frame-owned keyframed raster/vector output, transforms, opacity, clipping, and every
 supported layer blend mode.
 `iiSharedCanvas.CanvasItemRender` constructs `SharedCanvas` through a real QML
 engine, verifies frame switching, external refresh, selected raster painting,
@@ -444,6 +563,7 @@ With `IISHAREDCANVAS_VERIFY_GPU=1` on a windowed platform, the same executable
 also requires a hardware Qt Quick backend and verifies a captured scene-graph
 tile image; the normal offscreen CTest does not claim hardware execution.
 `iiSharedCanvas.IiscCodec` verifies canonical byte-identical round-trip,
+fixed 1.0 through 1.2 golden containers emitted by package 0.2.0,
 frame-by-frame rendered-pixel identity, corruption and future-version failure,
 UTF-8, tag, trailing-data, and allocation-limit enforcement.
 `iiSharedCanvas.InfiniteCanvas` verifies signed chunk addressing, camera-driven
@@ -459,7 +579,7 @@ bounds-checked sample, channel, black-level, and white-level access.
 resource, and LoRA fields; strict ComfyUI JSON; duplicate keys; invalid numeric
 settings; canonical 1.2 round-trip; legacy 1.1 preservation; and metadata
 allocation limits.
-`iiSharedCanvas.Automatic1111Metadata` verifies official infotext splitting and
+`iiSharedCanvas.StableDiffusionGenerationParameters` verifies official infotext splitting and
 defaults, multiline prompts, quoted and escaped values, Hires projection,
 resource/hash compatibility, duplicate and future fields, malformed input,
 canonical UTF-8, and byte-exact format-1.2 round-trip.

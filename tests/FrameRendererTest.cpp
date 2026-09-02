@@ -148,6 +148,81 @@ int main()
     }
 
     {
+        Document document = makeDocument(1, 1, 5);
+        document.assets.emplace_back(
+            RasterAsset{"background", makeRasterLayer(1, 1, 0xff0000ffU)});
+        document.assets.emplace_back(
+            RasterAsset{"limited", makeRasterLayer(1, 1, 0xffff0000U)});
+        document.layers.push_back(staticBitmapLayer("background-layer", "background"));
+        Layer limited = staticBitmapLayer("limited-layer", "limited");
+        layerProperties(limited).frameRange = LayerFrameRange{1, 3};
+        document.layers.push_back(std::move(limited));
+
+        const FrameRenderTileRequest request{canvasRegion(document), document.extent};
+        const FrameLayerTileRenderResult before = renderFrameLayerTiles(
+            document, 0, 1, {request});
+        expect(before.ok()
+                   && before.layerIndex == 1
+                   && before.layerId == "limited-layer"
+                   && !before.visible
+                   && before.tiles.empty(),
+               "a layer outside its frame range must keep isolated identity without allocating tiles");
+
+        const FrameLayerTileRenderResult first = renderFrameLayerTiles(
+            document, 1, 1, {request});
+        const FrameLayerTileRenderResult last = renderFrameLayerTiles(
+            document, 3, 1, {request});
+        expect(first.ok() && first.visible && first.tiles.size() == 1
+                   && last.ok() && last.visible && last.tiles.size() == 1
+                   && pixelAt(first.tiles.front().pixels, 0, 0) == 0xffff0000U
+                   && pixelAt(last.tiles.front().pixels, 0, 0) == 0xffff0000U,
+               "both inclusive layer frame-range boundaries must render through the public single-layer API");
+
+        const FrameLayerBatchRenderResult beforeBatch = renderFrameLayers(
+            document, 0, {request});
+        const FrameTileRenderResult beforeComposite = composeFrameLayers(beforeBatch);
+        expect(beforeBatch.ok()
+                   && beforeBatch.layers.size() == 2
+                   && beforeBatch.layers[0].layerId == "background-layer"
+                   && beforeBatch.layers[1].layerIndex == 1
+                   && beforeBatch.layers[1].layerId == "limited-layer"
+                   && !beforeBatch.layers[1].visible
+                   && beforeBatch.layers[1].tiles.empty()
+                   && beforeComposite.ok()
+                   && pixelAt(beforeComposite.tiles.front().pixels, 0, 0)
+                       == 0xff0000ffU,
+               "batch rendering must preserve out-of-range layer order while excluding it from composition");
+
+        expect(pixelAt(renderFrame(document, 1).pixels, 0, 0) == 0xffff0000U
+                   && pixelAt(renderFrame(document, 3).pixels, 0, 0) == 0xffff0000U
+                   && pixelAt(renderFrame(document, 4).pixels, 0, 0) == 0xff0000ffU,
+               "composed rendering must include both boundaries and omit a layer after its last frame");
+    }
+
+    {
+        Document document = makeDocument(1, 1, 4);
+        document.assets.emplace_back(
+            RasterAsset{"held-black", makeRasterLayer(1, 1, 0xff000000U)});
+        document.assets.emplace_back(
+            RasterAsset{"held-red", makeRasterLayer(1, 1, 0xffff0000U)});
+        document.layers.emplace_back(BitmapLayer{
+            {"held-layer", "Held layer", true, 1.0, {},
+             RasterBlendMode::SourceOver, LayerFrameRange{1, 3}},
+            KeyframedSource{{0, 2}},
+        });
+        document.frames = {
+            {0, {{"held-layer", "held-black"}}},
+            {2, {{"held-layer", "held-red"}}},
+        };
+
+        expect(pixelAt(renderFrame(document, 0).pixels, 0, 0) == 0x00000000U
+                   && pixelAt(renderFrame(document, 1).pixels, 0, 0) == 0xff000000U
+                   && pixelAt(renderFrame(document, 2).pixels, 0, 0) == 0xffff0000U
+                   && pixelAt(renderFrame(document, 3).pixels, 0, 0) == 0xffff0000U,
+               "a keyframed layer must remain absent before its range, hold a pre-range key at entry, and render through its inclusive end");
+    }
+
+    {
         Document document = makeDocument(1, 1);
         document.assets.emplace_back(RasterAsset{"blue", makeRasterLayer(1, 1, 0xff0000ffU)});
         document.assets.emplace_back(RasterAsset{"red", makeRasterLayer(1, 1, 0xffff0000U)});
@@ -225,18 +300,34 @@ int main()
     }
 
     {
-        Document document = makeDocument(1, 1, 2);
+        Document document = makeDocument(1, 1, 3);
         document.assets.emplace_back(RasterAsset{"raster-0", makeRasterLayer(1, 1, 0xffff0000U)});
         document.assets.emplace_back(RasterAsset{"raster-1", makeRasterLayer(1, 1, 0xff00ff00U)});
         document.layers.emplace_back(BitmapLayer{
             {"animated-raster", "Animated raster", true, 1.0, {},
              RasterBlendMode::SourceOver},
-            KeyframedSource{{{0, "raster-0"}, {1, "raster-1"}}},
+            KeyframedSource{{0, 2}},
         });
+        document.frames = {
+            {0, {{"animated-raster", "raster-0"}}},
+            {2, {{"animated-raster", "raster-1"}}},
+        };
 
         expect(pixelAt(renderFrame(document, 0).pixels, 0, 0) == 0xffff0000U
-                   && pixelAt(renderFrame(document, 1).pixels, 0, 0) == 0xff00ff00U,
-               "raster keyframes must switch on their exact hold-sampling boundary");
+                   && pixelAt(renderFrame(document, 1).pixels, 0, 0) == 0xffff0000U
+                   && pixelAt(renderFrame(document, 2).pixels, 0, 0) == 0xff00ff00U,
+               "sparse raster keyframes must hold and switch on their exact boundary");
+
+        Document invalid = document;
+        std::get<KeyframedSource>(layerSource(invalid.layers.front()))
+            .frameIndices.pop_back();
+        const FrameLayerTileRenderResult invalidLayer = renderFrameLayerTiles(
+            invalid,
+            2,
+            0,
+            {{{{0, 0}, {1, 1}}, {1, 1}}});
+        expect(invalidLayer.status == FrameRenderStatus::InvalidDocument,
+               "the public single-layer renderer must still validate a caller-owned document before using its derived keyframe index");
     }
 
     {
@@ -248,8 +339,12 @@ int main()
         document.layers.emplace_back(VectorLayer{
             {"animated-vector", "Animated vector", true, 1.0, {},
              RasterBlendMode::SourceOver},
-            KeyframedSource{{{0, "vector-0"}, {1, "vector-1"}}},
+            KeyframedSource{{0, 1}},
         });
+        document.frames = {
+            {0, {{"animated-vector", "vector-0"}}},
+            {1, {{"animated-vector", "vector-1"}}},
+        };
 
         expect(pixelAt(renderFrame(document, 0).pixels, 0, 0) == 0xff0000ffU
                    && pixelAt(renderFrame(document, 1).pixels, 0, 0) == 0xffffffffU,

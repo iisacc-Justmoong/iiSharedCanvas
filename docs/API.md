@@ -48,7 +48,7 @@ ranges, and invalid exposure metadata. Validation never demosaics, normalizes,
 color-converts, renders, or mutates the source values.
 
 `CameraRawData` is not encoded by `.iisc` version 1.1 and remains import-only
-in version 1.2. A caller that wants a canvas bitmap must explicitly decode a
+through version 1.3. A caller that wants a canvas bitmap must explicitly decode a
 file through its chosen adapter,
 validate the aggregate, perform its chosen RAW processing, and commit the
 resulting ARGB pixels as a `RasterAsset`. The aggregate owns its vectors and
@@ -63,42 +63,47 @@ third layer type and not an inference or model-loading interface.
 
 | Data | Public fields | Meaning |
 | --- | --- | --- |
-| `StableDiffusionMetadata` | prompts, output settings, `samplingPasses`, `models`, `loras`, software/provenance strings, `automatic1111Parameters`, `comfyUi`, `extraParameters` | One complete generation or refinement recipe |
+| `StableDiffusionMetadata` | prompts, output settings, `samplingPasses`, `models`, `loras`, software/provenance strings, `generationParametersText`, `comfyUi`, `extraParameters` | One complete generation or refinement recipe |
 | `StableDiffusionSamplingPass` | `nodeId`, `seed`, `steps`, `cfgScale`, `samplerName`, `scheduler`, `denoiseStrength`, `startStep`, `endStep` | One independently identified sampler invocation; multiple passes are preserved |
 | `StableDiffusionModelResource` | `role`, `name`, `hash`, `hashType`, `uri` | Checkpoint, VAE, ControlNet, or other named model reference without embedded model bytes |
 | `StableDiffusionLora` | `name`, `hash`, `modelStrength`, `clipStrength` | One LoRA and its two application strengths |
 | `ComfyUiMetadata` | `promptJson`, `workflowJson`, `extraPngInfo` | Exact API execution graph, UI-restoration graph, and extension JSON |
 | `StableDiffusionMetadataEntry` | `key`, `value` | Ordered extension value; ComfyUI values are JSON and generic values are opaque UTF-8 |
-| `Automatic1111Infotext` | `rawInfotext`, prompts, ordered `parameters` | Lossless extracted AUTOMATIC1111 text plus its decoded key/value view |
-| `Automatic1111ParseResult` | `infotext`, common `metadata`, typed `issues` | Fail-closed compatibility read and reusable common projection |
+| `StableDiffusionGenerationParameters` | `rawText`, prompts, ordered `parameters` | Lossless Stable Diffusion generation text plus its decoded key/value view |
+| `StableDiffusionGenerationParametersParseResult` | `generationParameters`, common `metadata`, typed `issues` | Fail-closed compatibility read and reusable common projection |
 
-`parseAutomatic1111Infotext` accepts the UTF-8 infotext after a host extracts
+`parseStableDiffusionGenerationParameters` accepts the UTF-8 infotext after a host extracts
 it from PNG `parameters`, EXIF `UserComment`, or another image carrier. It does
 not open an image file. The parser follows the upstream terminal-line rule: at
 least three key/value fields distinguish a parameter line from another prompt
 line. It trims prompt lines, splits at `Negative prompt:`, decodes JSON-quoted
 parameter strings, and preserves the raw source and ordered pairs. Duplicate
-pairs remain in `Automatic1111Infotext::parameters`; typed conversion and
-`findAutomatic1111Parameter` use the final occurrence.
+pairs remain in `StableDiffusionGenerationParameters::parameters`; typed conversion and
+`findStableDiffusionGenerationParameter` use the final occurrence.
 
-The common projection uses `automatic1111.main` and, when applicable,
-`automatic1111.hires` sampling ids. Missing schedule and CLIP skip values map
+The common projection uses `stable-diffusion.main` and, when applicable,
+`stable-diffusion.hires` sampling ids. Missing schedule and CLIP skip values map
 to upstream defaults `Automatic` and 1. Old Hires records inherit the main
 sampler and scheduler, and a Hires step value of zero reuses the main step
 count. `Size`, `Batch size`, numeric sampler fields, checkpoint,
 VAE, Hires checkpoint, refiner, and `Version` map to their typed equivalents.
 Current 10-hex checkpoint/VAE hashes use `sha256-prefix-10`; 64-hex hashes use
 `sha256`; the older collision-prone eight-character model hash is labeled
-`automatic1111-legacy-model-hash` rather than misrepresented as a full digest.
+`sha256-partial-prefix-8` rather than misrepresented as a full digest.
 All unprojected and future fields remain in `extraParameters` with the last
 value, and the ordered/raw views retain every occurrence.
 
-`Automatic1111ParseCode` distinguishes empty or invalid UTF-8, a missing
+`StableDiffusionGenerationParametersParseCode` distinguishes empty or invalid UTF-8, a missing
 parameter line, malformed quoted/key-value syntax, invalid integers, numbers,
 sizes and ranges, and a projection that violates the common metadata contract.
 A failed result may be inspected for diagnostics and raw recovery but must not
 be accepted as a trusted generation recipe. A successful result always passes
 `validateStableDiffusionMetadata`.
+
+The parser does not infer `StableDiffusionMetadata::software` from syntax.
+AUTOMATIC1111 is the reference implementation for the compatible text format,
+but another producer can emit the same shape. A carrier adapter sets software
+provenance only when it has separate evidence of the writer.
 
 ComfyUI `promptJson` and `workflowJson` are optional independently. When
 present, each must be a complete JSON object. They remain exact strings during
@@ -122,6 +127,79 @@ succeeds and restores both metadata and version on rejection.
 `clearStableDiffusionMetadata` removes the recipe without downgrading the
 physical format. Neither operation changes layers, assets, or rendered pixels.
 
+## Video editing timeline objects
+
+`TimelineProject` is a standalone public aggregate and is not a member of
+`Document`. It contains project metadata, `TimelineMediaSource` entries,
+`TimelineSequence` entries, bins, and `TimelineRenderProfile` delivery
+configurations. A media source may retain multiple original, proxy, optimized,
+or custom `TimelineMediaRepresentation` objects. Each representation owns a
+container descriptor and a `TimelineMediaStream` variant of video, audio,
+subtitle, or data streams.
+
+All media and edit positions use signed ticks. `TimelineTimeBase` determines
+seconds per tick, while `TimelineFrameRate` independently expresses an exact
+rational FPS. `timelineTicksToSeconds` is a checked convenience conversion;
+the integer tick value and rational remain authoritative. Video streams can
+retain variable-frame-rate sample timing, and sequence, source, timecode, and
+output frame rates are intentionally separate.
+
+`TimelineTrack` is a variant of `TimelineVideoTrack`, `TimelineAudioTrack`,
+`TimelineSubtitleTrack`, and `TimelineDataTrack`. Each track stores only clips
+of the corresponding concrete type. Common clip properties identify the
+source stream, timeline and source ranges, playback rate, link group, role,
+time remapping, effects, automation, and markers. Video clips add transform and
+crop data; audio clips add gain, pan, fades, and a channel matrix; subtitle
+clips add text and styling. Stable-id lookup is provided by
+`findTimelineMediaSource`, `findTimelineMediaRepresentation`,
+`findTimelineMediaStream`, `findTimelineSequence`, `findTimelineTrack`,
+`findTimelineClip`, and `findTimelineRenderProfile`.
+
+Source ranges use the referenced media stream, nested sequence, or generated
+source `TimelineTimeBase`; timeline ranges use the owning sequence time base.
+For a non-looping clip without a time map, validation compares these exact
+rationals and requires `playbackRate` to account for the complete duration.
+When `timeMap` is present it alone maps the full clip from offset zero through
+the clip duration, so `playbackRate` must be 1/1. Negative constant rates model
+reverse playback.
+
+Clip lookup returns a non-owning typed view; an empty view has no stream kind,
+and any mutation that can relocate its project invalidates the view. A caller
+must resolve it again after every successful `TimelineEditor` commit.
+
+Representations use a shared stream id as a logical media identity. Validation
+requires every repeated id to keep its stream kind, time base, start tick, and
+duration, while codec, resolution, pixel format, and other representation
+details may differ. This makes one clip source range stable when active proxy
+selection changes.
+
+`validateTimelineProject` returns `TimelineValidationResult` with all observed
+issues. It verifies numeric domains, uniqueness, references, stream kinds,
+clip ranges, variable-frame-rate samples, automation curves, transitions, and
+delivery profiles. It validates structural meaning only; an adapter decides
+whether an installed codec implementation can handle a requested setting.
+Two-sided transitions use an adjacent `from` end/`to` start as their cut and
+must obey start, centered, end, or custom alignment. One-sided transitions are
+explicit incoming or outgoing fades. Visual and audio clips require their
+sequence canvas or mix format respectively. Unknown media duration does not
+disable signed-tick overflow checks, and known sample byte ranges must fit the
+representation file size. Subtitle image-resource ids resolve only to
+attachments in the same representation.
+
+`TimelineEditor` binds to one caller-owned project and exposes stable-id CRUD
+for media sources, sequences, render profiles, typed tracks, and typed clips.
+It also provides `setSequenceFrameRate`, `setRenderContainer`,
+`setRenderVideoCodec`, and `setRenderAudioCodec`. Every operation validates a
+candidate copy before committing it. A rejected edit never advances
+`revision()` and never partially mutates the project. Public aggregate edits
+remain allowed, but an externally invalid project blocks subsequent editor
+operations until repaired or rebound. Binding a different invalid project is
+rejected without discarding the current valid binding or its revision.
+
+No function in this module opens media, probes a container, decodes or encodes
+a codec, renders a sequence, or writes a project file. `TimelineProject` is not
+encoded by `.iisc` version 1.3.
+
 ## Data ownership and identity
 
 `Document` owns all persisted canvas state:
@@ -138,19 +216,47 @@ physical format. Neither operation changes layers, assets, or rendered pixels.
 | `ChunkedRasterAsset` | `id`, `chunks` | Stable id and canonical sparse raster chunks for an infinite canvas |
 | `VectorAsset` | `id`, `viewport`, `paths` | Stable id and native vector paint data |
 | `VectorPath` | `commands`, `fill`, `stroke` | M/L/Q/C/Z geometry and solid paints |
-| `LayerProperties` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode` | Presentation state shared by both layer types |
+| `LayerFrameRange` | `firstFrame`, `lastFrame` | Optional inclusive layer existence boundaries |
+| `LayerProperties` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `frameRange` | Presentation and timeline-existence state shared by both layer types |
 | `BitmapLayer` | `properties`, `source` | Raster-only finite or chunked bitmap layer |
 | `VectorLayer` | `properties`, `source` | Native-vector-only layer |
 | `Layer` | `BitmapLayer \| VectorLayer` | Type-distinguished bottom-to-top compositing entry |
 | `StaticSource` | `assetId` | One durable asset reference |
-| `KeyframedSource` | `keyframes` | Hold-sampled track whose type comes from its owning layer |
-| `Keyframe` | `frame`, `assetId` | Exact integer-frame asset switch |
+| `KeyframedSource` | `frameIndices` | Derived increasing index of the exact frames that own this layer's keys; it owns no `Keyframe` |
+| `Frame` | `index`, `keyframes` | Sparse integer frame that directly owns all keys at that position |
+| `Keyframe` | `layerId`, `assetId` | Layer-to-asset switch owned by one `Frame` |
+| `Document` | `frames` | Possibly empty collection; every stored frame is non-empty and indices are strictly increasing |
+
+`Frame::keyframes` uses canonical ascending `layerId` order. Address a key by
+`layerId`; `.iisc` reconstructs simultaneous keys in this canonical in-memory
+order while preserving document layer order on the layer-major wire. The frame
+index and `(layerId, assetId)` mappings are the durable values.
+
+`KeyframedSource::frameIndices` is a derived secondary index used for bounded
+hold lookup. It must be strictly increasing, begin at zero, and equal the exact
+set of `Document::frames` entries containing that layer id. It duplicates no
+asset reference and gives the layer no keyframe ownership. Direct aggregate
+mutation must keep both sides synchronized and then call `validate`;
+`DocumentEditor` and `decodeIisc` maintain the index automatically.
+
+`LayerProperties::frameRange` is either absent or an inclusive
+`LayerFrameRange`. An absent value means the layer exists throughout the current
+document timeline. A present value requires format 1.3, satisfies
+`firstFrame <= lastFrame < timeline.frameCount`, and includes both boundary
+frames. The range controls layer existence during lookup and rendering; it does
+not delete or invalidate frame-owned keyframes outside the range.
 
 Asset and layer ids are stable identities. Vector indices are storage or paint
 order and can change after insertion, removal, or movement. Do not retain an
 element pointer across a collection mutation; resolve the stable id again.
 `BitmapEditor` already follows this rule by resolving its bound raster asset id
 on every operation.
+
+`Frame` and `Keyframe` pointers are likewise views into `Document::frames`.
+Any frame/keyframe insertion, movement, removal, source conversion, or layer
+removal may invalidate them. Reacquire a frame by exact `FrameIndex` and then a
+key by stable `layerId` after every successful structural edit. An
+`AssetReference::frameIndex` is a storage index, not the persisted frame number.
 
 `RasterAsset` is a finite document's contiguous image/pixel asset,
 `ChunkedRasterAsset` is an infinite document's sparse image/pixel asset, and
@@ -200,6 +306,13 @@ for (const Layer &layer : decoded.document.layers) {
         }
     }
 }
+
+for (const Frame &frame : decoded.document.frames) {
+    for (const Keyframe &keyframe : frame.keyframes) {
+        const Layer *layer = findLayer(decoded.document, keyframe.layerId);
+        const Asset *asset = findAsset(decoded.document, keyframe.assetId);
+    }
+}
 ~~~
 
 `FrameRenderResult::ok()`, `IiscEncodeResult::ok()`, and
@@ -227,9 +340,16 @@ preserve cross-reference invariants automatically.
 - `findBitmapLayer` and `findVectorLayer` return only the requested concrete layer type;
 - `layerProperties` and `layerSource` expose the common fields without erasing
   `Layer`'s bitmap/vector variant identity;
-- `findKeyframe` and `keyframeIndex` perform exact-frame lookup, unlike
-  `resolveAssetAt`, which performs timeline hold sampling;
-- `assetReferences` returns every referencing layer and optional keyframe index.
+- `layerExistsAt` reports whether a layer exists at an in-timeline frame after
+  applying its optional inclusive range;
+- `findFrame` and `frameIndex` resolve an exact sparse frame record;
+- `findKeyframe(Frame, layerId)` and `keyframeIndex` inspect direct frame
+  ownership, while `findKeyframe(Document, layerId, frame)` combines both exact
+  lookups;
+- `resolveAssetAt` performs timeline hold sampling through the keyframed
+  source's derived owner-frame index and exact frame/key binary lookups;
+- `assetReferences` returns every referencing layer plus optional frame and
+  keyframe storage indices.
 
 These helpers return pointers or `std::optional` values and never throw. Missing
 ids and exact frames return null or `std::nullopt`.
@@ -256,6 +376,8 @@ A successful change advances it exactly once. A valid no-op succeeds without
 advancing it. Before every operation the editor detects direct external changes
 that made the document invalid and rejects further mutation as
 `InvalidDocument`.
+Binding a different invalid document is also rejected without discarding the
+current valid binding or its revision.
 
 ## Document and timeline operations
 
@@ -264,7 +386,7 @@ that made the document invalid and rejects further mutation as
 | `setCanvasExtent` | Replace the positive output extent; it does not resample assets |
 | `ensureInfiniteCanvasRegion` | Union a requested world region into an infinite canvas and align growth outwards to chunk boundaries |
 | `setFrameRate` | Replace the non-zero rational frame rate |
-| `setFrameCount` | Resize the integer frame domain; rejects a shrink that would exclude a keyframe |
+| `setFrameCount` | Resize the integer frame domain; rejects a shrink that would exclude a keyframe or explicit layer boundary |
 | `setStableDiffusionMetadata` | Validate and atomically attach the complete recipe, upgrading legacy format to 1.2 |
 | `clearStableDiffusionMetadata` | Remove the optional recipe without changing render content or downgrading format |
 
@@ -285,6 +407,7 @@ that made the document invalid and rejects further mutation as
 | Method | Operation |
 | --- | --- |
 | `insertLayer` | Insert a complete layer at a bottom-to-top index |
+| `insertKeyframedLayer` | Insert a keyframed layer and all `KeyframePlacement` values atomically at one bottom-to-top index |
 | `replaceLayer` | Atomically replace one layer and validate all references |
 | `renameLayer` | Replace stable layer identity |
 | `setLayerName` | Replace the user-visible name |
@@ -292,18 +415,25 @@ that made the document invalid and rejects further mutation as
 | `setLayerOpacity` | Set finite opacity from zero through one |
 | `setLayerTransform` | Replace the complete finite affine transform |
 | `setLayerBlendMode` | Select a supported document compositing mode |
+| `setLayerFrameRange` | Set or clear the optional inclusive existence range, upgrading a committed range to format 1.3 |
 | `setStaticSource` | Replace the source with one asset reference |
-| `setKeyframedSource` | Replace the source with a validated track of the owning layer's type |
+| `setKeyframedSource` | Mark the layer animated and atomically distribute `KeyframePlacement` inputs into their owning sparse frames |
 | `moveLayer` | Change bottom-to-top compositing order |
 | `removeLayer` | Remove the layer without deleting its assets |
 
 ## Keyframe operations
 
 `insertKeyframe`, `setKeyframeAsset`, `moveKeyframe`, and `removeKeyframe`
-address a keyframed layer by stable layer id and exact frame. Insertion and
-movement restore chronological order automatically. The editor rejects duplicate
-frames, out-of-range frames, layer/asset type mismatches, an empty track, and any
-edit that would remove or move the required frame-zero keyframe.
+address a keyframed layer by stable layer id and exact frame. Insertion creates
+a sparse `Frame` when needed; movement transfers the key between frame owners;
+removal also deletes an owner that becomes empty. The editor rejects duplicate
+layer keys in one frame, out-of-range frames, layer/asset type mismatches, an
+empty keyframed layer, and any edit that would remove or move its required
+frame-zero key. Layer and asset renames rewrite frame-owned stable references,
+while switching to a static source or removing a layer removes only that
+layer's keys. A layer range limits existence and rendering only: keyframes may
+remain before `firstFrame` or after `lastFrame`, preserving hold state and data
+for a later range extension.
 
 ## Vector path operations
 
@@ -313,9 +443,29 @@ paint order. Each inserted or replaced path must start with `MoveTo`, contain
 finite coordinates, have a fill or stroke, and use a finite positive stroke
 width when a stroke exists.
 
-Path command data remains directly editable through `VectorPath::commands` for
-batch algorithms. After direct edits call `validate(document)` before rendering
-or encoding; use the path methods when atomic rollback is required.
+`VectorEditor` is the fine-grained native geometry boundary. It binds one
+`VectorAsset` by stable id, exposes read-only path inspection, and resolves the
+asset again for each edit instead of caching a pointer into `Document::assets`.
+`createPath` starts a styled path with `MoveTo`; `insertPath`, `movePath`, and
+`removePath` manage native paint order, while `setViewport` replaces the bound
+asset viewport without touching another asset.
+
+`appendMoveTo` starts another subpath. `appendLineTo` adds a linear segment;
+`appendQuadraticBezierTo` and `appendCubicBezierTo` add one- and two-control-point
+Bezier segments. `insertCommand`, `replaceCommand`, and `removeCommand` address
+the native M/L/Q/C/Z command sequence directly. `setAnchorPoint` edits the
+point of M/L or the endpoint of Q/C, and `setControlPoint` accepts index zero for
+quadratic commands and zero or one for cubic commands. `closePath` and
+`openPath` manage a trailing `ClosePath`; `setPathPaint` changes optional solid
+fill and stroke together.
+
+The editor copies one path, applies the proposed change, and delegates the
+replacement to `DocumentEditor`, so complete-document validation is the commit
+boundary. A rejected edit retains geometry, paint, and `revision()` exactly;
+valid idempotent edits return `ok() == true` with `changed == false`. The bound
+document must outlive the editor. Path command data remains directly editable
+through `VectorPath::commands` for batch algorithms, but direct edits require
+`validate(document)` before rendering or encoding.
 
 ## Raster pixel operations
 
@@ -393,12 +543,16 @@ request batch. `renderFrameLayers` returns all independent layer batches in
 bottom-to-top document order, and `composeFrameLayers` applies their opacity and
 blend metadata to produce final spatial tiles. `renderFrameRegion` and
 `renderFrameTiles` use that same boundary, so their output remains compatible
-with callers that only need a composed frame. Hidden layers keep their ordered
-identity and metadata in the batch but allocate no pixel tiles.
+with callers that only need a composed frame. Hidden layers and layers outside
+their optional inclusive `frameRange` keep ordered identity and metadata in the
+batch but report effective invisibility and allocate no pixel tiles. Both range
+boundaries render; an absent range covers the whole timeline.
 
 `AsyncFrameRenderer::request` takes a value snapshot or shared immutable
-snapshot, distributes its layer indices across a bounded set of global
-thread-pool workers, coalesces queued work to the newest request, and emits
+snapshot, validates that snapshot once in a thread-pool preflight, and only then
+distributes its layer indices across a bounded set of global workers. A rejected
+preflight returns the same error as `renderFrameLayers` with no partial layer
+batch. Requests coalesce to the newest pending work, and the renderer emits
 `finished` on its owning thread. `lastLayerResult()` inspects the isolated
 layer batch and `lastResult()` inspects the composed batch. `takeLayerResult()`
 and `takeResult()` transfer their pixel storage without a GUI-thread pixel copy.
@@ -428,8 +582,9 @@ pixels.setPixel(10, 10, 0xffffcc00U);
 
 ## Threading and persistence
 
-`Document`, `DocumentEditor`, `BitmapEditor`, `ChunkedBitmapEditor`, and a bound
-`CanvasItem` are not general-purpose synchronized mutation objects. Mutate one
+`Document`, `DocumentEditor`, `BitmapEditor`, `ChunkedBitmapEditor`,
+`VectorEditor`, and a bound `CanvasItem` are not general-purpose synchronized
+mutation objects. Mutate one
 document from one owning thread; Qt Quick items remain GUI-thread objects.
 `CanvasItem` copies a validated immutable render snapshot before a worker sees
 it, so the worker never races caller mutation. `AsyncFrameRenderer` likewise

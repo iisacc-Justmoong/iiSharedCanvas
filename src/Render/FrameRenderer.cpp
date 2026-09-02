@@ -641,10 +641,11 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
     FrameLayerTileRenderResult result;
     result.layerIndex = layerIndex;
     result.layerId = properties.id;
-    result.visible = properties.visible;
+    result.visible = properties.visible
+        && layerExistsAt(document, documentLayer, frame);
     result.opacity = properties.opacity;
     result.blendMode = properties.blendMode;
-    if (!properties.visible) {
+    if (!result.visible) {
         return result;
     }
 
@@ -680,6 +681,47 @@ FrameLayerBatchRenderResult layerBatchError(
 }
 
 } // namespace
+
+namespace render_detail {
+
+IISHAREDCANVAS_NO_EXPORT FrameLayerBatchRenderResult preflightFrameLayerRender(
+    const Document &document,
+    FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests)
+{
+    const ValidationResult validation = validate(document);
+    if (!validation.ok()) {
+        return layerBatchError(FrameRenderStatus::InvalidDocument,
+                               validation.issues.front().path + ": "
+                                   + validation.issues.front().message,
+                               requests);
+    }
+    if (frame >= document.timeline.frameCount) {
+        return layerBatchError(FrameRenderStatus::FrameOutOfRange,
+                               "requested frame is outside the document timeline",
+                               requests);
+    }
+    if (!validRequests(document, requests)) {
+        return layerBatchError(FrameRenderStatus::InvalidRegion,
+                               "render region must be positive, bounded by the document, and have a valid output extent",
+                               requests);
+    }
+
+    FrameLayerBatchRenderResult result;
+    result.requests = requests;
+    return result;
+}
+
+IISHAREDCANVAS_NO_EXPORT FrameLayerTileRenderResult renderPreflightedFrameLayerTiles(
+    const Document &document,
+    FrameIndex frame,
+    std::size_t layerIndex,
+    const std::vector<FrameRenderTileRequest> &requests)
+{
+    return renderValidatedFrameLayerTiles(document, frame, layerIndex, requests);
+}
+
+} // namespace render_detail
 
 FrameRenderResult renderFrame(const Document &document, FrameIndex frame)
 {
@@ -746,7 +788,8 @@ FrameLayerTileRenderResult renderFrameLayerTiles(
         result.message = "render region must be positive, bounded by the document, and have a valid output extent";
         return result;
     }
-    return renderValidatedFrameLayerTiles(document, frame, layerIndex, requests);
+    return render_detail::renderPreflightedFrameLayerTiles(
+        document, frame, layerIndex, requests);
 }
 
 FrameLayerBatchRenderResult renderFrameLayers(
@@ -754,30 +797,16 @@ FrameLayerBatchRenderResult renderFrameLayers(
     FrameIndex frame,
     const std::vector<FrameRenderTileRequest> &requests)
 {
-    const ValidationResult validation = validate(document);
-    if (!validation.ok()) {
-        return layerBatchError(FrameRenderStatus::InvalidDocument,
-                               validation.issues.front().path + ": "
-                                   + validation.issues.front().message,
-                               requests);
+    FrameLayerBatchRenderResult result = render_detail::preflightFrameLayerRender(
+        document, frame, requests);
+    if (!result.ok()) {
+        return result;
     }
-    if (frame >= document.timeline.frameCount) {
-        return layerBatchError(FrameRenderStatus::FrameOutOfRange,
-                               "requested frame is outside the document timeline",
-                               requests);
-    }
-    if (!validRequests(document, requests)) {
-        return layerBatchError(FrameRenderStatus::InvalidRegion,
-                               "render region must be positive, bounded by the document, and have a valid output extent",
-                               requests);
-    }
-
-    FrameLayerBatchRenderResult result;
-    result.requests = requests;
     result.layers.reserve(document.layers.size());
     for (std::size_t layerIndex = 0; layerIndex < document.layers.size(); ++layerIndex) {
-        FrameLayerTileRenderResult layer = renderValidatedFrameLayerTiles(
-            document, frame, layerIndex, requests);
+        FrameLayerTileRenderResult layer =
+            render_detail::renderPreflightedFrameLayerTiles(
+                document, frame, layerIndex, requests);
         if (!layer.ok()) {
             result.status = layer.status;
             result.message = layer.message;

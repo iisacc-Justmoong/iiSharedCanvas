@@ -6,6 +6,7 @@
 #include <limits>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
@@ -179,19 +180,21 @@ void validateVectorAsset(const VectorAsset &asset,
     }
 }
 
-void validateAssetReference(const Document &document,
+using AssetLookup = std::unordered_map<std::string, const Asset *>;
+
+void validateAssetReference(const AssetLookup &assets,
                             const std::string &id,
                             const std::string &path,
                             ValidationResult &result,
                             const ContentKind *requiredKind = nullptr)
 {
-    const Asset *asset = findAsset(document, id);
-    if (!asset) {
+    const auto asset = assets.find(id);
+    if (asset == assets.end()) {
         addIssue(result, ValidationCode::MissingAsset, path,
-                 "layer source references an unknown asset id");
+                 "source or keyframe references an unknown asset id");
         return;
     }
-    if (requiredKind && contentKind(*asset) != *requiredKind) {
+    if (requiredKind && contentKind(*asset->second) != *requiredKind) {
         addIssue(result, ValidationCode::ContentKindMismatch, path,
                  "the referenced asset kind must match the owning layer type");
     }
@@ -254,7 +257,8 @@ ValidationResult validate(const Document &document)
         }
     }
 
-    std::unordered_set<std::string> assetIds;
+    AssetLookup assetsById;
+    assetsById.reserve(document.assets.size());
     for (std::size_t index = 0; index < document.assets.size(); ++index) {
         const Asset &asset = document.assets[index];
         const std::string &id = assetId(asset);
@@ -262,7 +266,7 @@ ValidationResult validate(const Document &document)
         if (id.empty()) {
             addIssue(result, ValidationCode::InvalidAssetId, idPath,
                      "asset id must not be empty");
-        } else if (!assetIds.insert(id).second) {
+        } else if (!assetsById.emplace(id, &asset).second) {
             addIssue(result, ValidationCode::DuplicateAssetId, idPath,
                      "asset ids must be unique");
         }
@@ -280,18 +284,29 @@ ValidationResult validate(const Document &document)
     }
 
     std::unordered_set<std::string> layerIds;
+    std::unordered_map<std::string, const Layer *> layersById;
+    std::unordered_map<std::string, std::size_t> layerPositions;
+    std::unordered_map<std::string, const KeyframedSource *> keyframedSources;
+    layersById.reserve(document.layers.size());
+    layerPositions.reserve(document.layers.size());
+    keyframedSources.reserve(document.layers.size());
     for (std::size_t index = 0; index < document.layers.size(); ++index) {
         const Layer &layer = document.layers[index];
         const LayerProperties &properties = layerProperties(layer);
         const LayerSource &sourceValue = layerSource(layer);
         const ContentKind requiredKind = contentKind(layer);
         const std::string layerPath = "layers[" + std::to_string(index) + "]";
+        bool hasUniqueLayerId = false;
         if (properties.id.empty()) {
             addIssue(result, ValidationCode::InvalidLayer, layerPath + ".id",
                      "layer id must not be empty");
         } else if (!layerIds.insert(properties.id).second) {
             addIssue(result, ValidationCode::DuplicateLayerId, layerPath + ".id",
                      "layer ids must be unique");
+        } else {
+            hasUniqueLayerId = true;
+            layersById.emplace(properties.id, &layer);
+            layerPositions.emplace(properties.id, index);
         }
         if (!std::isfinite(properties.opacity)
             || properties.opacity < 0.0
@@ -301,45 +316,133 @@ ValidationResult validate(const Document &document)
             addIssue(result, ValidationCode::InvalidLayer, layerPath,
                      "layer opacity, transform, and blend mode must be supported and in range");
         }
+        if (properties.frameRange
+            && (document.formatVersion.minor < 3
+                || properties.frameRange->firstFrame
+                    > properties.frameRange->lastFrame
+                || properties.frameRange->lastFrame
+                    >= document.timeline.frameCount)) {
+            addIssue(result,
+                     ValidationCode::InvalidLayerFrameRange,
+                     layerPath + ".properties.frameRange",
+                     "an explicit inclusive layer frame range requires format 1.3 and must remain ordered inside the timeline");
+        }
 
         if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
-            validateAssetReference(document, source->assetId,
+            validateAssetReference(assetsById, source->assetId,
                                    layerPath + ".source.assetId", result, &requiredKind);
             continue;
         }
 
         const auto &source = std::get<KeyframedSource>(sourceValue);
-        if (source.keyframes.empty()) {
+        if (hasUniqueLayerId) {
+            keyframedSources.emplace(properties.id, &source);
+        }
+        if (source.frameIndices.empty()) {
             addIssue(result, ValidationCode::InvalidKeyframes,
-                     layerPath + ".source.keyframes",
-                     "an animated source must contain at least one keyframe");
+                     layerPath + ".source.frameIndices",
+                     "a keyframed layer must index at least its frame-zero owner");
+        }
+        for (std::size_t framePosition = 0;
+             framePosition < source.frameIndices.size();
+             ++framePosition) {
+            const FrameIndex frame = source.frameIndices[framePosition];
+            const std::string indexPath = layerPath + ".source.frameIndices["
+                + std::to_string(framePosition) + "]";
+            if (frame >= document.timeline.frameCount) {
+                addIssue(result, ValidationCode::InvalidKeyframes, indexPath,
+                         "a derived owner-frame index must remain inside the timeline");
+            }
+            if ((framePosition == 0 && frame != 0)
+                || (framePosition > 0
+                    && frame <= source.frameIndices[framePosition - 1])) {
+                addIssue(result, ValidationCode::InvalidKeyframes, indexPath,
+                         "derived owner-frame indices must start at zero and be strictly increasing");
+            }
+        }
+    }
+
+    std::unordered_map<std::string, std::vector<FrameIndex>> observedFrameIndices;
+    observedFrameIndices.reserve(keyframedSources.size());
+    for (std::size_t framePosition = 0;
+         framePosition < document.frames.size();
+         ++framePosition) {
+        const Frame &frame = document.frames[framePosition];
+        const std::string framePath = "frames[" + std::to_string(framePosition) + "]";
+        if (frame.index >= document.timeline.frameCount) {
+            addIssue(result, ValidationCode::InvalidKeyframes,
+                     framePath + ".index",
+                     "frame-owned keyframes must remain inside the document timeline");
+        }
+        if (framePosition > 0
+            && frame.index <= document.frames[framePosition - 1].index) {
+            addIssue(result, ValidationCode::InvalidKeyframes,
+                     framePath + ".index",
+                     "frames that own keyframes must be strictly increasing");
+        }
+        if (frame.keyframes.empty()) {
+            addIssue(result, ValidationCode::InvalidKeyframes,
+                     framePath + ".keyframes",
+                     "a persisted frame must directly own at least one keyframe");
             continue;
         }
-        if (source.keyframes.front().frame != 0) {
-            addIssue(result, ValidationCode::InvalidKeyframes,
-                     layerPath + ".source.keyframes[0].frame",
-                     "the first keyframe must begin at frame zero");
-        }
 
-        for (std::size_t keyframeIndex = 0;
-             keyframeIndex < source.keyframes.size();
-             ++keyframeIndex) {
-            const Keyframe &keyframe = source.keyframes[keyframeIndex];
-            const std::string keyframePath = layerPath + ".source.keyframes["
-                + std::to_string(keyframeIndex) + "]";
-            if (keyframe.frame >= document.timeline.frameCount) {
+        for (std::size_t keyframePosition = 0;
+             keyframePosition < frame.keyframes.size();
+             ++keyframePosition) {
+            const Keyframe &keyframe = frame.keyframes[keyframePosition];
+            const std::string keyframePath = framePath + ".keyframes["
+                + std::to_string(keyframePosition) + "]";
+            if (keyframe.layerId.empty()) {
                 addIssue(result, ValidationCode::InvalidKeyframes,
-                         keyframePath + ".frame",
-                         "keyframe must be inside the document timeline");
+                         keyframePath + ".layerId",
+                         "a frame-owned keyframe must have a non-empty layer id");
+                continue;
             }
-            if (keyframeIndex > 0
-                && keyframe.frame <= source.keyframes[keyframeIndex - 1].frame) {
+            if (keyframePosition > 0
+                && keyframe.layerId
+                    <= frame.keyframes[keyframePosition - 1].layerId) {
                 addIssue(result, ValidationCode::InvalidKeyframes,
-                         keyframePath + ".frame",
-                         "keyframe positions must be strictly increasing");
+                         keyframePath + ".layerId",
+                         "frame-owned keyframes must use unique canonical layer-id order");
             }
-            validateAssetReference(document, keyframe.assetId,
+
+            const auto owner = layersById.find(keyframe.layerId);
+            if (owner == layersById.end()) {
+                addIssue(result, ValidationCode::InvalidKeyframes,
+                         keyframePath + ".layerId",
+                         "a frame-owned keyframe must reference an existing layer");
+                continue;
+            }
+            if (!std::holds_alternative<KeyframedSource>(
+                    layerSource(*owner->second))) {
+                addIssue(result, ValidationCode::InvalidKeyframes,
+                         keyframePath + ".layerId",
+                         "a frame-owned keyframe may reference only a keyframed layer");
+                continue;
+            }
+
+            observedFrameIndices[keyframe.layerId].push_back(frame.index);
+            const ContentKind requiredKind = contentKind(*owner->second);
+            validateAssetReference(assetsById, keyframe.assetId,
                                    keyframePath + ".assetId", result, &requiredKind);
+        }
+    }
+
+    for (const auto &[layerId, source] : keyframedSources) {
+        const auto observed = observedFrameIndices.find(layerId);
+        const std::vector<FrameIndex> empty;
+        const std::vector<FrameIndex> &owners = observed == observedFrameIndices.end()
+            ? empty
+            : observed->second;
+        if (source->frameIndices != owners) {
+            const auto position = layerPositions.find(layerId);
+            addIssue(result, ValidationCode::InvalidKeyframes,
+                     position != layerPositions.end()
+                         ? "layers[" + std::to_string(position->second)
+                             + "].source.frameIndices"
+                         : "layers",
+                     "the derived frame index must exactly match every frame that owns this layer's keyframe");
         }
     }
 

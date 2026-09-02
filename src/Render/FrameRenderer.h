@@ -54,7 +54,7 @@ struct FrameTileRenderResult {
 struct FrameLayerTileRenderResult {
     std::size_t layerIndex = 0;
     std::string layerId;
-    bool visible = false;
+    bool visible = false; // Effective visibility at the requested frame.
     double opacity = 1.0;
     RasterBlendMode blendMode = RasterBlendMode::SourceOver;
     std::vector<FrameRenderTile> tiles;

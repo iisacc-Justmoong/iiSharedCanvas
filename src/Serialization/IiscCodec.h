@@ -25,6 +25,7 @@ struct SerializationLimits {
     std::uint32_t maximumMetadataStringBytes = 16U * 1024U * 1024U;
     std::uint32_t maximumAssets = 65536U;
     std::uint32_t maximumLayers = 65536U;
+    std::uint32_t maximumFrames = 262144U;
     std::uint32_t maximumRasterChunks = 1048576U;
     std::uint32_t maximumMetadataEntries = 65536U;
 };

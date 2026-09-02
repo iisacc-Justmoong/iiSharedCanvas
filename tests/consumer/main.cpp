@@ -10,7 +10,7 @@ int main()
 
     Document document;
     document.extent = {4, 4};
-    document.timeline = {{24, 1}, 1};
+    document.timeline = {{24, 1}, 3};
     document.assets.emplace_back(
         RasterAsset{"installed-raster", makeRasterLayer(4, 4, 0xff112233U)});
     document.layers.emplace_back(BitmapLayer{
@@ -36,7 +36,11 @@ int main()
     document.layers.emplace_back(VectorLayer{
         {"installed-shape-layer", "Detailed shape", false, 0.625, shapeTransform,
          RasterBlendMode::Multiply},
-        StaticSource{"installed-shape"},
+        KeyframedSource{{0}},
+    });
+    document.frames.push_back({
+        0,
+        {{"installed-shape-layer", "installed-shape"}},
     });
 
     DocumentEditor structure(document);
@@ -44,8 +48,10 @@ int main()
         "installed-raster", "installed-pixels");
     const DocumentEditResult layerName = structure.setLayerName(
         "installed-layer", "Edited installed package");
-    const Automatic1111ParseResult automatic1111 =
-        parseAutomatic1111Infotext(
+    const DocumentEditResult layerRange = structure.setLayerFrameRange(
+        "installed-layer", LayerFrameRange{1, 2});
+    const StableDiffusionGenerationParametersParseResult generationParameters =
+        parseStableDiffusionGenerationParameters(
             "installed package prompt\n"
             "Steps: 20, Sampler: Euler, CFG scale: 7, Seed: 77, "
             "Size: 4x4, Model hash: 0123456789, Model: installed-model");
@@ -64,16 +70,23 @@ int main()
         R"json({"version":1,"state":{},"nodes":[]})json";
     const DocumentEditResult generationEdit =
         structure.setStableDiffusionMetadata(generation);
-    const Asset *asset = resolveAssetAt(document, document.layers.front(), 0);
+    VectorEditor vectorEditor(document, "installed-shape");
+    const DocumentEditResult openedShape = vectorEditor.openPath(0);
+    const DocumentEditResult quadraticShape = vectorEditor.appendQuadraticBezierTo(
+        0, {2.5, 3.5}, {1.5, 3.0});
+    const DocumentEditResult cubicShape = vectorEditor.appendCubicBezierTo(
+        0, {1.0, 2.5}, {0.5, 1.5}, {0.0, 0.0});
+    const DocumentEditResult closedShape = vectorEditor.closePath(0);
+    const Asset *asset = resolveAssetAt(document, document.layers.front(), 1);
     BitmapEditor editor(document, "installed-pixels");
     const bool edited = editor.setPixel(2, 1, 0xffaabbccU);
-    const FrameRenderResult rendered = renderFrame(document, 0);
+    const FrameRenderResult rendered = renderFrame(document, 1);
     const FrameRenderTileRequest installedTileRequest{
         {{0, 0}, {4, 4}}, {2, 2}};
     const FrameTileRenderResult renderedTile = renderFrameTiles(
-        document, 0, {installedTileRequest});
+        document, 1, {installedTileRequest});
     const FrameLayerBatchRenderResult renderedLayers = renderFrameLayers(
-        document, 0, {installedTileRequest});
+        document, 1, {installedTileRequest});
     const FrameTileRenderResult recomposedLayers = composeFrameLayers(renderedLayers);
     AsyncFrameRenderer asyncRenderer;
     const IiscEncodeResult encoded = encodeIisc(document);
@@ -89,8 +102,17 @@ int main()
     const Layer *decodedShapeLayer = decoded.ok()
         ? findLayer(decoded.document, "installed-shape-layer")
         : nullptr;
-    const StaticSource *decodedShapeSource = decodedShapeLayer
-        ? std::get_if<StaticSource>(&layerSource(*decodedShapeLayer))
+    const Layer *decodedInstalledLayer = decoded.ok()
+        ? findLayer(decoded.document, "installed-layer")
+        : nullptr;
+    const KeyframedSource *decodedShapeSource = decodedShapeLayer
+        ? std::get_if<KeyframedSource>(&layerSource(*decodedShapeLayer))
+        : nullptr;
+    const Frame *decodedFrame = decoded.ok()
+        ? findFrame(decoded.document, 0)
+        : nullptr;
+    const Keyframe *decodedShapeKeyframe = decodedFrame
+        ? findKeyframe(*decodedFrame, "installed-shape-layer")
         : nullptr;
     const LayerProperties *decodedShapeProperties = decodedShapeLayer
         ? &layerProperties(*decodedShapeLayer)
@@ -105,6 +127,96 @@ int main()
     cameraRaw.image.colorChannels = {
         {CameraRawChannelRole::Luminance, "luminance"},
     };
+
+    TimelineVideoStream timelineStream;
+    timelineStream.id = "installed-video-stream";
+    timelineStream.timeBase = {1, 24'000};
+    timelineStream.durationTicks = 240'000;
+    timelineStream.codec.identifier = "h264";
+    timelineStream.codedExtent = {1'920, 1'080};
+    timelineStream.displayExtent = timelineStream.codedExtent;
+    timelineStream.pixelAspectRatio = {1, 1};
+    timelineStream.timing.mode = TimelineFrameRateMode::Constant;
+    timelineStream.timing.nominal = TimelineFrameRate{24, 1};
+    timelineStream.pixelFormat = "yuv420p";
+    timelineStream.bitDepth = 8;
+
+    TimelineMediaRepresentation timelineRepresentation;
+    timelineRepresentation.id = "installed-original";
+    timelineRepresentation.uri = "file:///media/installed-source.mp4";
+    timelineRepresentation.container.identifier = "mp4";
+    timelineRepresentation.durationTicks = 240'000;
+    timelineRepresentation.timeBase = {1, 24'000};
+    timelineRepresentation.streams.emplace_back(timelineStream);
+
+    TimelineMediaSource timelineSource;
+    timelineSource.id = "installed-source";
+    timelineSource.name = "Installed source";
+    timelineSource.originalRepresentationId = timelineRepresentation.id;
+    timelineSource.activeRepresentationId = timelineRepresentation.id;
+    timelineSource.representations.push_back(timelineRepresentation);
+
+    TimelineVideoClip timelineClip;
+    timelineClip.properties.id = "installed-clip";
+    timelineClip.properties.name = "Installed clip";
+    timelineClip.properties.source = TimelineMediaReference{
+        timelineSource.id, timelineStream.id};
+    timelineClip.properties.timelineRange = {0, 240'000};
+    timelineClip.properties.sourceRange = {0, 240'000};
+    timelineClip.properties.playbackRate = {1, 1};
+
+    TimelineVideoTrack timelineTrack;
+    timelineTrack.properties.id = "installed-video-track";
+    timelineTrack.properties.name = "Video";
+    timelineTrack.clips.push_back(timelineClip);
+
+    TimelineSequence timelineSequence;
+    timelineSequence.id = "installed-sequence";
+    timelineSequence.name = "Installed sequence";
+    timelineSequence.timeBase = {1, 24'000};
+    timelineSequence.editingFrameRate = {24, 1};
+    timelineSequence.durationTicks = 240'000;
+    timelineSequence.canvasExtent = {1'920, 1'080};
+    timelineSequence.pixelAspectRatio = {1, 1};
+    timelineSequence.tracks.emplace_back(timelineTrack);
+
+    TimelineVideoOutput timelineOutput;
+    timelineOutput.codec.identifier = "h264";
+    timelineOutput.extent = timelineSequence.canvasExtent;
+    timelineOutput.frameRate = {24, 1};
+    timelineOutput.pixelAspectRatio = {1, 1};
+    timelineOutput.pixelFormat = "yuv420p";
+    timelineOutput.bitDepth = 8;
+
+    TimelineRenderProfile timelineProfile;
+    timelineProfile.id = "installed-delivery";
+    timelineProfile.name = "Installed delivery";
+    timelineProfile.sequenceId = timelineSequence.id;
+    timelineProfile.container.identifier = "mp4";
+    timelineProfile.video = timelineOutput;
+
+    TimelineProject timelineProject;
+    timelineProject.id = "installed-timeline";
+    timelineProject.name = "Installed timeline";
+    timelineProject.activeSequenceId = timelineSequence.id;
+    timelineProject.mediaSources.push_back(timelineSource);
+    timelineProject.sequences.push_back(timelineSequence);
+    timelineProject.renderProfiles.push_back(timelineProfile);
+    const bool initialTimelineValid = validateTimelineProject(timelineProject).ok();
+
+    TimelineEditor timelineEditor(timelineProject);
+    const TimelineEditResult timelineRate = timelineEditor.setSequenceFrameRate(
+        timelineSequence.id, {30'000, 1'001});
+    TimelineContainerDescriptor matroska;
+    matroska.identifier = "matroska";
+    matroska.fileExtension = "mkv";
+    const TimelineEditResult timelineContainer = timelineEditor.setRenderContainer(
+        timelineProfile.id, matroska);
+    TimelineCodecDescriptor av1;
+    av1.identifier = "av1";
+    av1.profile = "main";
+    const TimelineEditResult timelineCodec = timelineEditor.setRenderVideoCodec(
+        timelineProfile.id, av1);
     return validate(document).ok()
         && validateCameraRaw(cameraRaw).ok()
         && cameraRawSampleAt(cameraRaw.image, 1, 0)
@@ -113,14 +225,24 @@ int main()
         && renamed.ok()
         && renamed.changed
         && layerName.ok()
-        && automatic1111.ok()
-        && automatic1111.metadata.outputExtent
+        && layerRange.ok()
+        && layerRange.changed
+        && !layerExistsAt(document, document.layers.front(), 0)
+        && layerExistsAt(document, document.layers.front(), 1)
+        && layerExistsAt(document, document.layers.front(), 2)
+        && generationParameters.ok()
+        && generationParameters.metadata.outputExtent
             == std::optional<StableDiffusionImageExtent>{{4, 4}}
-        && automatic1111.metadata.models.size() == 1
-        && automatic1111.metadata.models.front().hashType
+        && generationParameters.metadata.models.size() == 1
+        && generationParameters.metadata.models.front().hashType
             == "sha256-prefix-10"
         && generationEdit.ok()
         && generationEdit.changed
+        && vectorEditor.isBound()
+        && openedShape.changed
+        && quadraticShape.changed
+        && cubicShape.changed
+        && closedShape.changed
         && layerProperties(document.layers.front()).name == "Edited installed package"
         && assetId(*asset) == "installed-pixels"
         && edited
@@ -141,6 +263,8 @@ int main()
             == renderedTile.tiles.front().pixels.pixels
         && !asyncRenderer.busy()
         && decoded.ok()
+        && decoded.document.formatVersion.major == 1
+        && decoded.document.formatVersion.minor == 3
         && decoded.document.stableDiffusionMetadata == generation
         && decodedImage
         && decodedImage->pixels.width == 4
@@ -149,7 +273,11 @@ int main()
         && decodedShape
         && decodedShape->viewport.width == 4
         && decodedShape->paths.size() == 1
-        && decodedShape->paths.front().commands.size() == 4
+        && decodedShape->paths.front().commands.size() == 6
+        && std::holds_alternative<QuadraticTo>(
+            decodedShape->paths.front().commands[3])
+        && std::holds_alternative<CubicTo>(
+            decodedShape->paths.front().commands[4])
         && decodedShape->paths.front().fill
         && decodedShape->paths.front().fill->argb == 0xff00cc88U
         && decodedShape->paths.front().stroke
@@ -163,9 +291,31 @@ int main()
         && decodedShapeProperties->transform.translationX == 0.5
         && decodedShapeProperties->transform.translationY == 1.0
         && decodedShapeProperties->blendMode == RasterBlendMode::Multiply
+        && decodedInstalledLayer
+        && layerProperties(*decodedInstalledLayer).frameRange
+        && layerProperties(*decodedInstalledLayer).frameRange->firstFrame == 1
+        && layerProperties(*decodedInstalledLayer).frameRange->lastFrame == 2
+        && !layerExistsAt(decoded.document, *decodedInstalledLayer, 0)
+        && layerExistsAt(decoded.document, *decodedInstalledLayer, 1)
+        && layerExistsAt(decoded.document, *decodedInstalledLayer, 2)
         && decodedShapeSource
-        && decodedShapeSource->assetId == "installed-shape"
+        && decodedShapeSource->frameIndices == std::vector<FrameIndex>{0}
+        && decodedFrame
+        && decodedShapeKeyframe
+        && decodedShapeKeyframe->assetId == "installed-shape"
         && encodeIisc(decoded.document).bytes == encoded.bytes
+        && initialTimelineValid
+        && timelineEditor.isBound()
+        && timelineRate.changed
+        && timelineContainer.changed
+        && timelineCodec.changed
+        && validateTimelineProject(timelineProject).ok()
+        && findTimelineSequence(timelineProject, timelineSequence.id)
+            ->editingFrameRate == TimelineFrameRate{30'000, 1'001}
+        && findTimelineRenderProfile(timelineProject, timelineProfile.id)
+            ->container.identifier == "matroska"
+        && findTimelineRenderProfile(timelineProject, timelineProfile.id)
+            ->video->codec.identifier == "av1"
         ? 0
         : 1;
 }

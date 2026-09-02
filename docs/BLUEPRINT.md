@@ -17,8 +17,9 @@ committed raster pixels. RAW sensor data is not a third document layer type.
 
 An optional document recipe may retain Stable Diffusion prompts, sampler
 settings, model identity, exact ComfyUI graph metadata, and lossless
-AUTOMATIC1111 infotext. It describes how content was generated or refined but
-is not rendered content and does not add an inference runtime.
+Stable Diffusion generation-parameters text. It describes how content was
+generated or refined but is not rendered content and does not add an inference
+runtime.
 
 The first commercial advantage is a reusable authoring interchange layer for
 future desktop, mobile, and web products without forcing each product to invent
@@ -52,23 +53,28 @@ flowchart LR
     APP --> CANVAS["CanvasItem / SharedCanvas"]
     APP --> ISC["iiSharedCanvas"]
     APP --> CRAW["CameraRawData import model"]
-    APP --> A1111["Automatic1111Infotext parser"]
+    APP --> GENPARAMS["StableDiffusionGenerationParameters parser"]
     APP --> SDMETA["StableDiffusionMetadata recipe"]
     CRAW -. "explicit RAW processing" .-> RASTER
-    A1111 --> SDMETA
+    GENPARAMS --> SDMETA
     ITEM --> EDIT["BitmapEditor"]
     CANVAS --> EDIT
     EDIT --> DOC
+    APP --> VEDIT["VectorEditor"]
+    VEDIT --> DOC
     ISC --> DOC["Document + validation"]
     SDMETA --> DOC
     DOC --> STACK["Ordered layers"]
+    DOC --> FRAMES["Sparse Frame owners"]
     DOC --> ASSETS["Asset registry"]
     STACK --> STATIC["Static source"]
-    STACK --> ANIM["Keyframed source"]
+    STACK --> ANIM["Keyframed source / derived frame index"]
     ASSETS --> RASTER["RasterAsset"]
     ASSETS --> CHUNKS["ChunkedRasterAsset"]
     ASSETS --> VECTOR["VectorAsset"]
-    ANIM --> EVAL["Frame evaluator"]
+    FRAMES --> KEYS["Directly owned keyframes"]
+    KEYS --> EVAL["Frame evaluator"]
+    ANIM --> EVAL
     STATIC --> EVAL
     EVAL --> RESOLVED["Resolved asset"]
     RESOLVED --> RASTER
@@ -91,7 +97,8 @@ semantics.
 iiSharedCanvas owns mixed-content document identity, ordered layers, vector
 geometry, sparse infinite-canvas chunk coordinates, asset references, timeline semantics, cross-content validation, file
 format versioning, Stable Diffusion recipe metadata, selected-raster editing
-coordination, and frame composition.
+coordination, frame composition, and the format-neutral data contract for
+non-linear video-editing projects.
 
 All persisted model fields are public aggregate data. `DocumentEditor` is the
 safe structural mutation boundary over those aggregates: it provides stable-id
@@ -100,13 +107,17 @@ the timeline, assets, layers, keyframes, and vector paths. Every accepted edit
 preserves full-document validation; rejected edits preserve the prior value.
 Finite bitmap pixels remain the responsibility of `BitmapEditor`; sparse
 infinite bitmap pixels remain the responsibility of `ChunkedBitmapEditor`.
+Native M/L/Q/C/Z command editing remains the responsibility of `VectorEditor`.
 
 The application owns UI, tools, playback controls, selection experience,
 autosave policy, networking, collaboration, and the selected Camera RAW decoder
 and processing pipeline. Camera RAW file decoding, demosaicing, and tone
-rendering remain outside the generic data objects. AUTOMATIC1111 image-carrier extraction,
-Stable Diffusion inference, model resolution/download, graph execution, and
-trust policy likewise remain application or adapter responsibilities. The library name does not
+rendering remain outside the generic data objects. Stable Diffusion
+generation-metadata carrier extraction, inference, model resolution/download,
+graph execution, and trust policy likewise remain application or adapter
+responsibilities. Media probing, decode, encode, mux, playback, timeline frame
+rendering, and codec capability negotiation likewise belong to application or
+media adapters. The library name does not
 imply that real-time collaboration is part of this milestone.
 
 Dependency direction is one-way:
@@ -143,12 +154,41 @@ and the second restores the UI graph. The strings are syntax-checked and
 preserved exactly; iiSharedCanvas does not interpret custom nodes, execute the
 graph, fetch model resources, or attach the recipe to one particular layer.
 
-`Automatic1111Infotext` is a lossless compatibility view over extracted
-AUTOMATIC1111 parameters text. It preserves the complete text and ordered
+`StableDiffusionGenerationParameters` is a lossless compatibility view over
+Stable Diffusion generation-parameters text. It preserves the complete text and ordered
 key/value sequence while projecting portable prompts, dimensions, sampling
 passes, model resources, and version data into `StableDiffusionMetadata`.
 Unknown extension fields stay available and malformed typed data fails closed.
-The image container and model runtime remain outside this object.
+The image container and model runtime remain outside this object. Syntax alone
+does not identify its producer, so software provenance is never inferred.
+
+`TimelineProject` is independent from the canvas `Document`. It models media
+sources with original and alternate representations, typed media streams,
+multiple sequences, video/audio/subtitle/data tracks and clips, transitions,
+effects and automation, markers, link groups, bins, and render profiles. Stable
+string identities form references; track and clip variants keep content kinds
+structurally distinct.
+
+Timeline time is a signed tick paired with an explicit rational time base.
+Sequence editing FPS, source nominal/average/minimum/maximum FPS, timecode, and
+render-output FPS are distinct values. Variable-frame-rate video may retain
+per-sample PTS, DTS, duration, keyframe, offset, and size. Containers and codecs
+use open identifiers plus typed common fields and ordered extension options, so
+a new codec or muxer does not require expanding a closed enum.
+Alternate representations keep a shared logical stream's kind and timing
+identity invariant, so proxy selection cannot reinterpret existing clip trims.
+Clip source ticks use that logical stream, nested sequence, or generated-source
+time base. Constant playback is an exact rational mapping; an explicit time map
+replaces it instead of being silently compounded. Transition alignment is
+defined around an adjacent cut, and a sequence acquires required visual/audio
+composition settings only when it actually contains those clip kinds.
+
+`TimelineEditor` applies validated structural changes through a candidate-copy
+transaction. Removing referenced media or sequences, mixing a stream kind with
+the wrong track, or supplying an invalid rational rejects the whole edit and
+preserves revision. The standard-library-only data model does not justify an
+FFmpeg dependency; a later media adapter must separately review maintenance,
+license, and dependency size before one is introduced.
 
 Document contains a format version, finite/infinite mode, positive currently
 allocated canvas extent, optional world origin and chunk size, rational frame
@@ -179,13 +219,26 @@ Layer is a public variant of two complete, structurally parallel types:
 Layer source is one of:
 
 - StaticSource: one asset id.
-- KeyframedSource: a strictly increasing list of frame-to-asset references. Its
-  content kind is fixed by the owning BitmapLayer or VectorLayer.
+- KeyframedSource: a derived secondary `frameIndices` index through which the
+  layer resolves frame-owned keys. It owns no `Keyframe`; its content kind is
+  fixed by the owning BitmapLayer or VectorLayer.
 
-Neither a static nor a keyframed layer source can cross its owning layer type.
-One keyframed source cannot mix raster and vector assets. The first keyframe is
-at frame zero. Every keyframe is inside the document frame count. This makes
-evaluation deterministic and eliminates undefined pre-roll behavior.
+`Document::frames` may be empty for a fully static document. Every stored
+`Frame` is non-empty, appears in strictly increasing index order, and directly
+owns `{layerId, assetId}` keyframes for its exact integer
+position and may own keys for several bitmap and vector layers together. A
+frame cannot own two keys for one layer, a static layer cannot be named by a
+key, and every animated layer has its initial key in frame zero. Every asset
+must match the referenced layer type and every frame remains inside the
+document frame count. This makes evaluation deterministic and eliminates
+undefined pre-roll behavior without duplicate keyframe ownership.
+
+Keys within one `Frame` use canonical ascending `layerId` order.
+`KeyframedSource::frameIndices` must exactly equal the increasing set of frames
+that contain its layer id. It is a performance index rather than authoritative
+content; validation checks both directions, and every editor mutation and
+decoder rebuilds it. Direct aggregate construction must supply both the frame
+owners and the matching derived index before validation.
 
 ## 4. Time semantics
 
@@ -200,6 +253,11 @@ Interpolation is excluded until a concrete product needs it. Raster
 interpolation usually means cross-fade or optical methods; vector interpolation
 requires matching path topology. Treating these as one generic interpolation
 flag would create an invalid abstraction.
+
+The separate video-editing `TimelineProject` uses rational time bases and
+signed ticks rather than this canvas frame index. Its effect and time-remapping
+keyframes may explicitly choose hold, linear, or Bezier interpolation. This
+does not change `Document` keyframe sampling or `.iisc` version 1 semantics.
 
 ## 5. Brush semantics
 
@@ -236,6 +294,21 @@ coordinates. It allocates only chunks receiving raster samples; missing chunks
 are transparent. Sparse undo/redo snapshots the chunk collection, and region
 growth never rewrites a chunk's coordinates or pixel payload.
 
+### Implemented native-vector authoring boundary
+
+`VectorEditor` resolves one mutable `VectorAsset` by stable id for every
+operation. It manages path paint order, viewport, solid fill/stroke, and native
+M/L/Q/C/Z commands. Linear endpoints, quadratic control/end points, and both
+cubic control points/end point can be edited independently without converting
+the path to raster pixels.
+
+Fine-grained edits operate on a copied `VectorPath` and commit through
+`DocumentEditor::replaceVectorPath`. Full-document validation is therefore the
+atomic boundary: invalid coordinates, paint, command indices, asset type, or
+externally damaged document state leave the source path and editor revision
+unchanged. `VectorEditor` adds no second vector model, retained pointer input,
+or persisted history.
+
 `BitmapItem` is the Qt Quick display boundary for one selected raster asset. It
 converts the engine's ARGB storage into `QImage::Format_ARGB32` at paint time,
 uses nearest-neighbor scaling, and exposes mouse painting, explicit
@@ -263,8 +336,8 @@ image import without file-system round trips. The Qt adapter exposes generic
 bitmap-authoring controls for brush features, spacing, a three-point pressure
 curve, pressure-opacity mapping, stabilizer value, tool mode, tablet/mouse
 state, and stroke count. The stabilizer is transient input smoothing and none
-of these settings enter the document format. Version 0.1 commits model edits
-synchronously but rerenders asynchronously after edits.
+of these settings enter the document format. Model edits commit synchronously,
+while the resulting frame rerenders asynchronously.
 `livePreviewFrameIntervalMs` bounds active-stroke snapshot scheduling, while
 the multithreaded-event property remains host input configuration. Superseded
 worker requests are coalesced by `AsyncFrameRenderer` independently.
@@ -283,7 +356,9 @@ through the public layer-rendering boundary:
 
 1. Validate the document.
 2. Resolve one finite raster, sparse chunked raster, or vector asset for each
-   visible layer at the requested frame.
+   visible layer whose inclusive `frameRange`, when present, contains the
+   requested frame. Out-of-range isolated results keep their document slot but
+   report effective invisibility and contain no pixel tiles.
 3. Rasterize each layer into isolated bounded tiles, applying its affine
    transform while preserving full-strength pixels and carrying opacity and
    blend mode as metadata.
@@ -298,8 +373,10 @@ evaluation. There is no separate animation canvas.
 `renderFrameLayerTiles` is the independently addressable layer operation,
 `renderFrameLayers` returns a stable ordered batch, and `composeFrameLayers`
 is the explicit composition boundary. Layers render concurrently from one immutable document snapshot. `AsyncFrameRenderer` uses no more layer workers
-than the global Qt thread pool allows, joins their results in document order,
-then performs the final composition without exposing a partial frame.
+than the global Qt thread pool allows, but first validates that immutable
+snapshot exactly once in a preflight task. A failed preflight dispatches no
+layer worker; a valid request joins layer results in document order, then
+performs the final composition without exposing a partial frame.
 
 Version 1 rasterizes M/L/Q/C/Z paths on a worker CPU with deterministic 4x4 coverage
 sampling, even-odd fills, and round stroke footprints. It applies the complete
@@ -360,8 +437,10 @@ Camera RAW validation is separate from document validation:
 - Transform and vector coordinates are finite.
 - A vector path begins with MoveTo and has visible fill or stroke.
 - Timeline rate and frame count are non-zero.
-- Keyframes begin at zero, are strictly increasing, remain in range, and keep
-  the content kind fixed by their owning BitmapLayer or VectorLayer.
+- Sparse frames are non-empty, begin with every animated layer's initial key at
+  zero, are strictly increasing, and remain in range. Each frame owns at most
+  one key per layer, and every key keeps the content kind fixed by its
+  referenced BitmapLayer or VectorLayer.
 - Stable Diffusion metadata requires format 1.2, contains at least one payload,
   keeps dimensions and discrete counts positive, and keeps sampler/LoRA numeric
   values finite and inside their defined ranges.
@@ -386,6 +465,12 @@ and the public Qt Quick scene graph arrive through iiPaintEngine's existing Qt
 targets. The `.iisc` codec uses the standard library; SVG, text shaping, GPU
 vector path rasterization, and media codecs remain
 explicit future decisions rather than hidden or vendored code.
+
+The video-editing timeline model likewise uses only C++ standard-library
+aggregates and variants. FFmpeg was considered as the common probe, codec, and
+muxing adapter, but adding its large codec surface and license/configuration
+matrix to a pure data model would impose unnecessary maintenance on every
+consumer. Runtime media capability remains a replaceable downstream adapter.
 
 [ComfyUI's workflow metadata documentation](https://docs.comfy.org/development/api-development/workflow-metadata),
 [Workflow API format](https://docs.comfy.org/development/api-development/workflow-api-format),
@@ -482,6 +567,8 @@ Complete when:
   selected transformed raster layer.
 - [x] Public data lookup and `DocumentEditor` APIs expose validated structural
   edits without requiring direct vector manipulation or partial invalid states.
+- [x] `VectorEditor` creates and edits linear, quadratic Bezier, and cubic
+  Bezier path geometry through atomic validated path replacement.
 - [x] Product-neutral C++ and QML contract tests verify the authoring surface,
   mixed raster/vector/timeline output, and native `.iisc` round trip without a
   consumer application defining the API.

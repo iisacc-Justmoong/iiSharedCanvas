@@ -44,6 +44,11 @@ struct DocumentEditResult {
     }
 };
 
+struct KeyframePlacement {
+    FrameIndex frame = 0;
+    std::string assetId;
+};
+
 class IISHAREDCANVAS_EXPORT DocumentEditor final {
 public:
     DocumentEditor() = default;
@@ -84,6 +89,10 @@ public:
 
     DocumentEditResult insertLayer(Layer layer,
                                    std::size_t index = AppendDocumentIndex);
+    DocumentEditResult insertKeyframedLayer(
+        Layer layer,
+        std::vector<KeyframePlacement> keyframes,
+        std::size_t index = AppendDocumentIndex);
     DocumentEditResult replaceLayer(const std::string &layerId, Layer layer);
     DocumentEditResult renameLayer(const std::string &layerId,
                                    std::string replacementId);
@@ -94,16 +103,20 @@ public:
                                          AffineTransform transform);
     DocumentEditResult setLayerBlendMode(const std::string &layerId,
                                          RasterBlendMode blendMode);
+    DocumentEditResult setLayerFrameRange(
+        const std::string &layerId,
+        std::optional<LayerFrameRange> frameRange);
     DocumentEditResult setStaticSource(const std::string &layerId,
                                        std::string assetId);
     DocumentEditResult setKeyframedSource(const std::string &layerId,
-                                          std::vector<Keyframe> keyframes);
+                                          std::vector<KeyframePlacement> keyframes);
     DocumentEditResult moveLayer(const std::string &layerId,
                                  std::size_t destinationIndex);
     DocumentEditResult removeLayer(const std::string &layerId);
 
     DocumentEditResult insertKeyframe(const std::string &layerId,
-                                      Keyframe keyframe);
+                                      FrameIndex frame,
+                                      std::string assetId);
     DocumentEditResult setKeyframeAsset(const std::string &layerId,
                                         FrameIndex frame,
                                         std::string assetId);

@@ -17,7 +17,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 2;
+inline constexpr std::uint16_t CurrentFormatMinor = 3;
 
 using FrameIndex = std::uint32_t;
 
@@ -122,15 +122,28 @@ struct StaticSource {
 };
 
 struct Keyframe {
-    FrameIndex frame = 0;
+    std::string layerId;
     std::string assetId;
 };
 
-struct KeyframedSource {
+struct Frame {
+    FrameIndex index = 0;
     std::vector<Keyframe> keyframes;
 };
 
+struct KeyframedSource {
+    std::vector<FrameIndex> frameIndices;
+};
+
 using LayerSource = std::variant<StaticSource, KeyframedSource>;
+
+struct LayerFrameRange {
+    FrameIndex firstFrame = 0;
+    FrameIndex lastFrame = 0;
+
+    friend constexpr bool operator==(const LayerFrameRange &,
+                                     const LayerFrameRange &) = default;
+};
 
 struct LayerProperties {
     std::string id;
@@ -139,6 +152,7 @@ struct LayerProperties {
     double opacity = 1.0;
     AffineTransform transform;
     RasterBlendMode blendMode = RasterBlendMode::SourceOver;
+    std::optional<LayerFrameRange> frameRange;
 };
 
 struct BitmapLayer {
@@ -161,11 +175,13 @@ struct Document {
     Timeline timeline;
     std::vector<Asset> assets;
     std::vector<Layer> layers;
+    std::vector<Frame> frames;
     std::optional<StableDiffusionMetadata> stableDiffusionMetadata;
 };
 
 struct AssetReference {
     std::size_t layerIndex = 0;
+    std::optional<std::size_t> frameIndex;
     std::optional<std::size_t> keyframeIndex;
 };
 
@@ -176,6 +192,9 @@ IISHAREDCANVAS_EXPORT LayerProperties &layerProperties(Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const LayerProperties &layerProperties(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT LayerSource &layerSource(Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const LayerSource &layerSource(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT bool layerExistsAt(const Document &document,
+                                         const Layer &layer,
+                                         FrameIndex frame) noexcept;
 IISHAREDCANVAS_EXPORT CanvasOrigin canvasOrigin(const Document &document) noexcept;
 IISHAREDCANVAS_EXPORT CanvasRegion canvasRegion(const Document &document) noexcept;
 IISHAREDCANVAS_EXPORT Asset *findAsset(Document &document,
@@ -218,13 +237,28 @@ IISHAREDCANVAS_EXPORT const VectorLayer *findVectorLayer(const Document &documen
                                                          const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT std::optional<std::size_t> layerIndex(const Document &document,
                                                            const std::string &id) noexcept;
-IISHAREDCANVAS_EXPORT Keyframe *findKeyframe(KeyframedSource &source,
+IISHAREDCANVAS_EXPORT Frame *findFrame(Document &document,
+                                      FrameIndex frame) noexcept;
+IISHAREDCANVAS_EXPORT const Frame *findFrame(const Document &document,
                                             FrameIndex frame) noexcept;
-IISHAREDCANVAS_EXPORT const Keyframe *findKeyframe(const KeyframedSource &source,
-                                                  FrameIndex frame) noexcept;
-IISHAREDCANVAS_EXPORT std::optional<std::size_t> keyframeIndex(
-    const KeyframedSource &source,
+IISHAREDCANVAS_EXPORT std::optional<std::size_t> frameIndex(
+    const Document &document,
     FrameIndex frame) noexcept;
+IISHAREDCANVAS_EXPORT Keyframe *findKeyframe(Frame &frame,
+                                            const std::string &layerId) noexcept;
+IISHAREDCANVAS_EXPORT const Keyframe *findKeyframe(
+    const Frame &frame,
+    const std::string &layerId) noexcept;
+IISHAREDCANVAS_EXPORT Keyframe *findKeyframe(Document &document,
+                                            const std::string &layerId,
+                                            FrameIndex frame) noexcept;
+IISHAREDCANVAS_EXPORT const Keyframe *findKeyframe(
+    const Document &document,
+    const std::string &layerId,
+    FrameIndex frame) noexcept;
+IISHAREDCANVAS_EXPORT std::optional<std::size_t> keyframeIndex(
+    const Frame &frame,
+    const std::string &layerId) noexcept;
 IISHAREDCANVAS_EXPORT std::vector<AssetReference> assetReferences(
     const Document &document,
     const std::string &assetId);

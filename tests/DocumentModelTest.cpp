@@ -1,6 +1,7 @@
 #include <iiSharedCanvas.h>
 
 #include <iostream>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -54,13 +55,19 @@ iiSharedCanvas::Document makeDocument()
     document.layers.emplace_back(BitmapLayer{
         {"layer-animated-raster", "Animated raster", true, 1.0, {},
          RasterBlendMode::SourceOver},
-        KeyframedSource{{{0, "raster-frame-0"}, {24, "raster-frame-24"}}},
+        KeyframedSource{{0, 24}},
     });
     document.layers.emplace_back(VectorLayer{
         {"layer-animated-vector", "Animated vector", true, 1.0, {},
          RasterBlendMode::SourceOver},
-        KeyframedSource{{{0, "vector-frame-0"}, {12, "vector-frame-12"}}},
+        KeyframedSource{{0, 12}},
     });
+    document.frames = {
+        {0, {{"layer-animated-raster", "raster-frame-0"},
+             {"layer-animated-vector", "vector-frame-0"}}},
+        {12, {{"layer-animated-vector", "vector-frame-12"}}},
+        {24, {{"layer-animated-raster", "raster-frame-24"}}},
+    };
     return document;
 }
 
@@ -82,6 +89,33 @@ int main()
                && findVectorLayer(document, "layer-vector") != nullptr
                && findVectorLayer(document, "layer-raster") == nullptr,
            "typed layer lookup must never return a layer of the other content kind");
+    const Frame *frameZero = findFrame(document, 0);
+    const Frame *frameTwelve = findFrame(document, 12);
+    expect(frameZero
+               && frameZero->keyframes.size() == 2
+               && findKeyframe(*frameZero, "layer-animated-raster") != nullptr
+               && keyframeIndex(*frameZero, "layer-animated-vector")
+                    == std::optional<std::size_t>{1}
+               && frameIndex(document, 12) == std::optional<std::size_t>{1}
+               && frameTwelve
+               && findKeyframe(*frameTwelve, "layer-animated-vector")->assetId
+                    == "vector-frame-12",
+           "a frame must directly own independently addressable layer keyframes");
+    expect(findFrame(document, 11) == nullptr
+               && frameIndex(document, 11) == std::nullopt
+               && findKeyframe(document, "layer-animated-vector", 11) == nullptr
+               && findKeyframe(document, "layer-animated-vector", 12)
+                    == findKeyframe(*frameTwelve, "layer-animated-vector"),
+           "exact sparse-frame lookup must remain distinct from hold sampling");
+    const std::vector<AssetReference> frameReferences = assetReferences(
+        document, "vector-frame-0");
+    expect(frameReferences.size() == 1
+               && frameReferences.front().layerIndex == 3
+               && frameReferences.front().frameIndex
+                    == std::optional<std::size_t>{0}
+               && frameReferences.front().keyframeIndex
+                    == std::optional<std::size_t>{1},
+           "frame-owned asset references must resolve their owning layer index in one traversal");
 
     const Asset *staticRaster = resolveAssetAt(document, document.layers[0], 47);
     expect(staticRaster && assetId(*staticRaster) == "raster-static",
@@ -103,6 +137,68 @@ int main()
 
     expect(resolveAssetAt(document, document.layers[3], 48) == nullptr,
            "sampling outside the timeline must fail closed");
+
+    Document ranged = makeDocument();
+    layerProperties(ranged.layers[0]).frameRange = LayerFrameRange{1, 24};
+    layerProperties(ranged.layers[1]).frameRange = LayerFrameRange{12, 28};
+    layerProperties(ranged.layers[3]).frameRange = LayerFrameRange{6, 28};
+    expect(validate(ranged).ok(),
+           "static and keyframed layers must accept independent overlapping frame ranges");
+    expect(!layerExistsAt(ranged, ranged.layers[0], 0)
+               && layerExistsAt(ranged, ranged.layers[0], 1)
+               && layerExistsAt(ranged, ranged.layers[0], 24)
+               && !layerExistsAt(ranged, ranged.layers[0], 25)
+               && !layerExistsAt(ranged, ranged.layers[1], 11)
+               && layerExistsAt(ranged, ranged.layers[1], 12)
+               && layerExistsAt(ranged, ranged.layers[1], 28)
+               && !layerExistsAt(ranged, ranged.layers[1], 29)
+               && !layerExistsAt(ranged, ranged.layers[1], 48),
+           "layer existence ranges must include both firstFrame and lastFrame exactly");
+    expect(resolveAssetAt(ranged, ranged.layers[0], 0) == nullptr
+               && assetId(*resolveAssetAt(ranged, ranged.layers[0], 1))
+                    == "raster-static"
+               && assetId(*resolveAssetAt(ranged, ranged.layers[0], 24))
+                    == "raster-static"
+               && resolveAssetAt(ranged, ranged.layers[0], 25) == nullptr,
+           "static layer sampling must fail closed outside its existence range");
+    const Asset *heldAtRangeStart = resolveAssetAt(ranged, ranged.layers[3], 6);
+    expect(heldAtRangeStart && assetId(*heldAtRangeStart) == "vector-frame-0",
+           "a keyframed layer must preserve pre-range keys and hold their value at range entry");
+
+    Document sparseLookup;
+    sparseLookup.extent = {1, 1};
+    sparseLookup.timeline = {{24, 1}, 2048};
+    sparseLookup.assets.emplace_back(
+        RasterAsset{"background", makeRasterLayer(1, 1, 0xff010203U)});
+    sparseLookup.assets.emplace_back(
+        RasterAsset{"busy", makeRasterLayer(1, 1, 0xff040506U)});
+    sparseLookup.layers.emplace_back(BitmapLayer{
+        {"background-layer", "Background", true, 1.0, {},
+         RasterBlendMode::SourceOver},
+        KeyframedSource{{0}},
+    });
+    std::vector<FrameIndex> busyFrames;
+    busyFrames.reserve(2048);
+    sparseLookup.frames.reserve(2048);
+    for (FrameIndex frame = 0; frame < 2048; ++frame) {
+        busyFrames.push_back(frame);
+        sparseLookup.frames.push_back({
+            frame,
+            frame == 0
+                ? std::vector<Keyframe>{{"background-layer", "background"},
+                                        {"busy-layer", "busy"}}
+                : std::vector<Keyframe>{{"busy-layer", "busy"}},
+        });
+    }
+    sparseLookup.layers.emplace_back(BitmapLayer{
+        {"busy-layer", "Busy", true, 1.0, {}, RasterBlendMode::SourceOver},
+        KeyframedSource{std::move(busyFrames)},
+    });
+    const Asset *lateBackground = resolveAssetAt(
+        sparseLookup, sparseLookup.layers.front(), 2047);
+    expect(lateBackground && assetId(*lateBackground) == "background",
+           "hold sampling must use a layer's derived owner-frame index instead of scanning unrelated frames");
+
     expect(contentKind(document.assets[0]) == ContentKind::Raster,
            "iiPaintEngine RasterLayer must be the raster asset representation");
 

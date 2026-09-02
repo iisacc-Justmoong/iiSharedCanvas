@@ -50,8 +50,12 @@ iiSharedCanvas::Document makeDocument()
     });
     document.layers.emplace_back(VectorLayer{
         {"motion", "Motion", true, 1.0, {}, RasterBlendMode::SourceOver},
-        KeyframedSource{{{0, "vector-a"}, {6, "vector-b"}}},
+        KeyframedSource{{0, 6}},
     });
+    document.frames = {
+        {0, {{"motion", "vector-a"}}},
+        {6, {{"motion", "vector-b"}}},
+    };
     return document;
 }
 
@@ -74,18 +78,40 @@ int main()
     expect(assetIndex(document, "vector-a") == std::optional<std::size_t>{1}
                && layerIndex(document, "motion") == std::optional<std::size_t>{1},
            "stable ids must resolve to current collection indices");
-    const auto &initialSource = std::get<KeyframedSource>(layerSource(document.layers[1]));
-    expect(findKeyframe(initialSource, 6) != nullptr
-               && keyframeIndex(initialSource, 6) == std::optional<std::size_t>{1},
+    const Frame *initialFrame = findFrame(document, 6);
+    expect(initialFrame
+               && findKeyframe(*initialFrame, "motion") != nullptr
+               && keyframeIndex(*initialFrame, "motion")
+                    == std::optional<std::size_t>{0}
+               && findKeyframe(document, "motion", 6)
+                    == findKeyframe(*initialFrame, "motion"),
            "exact keyframe lookup must be distinct from hold sampling");
-    expect(assetReferences(document, "vector-a").size() == 1
-               && assetReferences(document, "raster-a").front().keyframeIndex == std::nullopt,
+    const std::vector<AssetReference> vectorReferences = assetReferences(
+        document, "vector-a");
+    expect(vectorReferences.size() == 1
+               && vectorReferences.front().frameIndex
+                    == std::optional<std::size_t>{0}
+               && vectorReferences.front().keyframeIndex
+                    == std::optional<std::size_t>{0}
+               && assetReferences(document, "raster-a").front().frameIndex
+                    == std::nullopt
+               && assetReferences(document, "raster-a").front().keyframeIndex
+                    == std::nullopt,
            "callers must be able to inspect every static and keyframed asset reference");
 
     expect(editor.setCanvasExtent({16, 12}).changed
                && document.extent.width == 16
                && document.extent.height == 12,
            "canvas extent must be directly editable");
+    Document invalidRebind;
+    const std::uint64_t beforeRejectedRebind = editor.revision();
+    const DocumentEditResult rejectedRebind = editor.bind(invalidRebind);
+    expect(!rejectedRebind.ok()
+               && rejectedRebind.code == DocumentEditCode::InvalidDocument
+               && editor.isBound()
+               && editor.document() == &document
+               && editor.revision() == beforeRejectedRebind,
+           "a rejected rebind must preserve the current document and revision");
     expect(editor.setFrameRate({30, 1}).changed
                && document.timeline.frameRate.numerator == 30,
            "rational frame rate must be directly editable");
@@ -98,6 +124,41 @@ int main()
            "shrinking a timeline across an existing keyframe must fail without mutation");
     expect(editor.setFrameCount(18).changed && document.timeline.frameCount == 18,
            "a valid timeline expansion must apply");
+
+    const DocumentEditResult layerRangeEdit = editor.setLayerFrameRange(
+        "paint", LayerFrameRange{1, 16});
+    expect(layerRangeEdit.ok() && layerRangeEdit.changed
+               && layerProperties(*findLayer(document, "paint")).frameRange
+                    == std::optional<LayerFrameRange>{{1, 16}}
+               && document.formatVersion.minor == 3,
+           "setting a layer range must atomically migrate the document to format 1.3");
+    const std::uint64_t beforeRangeNoOp = editor.revision();
+    expect(editor.setLayerFrameRange("paint", LayerFrameRange{1, 16}).ok()
+               && !editor.lastResult().changed
+               && editor.revision() == beforeRangeNoOp,
+           "setting the same layer range must preserve the editor revision");
+    const DocumentEditResult rejectedRange = editor.setLayerFrameRange(
+        "paint", LayerFrameRange{17, 16});
+    expect(!rejectedRange.ok()
+               && rejectedRange.code == DocumentEditCode::ValidationRejected
+               && layerProperties(*findLayer(document, "paint")).frameRange
+                    == std::optional<LayerFrameRange>{{1, 16}}
+               && editor.revision() == beforeRangeNoOp,
+           "an invalid layer range must preserve the prior range and revision");
+    const DocumentEditResult rejectedRangeShrink = editor.setFrameCount(16);
+    expect(!rejectedRangeShrink.ok()
+               && document.timeline.frameCount == 18
+               && editor.revision() == beforeRangeNoOp,
+           "shrinking a timeline across an inclusive layer lastFrame must fail atomically");
+    expect(editor.setFrameCount(24).changed
+               && document.timeline.frameCount == 24
+               && layerProperties(*findLayer(document, "paint")).frameRange
+                    == std::optional<LayerFrameRange>{{1, 16}},
+           "timeline expansion must preserve an explicit layer range instead of widening it");
+    expect(editor.setLayerFrameRange("paint", std::nullopt).changed
+               && !layerProperties(*findLayer(document, "paint")).frameRange
+               && document.formatVersion.minor == 3,
+           "clearing a layer range must restore whole-timeline existence without downgrading format");
 
     StableDiffusionMetadata generation;
     generation.positivePrompt = "architectural concept art";
@@ -130,6 +191,92 @@ int main()
     expect(editor.clearStableDiffusionMetadata().changed
                && !document.stableDiffusionMetadata,
            "generation metadata must be explicitly removable without touching canvas content");
+
+    Document legacyRangedLayerDocument = makeDocument();
+    legacyRangedLayerDocument.formatVersion = {1, 2};
+    DocumentEditor legacyRangedLayerEditor(legacyRangedLayerDocument);
+    Layer rangedAnimation = VectorLayer{
+        {"ranged-animation", "Ranged animation", true, 1.0, {},
+         RasterBlendMode::SourceOver, LayerFrameRange{3, 8}},
+        KeyframedSource{},
+    };
+    expect(legacyRangedLayerEditor.insertKeyframedLayer(
+                    rangedAnimation,
+                    {KeyframePlacement{0, "vector-a"},
+                     KeyframePlacement{6, "vector-b"}}).changed
+               && legacyRangedLayerDocument.formatVersion.minor == 3
+               && findKeyframe(legacyRangedLayerDocument,
+                               "ranged-animation", 0)
+               && layerProperties(*findLayer(legacyRangedLayerDocument,
+                                             "ranged-animation")).frameRange
+                    == std::optional<LayerFrameRange>{{3, 8}},
+           "inserting a ranged keyframed layer must preserve pre-range keys and atomically migrate format 1.2 to 1.3");
+
+    Document rejectedLegacyRangeDocument = makeDocument();
+    rejectedLegacyRangeDocument.formatVersion = {1, 2};
+    DocumentEditor rejectedLegacyRangeEditor(rejectedLegacyRangeDocument);
+    Layer invalidRangedLayer = VectorLayer{
+        {"invalid-range", "Invalid range", true, 1.0, {},
+         RasterBlendMode::SourceOver, LayerFrameRange{3, 12}},
+        StaticSource{"vector-a"},
+    };
+    const DocumentEditResult rejectedLegacyRange =
+        rejectedLegacyRangeEditor.insertLayer(invalidRangedLayer);
+    expect(!rejectedLegacyRange.ok()
+               && rejectedLegacyRangeDocument.formatVersion.minor == 2
+               && findLayer(rejectedLegacyRangeDocument, "invalid-range") == nullptr
+               && rejectedLegacyRangeEditor.revision() == 0,
+           "a rejected ranged-layer insertion must restore the legacy format, layer collection, and revision");
+
+    Document rejectedRangedKeyedDocument = makeDocument();
+    rejectedRangedKeyedDocument.formatVersion = {1, 2};
+    DocumentEditor rejectedRangedKeyedEditor(rejectedRangedKeyedDocument);
+    Layer invalidRangedAnimation = VectorLayer{
+        {"invalid-ranged-animation", "Invalid ranged animation", true, 1.0, {},
+         RasterBlendMode::SourceOver, LayerFrameRange{2, 8}},
+        KeyframedSource{},
+    };
+    const DocumentEditResult rejectedRangedKeyed =
+        rejectedRangedKeyedEditor.insertKeyframedLayer(
+            invalidRangedAnimation,
+            {KeyframePlacement{2, "vector-a"}});
+    expect(!rejectedRangedKeyed.ok()
+               && rejectedRangedKeyedDocument.formatVersion.minor == 2
+               && findLayer(rejectedRangedKeyedDocument,
+                            "invalid-ranged-animation") == nullptr
+               && findFrame(rejectedRangedKeyedDocument, 2) == nullptr
+               && findKeyframe(rejectedRangedKeyedDocument, "motion", 0)
+               && findKeyframe(rejectedRangedKeyedDocument, "motion", 6)
+               && rejectedRangedKeyedEditor.revision() == 0,
+           "a failed ranged keyframed insertion must restore legacy format, shared frame owners, layers, and revision");
+
+    Document rejectedRangedReplacementDocument = makeDocument();
+    rejectedRangedReplacementDocument.formatVersion = {1, 2};
+    DocumentEditor rejectedRangedReplacementEditor(
+        rejectedRangedReplacementDocument);
+    Layer invalidRangedReplacement = VectorLayer{
+        {"motion", "Invalid replacement", true, 1.0, {},
+         RasterBlendMode::SourceOver, LayerFrameRange{1, 8}},
+        StaticSource{"raster-a"},
+    };
+    const DocumentEditResult rejectedRangedReplacement =
+        rejectedRangedReplacementEditor.replaceLayer(
+            "motion", invalidRangedReplacement);
+    const Layer *restoredMotion = findLayer(
+        rejectedRangedReplacementDocument, "motion");
+    expect(!rejectedRangedReplacement.ok()
+               && rejectedRangedReplacementDocument.formatVersion.minor == 2
+               && restoredMotion
+               && std::holds_alternative<VectorLayer>(*restoredMotion)
+               && !layerProperties(*restoredMotion).frameRange
+               && std::holds_alternative<KeyframedSource>(
+                   layerSource(*restoredMotion))
+               && findKeyframe(rejectedRangedReplacementDocument,
+                               "motion", 0)
+               && findKeyframe(rejectedRangedReplacementDocument,
+                               "motion", 6)
+               && rejectedRangedReplacementEditor.revision() == 0,
+           "a failed ranged replacement must restore the original layer, keyframes, legacy format, and revision");
 
     Document legacyMetadataDocument = makeDocument();
     legacyMetadataDocument.formatVersion = {1, 1};
@@ -232,44 +379,84 @@ int main()
                && std::get<StaticSource>(layerSource(*findLayer(document, "highlights"))).assetId
                     == "vector-b",
            "a layer source must be replaceable with a static asset reference");
-    expect(editor.insertKeyframe("highlights", {4, "vector-c"}).code
+    expect(editor.insertKeyframe("highlights", 4, "vector-c").code
                == DocumentEditCode::SourceNotKeyframed,
            "keyframe operations must identify a static source precisely");
     expect(editor.setKeyframedSource("highlights",
-                                     {{0, "vector-a"}, {8, "vector-b"}}).changed,
+                                     {KeyframePlacement{0, "vector-a"},
+                                      KeyframePlacement{8, "vector-b"}}).changed,
            "a layer source must be replaceable with a validated keyframe track");
+    expect(findKeyframe(document, "highlights", 0)
+               && findKeyframe(document, "highlights", 8)
+               && findFrame(document, 0)->keyframes.size() == 2
+               && std::get<KeyframedSource>(
+                      layerSource(*findLayer(document, "highlights"))).frameIndices
+                    == std::vector<FrameIndex>{0, 8},
+           "setting a keyframed source must distribute its keys into shared frame owners");
+    const std::uint64_t beforeReorderedNoOp = editor.revision();
+    expect(editor.setKeyframedSource(
+                    "highlights",
+                    {KeyframePlacement{8, "vector-b"},
+                     KeyframePlacement{0, "vector-a"}}).ok()
+               && !editor.lastResult().changed
+               && editor.revision() == beforeReorderedNoOp,
+           "placement input order must not create a different frame-owned track");
+    const std::uint64_t beforeRejectedTrack = editor.revision();
+    const DocumentEditResult rejectedTrack = editor.setKeyframedSource(
+        "highlights", {KeyframePlacement{1, "vector-c"}});
+    expect(!rejectedTrack.ok()
+               && rejectedTrack.code == DocumentEditCode::ValidationRejected
+               && editor.revision() == beforeRejectedTrack
+               && findKeyframe(document, "highlights", 0)->assetId == "vector-a"
+               && findKeyframe(document, "highlights", 8)->assetId == "vector-b"
+               && findFrame(document, 1) == nullptr,
+           "a rejected track replacement must restore every frame owner and revision");
+    expect(editor.renameLayer("highlights", "keyed-highlights").changed
+               && findKeyframe(document, "highlights", 0) == nullptr
+               && findKeyframe(document, "keyed-highlights", 0)
+               && findKeyframe(document, "keyed-highlights", 8),
+           "renaming a keyframed layer must rewrite every frame-owned stable reference");
+    expect(editor.renameLayer("keyed-highlights", "highlights").changed,
+           "a rewritten keyframed layer id must remain independently renameable");
 
     const std::uint64_t beforeKeyframeKindMismatch = editor.revision();
     const DocumentEditResult keyframeKindMismatch = editor.insertKeyframe(
-        "highlights", {4, "raster-b"});
+        "highlights", 4, "raster-b");
     expect(!keyframeKindMismatch.ok()
                && keyframeKindMismatch.code == DocumentEditCode::AssetKindMismatch
                && editor.revision() == beforeKeyframeKindMismatch
-               && findKeyframe(std::get<KeyframedSource>(
-                                   layerSource(*findLayer(document, "highlights"))), 4)
-                    == nullptr,
+               && findKeyframe(document, "highlights", 4) == nullptr
+               && findFrame(document, 4) == nullptr,
            "a vector layer must reject a bitmap keyframe without partial insertion");
-    expect(editor.insertKeyframe("highlights", {4, "vector-c"}).changed
-               && keyframeIndex(std::get<KeyframedSource>(
-                                    layerSource(*findLayer(document, "highlights"))), 4)
-                    == std::optional<std::size_t>{1},
-           "keyframes must be inserted in chronological order from frame values");
-    expect(editor.insertKeyframe("highlights", {4, "vector-c"}).code
+    expect(editor.insertKeyframe("highlights", 4, "vector-c").changed
+               && frameIndex(document, 4) == std::optional<std::size_t>{1}
+               && findKeyframe(document, "highlights", 4)
+               && std::get<KeyframedSource>(
+                      layerSource(*findLayer(document, "highlights"))).frameIndices
+                    == std::vector<FrameIndex>{0, 4, 8},
+           "keyframes must create sparse frame owners in chronological order");
+    expect(editor.insertKeyframe("highlights", 4, "vector-c").code
                == DocumentEditCode::DuplicateKeyframe,
            "duplicate exact-frame insertion must have a typed rejection");
     expect(editor.setKeyframeAsset("highlights", 4, "vector-b").changed
-               && findKeyframe(std::get<KeyframedSource>(
-                                   layerSource(*findLayer(document, "highlights"))), 4)->assetId
+               && findKeyframe(document, "highlights", 4)->assetId
                     == "vector-b",
            "a keyframe asset reference must be independently replaceable");
     expect(editor.moveKeyframe("highlights", 4, 5).changed
-               && findKeyframe(std::get<KeyframedSource>(
-                                   layerSource(*findLayer(document, "highlights"))), 5),
-           "a non-initial keyframe must be moveable to another unoccupied frame");
+               && findKeyframe(document, "highlights", 4) == nullptr
+               && findFrame(document, 4) == nullptr
+               && findKeyframe(document, "highlights", 5)
+               && std::get<KeyframedSource>(
+                      layerSource(*findLayer(document, "highlights"))).frameIndices
+                    == std::vector<FrameIndex>{0, 5, 8},
+           "moving a keyframe must transfer ownership and remove an empty source frame");
     expect(editor.removeKeyframe("highlights", 5).changed
-               && findKeyframe(std::get<KeyframedSource>(
-                                   layerSource(*findLayer(document, "highlights"))), 5) == nullptr,
-           "non-initial keyframes must be removable");
+               && findKeyframe(document, "highlights", 5) == nullptr
+               && findFrame(document, 5) == nullptr
+               && std::get<KeyframedSource>(
+                      layerSource(*findLayer(document, "highlights"))).frameIndices
+                    == std::vector<FrameIndex>{0, 8},
+           "removing a frame's last keyframe must remove the empty sparse frame");
     const DocumentEditResult initialKeyframeRemoval = editor.removeKeyframe("highlights", 0);
     expect(!initialKeyframeRemoval.ok()
                && initialKeyframeRemoval.code == DocumentEditCode::ValidationRejected,
@@ -294,10 +481,98 @@ int main()
            "invalid path mutations must roll back exactly");
 
     expect(editor.removeLayer("highlights").changed
+               && findKeyframe(document, "highlights", 0) == nullptr
+               && findFrame(document, 8) == nullptr
+               && findFrame(document, 0)
+               && findFrame(document, 0)->keyframes.size() == 1
                && editor.removeAsset("raster-b").changed,
-           "unreferenced layers and assets must be removable explicitly");
+           "removing a layer must erase only its frame-owned keys and empty frames");
     expect(validate(document).ok(),
            "every successful structural edit must leave the whole document valid");
+
+    Document sourceCleanup = makeDocument();
+    DocumentEditor sourceCleanupEditor(sourceCleanup);
+    expect(sourceCleanupEditor.setStaticSource("motion", "vector-a").changed
+               && sourceCleanup.frames.empty()
+               && std::holds_alternative<StaticSource>(
+                   layerSource(*findLayer(sourceCleanup, "motion"))),
+           "switching an animated layer to static must remove all of its global keyframes");
+
+    Document keyedRollback = makeDocument();
+    DocumentEditor keyedRollbackEditor(keyedRollback);
+    const std::uint64_t beforeInvalidStatic = keyedRollbackEditor.revision();
+    expect(!keyedRollbackEditor.setStaticSource("motion", "raster-a").ok()
+               && keyedRollbackEditor.revision() == beforeInvalidStatic
+               && std::holds_alternative<KeyframedSource>(
+                   layerSource(*findLayer(keyedRollback, "motion")))
+               && findKeyframe(keyedRollback, "motion", 0)
+               && findKeyframe(keyedRollback, "motion", 6),
+           "an invalid keyed-to-static conversion must restore the marker and every frame-owned key");
+
+    Document staticRollback = makeDocument();
+    DocumentEditor staticRollbackEditor(staticRollback);
+    expect(staticRollbackEditor.setStaticSource("motion", "vector-a").changed
+               && staticRollback.frames.empty(),
+           "the static rollback fixture must begin without frame-owned motion keys");
+    const std::uint64_t beforeInvalidKeyed = staticRollbackEditor.revision();
+    expect(!staticRollbackEditor.setKeyframedSource(
+                    "motion", {KeyframePlacement{0, "raster-a"}}).ok()
+               && staticRollbackEditor.revision() == beforeInvalidKeyed
+               && std::holds_alternative<StaticSource>(
+                   layerSource(*findLayer(staticRollback, "motion")))
+               && staticRollback.frames.empty(),
+           "an invalid static-to-keyed conversion must restore the static source and frame collection");
+
+    Document layerCleanup = makeDocument();
+    DocumentEditor layerCleanupEditor(layerCleanup);
+    expect(layerCleanupEditor.removeLayer("motion").changed
+               && layerCleanup.frames.empty()
+               && validate(layerCleanup).ok(),
+           "removing a keyframed layer must not leave dangling frame references");
+
+    Document atomicLayerInsert = makeDocument();
+    DocumentEditor atomicLayerInsertEditor(atomicLayerInsert);
+    Layer insertedAnimation = VectorLayer{
+        {"inserted-animation", "Inserted animation", true, 1.0, {},
+         RasterBlendMode::SourceOver},
+        KeyframedSource{},
+    };
+    const std::uint64_t beforeAtomicLayerInsert = atomicLayerInsertEditor.revision();
+    expect(atomicLayerInsertEditor.insertKeyframedLayer(
+                    insertedAnimation,
+                    {KeyframePlacement{0, "vector-a"},
+                     KeyframePlacement{3, "vector-b"}},
+                    1).changed
+               && atomicLayerInsertEditor.revision() == beforeAtomicLayerInsert + 1
+               && layerIndex(atomicLayerInsert, "inserted-animation")
+                    == std::optional<std::size_t>{1}
+               && findKeyframe(atomicLayerInsert, "inserted-animation", 0)
+               && findKeyframe(atomicLayerInsert, "inserted-animation", 3)
+               && std::get<KeyframedSource>(layerSource(
+                      *findLayer(atomicLayerInsert, "inserted-animation"))).frameIndices
+                    == std::vector<FrameIndex>{0, 3},
+           "a keyframed layer and its frame-owned keys must be insertable in one commit");
+    const std::uint64_t beforeRejectedLayerInsert = atomicLayerInsertEditor.revision();
+    Layer rejectedAnimation = VectorLayer{
+        {"rejected-animation", "Rejected animation", true, 1.0, {},
+         RasterBlendMode::SourceOver},
+        KeyframedSource{},
+    };
+    expect(!atomicLayerInsertEditor.insertKeyframedLayer(
+                    rejectedAnimation,
+                    {KeyframePlacement{2, "vector-a"}}).ok()
+               && atomicLayerInsertEditor.revision() == beforeRejectedLayerInsert
+               && findLayer(atomicLayerInsert, "rejected-animation") == nullptr
+               && findKeyframe(atomicLayerInsert, "rejected-animation", 2) == nullptr,
+           "an invalid atomic keyframed-layer insertion must preserve layers, frames, and revision");
+
+    Document assetRename = makeDocument();
+    DocumentEditor assetRenameEditor(assetRename);
+    expect(assetRenameEditor.renameAsset("vector-a", "vector-origin").changed
+               && findKeyframe(assetRename, "motion", 0)
+               && findKeyframe(assetRename, "motion", 0)->assetId == "vector-origin"
+               && findAsset(assetRename, "vector-a") == nullptr,
+           "renaming an asset must rewrite its frame-owned keyframe references");
 
     Document invalid;
     DocumentEditor rejected(invalid);

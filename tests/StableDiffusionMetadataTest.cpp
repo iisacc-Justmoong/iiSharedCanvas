@@ -71,7 +71,7 @@ iiSharedCanvas::StableDiffusionMetadata completeMetadata()
     metadata.software = "ComfyUI";
     metadata.softwareVersion = "0.3.x";
     metadata.createdAt = "2026-09-02T12:34:56Z";
-    metadata.automatic1111Parameters =
+    metadata.generationParametersText =
         "Steps: 28, Sampler: DPM++ 2M, CFG scale: 6.5, Seed: 156680208700286";
     metadata.comfyUi.promptJson = R"json({"3":{"inputs":{"seed":156680208700286,"steps":28,"cfg":6.5,"sampler_name":"dpmpp_2m","scheduler":"karras","denoise":1.0},"class_type":"KSampler"}})json";
     metadata.comfyUi.workflowJson =

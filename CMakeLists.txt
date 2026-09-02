@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.1.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.3.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -34,8 +34,8 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Document/Document.h
         src/Document/DocumentEditor.cpp
         src/Document/DocumentEditor.h
-        src/Metadata/Automatic1111Metadata.cpp
-        src/Metadata/Automatic1111Metadata.h
+        src/Metadata/StableDiffusionGenerationParameters.cpp
+        src/Metadata/StableDiffusionGenerationParameters.h
         src/Metadata/StableDiffusionMetadata.cpp
         src/Metadata/StableDiffusionMetadata.h
         src/QtAdapter/CanvasItem.cpp
@@ -48,8 +48,14 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Render/FrameRenderer.h
         src/Serialization/IiscCodec.cpp
         src/Serialization/IiscCodec.h
+        src/Timeline/TimelineEditor.cpp
+        src/Timeline/TimelineEditor.h
+        src/Timeline/TimelineProject.cpp
+        src/Timeline/TimelineProject.h
         src/Validation/Validation.cpp
-        src/Validation/Validation.h)
+        src/Validation/Validation.h
+        src/Vector/VectorEditor.cpp
+        src/Vector/VectorEditor.h)
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
 
 generate_export_header(iiSharedCanvas
@@ -72,7 +78,7 @@ endif()
 set_target_properties(iiSharedCanvas PROPERTIES
         AUTOMOC ON
         VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR})
+        SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 set_property(TARGET iiSharedCanvas APPEND PROPERTY
         BUILD_RPATH "$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 set_property(TARGET iiSharedCanvas APPEND PROPERTY
@@ -94,7 +100,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY src/Bitmap src/Camera src/Document src/Metadata src/QtAdapter src/Render src/Serialization src/Validation
+install(DIRECTORY src/Bitmap src/Camera src/Document src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
@@ -117,19 +123,19 @@ configure_package_config_file(
 write_basic_package_version_file(
         "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMajorVersion)
+        COMPATIBILITY ExactVersion)
 install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasConfig.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasConfigVersion.cmake"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 
 if(BUILD_TESTING)
-    add_executable(iiSharedCanvasAutomatic1111MetadataTest
-            tests/Automatic1111MetadataTest.cpp)
-    target_link_libraries(iiSharedCanvasAutomatic1111MetadataTest PRIVATE
+    add_executable(iiSharedCanvasStableDiffusionGenerationParametersTest
+            tests/StableDiffusionGenerationParametersTest.cpp)
+    target_link_libraries(iiSharedCanvasStableDiffusionGenerationParametersTest PRIVATE
             iiSharedCanvas::iiSharedCanvas)
-    add_test(NAME iiSharedCanvas.Automatic1111Metadata
-            COMMAND iiSharedCanvasAutomatic1111MetadataTest)
+    add_test(NAME iiSharedCanvas.StableDiffusionGenerationParameters
+            COMMAND iiSharedCanvasStableDiffusionGenerationParametersTest)
 
     add_executable(iiSharedCanvasStableDiffusionMetadataTest
             tests/StableDiffusionMetadataTest.cpp)
@@ -144,6 +150,20 @@ if(BUILD_TESTING)
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.CameraRaw
             COMMAND iiSharedCanvasCameraRawTest)
+
+    add_executable(iiSharedCanvasTimelineProjectTest
+            tests/TimelineProjectTest.cpp)
+    target_link_libraries(iiSharedCanvasTimelineProjectTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.TimelineProject
+            COMMAND iiSharedCanvasTimelineProjectTest)
+
+    add_executable(iiSharedCanvasTimelineEditorTest
+            tests/TimelineEditorTest.cpp)
+    target_link_libraries(iiSharedCanvasTimelineEditorTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.TimelineEditor
+            COMMAND iiSharedCanvasTimelineEditorTest)
 
     add_executable(iiSharedCanvasDocumentModelTest
             tests/DocumentModelTest.cpp)
@@ -179,6 +199,13 @@ if(BUILD_TESTING)
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.BitmapEditor
             COMMAND iiSharedCanvasBitmapEditorTest)
+
+    add_executable(iiSharedCanvasVectorEditorTest
+            tests/VectorEditorTest.cpp)
+    target_link_libraries(iiSharedCanvasVectorEditorTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.VectorEditor
+            COMMAND iiSharedCanvasVectorEditorTest)
 
     add_executable(iiSharedCanvasBitmapItemRenderTest
             tests/BitmapItemRenderTest.cpp)

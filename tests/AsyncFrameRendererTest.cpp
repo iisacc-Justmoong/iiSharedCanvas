@@ -193,6 +193,48 @@ int main(int argc, char **argv)
                                      {64, 64}) == 0xffffcc00U,
            "each asynchronous layer tile must stay isolated before final tile composition");
 
+    Document rangedLayers = makeTwoLayerDocument();
+    rangedLayers.timeline.frameCount = 4;
+    layerProperties(rangedLayers.layers[1]).frameRange = LayerFrameRange{1, 2};
+    completedRequest = 0;
+    const qulonglong rangedRequest = renderer.request(
+        rangedLayers, 3, {fullTwoLayerTile});
+    timeout.start();
+    loop.exec();
+    const FrameLayerBatchRenderResult &rangedBatch = renderer.lastLayerResult();
+    expect(completedRequest == rangedRequest
+               && rangedBatch.ok()
+               && rangedBatch.layers.size() == 2
+               && rangedBatch.layers[0].layerId == "background-layer"
+               && rangedBatch.layers[1].layerIndex == 1
+               && rangedBatch.layers[1].layerId == "shape-layer"
+               && !rangedBatch.layers[1].visible
+               && rangedBatch.layers[1].tiles.empty()
+               && renderer.lastResult().ok()
+               && rasterLayerPixelAt(renderer.lastResult().tiles.front().pixels,
+                                     {64, 64}) == 0xff102030U,
+           "one asynchronous preflight must preserve an out-of-range layer slot while omitting its tiles and composite contribution");
+
+    Document invalidParallel = makeTwoLayerDocument();
+    std::get<StaticSource>(layerSource(invalidParallel.layers.front())).assetId =
+        "missing-background";
+    const FrameLayerBatchRenderResult synchronousInvalid = renderFrameLayers(
+        invalidParallel, 0, {fullTwoLayerTile});
+    completedRequest = 0;
+    const qulonglong invalidRequest = renderer.request(
+        invalidParallel, 0, {fullTwoLayerTile});
+    timeout.start();
+    loop.exec();
+    const FrameLayerBatchRenderResult &asynchronousInvalid =
+        renderer.lastLayerResult();
+    expect(completedRequest == invalidRequest
+               && !synchronousInvalid.ok()
+               && asynchronousInvalid.status == synchronousInvalid.status
+               && asynchronousInvalid.message == synchronousInvalid.message
+               && asynchronousInvalid.layers.empty()
+               && renderer.lastResult().status == synchronousInvalid.status,
+           "an invalid snapshot must fail one asynchronous preflight with the synchronous error before any layer worker produces output");
+
     document = makeLargeDocument();
     completedRequest = 0;
     const int completionsBeforeCoalescing = completionCount;

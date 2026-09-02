@@ -20,6 +20,7 @@ enum class ValidationCode {
     InvalidVectorAsset,
     DuplicateLayerId,
     InvalidLayer,
+    InvalidLayerFrameRange,
     MissingAsset,
     InvalidKeyframes,
     ContentKindMismatch,

@@ -39,11 +39,14 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::StableDiffusionMetadata::c
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::stableDiffusionMetadata),
                              std::optional<iiSharedCanvas::StableDiffusionMetadata>>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::StableDiffusionMetadata>);
-static_assert(std::is_same_v<decltype(iiSharedCanvas::Automatic1111Infotext::parameters),
+static_assert(std::is_same_v<decltype(iiSharedCanvas::StableDiffusionGenerationParameters::parameters),
                              std::vector<iiSharedCanvas::StableDiffusionMetadataEntry>>);
-static_assert(std::is_same_v<decltype(iiSharedCanvas::Automatic1111ParseResult::metadata),
+static_assert(std::is_same_v<decltype(iiSharedCanvas::StableDiffusionGenerationParametersParseResult::metadata),
                              iiSharedCanvas::StableDiffusionMetadata>);
-static_assert(std::is_default_constructible_v<iiSharedCanvas::Automatic1111ParseResult>);
+static_assert(std::is_same_v<decltype(
+                                 iiSharedCanvas::StableDiffusionGenerationParametersParseResult::generationParameters),
+                             iiSharedCanvas::StableDiffusionGenerationParameters>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::StableDiffusionGenerationParametersParseResult>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorAsset::id), std::string>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorAsset::viewport),
                              iiSharedCanvas::CanvasExtent>);
@@ -66,6 +69,12 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerProperties::id), std:
 static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerProperties::name), std::string>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerProperties::visible), bool>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerProperties::opacity), double>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerFrameRange::firstFrame),
+                             iiSharedCanvas::FrameIndex>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerFrameRange::lastFrame),
+                             iiSharedCanvas::FrameIndex>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerProperties::frameRange),
+                             std::optional<iiSharedCanvas::LayerFrameRange>>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::BitmapLayer::properties),
                              iiSharedCanvas::LayerProperties>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::BitmapLayer::source),
@@ -74,12 +83,34 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorLayer::properties),
                              iiSharedCanvas::LayerProperties>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorLayer::source),
                              iiSharedCanvas::LayerSource>);
-static_assert(std::is_same_v<decltype(iiSharedCanvas::KeyframedSource::keyframes),
+static_assert(std::is_same_v<decltype(iiSharedCanvas::KeyframedSource::frameIndices),
+                             std::vector<iiSharedCanvas::FrameIndex>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::Keyframe::layerId),
+                             std::string>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::Keyframe::assetId),
+                             std::string>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::Frame::index),
+                             iiSharedCanvas::FrameIndex>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::Frame::keyframes),
                              std::vector<iiSharedCanvas::Keyframe>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::KeyframePlacement::frame),
+                             iiSharedCanvas::FrameIndex>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::KeyframePlacement::assetId),
+                             std::string>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::KeyframePlacement::frame),
+                             iiSharedCanvas::FrameIndex>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::KeyframePlacement::assetId),
+                             std::string>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::assets),
                              std::vector<iiSharedCanvas::Asset>>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::layers),
                              std::vector<iiSharedCanvas::Layer>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::frames),
+                             std::vector<iiSharedCanvas::Frame>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::AssetReference::frameIndex),
+                             std::optional<std::size_t>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::AssetReference::keyframeIndex),
+                             std::optional<std::size_t>>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::canvasMode),
                              iiSharedCanvas::CanvasMode>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::infiniteCanvas),
@@ -93,10 +124,50 @@ static_assert(std::is_same_v<std::variant_alternative_t<1, iiSharedCanvas::Layer
 static_assert(std::variant_size_v<iiSharedCanvas::LayerSource> == 2);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::BitmapEditor>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::ChunkedBitmapEditor>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::VectorEditor>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::DocumentEditor>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::AsyncFrameRenderer>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::TimelineProject>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineProject::mediaSources),
+                             std::vector<iiSharedCanvas::TimelineMediaSource>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineProject::sequences),
+                             std::vector<iiSharedCanvas::TimelineSequence>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineProject::renderProfiles),
+                             std::vector<iiSharedCanvas::TimelineRenderProfile>>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineSequence::editingFrameRate),
+                             iiSharedCanvas::TimelineFrameRate>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineClipProperties::source),
+                             iiSharedCanvas::TimelineClipSource>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineGeneratedReference::timeBase),
+                             iiSharedCanvas::TimelineTimeBase>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineRenderProfile::container),
+                             iiSharedCanvas::TimelineContainerDescriptor>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineRenderProfile::video),
+                             std::optional<iiSharedCanvas::TimelineVideoOutput>>);
+static_assert(std::variant_size_v<iiSharedCanvas::TimelineMediaStream> == 4);
+static_assert(std::variant_size_v<iiSharedCanvas::TimelineTrack> == 4);
+static_assert(std::variant_size_v<iiSharedCanvas::TimelineClip> == 4);
+static_assert(std::is_same_v<
+              std::variant_alternative_t<3, iiSharedCanvas::TimelineMediaStream>,
+              iiSharedCanvas::TimelineDataStream>);
+static_assert(std::is_same_v<
+              std::variant_alternative_t<3, iiSharedCanvas::TimelineTrack>,
+              iiSharedCanvas::TimelineDataTrack>);
+static_assert(std::is_same_v<
+              std::variant_alternative_t<3, iiSharedCanvas::TimelineClip>,
+              iiSharedCanvas::TimelineDataClip>);
+static_assert(std::is_constructible_v<iiSharedCanvas::TimelineEditor,
+                                      iiSharedCanvas::TimelineProject &>);
+static_assert(!std::is_copy_constructible_v<iiSharedCanvas::TimelineEditor>);
+static_assert(!std::is_copy_assignable_v<iiSharedCanvas::TimelineEditor>);
+static_assert(!std::is_move_constructible_v<iiSharedCanvas::TimelineEditor>);
+static_assert(!std::is_move_assignable_v<iiSharedCanvas::TimelineEditor>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::TimelineEditResult::changed), bool>);
 static_assert(std::is_constructible_v<iiSharedCanvas::DocumentEditor,
                                       iiSharedCanvas::Document &>);
+static_assert(std::is_constructible_v<iiSharedCanvas::VectorEditor,
+                                      iiSharedCanvas::Document &,
+                                      const std::string &>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::DocumentEditResult::changed), bool>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::FrameRenderResult>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::FrameTileRenderResult>);
@@ -113,7 +184,7 @@ static_assert(!std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::CanvasItem>)
 int main()
 {
     return iiSharedCanvas::CurrentFormatMajor == 1
-        && iiSharedCanvas::CurrentFormatMinor == 2
+        && iiSharedCanvas::CurrentFormatMinor == 3
         ? 0
         : 1;
 }

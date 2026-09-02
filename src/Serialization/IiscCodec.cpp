@@ -14,6 +14,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -319,7 +320,7 @@ IiscError trackString(const std::string &value,
         || size > individualMaximum
         || !addWithin(totals.stringBytes, size, limits.maximumTotalStringBytes)) {
         return makeError(IiscErrorCode::LimitExceeded, 0,
-                         "serialized string bytes exceed the configured limits");
+                         "document string bytes exceed the configured limits");
     }
     return {};
 }
@@ -336,6 +337,10 @@ IiscError checkDocumentLimits(const Document &document,
         || document.layers.size() > std::numeric_limits<std::uint32_t>::max()) {
         return makeError(IiscErrorCode::LimitExceeded, 0,
                          "layer count exceeds the configured limit");
+    }
+    if (document.frames.size() > limits.maximumFrames) {
+        return makeError(IiscErrorCode::LimitExceeded, 0,
+                         "owned frame count exceeds the configured limit");
     }
 
     std::uint64_t canvasPixels = 0;
@@ -408,6 +413,8 @@ IiscError checkDocumentLimits(const Document &document,
         }
     }
 
+    std::unordered_map<std::string_view, std::uint64_t> keyframeCountsByLayer;
+    keyframeCountsByLayer.reserve(document.layers.size());
     for (const Layer &layer : document.layers) {
         const LayerProperties &properties = layerProperties(layer);
         const LayerSource &sourceValue = layerSource(layer);
@@ -424,15 +431,31 @@ IiscError checkDocumentLimits(const Document &document,
             }
             continue;
         }
-        const auto &source = std::get<KeyframedSource>(sourceValue);
-        if (source.keyframes.size() > std::numeric_limits<std::uint32_t>::max()
-            || !addWithin(totals.keyframes,
-                          source.keyframes.size(),
-                          limits.maximumTotalKeyframes)) {
+        keyframeCountsByLayer.emplace(properties.id, 0);
+    }
+
+    for (const Frame &frame : document.frames) {
+        if (!addWithin(totals.keyframes,
+                       frame.keyframes.size(),
+                       limits.maximumTotalKeyframes)) {
             return makeError(IiscErrorCode::LimitExceeded, 0,
                              "keyframe count exceeds the configured limit");
         }
-        for (const Keyframe &keyframe : source.keyframes) {
+        for (const Keyframe &keyframe : frame.keyframes) {
+            const auto layer = keyframeCountsByLayer.find(keyframe.layerId);
+            if (layer == keyframeCountsByLayer.end()) {
+                return makeError(IiscErrorCode::InvalidDocument, 0,
+                                 "frame keyframe references a non-keyframed layer");
+            }
+            if (layer->second == std::numeric_limits<std::uint32_t>::max()) {
+                return makeError(IiscErrorCode::LimitExceeded, 0,
+                                 "per-layer keyframe count exceeds the canonical format");
+            }
+            ++layer->second;
+            if (IiscError error = trackString(keyframe.layerId, limits, totals);
+                error.code != IiscErrorCode::None) {
+                return error;
+            }
             if (IiscError error = trackString(keyframe.assetId, limits, totals);
                 error.code != IiscErrorCode::None) {
                 return error;
@@ -465,7 +488,7 @@ IiscError checkDocumentLimits(const Document &document,
                  &metadata.software,
                  &metadata.softwareVersion,
                  &metadata.createdAt,
-                 &metadata.automatic1111Parameters,
+                 &metadata.generationParametersText,
                  &metadata.comfyUi.promptJson,
                  &metadata.comfyUi.workflowJson,
              }) {
@@ -756,7 +779,7 @@ void writeStableDiffusionMetadata(ByteWriter &writer,
     writer.writeString(metadata.software);
     writer.writeString(metadata.softwareVersion);
     writer.writeString(metadata.createdAt);
-    writer.writeString(metadata.automatic1111Parameters);
+    writer.writeString(metadata.generationParametersText);
     writer.writeString(metadata.comfyUi.promptJson);
     writer.writeString(metadata.comfyUi.workflowJson);
 
@@ -807,8 +830,32 @@ void writePayload(ByteWriter &writer, const Document &document)
         }
     }
 
+    using ProjectedKeyframe = std::pair<FrameIndex, const Keyframe *>;
+    std::vector<std::vector<ProjectedKeyframe>> keyframesByLayer(
+        document.layers.size());
+    std::unordered_map<std::string_view, std::size_t> layerIndices;
+    layerIndices.reserve(document.layers.size());
+    for (std::size_t index = 0; index < document.layers.size(); ++index) {
+        if (std::holds_alternative<KeyframedSource>(
+                layerSource(document.layers[index]))) {
+            layerIndices.emplace(layerProperties(document.layers[index]).id, index);
+        }
+    }
+    for (const Frame &frame : document.frames) {
+        for (const Keyframe &keyframe : frame.keyframes) {
+            const auto layer = layerIndices.find(keyframe.layerId);
+            if (layer != layerIndices.end()) {
+                keyframesByLayer[layer->second].emplace_back(frame.index,
+                                                             &keyframe);
+            }
+        }
+    }
+
     writer.writeU32(static_cast<std::uint32_t>(document.layers.size()));
-    for (const Layer &layer : document.layers) {
+    for (std::size_t layerIndex = 0;
+         layerIndex < document.layers.size();
+         ++layerIndex) {
+        const Layer &layer = document.layers[layerIndex];
         const LayerProperties &properties = layerProperties(layer);
         const LayerSource &sourceValue = layerSource(layer);
         writer.writeString(properties.id);
@@ -825,15 +872,22 @@ void writePayload(ByteWriter &writer, const Document &document)
         if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
             writer.writeU8(0);
             writer.writeString(source->assetId);
-            continue;
+        } else {
+            const auto &keyframes = keyframesByLayer[layerIndex];
+            writer.writeU8(1);
+            writer.writeU8(contentKind(layer) == ContentKind::Raster ? 0U : 1U);
+            writer.writeU32(static_cast<std::uint32_t>(keyframes.size()));
+            for (const auto &[frame, keyframe] : keyframes) {
+                writer.writeU32(frame);
+                writer.writeString(keyframe->assetId);
+            }
         }
-        const auto &source = std::get<KeyframedSource>(sourceValue);
-        writer.writeU8(1);
-        writer.writeU8(contentKind(layer) == ContentKind::Raster ? 0U : 1U);
-        writer.writeU32(static_cast<std::uint32_t>(source.keyframes.size()));
-        for (const Keyframe &keyframe : source.keyframes) {
-            writer.writeU32(keyframe.frame);
-            writer.writeString(keyframe.assetId);
+        if (document.formatVersion.minor >= 3) {
+            writer.writeU8(properties.frameRange ? 1U : 0U);
+            if (properties.frameRange) {
+                writer.writeU32(properties.frameRange->firstFrame);
+                writer.writeU32(properties.frameRange->lastFrame);
+            }
         }
     }
     if (document.formatVersion.minor >= 2) {
@@ -846,6 +900,12 @@ void writePayload(ByteWriter &writer, const Document &document)
 }
 
 class DocumentReader final {
+    struct PendingKeyframe {
+        FrameIndex frame = 0;
+        std::size_t layerIndex = 0;
+        std::string assetId;
+    };
+
 public:
     DocumentReader(ByteReader &reader, const SerializationLimits &limits)
         : m_reader(reader),
@@ -899,8 +959,41 @@ public:
         const std::uint32_t layerCount = limitedCount(m_limits.maximumLayers, "layer");
         document.layers.reserve(layerCount);
         for (std::uint32_t index = 0; index < layerCount; ++index) {
-            document.layers.push_back(readLayer(document));
+            document.layers.push_back(readLayer(document, index, version));
         }
+        std::sort(m_pendingKeyframes.begin(), m_pendingKeyframes.end(),
+                  [&document](const PendingKeyframe &left,
+                              const PendingKeyframe &right) {
+                      if (left.frame != right.frame) {
+                          return left.frame < right.frame;
+                      }
+                      return layerProperties(document.layers[left.layerIndex]).id
+                          < layerProperties(document.layers[right.layerIndex]).id;
+                  });
+        std::size_t ownedFrameCount = 0;
+        std::optional<FrameIndex> priorFrame;
+        for (const PendingKeyframe &pending : m_pendingKeyframes) {
+            if (!priorFrame || *priorFrame != pending.frame) {
+                ++ownedFrameCount;
+                priorFrame = pending.frame;
+            }
+        }
+        if (ownedFrameCount > m_limits.maximumFrames) {
+            m_reader.fail(IiscErrorCode::LimitExceeded,
+                          "owned frame count exceeds the configured limit");
+        }
+        document.frames.reserve(ownedFrameCount);
+        for (PendingKeyframe &pending : m_pendingKeyframes) {
+            if (document.frames.empty()
+                || document.frames.back().index != pending.frame) {
+                document.frames.push_back(Frame{pending.frame, {}});
+            }
+            document.frames.back().keyframes.push_back({
+                layerProperties(document.layers[pending.layerIndex]).id,
+                std::move(pending.assetId),
+            });
+        }
+        std::vector<PendingKeyframe>().swap(m_pendingKeyframes);
         if (version.minor >= 2 && readBoolean()) {
             document.stableDiffusionMetadata = readStableDiffusionMetadata();
         }
@@ -1062,7 +1155,7 @@ private:
         metadata.software = readMetadataString();
         metadata.softwareVersion = readMetadataString();
         metadata.createdAt = readMetadataString();
-        metadata.automatic1111Parameters = readMetadataString();
+        metadata.generationParametersText = readMetadataString();
         metadata.comfyUi.promptJson = readMetadataString();
         metadata.comfyUi.workflowJson = readMetadataString();
 
@@ -1290,7 +1383,9 @@ private:
         }
     }
 
-    Layer readLayer(const Document &document)
+    Layer readLayer(const Document &document,
+                    std::size_t layerIndex,
+                    FormatVersion version)
     {
         LayerProperties properties;
         properties.id = readString();
@@ -1325,13 +1420,40 @@ private:
                      keyframeCount,
                      m_limits.maximumTotalKeyframes,
                      "keyframe");
-            keyframed.keyframes.reserve(keyframeCount);
+            if (keyframeCount > m_pendingKeyframes.max_size()
+                    - m_pendingKeyframes.size()) {
+                m_reader.fail(IiscErrorCode::LimitExceeded,
+                              "keyframe count exceeds the platform address space");
+            }
+            keyframed.frameIndices.reserve(keyframeCount);
+            std::optional<FrameIndex> priorFrame;
             for (std::uint32_t index = 0; index < keyframeCount; ++index) {
-                keyframed.keyframes.push_back({m_reader.readU32(), readString()});
+                const FrameIndex frame = m_reader.readU32();
+                if (priorFrame && frame <= *priorFrame) {
+                    m_reader.fail(IiscErrorCode::InvalidData,
+                                  "layer keyframe positions must be strictly increasing");
+                }
+                priorFrame = frame;
+                keyframed.frameIndices.push_back(frame);
+                addTotal(m_totals.stringBytes,
+                         properties.id.size(),
+                         m_limits.maximumTotalStringBytes,
+                         "frame-owned layer-id byte");
+                m_pendingKeyframes.push_back({
+                    frame,
+                    layerIndex,
+                    readString(),
+                });
             }
             source = std::move(keyframed);
         } else {
             m_reader.fail(IiscErrorCode::InvalidData, "unknown layer source tag");
+        }
+        if (version.minor >= 3 && readBoolean()) {
+            properties.frameRange = LayerFrameRange{
+                m_reader.readU32(),
+                m_reader.readU32(),
+            };
         }
         if (kind == ContentKind::Raster) {
             return BitmapLayer{std::move(properties), std::move(source)};
@@ -1342,6 +1464,7 @@ private:
     ByteReader &m_reader;
     const SerializationLimits &m_limits;
     LimitTotals m_totals;
+    std::vector<PendingKeyframe> m_pendingKeyframes;
 };
 
 } // namespace

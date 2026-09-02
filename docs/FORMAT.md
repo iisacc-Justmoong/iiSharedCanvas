@@ -6,7 +6,7 @@ Status: Implemented canonical binary contract.
 
 - Extension: `.iisc`
 - Media type: `application/vnd.iisacc.ii-shared-canvas`
-- Current model version: major 1, minor 2
+- Current model version: major 1, minor 3
 - Integer byte order: little-endian
 - Floating-point representation: IEEE 754 binary64, stored as little-endian bits
 - Raster channel representation: 32-bit ARGB as defined by iiPaintEngine
@@ -88,9 +88,16 @@ layer collection. Appending the block leaves every earlier offset and record unc
 Version 1.0 and 1.1 end immediately after the layer collection and therefore
 decode with no generation metadata.
 
-Within the existing 1.2 metadata record, `automatic1111Parameters` contains the
-complete infotext extracted from an AUTOMATIC1111 image carrier.
-AUTOMATIC1111 infotext remains byte-exact during canonical `.iisc` round-trip; parsing creates
+Version 1.3 appends an optional inclusive frame range to each layer record,
+immediately after that layer's complete source payload. Version 1.0 through 1.2
+layer records end after their source and contain no range bytes, so their
+canonical encoding remains unchanged. The generation-metadata block continues
+to follow the complete layer collection.
+
+Within the existing 1.2 metadata record, `generationParametersText` contains the
+complete Stable Diffusion generation-parameters text extracted from a compatible
+image carrier. Generation-parameters text remains byte-exact during canonical
+`.iisc` round-trip; parsing creates
 a separate decoded view and never rewrites this string. PNG `parameters`, EXIF
 `UserComment`, or other carrier identity is not persisted because extraction
 belongs to the importing adapter. Unknown or duplicate parameter pairs remain
@@ -199,6 +206,11 @@ f64 m11, m12, m21, m22, translationX, translationY
 u8 blendMode
 u8 sourceKind
 LayerSource source
+[if minor >= 3]
+  bool hasFrameRange
+  [if hasFrameRange]
+    u32 firstFrame
+    u32 lastFrame
 ~~~
 
 Blend tags are 0 source-over, 1 multiply, 2 screen, and 3 overlay.
@@ -213,7 +225,8 @@ y' = x * m12 + y * m22 + translationY
 ~~~
 
 Source kind 0 is static and stores one asset-id string. Its concrete layer type
-is the referenced asset kind. Source kind 1 is keyframed and stores:
+is the referenced asset kind. Source kind 1 marks an animated layer and stores
+the following layer-major wire projection:
 
 ~~~text
 u8 contentKind       // 0 BitmapLayer, 1 VectorLayer
@@ -223,16 +236,33 @@ repeat keyframeCount:
   string assetId
 ~~~
 
-The decoder materializes every entry as a type-distinguished `BitmapLayer` or
-`VectorLayer`. The in-memory `KeyframedSource` does not duplicate this type;
-the encoded keyframed `contentKind` is the owning layer's canonical type tag.
-Validation rejects a static or keyframed reference whose asset kind differs from
-the owning layer.
+The wire layout remains unchanged for `.iisc` 1.0 through 1.2. In memory,
+`Document::frames` owns strictly increasing sparse `Frame` records and every
+actual `Keyframe`. `KeyframedSource::frameIndices` is only a validated derived
+index containing the exact increasing frame set owned for that layer. The
+decoder fills that index from each enclosing wire record, transposes its keys
+into `Frame{index, Keyframe{layerId, assetId}}`, and orders simultaneous keys by
+layer id. The encoder projects those frame-owned keys back into document layer
+order, so a non-lexicographic layer stack still re-encodes to identical bytes.
+Empty frames and two keys for the same layer in one frame are invalid because
+the existing wire format cannot represent them.
+The encoded `contentKind` is the owning layer's canonical type tag, and
+validation rejects a key whose layer is static or whose asset kind differs
+from the referenced layer.
 
-Version 1 uses hold sampling only. The selected asset is the last keyframe at
-or before the requested frame. The first keyframe is zero, positions are
-strictly increasing, frames remain within `[0, frameCount)`, and one track never
-mixes raster and vector assets.
+Version 1 uses hold sampling only. The selected asset is the last frame-owned
+key for the requested layer at or before the requested frame. Sparse frame
+indices are strictly increasing and remain within `[0, frameCount)`; every
+animated layer has a frame-zero key, and one frame may directly own keys for
+multiple raster and vector layers.
+
+Frame-range endpoints are zero-based and inclusive. A present range satisfies
+`firstFrame <= lastFrame < frameCount`; the layer does not exist and contributes
+no rendered pixels outside that interval. An absent range means that the layer
+exists throughout the complete timeline. The range applies equally to static
+and keyframed bitmap or vector layers. It is a non-destructive existence gate:
+keyframes may remain outside the range, and entering the range immediately uses
+the last frame-zero-based hold value at or before that frame.
 
 ## Stable Diffusion generation metadata
 
@@ -278,7 +308,7 @@ repeat loraCount:
 string software
 string softwareVersion
 string createdAt
-string automatic1111Parameters
+string generationParametersText
 string comfyUiPromptJson
 string comfyUiWorkflowJson
 
@@ -334,13 +364,25 @@ bottom-to-top order before applying opacity and blend mode.
 
 ## Authoring-only state
 
+`TimelineProject` is not encoded by `.iisc` version 1.3. The video-editing
+model has multiple sequences, source representations, typed streams, tracks,
+clips, effects, markers, and render profiles whose references and media timing
+do not belong to the canvas payload above. Adding durable video-project storage
+requires a separately versioned format with explicit resource limits and
+lossless round-trip tests; merely adding the in-memory model does not change
+`CurrentFormatMinor`.
+
+Container and codec descriptors in `TimelineProject` are declarations, not
+proof that the host can probe, decode, encode, or mux them. Those operations
+remain adapter responsibilities and write no hidden state into `.iisc`.
+
 Brush input is not a persisted content kind. `BitmapEditor` may retain a
 transient iiPaintEngine dab stream only while a pointer gesture is active.
 `BitmapItem` and `CanvasItem` viewport state, layer selection, undo history,
 input events, and UI tool state are not encoded.
 
 `CameraRawData` is not encoded by `.iisc` version 1.1 and remains outside
-version 1.2. It is decoded/import state containing sensor samples and
+version 1.3. It is decoded/import state containing sensor samples and
 capture/calibration metadata, not a canvas asset or a third layer kind. A host
 must explicitly process it into committed
 ARGB pixels and then create a `RasterAsset` if the result belongs in a document.
@@ -359,6 +401,7 @@ settings are added to the current container.
 | Sparse raster chunks | 1,048,576 |
 | Assets | 65,536 |
 | Layers | 65,536 |
+| Sparse frames that own keys | 262,144 |
 | One string | 1 MiB |
 | One generation-metadata string | 16 MiB |
 | Total string bytes | 64 MiB |
@@ -368,8 +411,16 @@ settings are added to the current container.
 | Keyframes | 16,777,216 |
 
 The reader checks declared counts and aggregate totals before allocating the
-corresponding collections or pixel buffers. A product may lower these limits
-for its device class.
+corresponding collections or pixel buffers. It derives the unique sparse-frame
+count from bounded pending keyframes and checks the frame limit before reserving
+or materializing `Document::frames`. Because decoding materializes the
+enclosing layer id into every frame-owned `Keyframe`, the total-string limit
+also counts those derived copies on both encode and decode; a small wire record
+therefore cannot amplify into unbounded repeated layer-id storage. A product
+may lower these limits for its device class.
+Layer-range endpoints allocate no collections, but both endpoints are checked
+against the timeline's bounded `frameCount` before a decoded document is
+exposed.
 
 ## Compatibility and migration
 
@@ -386,7 +437,25 @@ an allocated-region world origin, a chunk size, and canonical sparse raster
 assets. A 1.0 document migrates on decode to finite mode at origin zero without
 changing pixels or rendering. Version 1.2 appends optional Stable Diffusion
 generation metadata. A 1.0 or 1.1 document decodes without that optional value
-and re-encodes byte-identically unless a caller explicitly attaches metadata;
-`DocumentEditor` then upgrades it atomically to 1.2. Future minor or major
+and re-encodes byte-identically unless a caller explicitly attaches metadata.
+Version 1.3 appends one optional inclusive existence range to each layer
+record. A 1.0, 1.1, or 1.2 layer decodes with no range and re-encodes
+byte-identically; adding a range requires upgrading the document to 1.3.
+`DocumentEditor` upgrades edited documents atomically to the current minor.
+Future minor or major
 support requires an explicit decoder and canonical re-encoder plus
 rendered-frame equivalence tests.
+
+Moving keyframe ownership from each in-memory layer source to
+`Document::frames` does not change the version-1 wire layout or increment the
+minor version. The layer-major record and frame-major aggregate are lossless
+transposes of the same `(layerId, frame, assetId)` relation.
+
+The public C++ aggregate change that introduced frame-owned keys was shipped as
+package 0.2.0 with SOVERSION 0.2 and requires a consumer rebuild from 0.1.x.
+Adding `LayerProperties::frameRange` changes that aggregate layout again, so it
+is shipped as package 0.3.0 with SOVERSION 0.3 and requires a consumer rebuild
+from 0.2.x.
+Package ABI versioning is separate from this file format: `.iisc` is now 1.3,
+while canonical 1.0, 1.1, and 1.2 fixtures continue to re-encode
+byte-identically.

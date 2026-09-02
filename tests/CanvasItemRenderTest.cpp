@@ -72,12 +72,17 @@ iiSharedCanvas::Document mixedDocument()
     document.assets.emplace_back(filledRectangle("vector", 4, 4, 0xffffcc00U));
     document.layers.emplace_back(BitmapLayer{
         {"background", "Background", true, 1.0, {}, RasterBlendMode::SourceOver},
-        KeyframedSource{{{0, "background-0"}, {1, "background-1"}}},
+        KeyframedSource{{0, 1}},
     });
     document.layers.emplace_back(VectorLayer{
-        {"vector", "Vector", true, 1.0, {}, RasterBlendMode::SourceOver},
+        {"vector", "Vector", true, 1.0, {}, RasterBlendMode::SourceOver,
+         LayerFrameRange{0, 0}},
         StaticSource{"vector"},
     });
+    document.frames = {
+        {0, {{"background", "background-0"}}},
+        {1, {{"background", "background-1"}}},
+    };
     return document;
 }
 
@@ -127,8 +132,28 @@ int main(int argc, char **argv)
     output = render(item, 4, 4);
     expect(output.pixel(0, 0) == 0xff304050U,
            "CanvasItem frame changes must re-evaluate raster keyframes");
-    expect(output.pixel(1, 1) == 0xffffcc00U,
-           "static vector content must remain visible across frames");
+    expect(output.pixel(1, 1) == 0xff304050U
+               && item.residentLayerTileCount() == 1,
+           "CanvasItem must stop requesting and presenting a layer outside its frame range");
+
+    const DocumentEditResult widenedRange = item.editDocument(
+        [](DocumentEditor &editor) {
+            return editor.setLayerFrameRange("vector", LayerFrameRange{0, 1});
+        });
+    output = render(item, 4, 4);
+    expect(widenedRange.ok() && widenedRange.changed
+               && output.pixel(1, 1) == 0xffffcc00U
+               && item.residentLayerTileCount() == 2,
+           "widening a range on the current frame must replace composed and per-layer cache generations");
+    const DocumentEditResult narrowedRange = item.editDocument(
+        [](DocumentEditor &editor) {
+            return editor.setLayerFrameRange("vector", LayerFrameRange{0, 0});
+        });
+    output = render(item, 4, 4);
+    expect(narrowedRange.ok() && narrowedRange.changed
+               && output.pixel(1, 1) == 0xff304050U
+               && item.residentLayerTileCount() == 1,
+           "narrowing a range on the current frame must evict stale layer presentation tiles");
 
     expect(item.selectLayer(QStringLiteral("background")) && item.rasterLayerSelected(),
            "CanvasItem must select the current raster asset through its document layer");

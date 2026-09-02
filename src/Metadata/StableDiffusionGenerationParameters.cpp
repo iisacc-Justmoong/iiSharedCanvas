@@ -1,4 +1,4 @@
-#include "Metadata/Automatic1111Metadata.h"
+#include "Metadata/StableDiffusionGenerationParameters.h"
 
 #include <algorithm>
 #include <charconv>
@@ -23,8 +23,8 @@ struct ParameterLineParse {
     std::size_t errorOffset = 0;
 };
 
-void addIssue(Automatic1111ParseResult &result,
-              Automatic1111ParseCode code,
+void addIssue(StableDiffusionGenerationParametersParseResult &result,
+              StableDiffusionGenerationParametersParseCode code,
               std::string path,
               std::string message)
 {
@@ -361,28 +361,30 @@ std::string joinPromptLines(const std::vector<std::string_view> &lines,
 }
 
 const StableDiffusionMetadataEntry *findParameterEntry(
-    const Automatic1111Infotext &infotext,
+    const StableDiffusionGenerationParameters &generationParameters,
     std::string_view key) noexcept
 {
     const auto found = std::find_if(
-        infotext.parameters.rbegin(), infotext.parameters.rend(),
+        generationParameters.parameters.rbegin(),
+        generationParameters.parameters.rend(),
         [key](const auto &entry) { return entry.key == key; });
-    return found == infotext.parameters.rend() ? nullptr : &*found;
+    return found == generationParameters.parameters.rend() ? nullptr : &*found;
 }
 
-bool hasParameter(const Automatic1111Infotext &infotext,
+bool hasParameter(const StableDiffusionGenerationParameters &generationParameters,
                   std::string_view key) noexcept
 {
-    return findParameterEntry(infotext, key) != nullptr;
+    return findParameterEntry(generationParameters, key) != nullptr;
 }
 
 template<typename Integer>
-std::optional<Integer> unsignedInteger(Automatic1111ParseResult &result,
-                                       std::string_view key,
-                                       bool positive)
+std::optional<Integer> unsignedInteger(
+    StableDiffusionGenerationParametersParseResult &result,
+    std::string_view key,
+    bool positive)
 {
     const StableDiffusionMetadataEntry *entry =
-        findParameterEntry(result.infotext, key);
+        findParameterEntry(result.generationParameters, key);
     if (!entry) {
         return std::nullopt;
     }
@@ -392,13 +394,13 @@ std::optional<Integer> unsignedInteger(Automatic1111ParseResult &result,
     const auto parsed = std::from_chars(begin, end, value);
     if (entry->value.empty() || parsed.ec != std::errc{}
         || parsed.ptr != end) {
-        addIssue(result, Automatic1111ParseCode::InvalidInteger,
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidInteger,
                  "parameters." + std::string(key),
                  std::string(key) + " must be an unsigned integer");
         return std::nullopt;
     }
     if (positive && value == 0) {
-        addIssue(result, Automatic1111ParseCode::InvalidValueRange,
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidValueRange,
                  "parameters." + std::string(key),
                  std::string(key) + " must be positive");
         return std::nullopt;
@@ -406,13 +408,13 @@ std::optional<Integer> unsignedInteger(Automatic1111ParseResult &result,
     return value;
 }
 
-std::optional<double> finiteNumber(Automatic1111ParseResult &result,
+std::optional<double> finiteNumber(StableDiffusionGenerationParametersParseResult &result,
                                    std::string_view key,
                                    double minimum,
                                    double maximum)
 {
     const StableDiffusionMetadataEntry *entry =
-        findParameterEntry(result.infotext, key);
+        findParameterEntry(result.generationParameters, key);
     if (!entry) {
         return std::nullopt;
     }
@@ -423,13 +425,13 @@ std::optional<double> finiteNumber(Automatic1111ParseResult &result,
         begin, end, value, std::chars_format::general);
     if (entry->value.empty() || parsed.ec != std::errc{}
         || parsed.ptr != end || !std::isfinite(value)) {
-        addIssue(result, Automatic1111ParseCode::InvalidNumber,
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidNumber,
                  "parameters." + std::string(key),
                  std::string(key) + " must be a finite number");
         return std::nullopt;
     }
     if (value < minimum || value > maximum) {
-        addIssue(result, Automatic1111ParseCode::InvalidValueRange,
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidValueRange,
                  "parameters." + std::string(key),
                  std::string(key) + " is outside its supported range");
         return std::nullopt;
@@ -438,17 +440,17 @@ std::optional<double> finiteNumber(Automatic1111ParseResult &result,
 }
 
 std::optional<StableDiffusionImageExtent> imageExtent(
-    Automatic1111ParseResult &result)
+    StableDiffusionGenerationParametersParseResult &result)
 {
     const StableDiffusionMetadataEntry *entry =
-        findParameterEntry(result.infotext, "Size");
+        findParameterEntry(result.generationParameters, "Size");
     if (!entry) {
         return std::nullopt;
     }
     const std::size_t separator = entry->value.find('x');
     if (separator == std::string::npos
         || entry->value.find('x', separator + 1) != std::string::npos) {
-        addIssue(result, Automatic1111ParseCode::InvalidImageSize,
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidImageSize,
                  "parameters.Size", "Size must use WIDTHxHEIGHT");
         return std::nullopt;
     }
@@ -468,7 +470,7 @@ std::optional<StableDiffusionImageExtent> imageExtent(
         || widthResult.ptr != widthText.data() + widthText.size()
         || heightResult.ptr != heightText.data() + heightText.size()
         || width == 0 || height == 0) {
-        addIssue(result, Automatic1111ParseCode::InvalidImageSize,
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidImageSize,
                  "parameters.Size",
                  "Size must contain positive unsigned WIDTHxHEIGHT values");
         return std::nullopt;
@@ -493,9 +495,9 @@ std::string hashType(std::string_view value)
         return "sha256-prefix-10";
     }
     if (hexadecimal(value) && value.size() == 8) {
-        return "automatic1111-legacy-model-hash";
+        return "sha256-partial-prefix-8";
     }
-    return value.empty() ? std::string{} : "automatic1111-hash";
+    return value.empty() ? std::string{} : "opaque-generation-hash";
 }
 
 bool specialSelection(std::string_view value,
@@ -505,25 +507,26 @@ bool specialSelection(std::string_view value,
     return value.empty() || value == first || (!second.empty() && value == second);
 }
 
-void projectParameters(Automatic1111ParseResult &result)
+void projectParameters(StableDiffusionGenerationParametersParseResult &result)
 {
     StableDiffusionMetadata &metadata = result.metadata;
-    const Automatic1111Infotext &infotext = result.infotext;
+    const StableDiffusionGenerationParameters &generationParameters =
+        result.generationParameters;
     std::unordered_set<std::string> consumed;
     const auto consume = [&consumed](std::string_view key) {
         consumed.emplace(key);
     };
 
     metadata.outputExtent = imageExtent(result);
-    if (hasParameter(infotext, "Size")) {
+    if (hasParameter(generationParameters, "Size")) {
         consume("Size");
     }
     metadata.batchSize = unsignedInteger<std::uint32_t>(
         result, "Batch size", true);
-    if (hasParameter(infotext, "Batch size")) {
+    if (hasParameter(generationParameters, "Batch size")) {
         consume("Batch size");
     }
-    if (hasParameter(infotext, "Clip skip")) {
+    if (hasParameter(generationParameters, "Clip skip")) {
         metadata.clipSkip = unsignedInteger<std::uint32_t>(
             result, "Clip skip", true);
         consume("Clip skip");
@@ -538,14 +541,16 @@ void projectParameters(Automatic1111ParseResult &result)
     const auto denoise = finiteNumber(result, "Denoising strength", 0.0, 1.0);
     for (std::string_view key : {"Steps", "Seed", "CFG scale",
                                  "Denoising strength"}) {
-        if (hasParameter(infotext, key)) {
+        if (hasParameter(generationParameters, key)) {
             consume(key);
         }
     }
 
-    const std::string *sampler = findAutomatic1111Parameter(infotext, "Sampler");
+    const std::string *sampler = findStableDiffusionGenerationParameter(
+        generationParameters, "Sampler");
     const std::string *schedule =
-        findAutomatic1111Parameter(infotext, "Schedule type");
+        findStableDiffusionGenerationParameter(
+            generationParameters, "Schedule type");
     if (sampler) {
         consume("Sampler");
     }
@@ -553,15 +558,17 @@ void projectParameters(Automatic1111ParseResult &result)
         consume("Schedule type");
     }
     const bool hasMainSettings = steps || seed || cfg || denoise || sampler
-        || schedule || hasParameter(infotext, "Steps")
-        || hasParameter(infotext, "Seed") || hasParameter(infotext, "CFG scale");
+        || schedule || hasParameter(generationParameters, "Steps")
+        || hasParameter(generationParameters, "Seed")
+        || hasParameter(generationParameters, "CFG scale");
 
     const bool hasHires = std::any_of(
-        infotext.parameters.begin(), infotext.parameters.end(),
+        generationParameters.parameters.begin(),
+        generationParameters.parameters.end(),
         [](const auto &entry) { return entry.key.starts_with("Hires "); });
     if (hasMainSettings) {
         StableDiffusionSamplingPass pass;
-        pass.nodeId = "automatic1111.main";
+        pass.nodeId = "stable-diffusion.main";
         pass.seed = seed;
         pass.steps = steps;
         pass.cfgScale = cfg;
@@ -574,9 +581,11 @@ void projectParameters(Automatic1111ParseResult &result)
     }
 
     const std::string *hiresSampler =
-        findAutomatic1111Parameter(infotext, "Hires sampler");
+        findStableDiffusionGenerationParameter(
+            generationParameters, "Hires sampler");
     const std::string *hiresSchedule =
-        findAutomatic1111Parameter(infotext, "Hires schedule type");
+        findStableDiffusionGenerationParameter(
+            generationParameters, "Hires schedule type");
     auto hiresSteps = unsignedInteger<std::uint32_t>(
         result, "Hires steps", false);
     if (hiresSteps && *hiresSteps == 0) {
@@ -584,13 +593,13 @@ void projectParameters(Automatic1111ParseResult &result)
     }
     for (std::string_view key : {"Hires steps", "Hires sampler",
                                  "Hires schedule type"}) {
-        if (hasParameter(infotext, key)) {
+        if (hasParameter(generationParameters, key)) {
             consume(key);
         }
     }
     if (hasHires && (hiresSteps || hiresSampler || hiresSchedule || denoise)) {
         StableDiffusionSamplingPass pass;
-        pass.nodeId = "automatic1111.hires";
+        pass.nodeId = "stable-diffusion.hires";
         pass.steps = hiresSteps;
         pass.samplerName = hiresSampler ? *hiresSampler : "Use same sampler";
         if (pass.samplerName == "Use same sampler") {
@@ -607,7 +616,8 @@ void projectParameters(Automatic1111ParseResult &result)
     }
 
     const std::string *version =
-        findAutomatic1111Parameter(infotext, "Version");
+        findStableDiffusionGenerationParameter(
+            generationParameters, "Version");
     if (version) {
         metadata.softwareVersion = *version;
         consume("Version");
@@ -618,7 +628,8 @@ void projectParameters(Automatic1111ParseResult &result)
                               std::string_view hashKey,
                               std::string_view sentinel,
                               std::string_view alternateSentinel = {}) {
-        const std::string *name = findAutomatic1111Parameter(infotext, nameKey);
+        const std::string *name = findStableDiffusionGenerationParameter(
+            generationParameters, nameKey);
         if (!name || specialSelection(*name, sentinel, alternateSentinel)) {
             return;
         }
@@ -627,7 +638,8 @@ void projectParameters(Automatic1111ParseResult &result)
         resource.name = *name;
         if (!hashKey.empty()) {
             if (const std::string *hash =
-                    findAutomatic1111Parameter(infotext, hashKey)) {
+                    findStableDiffusionGenerationParameter(
+                        generationParameters, hashKey)) {
                 resource.hash = *hash;
                 resource.hashType = hashType(*hash);
                 consume(hashKey);
@@ -643,7 +655,8 @@ void projectParameters(Automatic1111ParseResult &result)
     addModel("refiner", "Refiner", {}, "None");
 
     std::unordered_map<std::string, std::size_t> extraIndices;
-    for (const StableDiffusionMetadataEntry &entry : infotext.parameters) {
+    for (const StableDiffusionMetadataEntry &entry
+         : generationParameters.parameters) {
         if (consumed.contains(entry.key)) {
             continue;
         }
@@ -659,48 +672,48 @@ void projectParameters(Automatic1111ParseResult &result)
 
 } // namespace
 
-Automatic1111ParseResult parseAutomatic1111Infotext(std::string_view infotext)
+StableDiffusionGenerationParametersParseResult
+parseStableDiffusionGenerationParameters(std::string_view generationParameters)
 {
-    Automatic1111ParseResult result;
-    result.infotext.rawInfotext.assign(infotext);
-    result.metadata.automatic1111Parameters.assign(infotext);
-    result.metadata.software = "AUTOMATIC1111";
+    StableDiffusionGenerationParametersParseResult result;
+    result.generationParameters.rawText.assign(generationParameters);
+    result.metadata.generationParametersText.assign(generationParameters);
 
-    if (infotext.empty() || trim(infotext).empty()) {
-        addIssue(result, Automatic1111ParseCode::EmptyInfotext, {},
-                 "AUTOMATIC1111 infotext must not be empty");
+    if (generationParameters.empty() || trim(generationParameters).empty()) {
+        addIssue(result, StableDiffusionGenerationParametersParseCode::EmptyText, {},
+                 "generation-parameters text must not be empty");
         return result;
     }
-    if (!validUtf8(infotext)) {
-        addIssue(result, Automatic1111ParseCode::InvalidUtf8, {},
-                 "AUTOMATIC1111 infotext must use canonical UTF-8");
+    if (!validUtf8(generationParameters)) {
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidUtf8, {},
+                 "generation-parameters text must use canonical UTF-8");
         return result;
     }
 
-    const std::string_view semanticText = trim(infotext);
+    const std::string_view semanticText = trim(generationParameters);
     const std::vector<std::string_view> lines = splitLines(semanticText);
     const std::string_view parameterLine = trim(lines.back());
     ParameterLineParse parsedLine = parseParameterLine(parameterLine);
     if (parsedLine.parameters.size() < 3) {
-        result.infotext.positivePrompt = joinPromptLines(lines, lines.size(), false);
-        result.infotext.negativePrompt = joinPromptLines(lines, lines.size(), true);
-        result.metadata.positivePrompt = result.infotext.positivePrompt;
-        result.metadata.negativePrompt = result.infotext.negativePrompt;
-        addIssue(result, Automatic1111ParseCode::MissingParameterLine,
+        result.generationParameters.positivePrompt = joinPromptLines(lines, lines.size(), false);
+        result.generationParameters.negativePrompt = joinPromptLines(lines, lines.size(), true);
+        result.metadata.positivePrompt = result.generationParameters.positivePrompt;
+        result.metadata.negativePrompt = result.generationParameters.negativePrompt;
+        addIssue(result, StableDiffusionGenerationParametersParseCode::MissingParameterLine,
                  "parameters",
                  "the final line must contain at least three key-value parameters");
         return result;
     }
 
-    result.infotext.parameters = std::move(parsedLine.parameters);
-    result.infotext.positivePrompt =
+    result.generationParameters.parameters = std::move(parsedLine.parameters);
+    result.generationParameters.positivePrompt =
         joinPromptLines(lines, lines.size() - 1, false);
-    result.infotext.negativePrompt =
+    result.generationParameters.negativePrompt =
         joinPromptLines(lines, lines.size() - 1, true);
-    result.metadata.positivePrompt = result.infotext.positivePrompt;
-    result.metadata.negativePrompt = result.infotext.negativePrompt;
+    result.metadata.positivePrompt = result.generationParameters.positivePrompt;
+    result.metadata.negativePrompt = result.generationParameters.negativePrompt;
     if (parsedLine.syntaxError) {
-        addIssue(result, Automatic1111ParseCode::InvalidParameterSyntax,
+        addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidParameterSyntax,
                  "parameters[" + std::to_string(parsedLine.errorOffset) + "]",
                  "the final parameter line has invalid key-value or JSON string syntax");
     }
@@ -710,19 +723,19 @@ Automatic1111ParseResult parseAutomatic1111Infotext(std::string_view infotext)
         const StableDiffusionValidationResult validation =
             validateStableDiffusionMetadata(result.metadata);
         for (const StableDiffusionValidationIssue &issue : validation.issues) {
-            addIssue(result, Automatic1111ParseCode::InvalidMappedMetadata,
+            addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidMappedMetadata,
                      issue.path, issue.message);
         }
     }
     return result;
 }
 
-const std::string *findAutomatic1111Parameter(
-    const Automatic1111Infotext &infotext,
+const std::string *findStableDiffusionGenerationParameter(
+    const StableDiffusionGenerationParameters &generationParameters,
     std::string_view key) noexcept
 {
     const StableDiffusionMetadataEntry *entry =
-        findParameterEntry(infotext, key);
+        findParameterEntry(generationParameters, key);
     return entry ? &entry->value : nullptr;
 }
 

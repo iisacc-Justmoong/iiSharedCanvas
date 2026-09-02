@@ -14,6 +14,20 @@
 
 namespace iiSharedCanvas {
 
+namespace render_detail {
+
+IISHAREDCANVAS_NO_EXPORT FrameLayerBatchRenderResult preflightFrameLayerRender(
+    const Document &document,
+    FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests);
+IISHAREDCANVAS_NO_EXPORT FrameLayerTileRenderResult renderPreflightedFrameLayerTiles(
+    const Document &document,
+    FrameIndex frame,
+    std::size_t layerIndex,
+    const std::vector<FrameRenderTileRequest> &requests);
+
+} // namespace render_detail
+
 namespace {
 
 struct AsyncFrameRenderOutput {
@@ -66,12 +80,59 @@ void renderParallelLayers(const std::shared_ptr<ParallelLayerState> &state)
         if (layerIndex >= state->layers.size()) {
             break;
         }
-        state->layers[layerIndex] = renderFrameLayerTiles(
-            *state->document, state->frame, layerIndex, state->requests);
+        state->layers[layerIndex] =
+            render_detail::renderPreflightedFrameLayerTiles(
+                *state->document, state->frame, layerIndex, state->requests);
     }
 
     if (state->remainingWorkers.fetch_sub(1, std::memory_order_acq_rel) == 1) {
         finishParallelLayers(state);
+    }
+}
+
+void preflightAndRender(
+    std::shared_ptr<const Document> document,
+    FrameIndex frame,
+    std::vector<FrameRenderTileRequest> requests,
+    const std::shared_ptr<QPromise<AsyncFrameRenderOutput>> &promise)
+{
+    if (promise->isCanceled()) {
+        promise->finish();
+        return;
+    }
+
+    FrameLayerBatchRenderResult preflight =
+        render_detail::preflightFrameLayerRender(*document, frame, requests);
+    if (promise->isCanceled()) {
+        promise->finish();
+        return;
+    }
+    if (!preflight.ok() || document->layers.empty()) {
+        if (!promise->isCanceled()) {
+            AsyncFrameRenderOutput output;
+            output.layers = std::move(preflight);
+            output.frame = composeFrameLayers(output.layers);
+            promise->addResult(std::move(output));
+        }
+        promise->finish();
+        return;
+    }
+
+    auto state = std::make_shared<ParallelLayerState>();
+    state->document = std::move(document);
+    state->frame = frame;
+    state->requests = std::move(requests);
+    state->layers.resize(state->document->layers.size());
+    state->promise = promise;
+
+    const std::size_t maximumWorkers = static_cast<std::size_t>(
+        std::max(1, QThreadPool::globalInstance()->maxThreadCount()));
+    const std::size_t workerCount = std::min(state->layers.size(), maximumWorkers);
+    state->remainingWorkers.store(workerCount, std::memory_order_relaxed);
+    for (std::size_t worker = 0; worker < workerCount; ++worker) {
+        QThreadPool::globalInstance()->start([state] {
+            renderParallelLayers(state);
+        });
     }
 }
 
@@ -203,38 +264,13 @@ void AsyncFrameRenderer::startNext()
     QFuture<AsyncFrameRenderOutput> future = promise->future();
     d->watcher.setFuture(future);
 
-    const std::size_t layerCount = request.document->layers.size();
-    if (layerCount == 0) {
-        QThreadPool::globalInstance()->start(
-            [promise = std::move(promise), request = std::move(request)]() mutable {
-                if (!promise->isCanceled()) {
-                    AsyncFrameRenderOutput output;
-                    output.layers = renderFrameLayers(
-                        *request.document, request.frame, request.tiles);
-                    output.frame = composeFrameLayers(output.layers);
-                    promise->addResult(std::move(output));
-                }
-                promise->finish();
-            });
-        return;
-    }
-
-    auto state = std::make_shared<ParallelLayerState>();
-    state->document = std::move(request.document);
-    state->frame = request.frame;
-    state->requests = std::move(request.tiles);
-    state->layers.resize(layerCount);
-    state->promise = std::move(promise);
-
-    const std::size_t maximumWorkers = static_cast<std::size_t>(
-        std::max(1, QThreadPool::globalInstance()->maxThreadCount()));
-    const std::size_t workerCount = std::min(layerCount, maximumWorkers);
-    state->remainingWorkers.store(workerCount, std::memory_order_relaxed);
-    for (std::size_t worker = 0; worker < workerCount; ++worker) {
-        QThreadPool::globalInstance()->start([state] {
-            renderParallelLayers(state);
+    QThreadPool::globalInstance()->start(
+        [promise = std::move(promise), request = std::move(request)]() mutable {
+            preflightAndRender(std::move(request.document),
+                               request.frame,
+                               std::move(request.tiles),
+                               promise);
         });
-    }
 }
 
 void AsyncFrameRenderer::finishCurrent()

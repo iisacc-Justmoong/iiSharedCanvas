@@ -72,10 +72,10 @@ void replaceAssetReferences(Document &document,
             if (source->assetId == from) {
                 source->assetId = to;
             }
-            continue;
         }
-        auto &source = std::get<KeyframedSource>(sourceValue);
-        for (Keyframe &keyframe : source.keyframes) {
+    }
+    for (Frame &frame : document.frames) {
+        for (Keyframe &keyframe : frame.keyframes) {
             if (keyframe.assetId == from) {
                 keyframe.assetId = to;
             }
@@ -101,15 +101,129 @@ bool sameTransform(const AffineTransform &first,
         && first.translationY == second.translationY;
 }
 
-bool sameKeyframes(const std::vector<Keyframe> &first,
-                   const std::vector<Keyframe> &second)
+std::vector<KeyframePlacement> keyframePlacements(const Document &document,
+                                                  const std::string &layerId)
+{
+    std::vector<KeyframePlacement> placements;
+    for (const Frame &frame : document.frames) {
+        if (const Keyframe *keyframe = findKeyframe(frame, layerId)) {
+            placements.push_back({frame.index, keyframe->assetId});
+        }
+    }
+    return placements;
+}
+
+bool sameKeyframes(const std::vector<KeyframePlacement> &first,
+                   const std::vector<KeyframePlacement> &second)
 {
     return first.size() == second.size()
         && std::equal(first.begin(), first.end(), second.begin(),
-                      [](const Keyframe &left, const Keyframe &right) {
+                      [](const KeyframePlacement &left,
+                         const KeyframePlacement &right) {
                           return left.frame == right.frame
                               && left.assetId == right.assetId;
                       });
+}
+
+void removeLayerKeyframes(Document &document, const std::string &layerId)
+{
+    for (Frame &frame : document.frames) {
+        std::erase_if(frame.keyframes, [&layerId](const Keyframe &keyframe) {
+            return keyframe.layerId == layerId;
+        });
+    }
+    std::erase_if(document.frames, [](const Frame &frame) {
+        return frame.keyframes.empty();
+    });
+}
+
+void rebuildLayerFrameIndex(Document &document, const std::string &layerId)
+{
+    Layer *layer = findLayer(document, layerId);
+    if (!layer) {
+        return;
+    }
+    auto *source = std::get_if<KeyframedSource>(&layerSource(*layer));
+    if (!source) {
+        return;
+    }
+    source->frameIndices.clear();
+    source->frameIndices.reserve(document.frames.size());
+    for (const Frame &frame : document.frames) {
+        if (findKeyframe(frame, layerId)) {
+            source->frameIndices.push_back(frame.index);
+        }
+    }
+}
+
+void renameLayerKeyframes(Document &document,
+                          const std::string &from,
+                          const std::string &to)
+{
+    for (Frame &frame : document.frames) {
+        bool renamed = false;
+        for (Keyframe &keyframe : frame.keyframes) {
+            if (keyframe.layerId == from) {
+                keyframe.layerId = to;
+                renamed = true;
+            }
+        }
+        if (renamed) {
+            std::sort(frame.keyframes.begin(), frame.keyframes.end(),
+                      [](const Keyframe &left, const Keyframe &right) {
+                          return left.layerId < right.layerId;
+                      });
+        }
+    }
+}
+
+void insertFrameKeyframe(Document &document,
+                         FrameIndex frameIndexValue,
+                         Keyframe keyframe)
+{
+    const auto framePosition = std::lower_bound(
+        document.frames.begin(), document.frames.end(), frameIndexValue,
+        [](const Frame &frame, FrameIndex index) {
+            return frame.index < index;
+        });
+    if (framePosition != document.frames.end()
+        && framePosition->index == frameIndexValue) {
+        const auto keyframePosition = std::lower_bound(
+            framePosition->keyframes.begin(),
+            framePosition->keyframes.end(),
+            keyframe.layerId,
+            [](const Keyframe &value, const std::string &layerId) {
+                return value.layerId < layerId;
+            });
+        framePosition->keyframes.insert(keyframePosition, std::move(keyframe));
+        return;
+    }
+    document.frames.insert(
+        framePosition,
+        Frame{frameIndexValue, {std::move(keyframe)}});
+}
+
+bool eraseFrameKeyframe(Document &document,
+                        FrameIndex frameIndexValue,
+                        const std::string &layerId)
+{
+    const std::optional<std::size_t> ownerPosition = frameIndex(
+        document, frameIndexValue);
+    if (!ownerPosition) {
+        return false;
+    }
+    Frame &owner = document.frames[*ownerPosition];
+    const std::optional<std::size_t> position = keyframeIndex(owner, layerId);
+    if (!position) {
+        return false;
+    }
+    owner.keyframes.erase(
+        owner.keyframes.begin() + static_cast<std::ptrdiff_t>(*position));
+    if (owner.keyframes.empty()) {
+        document.frames.erase(
+            document.frames.begin() + static_cast<std::ptrdiff_t>(*ownerPosition));
+    }
+    return true;
 }
 
 DocumentEditCode codeForValidationIssue(const ValidationIssue &issue) noexcept
@@ -128,14 +242,13 @@ DocumentEditor::DocumentEditor(Document &value)
 
 DocumentEditResult DocumentEditor::bind(Document &value)
 {
-    m_document = nullptr;
-    m_revision = 0;
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(value)) {
         return reject(DocumentEditCode::InvalidDocument,
                       issue->path,
                       issue->message);
     }
     m_document = &value;
+    m_revision = 0;
     return unchanged();
 }
 
@@ -313,7 +426,9 @@ DocumentEditResult DocumentEditor::setStableDiffusionMetadata(
     const FormatVersion priorVersion = m_document->formatVersion;
     std::optional<StableDiffusionMetadata> prior =
         std::move(m_document->stableDiffusionMetadata);
-    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->formatVersion.major = CurrentFormatMajor;
+    m_document->formatVersion.minor = std::max<std::uint16_t>(
+        m_document->formatVersion.minor, 2);
     m_document->stableDiffusionMetadata = std::move(metadata);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         m_document->formatVersion = priorVersion;
@@ -568,12 +683,74 @@ DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)
                       "layer insertion index is outside the collection");
     }
 
+    const FormatVersion priorVersion = m_document->formatVersion;
+    if (layerProperties(layer).frameRange) {
+        m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    }
     m_document->layers.insert(
         m_document->layers.begin() + static_cast<std::ptrdiff_t>(position),
         std::move(layer));
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         m_document->layers.erase(
             m_document->layers.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertKeyframedLayer(
+    Layer layer,
+    std::vector<KeyframePlacement> keyframes,
+    std::size_t index)
+{
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    if (!std::holds_alternative<KeyframedSource>(layerSource(layer))) {
+        return reject(DocumentEditCode::InvalidArgument, "layer.source",
+                      "atomic keyframed-layer insertion requires a keyframed source marker");
+    }
+    const std::string id = layerProperties(layer).id;
+    if (id.empty()) {
+        return reject(DocumentEditCode::InvalidArgument, "layer.id",
+                      "layer id must not be empty");
+    }
+    if (findLayer(*m_document, id)) {
+        return reject(DocumentEditCode::DuplicateLayerId, "layer.id",
+                      "layer id already exists");
+    }
+    const std::size_t position = insertionIndex(index, m_document->layers.size());
+    if (position > m_document->layers.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "layers",
+                      "layer insertion index is outside the collection");
+    }
+
+    std::sort(keyframes.begin(), keyframes.end(),
+              [](const KeyframePlacement &left,
+                 const KeyframePlacement &right) {
+                  return left.frame < right.frame;
+              });
+    const FormatVersion priorVersion = m_document->formatVersion;
+    if (layerProperties(layer).frameRange) {
+        m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    }
+    std::get<KeyframedSource>(layerSource(layer)).frameIndices.clear();
+    std::vector<Frame> priorFrames = m_document->frames;
+    m_document->layers.insert(
+        m_document->layers.begin() + static_cast<std::ptrdiff_t>(position),
+        std::move(layer));
+    for (KeyframePlacement &placement : keyframes) {
+        insertFrameKeyframe(*m_document,
+                            placement.frame,
+                            Keyframe{id, std::move(placement.assetId)});
+    }
+    rebuildLayerFrameIndex(*m_document, id);
+    if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
+        m_document->layers.erase(
+            m_document->layers.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->frames = std::move(priorFrames);
+        m_document->formatVersion = priorVersion;
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
@@ -589,7 +766,7 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    const std::string &replacementId = layerProperties(layer).id;
+    const std::string replacementId = layerProperties(layer).id;
     if (replacementId.empty()) {
         return reject(DocumentEditCode::InvalidArgument, "layer.id",
                       "replacement layer id must not be empty");
@@ -599,10 +776,28 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
                       "replacement layer id already exists");
     }
 
+    const FormatVersion priorVersion = m_document->formatVersion;
+    if (layerProperties(layer).frameRange) {
+        m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    }
+    const std::string priorId = layerProperties(m_document->layers[*position]).id;
+    const bool replacementIsKeyframed = std::holds_alternative<KeyframedSource>(
+        layerSource(layer));
     Layer prior = std::move(m_document->layers[*position]);
+    std::vector<Frame> priorFrames = m_document->frames;
     m_document->layers[*position] = std::move(layer);
+    if (priorId != replacementId) {
+        renameLayerKeyframes(*m_document, priorId, replacementId);
+    }
+    if (!replacementIsKeyframed) {
+        removeLayerKeyframes(*m_document, replacementId);
+    } else {
+        rebuildLayerFrameIndex(*m_document, replacementId);
+    }
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         m_document->layers[*position] = std::move(prior);
+        m_document->frames = std::move(priorFrames);
+        m_document->formatVersion = priorVersion;
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
@@ -630,7 +825,9 @@ DocumentEditResult DocumentEditor::renameLayer(const std::string &id,
         return reject(DocumentEditCode::DuplicateLayerId, "layer.id",
                       "replacement layer id already exists");
     }
-    layerProperties(*layer).id = std::move(replacementId);
+    layerProperties(*layer).id = replacementId;
+    renameLayerKeyframes(*m_document, id, replacementId);
+    rebuildLayerFrameIndex(*m_document, replacementId);
     return applied();
 }
 
@@ -742,6 +939,37 @@ DocumentEditResult DocumentEditor::setLayerBlendMode(const std::string &id,
     return applied();
 }
 
+DocumentEditResult DocumentEditor::setLayerFrameRange(
+    const std::string &id,
+    std::optional<LayerFrameRange> frameRange)
+{
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    Layer *layer = findLayer(*m_document, id);
+    if (!layer) {
+        return reject(DocumentEditCode::LayerNotFound, "layers",
+                      "layer was not found");
+    }
+    LayerProperties &properties = layerProperties(*layer);
+    if (properties.frameRange == frameRange) {
+        return unchanged();
+    }
+
+    const FormatVersion priorVersion = m_document->formatVersion;
+    std::optional<LayerFrameRange> prior = properties.frameRange;
+    if (frameRange) {
+        m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    }
+    properties.frameRange = std::move(frameRange);
+    if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
+        properties.frameRange = std::move(prior);
+        m_document->formatVersion = priorVersion;
+        return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
+    }
+    return applied();
+}
+
 DocumentEditResult DocumentEditor::setStaticSource(const std::string &id,
                                                    std::string assetIdValue)
 {
@@ -759,16 +987,19 @@ DocumentEditResult DocumentEditor::setStaticSource(const std::string &id,
         return unchanged();
     }
     LayerSource prior = std::move(sourceValue);
+    std::vector<Frame> priorFrames = m_document->frames;
     sourceValue = StaticSource{std::move(assetIdValue)};
+    removeLayerKeyframes(*m_document, id);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         sourceValue = std::move(prior);
+        m_document->frames = std::move(priorFrames);
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
 }
 
 DocumentEditResult DocumentEditor::setKeyframedSource(const std::string &id,
-                                                      std::vector<Keyframe> keyframes)
+                                                      std::vector<KeyframePlacement> keyframes)
 {
     if (!requireValidDocument()) {
         return m_lastResult;
@@ -778,15 +1009,29 @@ DocumentEditResult DocumentEditor::setKeyframedSource(const std::string &id,
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
+    std::sort(keyframes.begin(), keyframes.end(),
+              [](const KeyframePlacement &left,
+                 const KeyframePlacement &right) {
+                  return left.frame < right.frame;
+              });
     LayerSource &sourceValue = layerSource(*layer);
     if (const auto *source = std::get_if<KeyframedSource>(&sourceValue);
-        source && sameKeyframes(source->keyframes, keyframes)) {
+        source && sameKeyframes(keyframePlacements(*m_document, id), keyframes)) {
         return unchanged();
     }
     LayerSource prior = std::move(sourceValue);
-    sourceValue = KeyframedSource{std::move(keyframes)};
+    std::vector<Frame> priorFrames = m_document->frames;
+    sourceValue = KeyframedSource{};
+    removeLayerKeyframes(*m_document, id);
+    for (KeyframePlacement &placement : keyframes) {
+        insertFrameKeyframe(*m_document,
+                            placement.frame,
+                            Keyframe{id, std::move(placement.assetId)});
+    }
+    rebuildLayerFrameIndex(*m_document, id);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         sourceValue = std::move(prior);
+        m_document->frames = std::move(priorFrames);
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
@@ -824,13 +1069,15 @@ DocumentEditResult DocumentEditor::removeLayer(const std::string &id)
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
+    removeLayerKeyframes(*m_document, id);
     m_document->layers.erase(
         m_document->layers.begin() + static_cast<std::ptrdiff_t>(*position));
     return applied();
 }
 
 DocumentEditResult DocumentEditor::insertKeyframe(const std::string &id,
-                                                  Keyframe keyframe)
+                                                  FrameIndex frame,
+                                                  std::string assetIdValue)
 {
     if (!requireValidDocument()) {
         return m_lastResult;
@@ -845,19 +1092,19 @@ DocumentEditResult DocumentEditor::insertKeyframe(const std::string &id,
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");
     }
-    const auto insertion = std::lower_bound(
-        source->keyframes.begin(), source->keyframes.end(), keyframe.frame,
-        [](const Keyframe &value, FrameIndex frame) { return value.frame < frame; });
-    if (insertion != source->keyframes.end() && insertion->frame == keyframe.frame) {
-        return reject(DocumentEditCode::DuplicateKeyframe, "layer.source.keyframes",
+    if (findKeyframe(*m_document, id, frame)) {
+        return reject(DocumentEditCode::DuplicateKeyframe, "frames",
                       "a keyframe already exists at the requested frame");
     }
-    const std::size_t position = static_cast<std::size_t>(
-        std::distance(source->keyframes.begin(), insertion));
-    source->keyframes.insert(insertion, std::move(keyframe));
+    const std::vector<FrameIndex> priorFrameIndices = source->frameIndices;
+    std::vector<Frame> priorFrames = m_document->frames;
+    insertFrameKeyframe(*m_document,
+                        frame,
+                        Keyframe{id, std::move(assetIdValue)});
+    rebuildLayerFrameIndex(*m_document, id);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
-        source->keyframes.erase(
-            source->keyframes.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->frames = std::move(priorFrames);
+        source->frameIndices = priorFrameIndices;
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
@@ -875,14 +1122,13 @@ DocumentEditResult DocumentEditor::setKeyframeAsset(const std::string &id,
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    auto *source = std::get_if<KeyframedSource>(&layerSource(*layer));
-    if (!source) {
+    if (!std::holds_alternative<KeyframedSource>(layerSource(*layer))) {
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");
     }
-    Keyframe *keyframe = findKeyframe(*source, frame);
+    Keyframe *keyframe = findKeyframe(*m_document, id, frame);
     if (!keyframe) {
-        return reject(DocumentEditCode::KeyframeNotFound, "layer.source.keyframes",
+        return reject(DocumentEditCode::KeyframeNotFound, "frames",
                       "keyframe was not found");
     }
     if (keyframe->assetId == assetIdValue) {
@@ -914,26 +1160,29 @@ DocumentEditResult DocumentEditor::moveKeyframe(const std::string &id,
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");
     }
-    Keyframe *keyframe = findKeyframe(*source, frame);
+    const std::vector<FrameIndex> priorFrameIndices = source->frameIndices;
+    Keyframe *keyframe = findKeyframe(*m_document, id, frame);
     if (!keyframe) {
-        return reject(DocumentEditCode::KeyframeNotFound, "layer.source.keyframes",
+        return reject(DocumentEditCode::KeyframeNotFound, "frames",
                       "keyframe was not found");
     }
     if (frame == destinationFrame) {
         return unchanged();
     }
-    if (findKeyframe(*source, destinationFrame)) {
-        return reject(DocumentEditCode::DuplicateKeyframe, "layer.source.keyframes",
+    if (findKeyframe(*m_document, id, destinationFrame)) {
+        return reject(DocumentEditCode::DuplicateKeyframe, "frames",
                       "a keyframe already exists at the destination frame");
     }
-    std::vector<Keyframe> prior = source->keyframes;
-    keyframe->frame = destinationFrame;
-    std::sort(source->keyframes.begin(), source->keyframes.end(),
-              [](const Keyframe &left, const Keyframe &right) {
-                  return left.frame < right.frame;
-              });
+    std::vector<Frame> priorFrames = m_document->frames;
+    std::string assetIdValue = keyframe->assetId;
+    eraseFrameKeyframe(*m_document, frame, id);
+    insertFrameKeyframe(*m_document,
+                        destinationFrame,
+                        Keyframe{id, std::move(assetIdValue)});
+    rebuildLayerFrameIndex(*m_document, id);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
-        source->keyframes = std::move(prior);
+        m_document->frames = std::move(priorFrames);
+        source->frameIndices = priorFrameIndices;
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
@@ -955,18 +1204,17 @@ DocumentEditResult DocumentEditor::removeKeyframe(const std::string &id,
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");
     }
-    const std::optional<std::size_t> position = keyframeIndex(*source, frame);
-    if (!position) {
-        return reject(DocumentEditCode::KeyframeNotFound, "layer.source.keyframes",
+    const std::vector<FrameIndex> priorFrameIndices = source->frameIndices;
+    if (!findKeyframe(*m_document, id, frame)) {
+        return reject(DocumentEditCode::KeyframeNotFound, "frames",
                       "keyframe was not found");
     }
-    Keyframe removed = std::move(source->keyframes[*position]);
-    source->keyframes.erase(
-        source->keyframes.begin() + static_cast<std::ptrdiff_t>(*position));
+    std::vector<Frame> priorFrames = m_document->frames;
+    eraseFrameKeyframe(*m_document, frame, id);
+    rebuildLayerFrameIndex(*m_document, id);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
-        source->keyframes.insert(
-            source->keyframes.begin() + static_cast<std::ptrdiff_t>(*position),
-            std::move(removed));
+        m_document->frames = std::move(priorFrames);
+        source->frameIndices = priorFrameIndices;
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
