@@ -5,11 +5,14 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <string>
 #include <vector>
 
 namespace iiSharedCanvas {
+
+class DocumentFile;
 
 inline constexpr std::size_t AppendDocumentIndex =
     std::numeric_limits<std::size_t>::max();
@@ -30,6 +33,7 @@ enum class DocumentEditCode {
     KeyframeNotFound,
     DuplicateKeyframe,
     ValidationRejected,
+    PersistenceFailed,
 };
 
 struct DocumentEditResult {
@@ -53,8 +57,10 @@ class IISHAREDCANVAS_EXPORT DocumentEditor final {
 public:
     DocumentEditor() = default;
     explicit DocumentEditor(Document &document);
+    explicit DocumentEditor(DocumentFile &file);
 
     DocumentEditResult bind(Document &document);
+    DocumentEditResult bind(DocumentFile &file);
     void unbind() noexcept;
     [[nodiscard]] bool isBound() const noexcept;
     [[nodiscard]] Document *document() noexcept;
@@ -139,6 +145,7 @@ public:
                                         std::size_t index);
 
 private:
+    DocumentEditResult editFile(const std::function<DocumentEditResult(DocumentEditor &)> &edit);
     [[nodiscard]] DocumentEditResult reject(DocumentEditCode code,
                                             std::string path,
                                             std::string message);
@@ -147,6 +154,8 @@ private:
     [[nodiscard]] bool requireValidDocument();
 
     Document *m_document = nullptr;
+    DocumentFile *m_file = nullptr;
+    std::uint64_t m_fileGeneration = 0;
     std::uint64_t m_revision = 0;
     DocumentEditResult m_lastResult;
 };

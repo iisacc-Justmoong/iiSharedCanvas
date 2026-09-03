@@ -99,6 +99,13 @@ geometry, sparse infinite-canvas chunk coordinates, asset references, timeline s
 format versioning, Stable Diffusion recipe metadata, selected-raster editing
 coordination, frame composition, and the format-neutral data contract for
 non-linear video-editing projects.
+It also owns reusable bitmap, SVG/SVGZ, PDF-export and canvas-animation media
+adapters. They convert foreign media at the document boundary without adding
+foreign-codec payloads to assets or mixing content kinds in a layer.
+Codec implementation units use reviewed Qt primitives behind standard C++
+public options/results. Domain models, editors and renderers remain independent
+of direct Qt includes. Private codec headers use co-located `_p.hpp` files and
+are not installed as public API.
 
 All persisted model fields are public aggregate data. `DocumentEditor` is the
 safe structural mutation boundary over those aggregates: it provides stable-id
@@ -109,15 +116,22 @@ Finite bitmap pixels remain the responsibility of `BitmapEditor`; sparse
 infinite bitmap pixels remain the responsibility of `ChunkedBitmapEditor`.
 Native M/L/Q/C/Z command editing remains the responsibility of `VectorEditor`.
 
+`DocumentFile` owns write-through authoring transactions. All editor kinds and
+the Qt adapters can bind to it, so accepted changes are durable before their
+editing calls return. Its committed view is const; arbitrary custom changes
+use the same validated `edit` boundary. The physical record mapping, failure
+rules, and legacy interchange separation are specified in PERSISTENCE.md.
+
 The application owns UI, tools, playback controls, selection experience,
-autosave policy, networking, collaboration, and the selected Camera RAW decoder
+working-file path allocation, networking, collaboration, and the selected Camera RAW decoder
 and processing pipeline. Camera RAW file decoding, demosaicing, and tone
 rendering remain outside the generic data objects. Stable Diffusion
 generation-metadata carrier extraction, inference, model resolution/download,
 graph execution, and trust policy likewise remain application or adapter
-responsibilities. Media probing, decode, encode, mux, playback, timeline frame
-rendering, and codec capability negotiation likewise belong to application or
-media adapters. The library name does not
+responsibilities. Bitmap text-carrier extraction and canvas-animation probing,
+decode, encode, mux and capability discovery are implemented by the library's
+separate media adapters; playback and `TimelineProject` sequence/audio rendering
+remain outside them. The library name does not
 imply that real-time collaboration is part of this milestone.
 
 Dependency direction is one-way:
@@ -186,9 +200,9 @@ composition settings only when it actually contains those clip kinds.
 `TimelineEditor` applies validated structural changes through a candidate-copy
 transaction. Removing referenced media or sequences, mixing a stream kind with
 the wrong track, or supplying an invalid rational rejects the whole edit and
-preserves revision. The standard-library-only data model does not justify an
-FFmpeg dependency; a later media adapter must separately review maintenance,
-license, and dependency size before one is introduced.
+preserves revision. The standard-library-only data model has no FFmpeg link
+dependency. The separately reviewed video adapter now executes a supplied
+FFmpeg runtime for canvas-animation interchange; see DEPENDENCIES.md.
 
 Document contains a format version, finite/infinite mode, positive currently
 allocated canvas extent, optional world origin and chunk size, rational frame
@@ -284,7 +298,8 @@ Streaming input uses iiPaintEngine `RasterDabStream` only while a gesture is
 active, then commits directly into the asset pixels. No point list or replayable
 stroke is added to `Document`.
 
-Undo/redo stores a maximum of 32 full raster snapshots. This is intentionally
+Undo/redo stores a maximum of 32 immutable, shared full raster snapshots, so
+transaction copies do not duplicate the history's pixels. This is intentionally
 the simplest correct first policy and makes a whole brush gesture atomic.
 Patch-based history should replace it only after real document sizes establish
 the required memory budget.
@@ -328,7 +343,9 @@ document remains authoritative and explicit `refresh()` observes external
 mutations. Its GUI thread snapshots validated document state, a coalescing
 worker renders only missing visible/prefetch tiles, and the Qt Quick scene graph
 uploads and transforms those tiles. Application selection UX, tools, playback
-controls, and persistence remain outside the item.
+controls, and document catalog policy remain outside the item. File-bound items
+route all content edits through `DocumentFile`; rendering never schedules disk
+writes and does not determine when edits are durable.
 
 For an application bootstrap path, `createRasterDocument` installs one selected
 transparent raster asset and layer. `replaceSelectedPixels` supports decoded
@@ -396,9 +413,10 @@ software backends preserve correctness with the same nodes.
 
 ## 7. Implemented serialization
 
-The physical package is the canonical binary `.iisc` container defined in
-FORMAT.md. `encodeIisc` and `decodeIisc` use only the C++ standard library and
-therefore preserve the fixed direct dependency set. The 32-byte header records
+The interchange snapshot is the canonical binary `.iisc` container defined in
+FORMAT.md. `encodeIisc` and `decodeIisc` retain their standard-library field
+codec. Write-through working files are specified separately in PERSISTENCE.md
+and reuse those field encodings with fixed raw raster storage. The snapshot's 32-byte header records
 version, payload size, and CRC-32. The payload stores native raster/vector
 assets, sparse chunks, allocated world geometry, ordered layers, transforms,
 timeline references, and optional format-1.2 generation metadata without
@@ -460,17 +478,22 @@ engine and already provides RasterLayer, brush rasterization, blend modes, and
 transforms. It is AGPL-3.0-only and carries Qt/LVRS transitively. iiSharedCanvas
 therefore starts under AGPL-3.0-only.
 
-No second direct dependency is present. Qt Core thread-pool/future primitives
+SQLite is the second direct dependency, supplying durable incremental file
+transactions; DEPENDENCIES.md records its maintenance, license, and size review.
+Its types stay private. Qt Core thread-pool/future primitives
 and the public Qt Quick scene graph arrive through iiPaintEngine's existing Qt
-targets. The `.iisc` codec uses the standard library; SVG, text shaping, GPU
-vector path rasterization, and media codecs remain
-explicit future decisions rather than hidden or vendored code.
+targets. The `.iisc` codec uses the standard library. SVG import maps a strict
+solid-geometry vocabulary through Qt XML/path primitives; SVGZ uses reviewed
+zlib compression. Existing Qt Gui codecs and PDF writing provide image and
+PDF interchange. Text shaping and GPU vector path rasterization remain
+separate decisions.
 
 The video-editing timeline model likewise uses only C++ standard-library
-aggregates and variants. FFmpeg was considered as the common probe, codec, and
-muxing adapter, but adding its large codec surface and license/configuration
-matrix to a pure data model would impose unnecessary maintenance on every
-consumer. Runtime media capability remains a replaceable downstream adapter.
+aggregates and variants. FFmpeg/ffprobe supply actual video probe/decode/encode
+as optional runtime executables without adding that large codec surface to
+every linked consumer. Applications supply their paths and deployment policy;
+the adapter has no downloader, network media input or hidden binary bundle.
+MEDIA_IO.md defines the supported boundary and conversion warnings.
 
 [ComfyUI's workflow metadata documentation](https://docs.comfy.org/development/api-development/workflow-metadata),
 [Workflow API format](https://docs.comfy.org/development/api-development/workflow-api-format),
@@ -521,7 +544,7 @@ install name that CMake does not automatically add to Release consumers.
 Complete when:
 
 - Git and CMake project exist.
-- iiPaintEngine is the only direct dependency.
+- iiPaintEngine is the painting dependency; SQLite is the reviewed file-storage dependency.
 - Mixed static/animated raster and vector document model builds.
 - Format-neutral Camera RAW aggregates and independent validation build.
 - Typed Stable Diffusion metadata and exact ComfyUI graph preservation build.
@@ -582,5 +605,5 @@ Complete when:
 - Cross-platform packages are installed and consumed on every target.
 - [x] Interactive rendering uses bounded resident tiles, LOD, immutable worker
   snapshots, and GPU scene transforms for tens-of-thousands-pixel canvases.
-- Partial decode, thumbnails, autosave, and crash recovery are measured.
+- Partial decode, thumbnails, device-level write latency, and power-cut recovery are measured.
 - Public API compatibility and file migration policy are published.

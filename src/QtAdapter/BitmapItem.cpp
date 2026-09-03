@@ -50,6 +50,20 @@ void BitmapItem::unbind()
     update();
 }
 
+bool BitmapItem::bind(DocumentFile &file, const std::string &assetId)
+{
+    const bool success = m_editor.bind(file, assetId);
+    if (success) {
+        resetView();
+        emit bitmapChanged();
+        emit undoRedoChanged();
+        emit revisionChanged();
+        update();
+    }
+    emit lastErrorChanged();
+    return success;
+}
+
 BitmapEditor &BitmapItem::editor() noexcept
 {
     return m_editor;
@@ -370,7 +384,7 @@ void BitmapItem::cancelStroke()
     const bool priorCanUndo = m_editor.canUndo();
     const bool priorCanRedo = m_editor.canRedo();
     m_editor.cancelStroke();
-    finishEdit(true);
+    finishEdit(m_editor.lastError().empty());
     notifyStateChange(priorRevision, priorCanUndo, priorCanRedo);
 }
 

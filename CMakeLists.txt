@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.3.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.5.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -13,6 +13,15 @@ if(EXISTS "$ENV{HOME}/.local/iiPaintEngine")
 endif()
 
 find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)
+find_package(ZLIB REQUIRED)
+block(SCOPE_FOR VARIABLES)
+    # Prefer the SDK/library headers over SQLite copies embedded in unrelated frameworks.
+    set(CMAKE_FIND_FRAMEWORK LAST)
+    find_package(SQLite3 3.26 REQUIRED)
+endblock()
+if(NOT TARGET SQLite3::SQLite3)
+    add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+endif()
 
 include(cmake/iiSharedCanvasAppleQtCompatibility.cmake)
 
@@ -24,6 +33,10 @@ if(IISHAREDCANVAS_BUILD_SHARED AND NOT EMSCRIPTEN)
 endif()
 
 add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
+        src/Bitmap/BitmapCodec.cpp
+        src/Bitmap/BitmapCodec.h
+        src/Bitmap/ExtendedBitmapCodec.cpp
+        src/Bitmap/ExtendedBitmapCodec_p.hpp
         src/Bitmap/BitmapEditor.cpp
         src/Bitmap/BitmapEditor.h
         src/Bitmap/ChunkedBitmapEditor.cpp
@@ -34,6 +47,11 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Document/Document.h
         src/Document/DocumentEditor.cpp
         src/Document/DocumentEditor.h
+        src/File/DocumentFile.cpp
+        src/File/DocumentFile.h
+        src/Media/MediaIo.cpp
+        src/Media/MediaIo.h
+        src/Media/MediaIo_p.hpp
         src/Metadata/StableDiffusionGenerationParameters.cpp
         src/Metadata/StableDiffusionGenerationParameters.h
         src/Metadata/StableDiffusionMetadata.cpp
@@ -55,7 +73,13 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Validation/Validation.cpp
         src/Validation/Validation.h
         src/Vector/VectorEditor.cpp
-        src/Vector/VectorEditor.h)
+        src/Vector/VectorEditor.h
+        src/Vector/SvgParser.cpp
+        src/Vector/SvgParser_p.hpp
+        src/Vector/VectorCodec.cpp
+        src/Vector/VectorCodec.h
+        src/Video/VideoCodec.cpp
+        src/Video/VideoCodec.h)
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
 
 generate_export_header(iiSharedCanvas
@@ -70,6 +94,7 @@ target_link_libraries(iiSharedCanvas PUBLIC
         iiPaintEngine::iiPaintEngine
         Qt6::Qml
         Qt6::Quick)
+target_link_libraries(iiSharedCanvas PRIVATE SQLite3::SQLite3 ZLIB::ZLIB)
 if(APPLE OR UNIX)
     target_link_options(iiSharedCanvas INTERFACE
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
@@ -100,7 +125,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY src/Bitmap src/Camera src/Document src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector
+install(DIRECTORY src/Bitmap src/Camera src/Document src/File src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
@@ -113,7 +138,7 @@ install(FILES cmake/iiSharedCanvasAppleQtCompatibility.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
-install(FILES README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md
+install(FILES README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/iiSharedCanvas)
 
 configure_package_config_file(
@@ -130,6 +155,26 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 
 if(BUILD_TESTING)
+    foreach(codec Bitmap Vector Video)
+        add_executable(iiSharedCanvas${codec}CodecTest tests/${codec}CodecTest.cpp)
+        target_compile_definitions(iiSharedCanvas${codec}CodecTest PRIVATE
+                IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+        target_link_libraries(iiSharedCanvas${codec}CodecTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+        add_test(NAME iiSharedCanvas.${codec}Codec COMMAND iiSharedCanvas${codec}CodecTest)
+        set_tests_properties(iiSharedCanvas.${codec}Codec PROPERTIES
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endforeach()
+    set_tests_properties(iiSharedCanvas.VideoCodec PROPERTIES SKIP_RETURN_CODE 77)
+
+    add_executable(iiSharedCanvasDocumentFileTest tests/DocumentFileTest.cpp)
+    target_compile_definitions(iiSharedCanvasDocumentFileTest PRIVATE
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_link_libraries(iiSharedCanvasDocumentFileTest PRIVATE
+            iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+    add_test(NAME iiSharedCanvas.DocumentFile COMMAND iiSharedCanvasDocumentFileTest)
+    set_tests_properties(iiSharedCanvas.DocumentFile PROPERTIES
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
     add_executable(iiSharedCanvasStableDiffusionGenerationParametersTest
             tests/StableDiffusionGenerationParametersTest.cpp)
     target_link_libraries(iiSharedCanvasStableDiffusionGenerationParametersTest PRIVATE

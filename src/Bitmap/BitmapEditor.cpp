@@ -1,4 +1,5 @@
 #include "Bitmap/BitmapEditor.h"
+#include "File/DocumentFile.h"
 
 #include <Render/DirtyRegion.h>
 
@@ -55,6 +56,25 @@ BitmapEditor::BitmapEditor(Document &document, const std::string &assetId)
     bind(document, assetId);
 }
 
+BitmapEditor::BitmapEditor(DocumentFile &file, const std::string &assetId)
+{
+    bind(file, assetId);
+}
+
+bool BitmapEditor::bind(DocumentFile &file, const std::string &assetId)
+{
+    if (!file.isOpen()) {
+        setError("no working file is open");
+        return false;
+    }
+    if (!bind(*file.boundDocument(), assetId)) {
+        return false;
+    }
+    m_file = &file;
+    m_fileGeneration = file.bindingGeneration();
+    return true;
+}
+
 bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
 {
     Asset *candidate = findAsset(document, assetIdValue);
@@ -69,6 +89,8 @@ bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
     }
 
     m_document = &document;
+    m_file = nullptr;
+    m_fileGeneration = 0;
     m_assetId = assetIdValue;
     resetRasterDabStream(m_dabStream);
     m_undoHistory.clear();
@@ -86,6 +108,8 @@ bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
 void BitmapEditor::unbind() noexcept
 {
     m_document = nullptr;
+    m_file = nullptr;
+    m_fileGeneration = 0;
     m_assetId.clear();
     resetRasterDabStream(m_dabStream);
     m_undoHistory.clear();
@@ -168,6 +192,9 @@ bool BitmapEditor::setBrush(const BitmapBrush &value)
 
 bool BitmapEditor::setPixel(int x, int y, std::uint32_t argb)
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.setPixel(x, y, argb); });
+    }
     if (!requireBound()) {
         return false;
     }
@@ -198,6 +225,9 @@ bool BitmapEditor::setPixel(int x, int y, std::uint32_t argb)
 
 bool BitmapEditor::clear(std::uint32_t argb)
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.clear(argb); });
+    }
     if (!requireBound()) {
         return false;
     }
@@ -226,6 +256,9 @@ bool BitmapEditor::clear(std::uint32_t argb)
 bool BitmapEditor::replacePatch(DevicePixelRect bounds,
                                 const std::vector<std::uint32_t> &argbPixels)
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.replacePatch(bounds, argbPixels); });
+    }
     if (!requireBound()) {
         return false;
     }
@@ -279,6 +312,9 @@ bool BitmapEditor::replacePatch(DevicePixelRect bounds,
 
 bool BitmapEditor::replacePixels(const RasterLayer &replacement)
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.replacePixels(replacement); });
+    }
     if (!requireBound()) {
         return false;
     }
@@ -309,6 +345,9 @@ bool BitmapEditor::replacePixels(const RasterLayer &replacement)
 
 bool BitmapEditor::beginStroke(DocumentPoint point, double pressure)
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.beginStroke(point, pressure); });
+    }
     if (!requireBound()) {
         return false;
     }
@@ -330,6 +369,9 @@ bool BitmapEditor::beginStroke(DocumentPoint point, double pressure)
 
 bool BitmapEditor::continueStroke(DocumentPoint point, double pressure)
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.continueStroke(point, pressure); });
+    }
     if (!m_strokeActive) {
         setError("no brush stroke is active");
         return false;
@@ -342,6 +384,9 @@ bool BitmapEditor::continueStroke(DocumentPoint point, double pressure)
 
 bool BitmapEditor::endStroke(DocumentPoint point, double pressure)
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.endStroke(point, pressure); });
+    }
     if (!m_strokeActive) {
         setError("no brush stroke is active");
         return false;
@@ -356,9 +401,9 @@ bool BitmapEditor::endStroke(DocumentPoint point, double pressure)
 
     RasterLayer *layer = mutablePixels();
     if (!m_strokeChanged || (layer && !m_undoHistory.empty()
-                             && layer->width == m_undoHistory.back().width
-                             && layer->height == m_undoHistory.back().height
-                             && layer->pixels == m_undoHistory.back().pixels)) {
+                             && layer->width == m_undoHistory.back()->width
+                             && layer->height == m_undoHistory.back()->height
+                             && layer->pixels == m_undoHistory.back()->pixels)) {
         if (!m_undoHistory.empty()) {
             m_undoHistory.pop_back();
         }
@@ -372,16 +417,20 @@ bool BitmapEditor::endStroke(DocumentPoint point, double pressure)
 
 void BitmapEditor::cancelStroke()
 {
+    if (m_file) {
+        (void)editFile([](BitmapEditor &editor) { editor.cancelStroke(); return true; });
+        return;
+    }
     if (!m_strokeActive) {
         return;
     }
 
     RasterLayer *layer = mutablePixels();
     if (layer && !m_undoHistory.empty()) {
-        const bool changed = layer->width != m_undoHistory.back().width
-            || layer->height != m_undoHistory.back().height
-            || layer->pixels != m_undoHistory.back().pixels;
-        *layer = std::move(m_undoHistory.back());
+        const bool changed = layer->width != m_undoHistory.back()->width
+            || layer->height != m_undoHistory.back()->height
+            || layer->pixels != m_undoHistory.back()->pixels;
+        *layer = *m_undoHistory.back();
         m_undoHistory.pop_back();
         if (changed) {
             noteChange(bitmapBounds());
@@ -410,6 +459,9 @@ bool BitmapEditor::canRedo() const noexcept
 
 bool BitmapEditor::undo()
 {
+    if (m_file) {
+        return editFile([](BitmapEditor &editor) { return editor.undo(); });
+    }
     if (!canUndo()) {
         setError("no bitmap edit is available to undo");
         return false;
@@ -417,8 +469,8 @@ bool BitmapEditor::undo()
 
     RasterLayer *layer = mutablePixels();
     const DevicePixelRect priorBounds = bitmapBounds();
-    m_redoHistory.push_back(*layer);
-    *layer = std::move(m_undoHistory.back());
+    m_redoHistory.push_back(std::make_shared<const RasterLayer>(*layer));
+    *layer = *m_undoHistory.back();
     m_undoHistory.pop_back();
     noteChange(uniteDevicePixelRects(priorBounds, bitmapBounds()));
     clearError();
@@ -427,6 +479,9 @@ bool BitmapEditor::undo()
 
 bool BitmapEditor::redo()
 {
+    if (m_file) {
+        return editFile([&](BitmapEditor &editor) { return editor.redo(); });
+    }
     if (!canRedo()) {
         setError("no bitmap edit is available to redo");
         return false;
@@ -434,11 +489,11 @@ bool BitmapEditor::redo()
 
     RasterLayer *layer = mutablePixels();
     const DevicePixelRect priorBounds = bitmapBounds();
-    m_undoHistory.push_back(*layer);
+    m_undoHistory.push_back(std::make_shared<const RasterLayer>(*layer));
     if (m_undoHistory.size() > HistoryLimit) {
         m_undoHistory.erase(m_undoHistory.begin());
     }
-    *layer = std::move(m_redoHistory.back());
+    *layer = *m_redoHistory.back();
     m_redoHistory.pop_back();
     noteChange(uniteDevicePixelRects(priorBounds, bitmapBounds()));
     clearError();
@@ -467,7 +522,8 @@ const std::string &BitmapEditor::lastError() const noexcept
 
 RasterAsset *BitmapEditor::rasterAsset() noexcept
 {
-    if (!m_document || m_assetId.empty()) {
+    if (!m_document || m_assetId.empty()
+        || (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))) {
         return nullptr;
     }
     Asset *asset = findAsset(*m_document, m_assetId);
@@ -476,7 +532,8 @@ RasterAsset *BitmapEditor::rasterAsset() noexcept
 
 const RasterAsset *BitmapEditor::rasterAsset() const noexcept
 {
-    if (!m_document || m_assetId.empty()) {
+    if (!m_document || m_assetId.empty()
+        || (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))) {
         return nullptr;
     }
     const Asset *asset = findAsset(std::as_const(*m_document), m_assetId);
@@ -546,7 +603,7 @@ void BitmapEditor::recordSnapshot(bool clearRedo)
     if (!layer) {
         return;
     }
-    m_undoHistory.push_back(*layer);
+    m_undoHistory.push_back(std::make_shared<const RasterLayer>(*layer));
     if (m_undoHistory.size() > HistoryLimit) {
         m_undoHistory.erase(m_undoHistory.begin());
     }
@@ -611,6 +668,29 @@ bool BitmapEditor::appendStrokePoint(DocumentPoint point, double pressure, bool 
 void BitmapEditor::setError(std::string message)
 {
     m_lastError = std::move(message);
+}
+
+bool BitmapEditor::editFile(const std::function<bool(BitmapEditor &)> &edit)
+{
+    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()) {
+        setError("the working-file binding is no longer valid");
+        return false;
+    }
+    BitmapEditor working = *this;
+    working.m_file = nullptr;
+    working.clearError();
+    const auto result = m_file->edit([&](Document &draft) {
+        working.m_document = &draft;
+        return edit(working);
+    });
+    if (!result.ok()) {
+        setError(working.lastError().empty() ? result.message : working.lastError());
+        return false;
+    }
+    working.m_document = m_document;
+    working.m_file = m_file;
+    *this = std::move(working);
+    return true;
 }
 
 void BitmapEditor::clearError() noexcept

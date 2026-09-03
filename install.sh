@@ -31,10 +31,15 @@ cmake --install "${BUILD_DIR}" --prefix "${INSTALL_PREFIX}" --config Release
 
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/iiSharedCanvas.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapEditor.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapCodec.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Media/MediaIo.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Vector/VectorCodec.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Video/VideoCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/ChunkedBitmapEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Camera/CameraRaw.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/Document.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/DocumentEditor.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/File/DocumentFile.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Metadata/StableDiffusionGenerationParameters.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Metadata/StableDiffusionMetadata.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/BitmapItem.h"
@@ -48,10 +53,13 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Validation/Validation.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Vector/VectorEditor.h"
 test -f "${INSTALL_PREFIX}/lib/cmake/iiSharedCanvas/iiSharedCanvasConfig.cmake"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/API.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PERSISTENCE.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/DEPENDENCIES.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/MEDIA_IO.md"
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.3.0.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.3.0' \
+    \( -name 'libiiSharedCanvas.0.5.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.5.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2

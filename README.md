@@ -12,14 +12,31 @@ The repository contains the versioned in-memory model, validation rules,
 deterministic keyframe evaluation, bounded mixed raster/vector tile rendering,
 an editable raster-asset boundary, sparse infinite-canvas chunks, asynchronous
 Qt Quick scene-graph presentation, CMake package export, canonical `.iisc`
-serialization, and contract tests. Cross-platform device profiling, partial
-decode, and crash-recovery hardening remain later milestones.
+serialization, write-through document files, and contract tests. Cross-platform
+device profiling, partial decode, and hardware power-loss testing remain later
+milestones.
 
 Consumer applications do not shape this public contract in parallel. A library
 change is completed and verified here first; consumers then conform to that
 fixed version through their own bridges. Existing product ViewModels, QML names,
 session-layer models, and tool conventions are not compatibility requirements
 for iiSharedCanvas.
+
+## Write-through authoring
+
+`DocumentFile` owns a working canvas file. Bind the structural, vector, bitmap,
+chunked-bitmap, or Qt editors to that file: every accepted content change is
+written before its editing call returns, including stroke increments, cancel,
+undo, and redo. Changed records and pixel spans are updated transactionally;
+there is no manual save, delayed autosave, or whole-document dump per edit.
+
+`CanvasItem::createFile` and `openFile` expose the working-file path to Qt Quick.
+`DocumentFile::edit` covers application-defined aggregate edits with the same
+validation and failure rollback. The committed document is const; standalone
+`Document` and pathless canvas creation remain explicitly in-memory APIs.
+Working files use SQLite, while `encodeIisc` and `decodeIisc` retain the legacy
+binary snapshot contract for explicit interchange. Existing snapshot files
+are never silently converted or overwritten. See [the persistence contract](docs/PERSISTENCE.md).
 
 ## Content contract
 
@@ -99,9 +116,9 @@ including the three-field terminal-line test, default CLIP skip of 1, default
 zero meaning the main step count. Its official
 [image metadata implementation](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/images.py)
 places this text in PNG `parameters` or an image-format metadata carrier such
-as EXIF `UserComment`. Carrier extraction stays in the importing adapter;
-iiSharedCanvas accepts the extracted UTF-8 string and does not add PNG, JPEG,
-WebP, AVIF, GIF, Pillow, or EXIF dependencies.
+as EXIF `UserComment`. The metadata parser accepts the extracted UTF-8 string
+without a codec dependency. The bitmap adapter now extracts PNG text carriers;
+it does not add Pillow or claim generic EXIF `UserComment` extraction.
 
 ComfyUI `prompt` and `workflow` JSON are stored separately and byte-for-byte as
 UTF-8 strings. This follows ComfyUI's distinction between the API execution
@@ -165,11 +182,34 @@ container, and video/audio codecs atomically; a rejected edit preserves both
 the project and editor revision. An invalid rebind also preserves the existing
 binding and revision instead of detaching the editor.
 
-These objects describe editable media, but do not probe, decode, encode, mux,
-render, or serialize it. Runtime codec availability and media I/O belong to a
-consumer adapter. The model uses only the C++ standard library; adding FFmpeg
-or another media dependency requires a separate maintenance, license, and
-dependency-size review. `TimelineProject` is not encoded by `.iisc` version 1.3.
+These timeline objects remain standard-library-only authoring data, not a
+sequence renderer or audio mixer. The separate `Video/VideoCodec.h` adapter
+now probes, decodes and encodes canvas animation using an optional FFmpeg
+runtime. `TimelineProject` is not encoded by `.iisc` version 1.3.
+
+## Bitmap, vector and video interchange
+
+The installed public API includes real byte/file import and export adapters:
+
+| Content | Import | Export |
+| --- | --- | --- |
+| Bitmap | Qt readers: PNG, JPEG, BMP, TIFF, WebP, HEIC, JP2, icons and portable bitmaps; optional extended TGA/QOI/EXR/DPX/HDR/PCX/SGI, PSD composite and DDS | Available Qt writers plus extended TGA/QOI/EXR/DPX/HDR/PCX/SGI; alpha matte and PNG text controls |
+| Editable vector | Solid SVG/SVGZ paths, shapes, transforms, linear/quadratic/cubic segments and arc conversion | Native SVG/SVGZ; PDF with vector paths and separate bitmap drawing |
+| Rasterized vector | Explicit SVG/PDF page rasterization through an installed Qt plugin | Bitmap/frame output at the canvas extent |
+| Canvas animation | FFmpeg local video/animation to a bitmap layer with frame-owned keys | FFV1/Matroska, MP4/H.264 or HEVC, WebM/VP9, MOV/ProRes or Animation, AVI, GIF, APNG and other supported container/encoder combinations |
+
+`bitmapFormats()` and `videoCapabilities()` report actual runtime support,
+separately for reading and writing. They do not promise every profile/subtype
+or redistribute optional codecs. Imports return detached assets/documents;
+insert imported values through `DocumentFile::edit` for immediate durable
+updates. Exports never substitute for write-through document editing.
+
+Conversions report losses such as alpha removal, reduced precision, stroke
+outlining, rasterization, resampled video timing and omitted audio. Unsupported
+SVG drawing features fail the complete editable import; they are not silently
+dropped. Defaults protect existing exports and all working `.iisc` files.
+Limits, codec deployment, supported SVG details and examples are specified in
+[MEDIA_IO.md](docs/MEDIA_IO.md).
 
 ## Data access and structural editing
 
@@ -377,13 +417,20 @@ absent without introducing an archive or JSON dependency.
 
 ## Dependency
 
-The only direct project dependency is iiPaintEngine 0.1.0. Its exported CMake
+The direct project dependencies are iiPaintEngine 0.1.0, SQLite 3.26 or newer, and zlib.
+SQLite is a private implementation dependency for durable working files;
+[the review](docs/DEPENDENCIES.md) covers maintenance, public-domain licensing,
+footprint, and platform packaging. The API minimum does not pin an old runtime.
+zlib supplies SVGZ compression and PNG integrity checks. Optional FFmpeg/ffprobe executables are supplied
+by the application; this package neither downloads nor bundles them. Their
+maintenance, configuration-dependent licensing and footprint are reviewed in
+[DEPENDENCIES.md](docs/DEPENDENCIES.md).
+iiPaintEngine's exported CMake
 target supplies the raster types, rasterizer, blend modes, transforms, and its
 Qt Core/Gui/Qml/Quick platform targets transitively. `AsyncFrameRenderer` uses
 Qt Core `QPromise`, `QFutureWatcher`, and `QThreadPool`; `CanvasItem` uses the
 public Qt Quick scene graph texture API. These are already-supplied Qt targets,
-so iiSharedCanvas performs no second package discovery and adds no third-party
-runtime.
+so these rendering features add no further package discovery or runtime.
 
 [Adobe DNG 1.7.1](https://helpx.adobe.com/camera-raw/desktop/dng-and-file-formats/digital-negative.html)
 is used only as a public semantic reference for common RAW concepts; this
@@ -443,11 +490,11 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.3.0 with SOVERSION 0.3 and exact-version
-CMake package matching. Adding the optional layer frame range changes the
-public C++ ABI from 0.2.x, so an existing consumer must rebuild against 0.3.0.
-The `.iisc` format advances independently to 1.3 for this field; 1.0 through
-1.2 files remain byte-compatible and canonical re-encoding is tested.
+The current C++ package version is 0.5.0 with SOVERSION 0.5 and exact-version
+CMake package matching. Consumers must rebuild against the new installed
+package to adopt the media APIs. The canonical snapshot model remains version 1.3;
+1.0 through 1.3 compatibility is tested with fixed legacy goldens. Working-file
+schema 1 is identified separately by its SQLite header and application id.
 
 For a tested host install, including an installed-package consumer check:
 

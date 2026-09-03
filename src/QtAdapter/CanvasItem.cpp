@@ -116,6 +116,70 @@ CanvasItem::CanvasItem(QQuickItem *parent)
 
 bool CanvasItem::bind(Document &value)
 {
+    return bindDocument(value, nullptr);
+}
+
+bool CanvasItem::bind(DocumentFile &file)
+{
+    if (!file.isOpen()) {
+        setLastError(QStringLiteral("no working file is open"));
+        return false;
+    }
+    return bindDocument(*file.boundDocument(), &file);
+}
+
+bool CanvasItem::fileBindingValid() const noexcept
+{
+    return !m_file || (m_file->isOpen() && m_fileGeneration == m_file->bindingGeneration());
+}
+
+bool CanvasItem::createFile(const QString &path, int width, int height, quint32 frameCount)
+{
+    if (width <= 0 || height <= 0 || frameCount == 0
+        || static_cast<std::uint64_t>(width) * height > SerializationLimits{}.maximumTotalRasterPixels) {
+        setLastError(QStringLiteral("working-file dimensions or frame count are invalid"));
+        return false;
+    }
+    Document document;
+    document.extent = {width, height};
+    document.timeline.frameCount = frameCount;
+    document.assets.emplace_back(RasterAsset{"canvas.raster.0", makeRasterLayer(width, height)});
+    document.layers.emplace_back(BitmapLayer{{"canvas.layer.0", "Canvas"}, StaticSource{"canvas.raster.0"}});
+    auto file = std::make_unique<DocumentFile>();
+    const auto result = file->create(path.toUtf8().toStdString(), document);
+    if (!result.ok()) {
+        setLastError(QString::fromStdString(result.message));
+        return false;
+    }
+    if (!bind(*file)) {
+        return false;
+    }
+    m_ownedFile = std::move(file);
+    return selectLayer(QStringLiteral("canvas.layer.0"));
+}
+
+bool CanvasItem::openFile(const QString &path)
+{
+    auto file = std::make_unique<DocumentFile>();
+    const auto result = file->open(path.toUtf8().toStdString());
+    if (!result.ok()) {
+        setLastError(QString::fromStdString(result.message));
+        return false;
+    }
+    if (!bind(*file)) {
+        return false;
+    }
+    m_ownedFile = std::move(file);
+    return true;
+}
+
+QString CanvasItem::filePath() const
+{
+    return m_file && fileBindingValid() ? QString::fromStdString(m_file->filePath()) : QString{};
+}
+
+bool CanvasItem::bindDocument(Document &value, DocumentFile *file)
+{
     const ValidationResult validation = validate(value);
     if (!validation.ok()) {
         setLastError(QString::fromStdString(validation.issues.front().path + ": "
@@ -130,7 +194,9 @@ bool CanvasItem::bind(Document &value)
     m_selectedLayerId.clear();
     resetEditState();
     m_document = &value;
-    const DocumentEditResult editorResult = m_documentEditor.bind(value);
+    m_file = file;
+    m_fileGeneration = file ? file->bindingGeneration() : 0;
+    const DocumentEditResult editorResult = file ? m_documentEditor.bind(*file) : m_documentEditor.bind(value);
     if (!editorResult.ok()) {
         m_document = nullptr;
         setLastError(QString::fromStdString(editorResult.message));
@@ -165,6 +231,8 @@ void CanvasItem::unbind()
     resetEditState();
     m_documentEditor.unbind();
     m_document = nullptr;
+    m_file = nullptr;
+    m_fileGeneration = 0;
     m_documentValid = false;
     m_renderSnapshot.reset();
     m_framePixels = {};
@@ -191,12 +259,12 @@ void CanvasItem::unbind()
 
 Document *CanvasItem::document() noexcept
 {
-    return m_document;
+    return m_file ? nullptr : m_document;
 }
 
 const Document *CanvasItem::document() const noexcept
 {
-    return m_document;
+    return fileBindingValid() ? m_document : nullptr;
 }
 
 DocumentEditor *CanvasItem::documentEditor() noexcept
@@ -336,7 +404,7 @@ bool CanvasItem::createInfiniteRasterDocument(int width,
 
 bool CanvasItem::documentReady() const noexcept
 {
-    return m_document != nullptr && m_documentValid;
+    return m_document != nullptr && m_documentValid && fileBindingValid();
 }
 
 int CanvasItem::canvasWidth() const noexcept
@@ -462,7 +530,7 @@ quint32 CanvasItem::frameCount() const noexcept
 
 bool CanvasItem::selectLayer(const QString &layerId)
 {
-    if (!m_document) {
+    if (!m_document || !fileBindingValid()) {
         setLastError(QStringLiteral("no document is bound"));
         return false;
     }
@@ -502,10 +570,11 @@ bool CanvasItem::selectLayer(const QString &layerId)
     bool bound = false;
     if (std::holds_alternative<RasterAsset>(*asset)) {
         m_chunkedEditor.unbind();
-        bound = m_editor.bind(*m_document, resolvedAssetId);
+        bound = m_file ? m_editor.bind(*m_file, resolvedAssetId) : m_editor.bind(*m_document, resolvedAssetId);
     } else {
         m_editor.unbind();
-        bound = m_chunkedEditor.bind(*m_document, resolvedAssetId)
+        bound = (m_file ? m_chunkedEditor.bind(*m_file, resolvedAssetId)
+                        : m_chunkedEditor.bind(*m_document, resolvedAssetId))
             && m_chunkedEditor.setBrush(m_editor.brush());
     }
     if (!bound) {
@@ -1033,6 +1102,10 @@ void CanvasItem::cancelStroke()
     } else {
         m_editor.cancelStroke();
     }
+    if (!activeEditorError().empty()) {
+        setLastError(QString::fromStdString(activeEditorError()));
+        return;
+    }
     m_stabilizerActive = false;
     refresh();
     notifyUndoRedo(priorCanUndo, priorCanRedo);
@@ -1233,8 +1306,12 @@ bool CanvasItem::refresh()
 
 qulonglong CanvasItem::refreshAsync()
 {
-    if (!m_document) {
-        setLastError(QStringLiteral("no document is bound"));
+    if (!m_document || !fileBindingValid()) {
+        m_documentValid = false;
+        m_asyncRenderer.cancel();
+        m_framePixels = {};
+        clearTileCache();
+        setLastError(QStringLiteral("no valid document or working-file session is bound"));
         return 0;
     }
 
@@ -2043,6 +2120,10 @@ const Layer *CanvasItem::selectedLayer() const noexcept
 
 bool CanvasItem::syncSelectedLayer()
 {
+    if (!fileBindingValid()) {
+        setLastError(QStringLiteral("the working-file binding is no longer valid"));
+        return false;
+    }
     if (m_selectedLayerId.empty()) {
         return true;
     }
@@ -2065,9 +2146,9 @@ bool CanvasItem::syncSelectedLayer()
     const bool priorCanRedo = activeEditorCanRedo();
     const BitmapBrush currentBrush = m_editor.brush();
     const bool bound = std::holds_alternative<RasterAsset>(*asset)
-        ? (m_chunkedEditor.unbind(), m_editor.bind(*m_document, resolvedId))
+        ? (m_chunkedEditor.unbind(), m_file ? m_editor.bind(*m_file, resolvedId) : m_editor.bind(*m_document, resolvedId))
         : (m_editor.unbind(),
-           m_chunkedEditor.bind(*m_document, resolvedId)
+           (m_file ? m_chunkedEditor.bind(*m_file, resolvedId) : m_chunkedEditor.bind(*m_document, resolvedId))
                && m_chunkedEditor.setBrush(currentBrush));
     if (!bound) {
         setLastError(QString::fromStdString(activeEditorError()));

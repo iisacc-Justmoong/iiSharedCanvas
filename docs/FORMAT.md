@@ -2,6 +2,13 @@
 
 Status: Implemented canonical binary contract.
 
+This document specifies the version-1 **interchange snapshot**, not the live
+authoring store. [PERSISTENCE.md](PERSISTENCE.md) specifies SQLite working files
+with application id `0x49495343`, schema 1, and incremental write-through edits.
+Both use `.iisc`; distinguish their headers. `encodeIisc`/`decodeIisc` preserve
+the original snapshot bytes, and `DocumentFile::open` does not rewrite legacy
+snapshots. Import explicitly into a new working file before editing it.
+
 ## Identity
 
 - Extension: `.iisc`
@@ -454,8 +461,18 @@ transposes of the same `(layerId, frame, assetId)` relation.
 The public C++ aggregate change that introduced frame-owned keys was shipped as
 package 0.2.0 with SOVERSION 0.2 and requires a consumer rebuild from 0.1.x.
 Adding `LayerProperties::frameRange` changes that aggregate layout again, so it
-is shipped as package 0.3.0 with SOVERSION 0.3 and requires a consumer rebuild
+was shipped as package 0.3.0 with SOVERSION 0.3 and requires a consumer rebuild
 from 0.2.x.
+File-bound editing adds the separate working-file owner in package 0.4.0 with
+SOVERSION 0.4; rebuild consumers against that package. It does not change these
+canonical snapshot bytes.
 Package ABI versioning is separate from this file format: `.iisc` is now 1.3,
 while canonical 1.0, 1.1, and 1.2 fixtures continue to re-encode
 byte-identically.
+
+Media interchange in package 0.5.0 does not change the snapshot wire format or
+working-file schema. Foreign images/videos become committed ARGB raster assets
+and frame-owned keys; SVG becomes native path commands. Original codec bytes,
+SVG markup, packet timestamps, audio tracks and decoder state are not embedded
+in `.iisc`. SVG/PDF/image/video exports are explicitly separate interchange
+operations; they never replace write-through editing of the working file.

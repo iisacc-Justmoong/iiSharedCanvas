@@ -4,8 +4,88 @@
 #include <optional>
 #include <variant>
 
-int main()
+#include <QTemporaryDir>
+#include <QGuiApplication>
+
+namespace {
+
+bool verifyMediaInterchange()
 {
+    using namespace iiSharedCanvas;
+    const auto source = makeRasterLayer(8, 8, 0x80443322U);
+    BitmapExportOptions bitmapOptions;
+    bitmapOptions.text = {{"parameters", "a tree\nSteps: 12, Sampler: Euler, Seed: 6"}};
+    auto bitmapBytes = encodeBitmap(source, bitmapOptions);
+    auto bitmap = decodeBitmap(bitmapBytes.bytes);
+    if (!bitmapBytes.ok() || !bitmap.ok() || bitmap.asset.pixels.pixels != source.pixels
+        || bitmap.text != bitmapOptions.text || bitmapFormats().empty()) { return false; }
+
+    VectorAsset vector{"vector", {8, 8}, {{{MoveTo{{1, 1}}, LineTo{{7, 1}},
+                                         QuadraticTo{{7, 7}, {1, 7}}, ClosePath{}},
+                                        SolidPaint{0xff2244ffU}, std::nullopt}}};
+    VectorExportOptions svgOptions;
+    svgOptions.compressed = true;
+    auto svg = encodeSvg(vector, svgOptions);
+    auto imported = decodeSvg(svg.bytes);
+    if (!svg.ok() || !imported.ok() || imported.asset.paths.empty()) { return false; }
+    Document document;
+    document.extent = {8, 8};
+    document.assets.emplace_back(imported.asset);
+    document.layers.emplace_back(VectorLayer{{"layer", "Imported SVGZ"}, StaticSource{imported.asset.id}});
+    QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/media-XXXXXX"));
+    if (!directory.isValid()) { return false; }
+    if (!exportPdf(document, directory.filePath("vector.pdf").toStdString()).ok()
+        || !exportBitmapFrame(document, 0, directory.filePath("frame.png").toStdString()).ok()) { return false; }
+    const auto filePath = directory.filePath("import.iisc").toStdString();
+    DocumentFile file;
+    if (!file.create(filePath, document).ok()) { return false; }
+    DocumentFile reopened;
+    if (!reopened.open(filePath).ok() || renderFrame(*reopened.document(), 0).pixels.pixels
+        != renderFrame(document, 0).pixels.pixels) { return false; }
+    const auto capabilities = videoCapabilities();
+    if (capabilities.result.code == MediaIoCode::DependencyUnavailable) { return true; }
+    const auto videoPath = directory.filePath("animation.mkv").toStdString();
+    if (!capabilities.ok() || !exportVideo(document, videoPath).ok()) { return false; }
+    auto movie = importVideo(videoPath);
+    return movie.ok() && movie.document.timeline.frameCount == 1
+        && renderFrame(movie.document, 0).pixels.pixels == renderFrame(document, 0).pixels.pixels;
+}
+
+bool verifyWorkingFile(const iiSharedCanvas::Document &document)
+{
+    using namespace iiSharedCanvas;
+    QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/file-XXXXXX"));
+    if (!directory.isValid()) {
+        return false;
+    }
+    const auto path = directory.filePath(QStringLiteral("installed.iisc")).toStdString();
+    DocumentFile file;
+    if (!file.create(path, document).ok()) {
+        return false;
+    }
+    DocumentEditor structure(file);
+    BitmapEditor pixels(file, "installed-pixels");
+    VectorEditor vectors(file, "installed-shape");
+    if (!structure.setLayerName("installed-layer", "Write-through installed package").ok()
+        || !pixels.setPixel(0, 0, 0xff778899U) || !pixels.undo() || !pixels.redo()
+        || !vectors.setViewport({8, 8}).ok()) {
+        return false;
+    }
+    DocumentFile reopened;
+    if (!reopened.open(path).ok()) {
+        return false;
+    }
+    return encodeIisc(*file.document()).bytes == encodeIisc(*reopened.document()).bytes
+        && findRasterAsset(*reopened.document(), "installed-pixels")->pixels.pixels.front() == 0xff778899U
+        && reopened.revision() == file.revision();
+}
+
+} // namespace
+
+int main(int argc, char **argv)
+{
+    if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM")) { qputenv("QT_QPA_PLATFORM", "offscreen"); }
+    QGuiApplication application(argc, argv);
     using namespace iiSharedCanvas;
 
     Document document;
@@ -217,7 +297,8 @@ int main()
     av1.profile = "main";
     const TimelineEditResult timelineCodec = timelineEditor.setRenderVideoCodec(
         timelineProfile.id, av1);
-    return validate(document).ok()
+    return verifyWorkingFile(document) && verifyMediaInterchange()
+        && validate(document).ok()
         && validateCameraRaw(cameraRaw).ok()
         && cameraRawSampleAt(cameraRaw.image, 1, 0)
             == std::optional<std::uint32_t>{2048}

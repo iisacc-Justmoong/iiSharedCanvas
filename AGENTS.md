@@ -28,6 +28,17 @@ the initial milestone is iiPaintEngine. Any additional archive, serialization,
 vector, text, or codec library requires an explicit maintenance, license, and
 dependency-size review.
 
+SQLite is the reviewed second dependency for write-through working files;
+see docs/DEPENDENCIES.md. File-bound edits commit synchronously through
+DocumentFile, never a delayed autosave or whole-document dump. Read-only
+render snapshots must not retain a writable file binding.
+
+Media interchange uses the existing Qt codecs and the reviewed zlib dependency
+for SVGZ and PNG integrity checks. FFmpeg/ffprobe are optional application-selected runtime executables,
+never a hidden download or link dependency. See docs/MEDIA_IO.md and the media
+review in docs/DEPENDENCIES.md. Imports return detached values; inserting them
+into a working document must use its existing validated edit transaction.
+
 Consumer adoption is sequential, not a parallel compatibility exercise:
 
 1. Specify, implement, validate, version, and install iiSharedCanvas on its own.
@@ -70,5 +81,5 @@ iiSharedCanvas API during the same implementation phase.
   pointer trajectory or replay command.
 - BitmapItem is a selected-raster display/input adapter, not evidence that the
   mixed-layer frame renderer or serializer is complete.
-- Qt Quick is consumed through the Qt targets exported transitively by the sole
-  package dependency, iiPaintEngine; product QML continues to use LVRS.
+- Qt Quick is consumed through the Qt targets exported transitively by
+  iiPaintEngine; product QML continues to use LVRS. SQLite remains private storage.

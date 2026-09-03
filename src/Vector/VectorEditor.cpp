@@ -1,4 +1,5 @@
 #include "Vector/VectorEditor.h"
+#include "File/DocumentFile.h"
 
 #include "Validation/Validation.h"
 
@@ -73,6 +74,28 @@ std::string commandPath(std::size_t pathIndex, std::size_t commandIndex)
 VectorEditor::VectorEditor(Document &document, const std::string &assetId)
 {
     bind(document, assetId);
+}
+
+VectorEditor::VectorEditor(DocumentFile &file, const std::string &assetId)
+{
+    bind(file, assetId);
+}
+
+DocumentEditResult VectorEditor::bind(DocumentFile &file, const std::string &assetId)
+{
+    unbind();
+    const auto result = m_documentEditor.bind(file);
+    if (!result.ok()) {
+        return record(result);
+    }
+    const Asset *candidate = findAsset(*file.document(), assetId);
+    if (!candidate || !std::holds_alternative<VectorAsset>(*candidate)) {
+        m_documentEditor.unbind();
+        return reject(candidate ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "a vector asset is required");
+    }
+    m_assetId = assetId;
+    return unchanged();
 }
 
 DocumentEditResult VectorEditor::bind(Document &document,
@@ -151,7 +174,7 @@ const DocumentEditResult &VectorEditor::lastResult() const noexcept
 
 DocumentEditResult VectorEditor::setViewport(CanvasExtent viewport)
 {
-    VectorAsset *vector = validatedAsset();
+    const VectorAsset *vector = validatedAsset();
     if (!vector) {
         return m_lastResult;
     }
@@ -421,9 +444,9 @@ DocumentEditResult VectorEditor::setPathPaint(
     return replacePath(pathIndex, std::move(pathValue));
 }
 
-VectorAsset *VectorEditor::validatedAsset()
+const VectorAsset *VectorEditor::validatedAsset()
 {
-    Document *document = m_documentEditor.document();
+    const Document *document = std::as_const(m_documentEditor).document();
     if (!document) {
         (void)reject(DocumentEditCode::NotBound,
                      "assets",
@@ -440,14 +463,14 @@ VectorAsset *VectorEditor::validatedAsset()
         return nullptr;
     }
 
-    Asset *candidate = findAsset(*document, m_assetId);
+    const Asset *candidate = findAsset(*document, m_assetId);
     if (!candidate) {
         (void)reject(DocumentEditCode::AssetNotFound,
                      "assets",
                      "vector asset was not found");
         return nullptr;
     }
-    VectorAsset *vector = std::get_if<VectorAsset>(candidate);
+    const VectorAsset *vector = std::get_if<VectorAsset>(candidate);
     if (!vector) {
         (void)reject(DocumentEditCode::AssetKindMismatch,
                      "assets",
@@ -458,7 +481,7 @@ VectorAsset *VectorEditor::validatedAsset()
 
 bool VectorEditor::copyPath(std::size_t pathIndex, VectorPath &pathValue)
 {
-    VectorAsset *vector = validatedAsset();
+    const VectorAsset *vector = validatedAsset();
     if (!vector) {
         return false;
     }

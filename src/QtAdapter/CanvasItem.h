@@ -4,6 +4,7 @@
 #include "Bitmap/ChunkedBitmapEditor.h"
 #include "Document/DocumentEditor.h"
 #include "Export.h"
+#include "File/DocumentFile.h"
 #include "QtAdapter/AsyncFrameRenderer.h"
 
 #include <QColor>
@@ -78,11 +79,16 @@ class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickItem {
     Q_PROPERTY(QString graphicsBackend READ graphicsBackend NOTIFY graphicsBackendChanged)
     Q_PROPERTY(qulonglong revision READ revision NOTIFY revisionChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
+    Q_PROPERTY(QString filePath READ filePath NOTIFY documentChanged)
 
 public:
     explicit CanvasItem(QQuickItem *parent = nullptr);
 
     bool bind(Document &document);
+    bool bind(DocumentFile &file);
+    Q_INVOKABLE bool createFile(const QString &path, int width, int height, quint32 frameCount = 1);
+    Q_INVOKABLE bool openFile(const QString &path);
+    [[nodiscard]] QString filePath() const;
     void unbind();
     [[nodiscard]] Document *document() noexcept;
     [[nodiscard]] const Document *document() const noexcept;
@@ -235,6 +241,8 @@ protected:
                         const QRectF &oldGeometry) override;
 
 private:
+    bool bindDocument(Document &document, DocumentFile *file);
+    [[nodiscard]] bool fileBindingValid() const noexcept;
     [[nodiscard]] bool chunkedRasterSelected() const noexcept;
     [[nodiscard]] std::uint64_t activeEditorRevision() const noexcept;
     [[nodiscard]] bool activeEditorCanUndo() const noexcept;
@@ -284,7 +292,10 @@ private:
     void setLastError(QString message);
 
     Document m_ownedDocument;
+    std::unique_ptr<DocumentFile> m_ownedFile;
     Document *m_document = nullptr;
+    DocumentFile *m_file = nullptr;
+    std::uint64_t m_fileGeneration = 0;
     DocumentEditor m_documentEditor;
     RasterLayer m_framePixels;
     AsyncFrameRenderer m_asyncRenderer;

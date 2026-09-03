@@ -14,8 +14,10 @@ class IISHAREDCANVAS_EXPORT VectorEditor final {
 public:
     VectorEditor() = default;
     VectorEditor(Document &document, const std::string &assetId);
+    VectorEditor(DocumentFile &file, const std::string &assetId);
 
     DocumentEditResult bind(Document &document, const std::string &assetId);
+    DocumentEditResult bind(DocumentFile &file, const std::string &assetId);
     void unbind() noexcept;
 
     [[nodiscard]] bool isBound() const noexcept;
@@ -72,7 +74,7 @@ public:
                                     std::optional<StrokeStyle> stroke);
 
 private:
-    [[nodiscard]] VectorAsset *validatedAsset();
+    [[nodiscard]] const VectorAsset *validatedAsset();
     [[nodiscard]] bool copyPath(std::size_t pathIndex, VectorPath &path);
     [[nodiscard]] DocumentEditResult replacePath(std::size_t pathIndex,
                                                  VectorPath path);

@@ -1,10 +1,13 @@
 #pragma once
 
 #include "Bitmap/BitmapEditor.h"
+#include "Bitmap/BitmapCodec.h"
 #include "Bitmap/ChunkedBitmapEditor.h"
 #include "Camera/CameraRaw.h"
 #include "Document/Document.h"
 #include "Document/DocumentEditor.h"
+#include "File/DocumentFile.h"
+#include "Media/MediaIo.h"
 #include "Metadata/StableDiffusionGenerationParameters.h"
 #include "Metadata/StableDiffusionMetadata.h"
 #include "QtAdapter/BitmapItem.h"
@@ -16,3 +19,5 @@
 #include "Timeline/TimelineProject.h"
 #include "Validation/Validation.h"
 #include "Vector/VectorEditor.h"
+#include "Vector/VectorCodec.h"
+#include "Video/VideoCodec.h"

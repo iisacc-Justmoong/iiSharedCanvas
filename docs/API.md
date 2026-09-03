@@ -5,6 +5,43 @@ adds validated editors for callers that do not want to maintain cross-reference
 invariants manually. The aggregates are the serialized truth; the editors are
 convenience and safety boundaries over the same data rather than a second model.
 
+## Media import and export
+
+`Bitmap/BitmapCodec.h`, `Vector/VectorCodec.h`, `Video/VideoCodec.h` and
+`Media/MediaIo.h` are exported by the umbrella header and installed package.
+Options and results are public aggregates with inline `ok()` inspectors.
+`MediaIoResult` distinguishes invalid data/options, unsupported features,
+missing runtime dependencies, limits, collisions, I/O failure, cancellation
+and timeouts; `warnings` describes successful but lossy conversions.
+
+Bitmap byte/file readers return `BitmapImportResult::asset` (`RasterAsset`),
+detected format and text carriers. SVG readers return
+`VectorImportResult::asset` (`VectorAsset`). Video import returns a complete
+`MediaDocumentResult::document` with one typed bitmap layer and frame-owned
+keys. None mutates an existing document; commit returned values inside the
+existing `DocumentFile::edit` boundary. Byte exporters return
+`MediaBytesResult`; file exporters return `MediaIoResult` and publish only a
+completed output, with explicit `overwrite` and working-file protection.
+
+Full format limits, options and usage examples: [MEDIA_IO.md](MEDIA_IO.md).
+
+## Working-file authoring
+
+`DocumentFile` owns the committed canvas and exposes only `const Document *`.
+`create(path, document, limits)` refuses existing paths; `open(path, limits)`
+validates a working file. Each editor's `bind(DocumentFile &)` overload writes
+accepted edits immediately. `DocumentFile::edit` provides a validated atomic
+callback for custom aggregate changes. Neither close nor refresh performs a
+save. `DocumentFileResult` reports rejection, I/O, conflict, schema and limit
+errors; `lastWriteStatistics` exposes logical incremental write counts.
+
+`DocumentEditor` and `CanvasItem` deliberately return null from their mutable
+`document()` overload when file-bound. Use the const overload for a view; use
+file-bound editors or `file.edit` to mutate. Standalone aggregate APIs still
+operate in memory. New file-binding overloads, `CanvasItem::createFile`,
+`openFile`, `filePath`, lifetime rules, stroke/undo failure behavior, and legacy
+import are specified in [PERSISTENCE.md](PERSISTENCE.md).
+
 ## Camera RAW authoring objects
 
 `Camera/CameraRaw.h` is an import-side, format-neutral model. It does not add a
@@ -199,6 +236,9 @@ rejected without discarding the current valid binding or its revision.
 No function in this module opens media, probes a container, decodes or encodes
 a codec, renders a sequence, or writes a project file. `TimelineProject` is not
 encoded by `.iisc` version 1.3.
+
+Actual canvas-animation probing and interchange live in `Video/VideoCodec.h`,
+not in the timeline authoring model.
 
 ## Data ownership and identity
 
@@ -582,7 +622,7 @@ pixels.setPixel(10, 10, 0xffffcc00U);
 
 ## Threading and persistence
 
-`Document`, `DocumentEditor`, `BitmapEditor`, `ChunkedBitmapEditor`,
+`Document`, `DocumentFile`, `DocumentEditor`, `BitmapEditor`, `ChunkedBitmapEditor`,
 `VectorEditor`, and a bound `CanvasItem` are not general-purpose synchronized
 mutation objects. Mutate one
 document from one owning thread; Qt Quick items remain GUI-thread objects.
@@ -596,3 +636,5 @@ Call `validate(document)` before `renderFrame`, `renderFrameRegion`, or
 `encodeIisc` after any direct
 aggregate mutation. The serializer persists only aggregate state; editor
 revision counters, undo stacks, selection, and callbacks are runtime state.
+For file-backed authoring, validation and direct disk commit are automatic at
+the editing boundary. Render snapshots remain detached and cannot write files.

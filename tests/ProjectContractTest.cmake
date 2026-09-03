@@ -13,20 +13,43 @@ endfunction()
 file(READ "${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" cmake_lists)
 string(REGEX MATCHALL "find_package\\(" direct_find_packages "${cmake_lists}")
 list(LENGTH direct_find_packages direct_dependency_count)
-if(NOT direct_dependency_count EQUAL 1)
-    message(FATAL_ERROR "iiSharedCanvas must have exactly one direct find_package dependency")
+if(NOT direct_dependency_count EQUAL 3)
+    message(FATAL_ERROR "iiSharedCanvas must have only the reviewed iiPaintEngine, SQLite and zlib link dependencies")
 endif()
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.3.0 LANGUAGES CXX)")
+             "find_package(SQLite3 3.26 REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(ZLIB REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in" "find_dependency(ZLIB REQUIRED)")
+foreach(module Bitmap/BitmapCodec Vector/VectorCodec Video/VideoCodec Media/MediaIo)
+    require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "src/${module}.cpp")
+    require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h" "${module}.h")
+    require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "${module}.h")
+endforeach()
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/MEDIA_IO.md" "DocumentFile::edit")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md" "runtime executables")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "src/File/DocumentFile.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
+             "find_dependency(SQLite3 3.26 REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "set(CMAKE_FIND_FRAMEWORK LAST)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
+             "set(CMAKE_FIND_FRAMEWORK LAST)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
+             "There is no save method")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
+             "public domain")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "project(iiSharedCanvas VERSION 0.5.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.3.0 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.5.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -70,7 +93,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
              "find_dependency(iiPaintEngine 0.1.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The only direct project dependency is iiPaintEngine 0.1.0")
+             "The direct project dependencies are iiPaintEngine 0.1.0, SQLite")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`BitmapEditor` binds to a raster asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -92,7 +115,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.3.0")
+             "The current C++ package version is 0.5.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -198,7 +221,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.3.0.dylib")
+             "libiiSharedCanvas.0.5.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
@@ -237,7 +260,7 @@ if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
     message(FATAL_ERROR "co-located public headers and implementations must live under src/")
 endif()
 
-foreach(module Bitmap Camera Document Metadata QtAdapter Render Serialization Timeline Validation Vector)
+foreach(module Bitmap Camera Document File Media Metadata QtAdapter Render Serialization Timeline Validation Vector Video)
     if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}")
         message(FATAL_ERROR "${module} must live under src/, not at the repository root")
     endif()
@@ -254,8 +277,9 @@ foreach(module Bitmap Camera Document Metadata QtAdapter Render Serialization Ti
     endforeach()
     foreach(module_implementation IN LISTS module_implementations)
         get_filename_component(source_name "${module_implementation}" NAME_WE)
-        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.h")
-            message(FATAL_ERROR "${module_implementation} must have a co-located header")
+        if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.h"
+           AND NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}_p.hpp")
+            message(FATAL_ERROR "${module_implementation} must have a co-located public or private header")
         endif()
     endforeach()
 endforeach()
@@ -270,6 +294,9 @@ file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Metadata/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.cpp"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/File/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Media/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Video/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Render/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Render/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Serialization/*.h"
@@ -280,6 +307,9 @@ file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Validation/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Vector/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Vector/*.cpp")
+# Codec implementation adapters may use the reviewed Qt dependency. Domain
+# models, editors, renderers and domain/media public headers remain Qt-free.
+list(FILTER core_sources EXCLUDE REGEX "/(Bitmap/BitmapCodec|Bitmap/ExtendedBitmapCodec|Vector/VectorCodec|Vector/SvgParser)\\.cpp$")
 foreach(source_file IN LISTS core_sources)
     file(READ "${source_file}" source_contents)
     if(source_contents MATCHES "#[ \t]*include[ \t]*<Q[A-Za-z]")

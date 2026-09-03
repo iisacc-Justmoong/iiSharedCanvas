@@ -40,6 +40,7 @@ public:
     explicit BitmapItem(QQuickItem *parent = nullptr);
 
     bool bind(Document &document, const std::string &assetId);
+    bool bind(DocumentFile &file, const std::string &assetId);
     void unbind();
     [[nodiscard]] BitmapEditor &editor() noexcept;
     [[nodiscard]] const BitmapEditor &editor() const noexcept;

@@ -1,4 +1,5 @@
 #include "Bitmap/ChunkedBitmapEditor.h"
+#include "File/DocumentFile.h"
 
 #include <Layer/RasterLayer.h>
 #include <Render/DirtyRegion.h>
@@ -58,6 +59,25 @@ ChunkedBitmapEditor::ChunkedBitmapEditor(Document &document, const std::string &
     bind(document, assetId);
 }
 
+ChunkedBitmapEditor::ChunkedBitmapEditor(DocumentFile &file, const std::string &assetId)
+{
+    bind(file, assetId);
+}
+
+bool ChunkedBitmapEditor::bind(DocumentFile &file, const std::string &assetId)
+{
+    if (!file.isOpen()) {
+        setError("no working file is open");
+        return false;
+    }
+    if (!bind(*file.boundDocument(), assetId)) {
+        return false;
+    }
+    m_file = &file;
+    m_fileGeneration = file.bindingGeneration();
+    return true;
+}
+
 bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
 {
     ChunkedRasterAsset *candidate = findChunkedRasterAsset(document, assetId);
@@ -68,6 +88,8 @@ bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
     }
 
     m_document = &document;
+    m_file = nullptr;
+    m_fileGeneration = 0;
     m_assetId = assetId;
     resetRasterDabStream(m_dabStream);
     m_undoHistory.clear();
@@ -85,6 +107,8 @@ bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
 void ChunkedBitmapEditor::unbind() noexcept
 {
     m_document = nullptr;
+    m_file = nullptr;
+    m_fileGeneration = 0;
     m_assetId.clear();
     resetRasterDabStream(m_dabStream);
     m_undoHistory.clear();
@@ -155,6 +179,9 @@ std::optional<std::uint32_t> ChunkedBitmapEditor::pixelAt(std::int32_t x,
 
 bool ChunkedBitmapEditor::clear()
 {
+    if (m_file) {
+        return editFile([&](ChunkedBitmapEditor &editor) { return editor.clear(); });
+    }
     if (!requireBound() || m_strokeActive) {
         if (m_strokeActive) {
             setError("clear cannot run during a brush stroke");
@@ -176,6 +203,9 @@ bool ChunkedBitmapEditor::clear()
 
 bool ChunkedBitmapEditor::replaceRegion(CanvasOrigin origin, const RasterLayer &pixels)
 {
+    if (m_file) {
+        return editFile([&](ChunkedBitmapEditor &editor) { return editor.replaceRegion(origin, pixels); });
+    }
     if (!requireBound() || m_strokeActive) {
         if (m_strokeActive) {
             setError("the chunked bitmap cannot be replaced during a brush stroke");
@@ -235,6 +265,9 @@ bool ChunkedBitmapEditor::replaceRegion(CanvasOrigin origin, const RasterLayer &
 
 bool ChunkedBitmapEditor::beginStroke(DocumentPoint point, double pressure)
 {
+    if (m_file) {
+        return editFile([&](ChunkedBitmapEditor &editor) { return editor.beginStroke(point, pressure); });
+    }
     if (!requireBound() || m_strokeActive || !validPoint(point, pressure)) {
         if (m_strokeActive) {
             setError("a brush stroke is already active");
@@ -251,6 +284,9 @@ bool ChunkedBitmapEditor::beginStroke(DocumentPoint point, double pressure)
 
 bool ChunkedBitmapEditor::continueStroke(DocumentPoint point, double pressure)
 {
+    if (m_file) {
+        return editFile([&](ChunkedBitmapEditor &editor) { return editor.continueStroke(point, pressure); });
+    }
     if (!m_strokeActive) {
         setError("no brush stroke is active");
         return false;
@@ -260,6 +296,9 @@ bool ChunkedBitmapEditor::continueStroke(DocumentPoint point, double pressure)
 
 bool ChunkedBitmapEditor::endStroke(DocumentPoint point, double pressure)
 {
+    if (m_file) {
+        return editFile([&](ChunkedBitmapEditor &editor) { return editor.endStroke(point, pressure); });
+    }
     if (!m_strokeActive) {
         setError("no brush stroke is active");
         return false;
@@ -272,7 +311,7 @@ bool ChunkedBitmapEditor::endStroke(DocumentPoint point, double pressure)
     resetRasterDabStream(m_dabStream);
     ChunkedRasterAsset *bound = asset();
     if (!m_strokeChanged || (bound && !m_undoHistory.empty()
-                             && sameChunks(bound->chunks, m_undoHistory.back()))) {
+                             && sameChunks(bound->chunks, *m_undoHistory.back()))) {
         if (!m_undoHistory.empty()) {
             m_undoHistory.pop_back();
         }
@@ -286,12 +325,16 @@ bool ChunkedBitmapEditor::endStroke(DocumentPoint point, double pressure)
 
 void ChunkedBitmapEditor::cancelStroke()
 {
+    if (m_file) {
+        (void)editFile([](ChunkedBitmapEditor &editor) { editor.cancelStroke(); return true; });
+        return;
+    }
     if (!m_strokeActive) {
         return;
     }
     ChunkedRasterAsset *bound = asset();
     if (bound && !m_undoHistory.empty()) {
-        bound->chunks = std::move(m_undoHistory.back());
+        bound->chunks = *m_undoHistory.back();
         m_undoHistory.pop_back();
         const CanvasOrigin origin = canvasOrigin(*m_document);
         noteChange({{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
@@ -319,13 +362,16 @@ bool ChunkedBitmapEditor::canRedo() const noexcept
 
 bool ChunkedBitmapEditor::undo()
 {
+    if (m_file) {
+        return editFile([](ChunkedBitmapEditor &editor) { return editor.undo(); });
+    }
     if (!canUndo()) {
         setError("no chunked bitmap edit is available to undo");
         return false;
     }
     ChunkedRasterAsset *bound = asset();
-    m_redoHistory.push_back(bound->chunks);
-    bound->chunks = std::move(m_undoHistory.back());
+    m_redoHistory.push_back(std::make_shared<const std::vector<RasterChunk>>(bound->chunks));
+    bound->chunks = *m_undoHistory.back();
     m_undoHistory.pop_back();
     const CanvasOrigin origin = canvasOrigin(*m_document);
     noteChange({{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
@@ -335,16 +381,19 @@ bool ChunkedBitmapEditor::undo()
 
 bool ChunkedBitmapEditor::redo()
 {
+    if (m_file) {
+        return editFile([&](ChunkedBitmapEditor &editor) { return editor.redo(); });
+    }
     if (!canRedo()) {
         setError("no chunked bitmap edit is available to redo");
         return false;
     }
     ChunkedRasterAsset *bound = asset();
-    m_undoHistory.push_back(bound->chunks);
+    m_undoHistory.push_back(std::make_shared<const std::vector<RasterChunk>>(bound->chunks));
     if (m_undoHistory.size() > HistoryLimit) {
         m_undoHistory.erase(m_undoHistory.begin());
     }
-    bound->chunks = std::move(m_redoHistory.back());
+    bound->chunks = *m_redoHistory.back();
     m_redoHistory.pop_back();
     const CanvasOrigin origin = canvasOrigin(*m_document);
     noteChange({{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
@@ -374,11 +423,17 @@ const std::string &ChunkedBitmapEditor::lastError() const noexcept
 
 ChunkedRasterAsset *ChunkedBitmapEditor::asset() noexcept
 {
+    if (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())) {
+        return nullptr;
+    }
     return m_document ? findChunkedRasterAsset(*m_document, m_assetId) : nullptr;
 }
 
 const ChunkedRasterAsset *ChunkedBitmapEditor::asset() const noexcept
 {
+    if (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())) {
+        return nullptr;
+    }
     return m_document
         ? findChunkedRasterAsset(std::as_const(*m_document), m_assetId)
         : nullptr;
@@ -464,7 +519,7 @@ void ChunkedBitmapEditor::recordSnapshot(bool clearRedo)
     if (!bound) {
         return;
     }
-    m_undoHistory.push_back(bound->chunks);
+    m_undoHistory.push_back(std::make_shared<const std::vector<RasterChunk>>(bound->chunks));
     if (m_undoHistory.size() > HistoryLimit) {
         m_undoHistory.erase(m_undoHistory.begin());
     }
@@ -539,6 +594,29 @@ void ChunkedBitmapEditor::setError(std::string message)
 void ChunkedBitmapEditor::clearError() noexcept
 {
     m_lastError.clear();
+}
+
+bool ChunkedBitmapEditor::editFile(const std::function<bool(ChunkedBitmapEditor &)> &edit)
+{
+    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()) {
+        setError("the working-file binding is no longer valid");
+        return false;
+    }
+    ChunkedBitmapEditor working = *this;
+    working.m_file = nullptr;
+    working.clearError();
+    const auto result = m_file->edit([&](Document &draft) {
+        working.m_document = &draft;
+        return edit(working);
+    });
+    if (!result.ok()) {
+        setError(working.lastError().empty() ? result.message : working.lastError());
+        return false;
+    }
+    working.m_document = m_document;
+    working.m_file = m_file;
+    *this = std::move(working);
+    return true;
 }
 
 } // namespace iiSharedCanvas

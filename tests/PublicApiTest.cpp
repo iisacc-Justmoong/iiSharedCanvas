@@ -10,6 +10,28 @@
 #include <QQuickItem>
 #include <QQuickPaintedItem>
 
+static_assert(std::is_aggregate_v<iiSharedCanvas::Document>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::MediaLimits>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::BitmapImportOptions>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::VectorImportOptions>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::VideoImportOptions>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::BitmapImportResult::asset), iiSharedCanvas::RasterAsset>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorImportResult::asset), iiSharedCanvas::VectorAsset>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::MediaDocumentResult::document), iiSharedCanvas::Document>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::VideoInfo::frameRate), iiSharedCanvas::FrameRate>);
+static_assert(std::is_same_v<decltype(std::declval<const iiSharedCanvas::MediaBytesResult &>().ok()), bool>);
+static_assert(!std::is_copy_constructible_v<iiSharedCanvas::DocumentFile>);
+static_assert(!std::is_move_constructible_v<iiSharedCanvas::DocumentFile>);
+static_assert(std::is_same_v<decltype(std::declval<iiSharedCanvas::DocumentFile &>().document()),
+                             const iiSharedCanvas::Document *>);
+static_assert(std::is_constructible_v<iiSharedCanvas::DocumentEditor, iiSharedCanvas::DocumentFile &>);
+static_assert(std::is_constructible_v<iiSharedCanvas::BitmapEditor,
+                                      iiSharedCanvas::DocumentFile &, const std::string &>);
+static_assert(std::is_constructible_v<iiSharedCanvas::ChunkedBitmapEditor,
+                                      iiSharedCanvas::DocumentFile &, const std::string &>);
+static_assert(std::is_constructible_v<iiSharedCanvas::VectorEditor,
+                                      iiSharedCanvas::DocumentFile &, const std::string &>);
+
 static_assert(std::is_same_v<decltype(iiSharedCanvas::RasterAsset::pixels), RasterLayer>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::RasterAsset::id), std::string>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::RasterChunk::column), std::int32_t>);

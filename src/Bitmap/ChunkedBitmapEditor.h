@@ -9,6 +9,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -19,8 +21,10 @@ class IISHAREDCANVAS_EXPORT ChunkedBitmapEditor final {
 public:
     ChunkedBitmapEditor() = default;
     ChunkedBitmapEditor(Document &document, const std::string &assetId);
+    ChunkedBitmapEditor(DocumentFile &file, const std::string &assetId);
 
     bool bind(Document &document, const std::string &assetId);
+    bool bind(DocumentFile &file, const std::string &assetId);
     void unbind() noexcept;
     [[nodiscard]] bool isBound() const noexcept;
     [[nodiscard]] const std::string &boundAssetId() const noexcept;
@@ -48,6 +52,7 @@ public:
     [[nodiscard]] const std::string &lastError() const noexcept;
 
 private:
+    bool editFile(const std::function<bool(ChunkedBitmapEditor &)> &edit);
     static constexpr std::size_t HistoryLimit = 32;
 
     [[nodiscard]] ChunkedRasterAsset *asset() noexcept;
@@ -64,11 +69,13 @@ private:
     void clearError() noexcept;
 
     Document *m_document = nullptr;
+    DocumentFile *m_file = nullptr;
+    std::uint64_t m_fileGeneration = 0;
     std::string m_assetId;
     BitmapBrush m_brush;
     RasterDabStream m_dabStream;
-    std::vector<std::vector<RasterChunk>> m_undoHistory;
-    std::vector<std::vector<RasterChunk>> m_redoHistory;
+    std::vector<std::shared_ptr<const std::vector<RasterChunk>>> m_undoHistory;
+    std::vector<std::shared_ptr<const std::vector<RasterChunk>>> m_redoHistory;
     DevicePixelRect m_dirtyBounds{};
     std::uint64_t m_revision = 0;
     std::uint32_t m_nextStrokeSeed = 1;

@@ -1,4 +1,5 @@
 #include "Document/DocumentEditor.h"
+#include "File/DocumentFile.h"
 
 #include "Validation/Validation.h"
 
@@ -240,6 +241,24 @@ DocumentEditor::DocumentEditor(Document &value)
     bind(value);
 }
 
+DocumentEditor::DocumentEditor(DocumentFile &file)
+{
+    bind(file);
+}
+
+DocumentEditResult DocumentEditor::bind(DocumentFile &file)
+{
+    if (!file.isOpen()) {
+        return reject(DocumentEditCode::NotBound, "file", "no working file is open");
+    }
+    const auto result = bind(*file.boundDocument());
+    if (result.ok()) {
+        m_file = &file;
+        m_fileGeneration = file.bindingGeneration();
+    }
+    return result;
+}
+
 DocumentEditResult DocumentEditor::bind(Document &value)
 {
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(value)) {
@@ -248,6 +267,8 @@ DocumentEditResult DocumentEditor::bind(Document &value)
                       issue->message);
     }
     m_document = &value;
+    m_file = nullptr;
+    m_fileGeneration = 0;
     m_revision = 0;
     return unchanged();
 }
@@ -255,23 +276,26 @@ DocumentEditResult DocumentEditor::bind(Document &value)
 void DocumentEditor::unbind() noexcept
 {
     m_document = nullptr;
+    m_file = nullptr;
+    m_fileGeneration = 0;
     m_revision = 0;
     m_lastResult = {};
 }
 
 bool DocumentEditor::isBound() const noexcept
 {
-    return m_document != nullptr;
+    return m_document != nullptr
+        && (!m_file || (m_file->isOpen() && m_fileGeneration == m_file->bindingGeneration()));
 }
 
 Document *DocumentEditor::document() noexcept
 {
-    return m_document;
+    return m_file ? nullptr : m_document;
 }
 
 const Document *DocumentEditor::document() const noexcept
 {
-    return m_document;
+    return isBound() ? m_document : nullptr;
 }
 
 std::uint64_t DocumentEditor::revision() const noexcept
@@ -286,6 +310,11 @@ const DocumentEditResult &DocumentEditor::lastResult() const noexcept
 
 DocumentEditResult DocumentEditor::setCanvasExtent(CanvasExtent extent)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setCanvasExtent(extent);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -305,6 +334,11 @@ DocumentEditResult DocumentEditor::setCanvasExtent(CanvasExtent extent)
 
 DocumentEditResult DocumentEditor::ensureInfiniteCanvasRegion(CanvasRegion region)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.ensureInfiniteCanvasRegion(region);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -377,6 +411,11 @@ DocumentEditResult DocumentEditor::ensureInfiniteCanvasRegion(CanvasRegion regio
 
 DocumentEditResult DocumentEditor::setFrameRate(FrameRate frameRate)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setFrameRate(frameRate);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -396,6 +435,11 @@ DocumentEditResult DocumentEditor::setFrameRate(FrameRate frameRate)
 
 DocumentEditResult DocumentEditor::setFrameCount(FrameIndex frameCount)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setFrameCount(frameCount);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -415,6 +459,11 @@ DocumentEditResult DocumentEditor::setFrameCount(FrameIndex frameCount)
 DocumentEditResult DocumentEditor::setStableDiffusionMetadata(
     StableDiffusionMetadata metadata)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setStableDiffusionMetadata(std::move(metadata));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -440,6 +489,11 @@ DocumentEditResult DocumentEditor::setStableDiffusionMetadata(
 
 DocumentEditResult DocumentEditor::clearStableDiffusionMetadata()
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.clearStableDiffusionMetadata();
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -461,6 +515,11 @@ DocumentEditResult DocumentEditor::insertRasterAsset(std::string id,
                                                      RasterLayer pixels,
                                                      std::size_t index)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertRasterAsset(std::move(id), std::move(pixels), index);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -494,6 +553,11 @@ DocumentEditResult DocumentEditor::insertVectorAsset(std::string id,
                                                      std::vector<VectorPath> paths,
                                                      std::size_t index)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertVectorAsset(std::move(id), viewport, std::move(paths), index);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -525,6 +589,11 @@ DocumentEditResult DocumentEditor::insertVectorAsset(std::string id,
 DocumentEditResult DocumentEditor::replaceRasterPixels(const std::string &id,
                                                        RasterLayer pixels)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.replaceRasterPixels(id, std::move(pixels));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -555,6 +624,11 @@ DocumentEditResult DocumentEditor::replaceVectorData(const std::string &id,
                                                      CanvasExtent viewport,
                                                      std::vector<VectorPath> paths)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.replaceVectorData(id, viewport, std::move(paths));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -584,6 +658,11 @@ DocumentEditResult DocumentEditor::replaceVectorData(const std::string &id,
 DocumentEditResult DocumentEditor::renameAsset(const std::string &id,
                                                std::string replacementId)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.renameAsset(id, std::move(replacementId));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -617,6 +696,11 @@ DocumentEditResult DocumentEditor::renameAsset(const std::string &id,
 DocumentEditResult DocumentEditor::moveAsset(const std::string &id,
                                              std::size_t destinationIndex)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.moveAsset(id, destinationIndex);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -638,6 +722,11 @@ DocumentEditResult DocumentEditor::moveAsset(const std::string &id,
 
 DocumentEditResult DocumentEditor::removeAsset(const std::string &id)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.removeAsset(id);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -665,6 +754,11 @@ DocumentEditResult DocumentEditor::removeAsset(const std::string &id)
 
 DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertLayer(std::move(layer), index);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -704,6 +798,11 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
     std::vector<KeyframePlacement> keyframes,
     std::size_t index)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertKeyframedLayer(std::move(layer), std::move(keyframes), index);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -758,6 +857,11 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
 
 DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer layer)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.replaceLayer(id, std::move(layer));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -806,6 +910,11 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
 DocumentEditResult DocumentEditor::renameLayer(const std::string &id,
                                                std::string replacementId)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.renameLayer(id, std::move(replacementId));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -834,6 +943,11 @@ DocumentEditResult DocumentEditor::renameLayer(const std::string &id,
 DocumentEditResult DocumentEditor::setLayerName(const std::string &id,
                                                 std::string name)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setLayerName(id, std::move(name));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -852,6 +966,11 @@ DocumentEditResult DocumentEditor::setLayerName(const std::string &id,
 
 DocumentEditResult DocumentEditor::setLayerVisible(const std::string &id, bool visible)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setLayerVisible(id, visible);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -870,6 +989,11 @@ DocumentEditResult DocumentEditor::setLayerVisible(const std::string &id, bool v
 
 DocumentEditResult DocumentEditor::setLayerOpacity(const std::string &id, double opacity)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setLayerOpacity(id, opacity);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -894,6 +1018,11 @@ DocumentEditResult DocumentEditor::setLayerOpacity(const std::string &id, double
 DocumentEditResult DocumentEditor::setLayerTransform(const std::string &id,
                                                      AffineTransform transform)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setLayerTransform(id, transform);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -918,6 +1047,11 @@ DocumentEditResult DocumentEditor::setLayerTransform(const std::string &id,
 DocumentEditResult DocumentEditor::setLayerBlendMode(const std::string &id,
                                                      RasterBlendMode blendMode)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setLayerBlendMode(id, blendMode);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -943,6 +1077,11 @@ DocumentEditResult DocumentEditor::setLayerFrameRange(
     const std::string &id,
     std::optional<LayerFrameRange> frameRange)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setLayerFrameRange(id, frameRange);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -973,6 +1112,11 @@ DocumentEditResult DocumentEditor::setLayerFrameRange(
 DocumentEditResult DocumentEditor::setStaticSource(const std::string &id,
                                                    std::string assetIdValue)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setStaticSource(id, std::move(assetIdValue));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1001,6 +1145,11 @@ DocumentEditResult DocumentEditor::setStaticSource(const std::string &id,
 DocumentEditResult DocumentEditor::setKeyframedSource(const std::string &id,
                                                       std::vector<KeyframePlacement> keyframes)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setKeyframedSource(id, std::move(keyframes));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1040,6 +1189,11 @@ DocumentEditResult DocumentEditor::setKeyframedSource(const std::string &id,
 DocumentEditResult DocumentEditor::moveLayer(const std::string &id,
                                              std::size_t destinationIndex)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.moveLayer(id, destinationIndex);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1061,6 +1215,11 @@ DocumentEditResult DocumentEditor::moveLayer(const std::string &id,
 
 DocumentEditResult DocumentEditor::removeLayer(const std::string &id)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.removeLayer(id);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1079,6 +1238,11 @@ DocumentEditResult DocumentEditor::insertKeyframe(const std::string &id,
                                                   FrameIndex frame,
                                                   std::string assetIdValue)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertKeyframe(id, frame, std::move(assetIdValue));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1114,6 +1278,11 @@ DocumentEditResult DocumentEditor::setKeyframeAsset(const std::string &id,
                                                     FrameIndex frame,
                                                     std::string assetIdValue)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setKeyframeAsset(id, frame, std::move(assetIdValue));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1147,6 +1316,11 @@ DocumentEditResult DocumentEditor::moveKeyframe(const std::string &id,
                                                 FrameIndex frame,
                                                 FrameIndex destinationFrame)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.moveKeyframe(id, frame, destinationFrame);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1191,6 +1365,11 @@ DocumentEditResult DocumentEditor::moveKeyframe(const std::string &id,
 DocumentEditResult DocumentEditor::removeKeyframe(const std::string &id,
                                                   FrameIndex frame)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.removeKeyframe(id, frame);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1224,6 +1403,11 @@ DocumentEditResult DocumentEditor::insertVectorPath(const std::string &id,
                                                     VectorPath path,
                                                     std::size_t index)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertVectorPath(id, std::move(path), index);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1257,6 +1441,11 @@ DocumentEditResult DocumentEditor::replaceVectorPath(const std::string &id,
                                                      std::size_t index,
                                                      VectorPath path)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.replaceVectorPath(id, index, std::move(path));
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1287,6 +1476,11 @@ DocumentEditResult DocumentEditor::moveVectorPath(const std::string &id,
                                                   std::size_t index,
                                                   std::size_t destinationIndex)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.moveVectorPath(id, index, destinationIndex);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1314,6 +1508,11 @@ DocumentEditResult DocumentEditor::moveVectorPath(const std::string &id,
 DocumentEditResult DocumentEditor::removeVectorPath(const std::string &id,
                                                     std::size_t index)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.removeVectorPath(id, index);
+        });
+    }
     if (!requireValidDocument()) {
         return m_lastResult;
     }
@@ -1343,6 +1542,30 @@ DocumentEditResult DocumentEditor::reject(DocumentEditCode code,
     return m_lastResult;
 }
 
+DocumentEditResult DocumentEditor::editFile(
+    const std::function<DocumentEditResult(DocumentEditor &)> &edit)
+{
+    if (!isBound()) {
+        return reject(DocumentEditCode::NotBound, "file", "the working-file binding is no longer valid");
+    }
+    DocumentEditor working = *this;
+    working.m_file = nullptr;
+    working.m_lastResult = {};
+    const auto result = m_file->edit([&](Document &draft) {
+        working.m_document = &draft;
+        return edit(working).ok();
+    });
+    if (!working.m_lastResult.ok()) {
+        return m_lastResult = std::move(working.m_lastResult);
+    }
+    if (!result.ok()) {
+        return reject(DocumentEditCode::PersistenceFailed, "file", result.message);
+    }
+    m_revision = working.m_revision;
+    m_lastResult = std::move(working.m_lastResult);
+    return m_lastResult;
+}
+
 DocumentEditResult DocumentEditor::unchanged()
 {
     m_lastResult = {};
@@ -1358,7 +1581,7 @@ DocumentEditResult DocumentEditor::applied()
 
 bool DocumentEditor::requireValidDocument()
 {
-    if (!m_document) {
+    if (!isBound()) {
         (void)reject(DocumentEditCode::NotBound, "document",
                      "no document is bound to the editor");
         return false;
