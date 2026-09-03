@@ -15,6 +15,22 @@ static_assert(std::is_aggregate_v<iiSharedCanvas::MediaLimits>);
 static_assert(std::is_aggregate_v<iiSharedCanvas::BitmapImportOptions>);
 static_assert(std::is_aggregate_v<iiSharedCanvas::VectorImportOptions>);
 static_assert(std::is_aggregate_v<iiSharedCanvas::VideoImportOptions>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::LayeredDocumentImportOptions>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::LayeredDocumentImportResult>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::PsdExportOptions>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::TimelineInterchangeOptions>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::encodePsd(std::declval<const iiSharedCanvas::Document &>())),
+                             iiSharedCanvas::MediaBytesResult>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::exportPsd(std::declval<const iiSharedCanvas::Document &>(),
+                                                             std::declval<const std::string &>())),
+                             iiSharedCanvas::MediaIoResult>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::LayeredDocumentImportResult::document),
+                             iiSharedCanvas::Document>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::LayeredDocumentImportResult::format),
+                             std::string>);
+static_assert(std::is_same_v<decltype(std::declval<const iiSharedCanvas::LayeredDocumentImportResult &>().ok()), bool>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::importLayeredDocument(std::declval<const std::string &>())),
+                             iiSharedCanvas::LayeredDocumentImportResult>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::BitmapImportResult::asset), iiSharedCanvas::RasterAsset>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorImportResult::asset), iiSharedCanvas::VectorAsset>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::MediaDocumentResult::document), iiSharedCanvas::Document>);

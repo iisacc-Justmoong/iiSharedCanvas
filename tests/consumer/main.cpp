@@ -1,13 +1,148 @@
 #include <iiSharedCanvas.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
+#include <string_view>
 #include <variant>
 
 #include <QTemporaryDir>
 #include <QGuiApplication>
+#include <QByteArray>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 namespace {
+
+bool verifyTimelineInterchange()
+{
+    using namespace iiSharedCanvas;
+    Document document; document.extent = {4, 4}; document.timeline = {{30000, 1001}, 10};
+    document.assets.emplace_back(RasterAsset{"red", makeRasterLayer(4, 4, 0xffff0000U)});
+    document.assets.emplace_back(RasterAsset{"blue", makeRasterLayer(4, 4, 0xff0000ffU)});
+    document.layers.emplace_back(BitmapLayer{{"layer", "Installed timeline"}, KeyframedSource{{0, 5}}});
+    document.frames = {{0, {{"layer", "red"}}}, {5, {{"layer", "blue"}}}};
+    const auto original = encodeIisc(document);
+    QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/timeline-XXXXXX"));
+    if (!directory.isValid()) { return false; }
+    const auto package = directory.filePath("package");
+    const auto result = exportTimelineInterchange(document, package.toStdString());
+    if (!result.ok() || encodeIisc(document).bytes != original.bytes
+        || !QFile::exists(package + "/timeline.xml") || !QFile::exists(package + "/timeline.fcpxml")
+        || exportTimelineInterchange(document, package.toStdString()).code != MediaIoCode::AlreadyExists) { return false; }
+    QFile file(package + "/manifest.json"); if (!file.open(QIODevice::ReadOnly)) { return false; }
+    const auto manifest = QJsonDocument::fromJson(file.readAll()).object();
+    const auto tracks = manifest["tracks"].toArray();
+    if (tracks.size() != 1 || manifest["frameRate"].toObject()["numerator"].toInt() != 30000
+        || manifest["frameRate"].toObject()["denominator"].toInt() != 1001) { return false; }
+    const auto clips = tracks[0].toObject()["clips"].toArray();
+    if (clips.size() != 2 || clips[1].toObject()["startFrame"].toInt() != 5
+        || clips[1].toObject()["durationFrames"].toInt() != 5) { return false; }
+    BitmapImportOptions options; options.extendedCodecs = false;
+    const auto red = importBitmap((package + '/' + clips[0].toObject()["media"].toString()).toStdString(), options);
+    const auto blue = importBitmap((package + '/' + clips[1].toObject()["media"].toString()).toStdString(), options);
+    return red.ok() && blue.ok() && red.asset.pixels.pixels[0] == 0xffff0000U && blue.asset.pixels.pixels[0] == 0xff0000ffU;
+}
+
+bool verifyPsdExport()
+{
+    using namespace iiSharedCanvas;
+    Document document;
+    document.extent = {4, 4};
+    document.timeline.frameCount = 2;
+    document.assets.emplace_back(RasterAsset{"base", makeRasterLayer(4, 4, 0xffff0000U)});
+    VectorAsset first{"first", {4, 4}, {{{MoveTo{{1, 1}}, LineTo{{3, 1}},
+        LineTo{{3, 3}}, LineTo{{1, 3}}, ClosePath{}}, SolidPaint{0xff00ff00U}, std::nullopt}}};
+    auto later = first;
+    later.id = "later";
+    later.paths.front().fill = SolidPaint{0xff0000ffU};
+    document.assets.emplace_back(first);
+    document.assets.emplace_back(later);
+    document.layers.emplace_back(BitmapLayer{{"base-layer", "Base"}, StaticSource{"base"}});
+    document.layers.emplace_back(VectorLayer{{"vector-layer", "Vector frame zero"}, KeyframedSource{{0, 1}}});
+    document.frames = {{0, {{"vector-layer", "first"}}}, {1, {{"vector-layer", "later"}}}};
+    const auto original = encodeIisc(document);
+    const auto encoded = encodePsd(document);
+    const auto contains = [&](std::string_view text) {
+        return std::search(encoded.bytes.begin(), encoded.bytes.end(), text.begin(), text.end()) != encoded.bytes.end();
+    };
+    if (!original.ok() || !encoded.ok() || encoded.result.warnings.empty()
+        || !contains("8BPS") || !contains("SoLd") || !contains("lnk2") || !contains("%PDF-")
+        || encodeIisc(document).bytes != original.bytes) { return false; }
+    const auto path = std::string(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/installed-frame-zero.psd");
+    PsdExportOptions options;
+    options.overwrite = true; // A test-owned output, never a source document.
+    if (!exportPsd(document, path, options).ok()
+        || exportPsd(document, path).code != MediaIoCode::AlreadyExists) { return false; }
+    const auto tinyLimit = [&] {
+        PsdExportOptions limited;
+        limited.limits.maxOutputBytes = 32;
+        return encodePsd(document, limited);
+    }();
+    if (tinyLimit.ok() || !tinyLimit.bytes.empty()) { return false; }
+    // Smart Objects deliberately remain outside the strict pixel-only reader.
+    if (decodeLayeredDocument(encoded.bytes).result.code != MediaIoCode::UnsupportedFeature) { return false; }
+    document.layers.resize(1);
+    document.frames.clear();
+    const auto pixelOnly = encodePsd(document);
+    const auto restored = decodeLayeredDocument(pixelOnly.bytes);
+    return pixelOnly.ok() && restored.ok()
+        && renderFrame(restored.document, 0).pixels.pixels == renderFrame(document, 0).pixels.pixels;
+}
+
+bool verifyLayeredInterchange()
+{
+    using namespace iiSharedCanvas;
+    // Independently constructed PSD v1, raw RGB. PSD records are bottom-to-top:
+    // a 2x2 blue Base followed by a 1x1 green Top at (1, 0).
+    const auto bytes = QByteArray::fromHex(
+        "38425053000100000000000000030000000200000002000800030000000000000000000000aa000000a200020000000000000000000000020000000200030000000000060001000000060002000000063842494d6e6f726dff00000000000010000000000000000004426173650000000000000000000001000000010000000200030000000000030001000000030002000000033842494d6e6f726dff0000000000000c000000000000000003546f700000000000000000000000000000ffffffff0000000000ff000000000000000000000000000000ff0000ff00ffff");
+    LayeredDocumentImportOptions options;
+    options.idPrefix = "installed-layers";
+    const auto imported = decodeLayeredDocument(
+        {reinterpret_cast<const std::uint8_t *>(bytes.constData()), std::size_t(bytes.size())}, options);
+    if (!imported.ok() || imported.format != "psd" || layeredDocumentFormats().size() != 2
+        || imported.document.layers.size() != 2 || imported.document.assets.size() != 2
+        || layerProperties(imported.document.layers[0]).name != "Base"
+        || layerProperties(imported.document.layers[1]).name != "Top") { return false; }
+    const std::vector<std::uint32_t> expected{0xff0000ffU, 0xff00ff00U, 0xff0000ffU, 0xff0000ffU};
+    const auto rendered = renderFrame(imported.document, 0);
+    const auto encoded = encodeIisc(imported.document);
+    const auto restored = decodeIisc(encoded.bytes);
+    if (!rendered.ok() || rendered.pixels.pixels != expected || !encoded.ok() || !restored.ok()
+        || encodeIisc(restored.document).bytes != encoded.bytes) { return false; }
+
+    QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/layered-XXXXXX"));
+    if (!directory.isValid()) { return false; }
+    QFile source(directory.filePath("layered input.data"));
+    if (!source.open(QIODevice::WriteOnly) || source.write(bytes) != bytes.size()) { return false; }
+    source.close();
+    const auto fromFile = importLayeredDocument(source.fileName().toStdString(), options);
+    if (!fromFile.ok() || encodeIisc(fromFile.document).bytes != encoded.bytes) { return false; }
+
+    Document initial;
+    initial.extent = imported.document.extent;
+    DocumentFile file;
+    const auto path = directory.filePath("installed-layers.iisc").toStdString();
+    if (!file.create(path, initial).ok()) { return false; }
+    const auto append = [&](Document &draft) {
+        draft.assets.insert(draft.assets.end(), imported.document.assets.begin(), imported.document.assets.end());
+        draft.layers.insert(draft.layers.end(), imported.document.layers.begin(), imported.document.layers.end());
+        return true;
+    };
+    if (!file.edit(append).ok() || file.revision() != 1) { return false; }
+    const auto committed = encodeIisc(*file.document()).bytes;
+    if (file.edit(append).ok() || file.revision() != 1
+        || encodeIisc(*file.document()).bytes != committed) { return false; }
+    DocumentFile reopened;
+    if (!reopened.open(path).ok() || renderFrame(*reopened.document(), 0).pixels.pixels != expected) { return false; }
+    BitmapEditor editor(file, "installed-layers-asset-0");
+    if (!editor.setPixel(0, 0, 0xffff0000U)) { return false; }
+    // Imported values stay detached while the selected committed raster is editable.
+    return renderFrame(imported.document, 0).pixels.pixels == expected;
+}
 
 bool verifyMediaInterchange()
 {
@@ -297,7 +432,7 @@ int main(int argc, char **argv)
     av1.profile = "main";
     const TimelineEditResult timelineCodec = timelineEditor.setRenderVideoCodec(
         timelineProfile.id, av1);
-    return verifyWorkingFile(document) && verifyMediaInterchange()
+    return verifyWorkingFile(document) && verifyMediaInterchange() && verifyLayeredInterchange() && verifyPsdExport() && verifyTimelineInterchange()
         && validate(document).ok()
         && validateCameraRaw(cameraRaw).ok()
         && cameraRawSampleAt(cameraRaw.image, 1, 0)

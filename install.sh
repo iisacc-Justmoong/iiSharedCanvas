@@ -40,6 +40,7 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Camera/CameraRaw.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/Document.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/DocumentEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/File/DocumentFile.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Layered/LayeredDocumentCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Metadata/StableDiffusionGenerationParameters.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Metadata/StableDiffusionMetadata.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/BitmapItem.h"
@@ -48,6 +49,7 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/QtAdapter/CanvasItem.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Render/FrameRenderer.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Serialization/IiscCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Timeline/TimelineEditor.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Timeline/TimelineInterchange.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Timeline/TimelineProject.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Validation/Validation.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Vector/VectorEditor.h"
@@ -56,10 +58,39 @@ test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/API.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PERSISTENCE.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/DEPENDENCIES.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/MEDIA_IO.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/OPENRASTER_IMPORT.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PSD_IMPORT.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/LAYERED_IMPORT_CLI.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PSD_EXPORT.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PSD_EXPORT_CLI.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/TIMELINE_INTERCHANGE.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/TIMELINE_INTERCHANGE_CLI.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/TIMELINE_XML.md"
+
+import_executable="${INSTALL_PREFIX}/bin/iisc-import"
+if [[ ! -x "${import_executable}" ]]; then
+    import_executable="${INSTALL_PREFIX}/bin/iisc-import.exe"
+fi
+test -x "${import_executable}"
+"${import_executable}" --help
+
+export_psd_executable="${INSTALL_PREFIX}/bin/iisc-export-psd"
+if [[ ! -x "${export_psd_executable}" ]]; then
+    export_psd_executable="${INSTALL_PREFIX}/bin/iisc-export-psd.exe"
+fi
+test -x "${export_psd_executable}"
+"${export_psd_executable}" --help
+
+export_timeline_executable="${INSTALL_PREFIX}/bin/iisc-export-timeline"
+if [[ ! -x "${export_timeline_executable}" ]]; then
+    export_timeline_executable="${INSTALL_PREFIX}/bin/iisc-export-timeline.exe"
+fi
+test -x "${export_timeline_executable}"
+"${export_timeline_executable}" --help
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.5.0.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.5.0' \
+    \( -name 'libiiSharedCanvas.0.8.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.8.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2

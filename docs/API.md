@@ -7,7 +7,8 @@ convenience and safety boundaries over the same data rather than a second model.
 
 ## Media import and export
 
-`Bitmap/BitmapCodec.h`, `Vector/VectorCodec.h`, `Video/VideoCodec.h` and
+`Bitmap/BitmapCodec.h`, `Vector/VectorCodec.h`, `Video/VideoCodec.h`,
+`Layered/LayeredDocumentCodec.h` and
 `Media/MediaIo.h` are exported by the umbrella header and installed package.
 Options and results are public aggregates with inline `ok()` inspectors.
 `MediaIoResult` distinguishes invalid data/options, unsupported features,
@@ -23,7 +24,41 @@ existing `DocumentFile::edit` boundary. Byte exporters return
 `MediaBytesResult`; file exporters return `MediaIoResult` and publish only a
 completed output, with explicit `overwrite` and working-file protection.
 
+Layered document readers `decodeLayeredDocument` (bytes) and
+`importLayeredDocument` (local path) return `LayeredDocumentImportResult`:
+`document`, `format` and `result`. `layeredDocumentFormats()` lists the
+layer-preserving ORA and PSD subset readers, independently from flattened
+bitmap import. Each source pixel layer becomes a native `BitmapLayer` and
+`RasterAsset` with its own editable properties. Failures never expose partial
+documents or silently switch to the merged image. Options own the deterministic
+`idPrefix`, media limits, `maxLayers` and `maxArchiveEntries`; defaults require
+no additional backend setup. Source documents remain untouched, and existing
+working files still change only through `DocumentFile::edit`.
+
+`encodePsd(document, options)` returns PSD bytes; `exportPsd(document, path,
+options)` atomically writes a local PSD. `PsdExportOptions` owns `overwrite`
+(false), `limits` and `maxLayers` (4096). Both always sample native frame zero;
+there is deliberately no frame-selection option. Vector layers become embedded
+vector PDF Smart Objects with pixel caches. Integer-translated bitmap layers
+retain original pixels and offsets, including off-canvas pixels. Other bitmap
+transforms and chunked bitmaps are baked into canvas-clipped pixel layers.
+Layer names/order, visibility, opacity and the four
+native blend modes are preserved at PSD precision. Animation and viewport
+losses return warnings without changing the native document. This API concerns
+`Document::timeline`, not the separate audio/video `TimelineProject` model.
+The PSD reader remains a strict pixel-layer subset and does not re-import these
+Smart Objects. See [PSD_EXPORT.md](PSD_EXPORT.md) for exact bounds and semantics.
+
 Full format limits, options and usage examples: [MEDIA_IO.md](MEDIA_IO.md).
+
+`Timeline/TimelineInterchange.h` exposes `exportTimelineInterchange(document,
+directory, options)` and aggregate `TimelineInterchangeOptions`: `sequenceName`,
+`limits`, `maxLayers`, `maxClips`. It returns `MediaIoResult` and atomically
+publishes a new directory with two XML timelines, separate layer-state PNGs,
+manifest and original native snapshot. All native hold intervals and layer
+lifetimes become independently editable clips, including disabled hidden layers.
+It never overwrites an existing package or modifies the source. See
+[TIMELINE_INTERCHANGE.md](TIMELINE_INTERCHANGE.md) for conversion boundaries.
 
 ## Working-file authoring
 

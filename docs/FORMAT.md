@@ -476,3 +476,25 @@ and frame-owned keys; SVG becomes native path commands. Original codec bytes,
 SVG markup, packet timestamps, audio tracks and decoder state are not embedded
 in `.iisc`. SVG/PDF/image/video exports are explicitly separate interchange
 operations; they never replace write-through editing of the working file.
+
+Layer-preserving import in package 0.6.0 also leaves snapshot version 1.3 and
+working-file schema 1 unchanged. Supported OpenRaster and PSD pixel layers
+become ordinary static `BitmapLayer` / `RasterAsset` pairs. Layer properties
+and committed pixels use the same native records as a newly authored canvas;
+foreign ZIP/PSD payloads, editor-specific objects and unsupported drawing
+semantics are not embedded or silently replaced with previews. The
+`iisc-import` utility creates new working files through `DocumentFile::create`.
+
+PSD export in package 0.7.0 also leaves snapshot version 1.3 and working-file
+schema 1 unchanged. It projects `Document::timeline` at frame zero. Embedded PDF
+Smart Object payloads exist only in the exported PSD, never in native assets.
+Native paths, future keyframes, layer lifetimes and canvas origins remain in the
+authoritative `.iisc`; PSD is an interchange snapshot, not a native round-trip
+container. The separate `TimelineProject` audio/video model is not exported.
+
+Timeline interchange in package 0.8.0 also leaves native formats unchanged.
+Its version-1 `manifest.json` records exact frame intervals, rational frame
+rate, layer IDs, asset IDs, generated media paths and projection warnings.
+Legacy XML and FCPXML reference independent PNG layer states; `source.iisc`
+retains the complete canonical native document. This is an outbound editor
+exchange, not an XML-to-native round-trip or TimelineProject serialization.

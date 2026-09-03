@@ -13,23 +13,47 @@ endfunction()
 file(READ "${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" cmake_lists)
 string(REGEX MATCHALL "find_package\\(" direct_find_packages "${cmake_lists}")
 list(LENGTH direct_find_packages direct_dependency_count)
-if(NOT direct_dependency_count EQUAL 3)
-    message(FATAL_ERROR "iiSharedCanvas must have only the reviewed iiPaintEngine, SQLite and zlib link dependencies")
+if(NOT direct_dependency_count EQUAL 4)
+    message(FATAL_ERROR "iiSharedCanvas must have only the reviewed iiPaintEngine, SQLite, zlib and libzip link dependencies")
 endif()
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "find_package(SQLite3 3.26 REQUIRED)")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(ZLIB REQUIRED)")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in" "find_dependency(ZLIB REQUIRED)")
-foreach(module Bitmap/BitmapCodec Vector/VectorCodec Video/VideoCodec Media/MediaIo)
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(ZLIB 1.2.9 REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in" "find_dependency(ZLIB 1.2.9 REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(libzip 1.7.3 CONFIG REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in" "find_dependency(libzip 1.7.3 CONFIG REQUIRED)")
+foreach(module Bitmap/BitmapCodec Vector/VectorCodec Video/VideoCodec Media/MediaIo Layered/LayeredDocumentCodec)
     require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "src/${module}.cpp")
     require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h" "${module}.h")
     require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "${module}.h")
 endforeach()
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/MEDIA_IO.md" "DocumentFile::edit")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md" "runtime executables")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md" "libzip")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/MEDIA_IO.md" "importLayeredDocument")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/LAYERED_IMPORT_CLI.md" "iisc-import")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_executable(iisc-import tools/iisc-import.cpp)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "set_target_properties(iisc-import PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "\"\${import_executable}\" --help")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "src/Layered/PsdWriter.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Layered/LayeredDocumentCodec.h" "PsdExportOptions")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md" "encodePsd")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PSD_EXPORT.md" "Smart Object")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PSD_EXPORT_CLI.md" "iisc-export-psd")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md" "PSD export")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_executable(iisc-export-psd tools/iisc-export-psd.cpp)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "\"\${export_psd_executable}\" --help")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp" "verifyPsdExport")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp" "verifyTimelineInterchange")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h" "Timeline/TimelineInterchange.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "Timeline/TimelineInterchange.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "\"\${export_timeline_executable}\" --help")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/TIMELINE_INTERCHANGE.md" "source.iisc")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md" "OpenTimelineIO")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_executable(iisc-export-timeline tools/iisc-export-timeline.cpp)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/File/DocumentFile.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
@@ -43,13 +67,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
              "public domain")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.5.0 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.8.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.5.0 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.8.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -115,7 +139,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.5.0")
+             "The current C++ package version is 0.8.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -221,7 +245,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.5.0.dylib")
+             "libiiSharedCanvas.0.8.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
@@ -260,7 +284,7 @@ if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
     message(FATAL_ERROR "co-located public headers and implementations must live under src/")
 endif()
 
-foreach(module Bitmap Camera Document File Media Metadata QtAdapter Render Serialization Timeline Validation Vector Video)
+foreach(module Bitmap Camera Document File Layered Media Metadata QtAdapter Render Serialization Timeline Validation Vector Video)
     if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}")
         message(FATAL_ERROR "${module} must live under src/, not at the repository root")
     endif()
@@ -295,6 +319,8 @@ file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Document/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/File/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Layered/*.h"
+     "${IISHAREDCANVAS_SOURCE_DIR}/src/Layered/*.cpp"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Media/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Video/*.h"
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Render/*.h"
@@ -309,7 +335,7 @@ file(GLOB_RECURSE core_sources
      "${IISHAREDCANVAS_SOURCE_DIR}/src/Vector/*.cpp")
 # Codec implementation adapters may use the reviewed Qt dependency. Domain
 # models, editors, renderers and domain/media public headers remain Qt-free.
-list(FILTER core_sources EXCLUDE REGEX "/(Bitmap/BitmapCodec|Bitmap/ExtendedBitmapCodec|Vector/VectorCodec|Vector/SvgParser)\\.cpp$")
+list(FILTER core_sources EXCLUDE REGEX "/(Bitmap/BitmapCodec|Bitmap/ExtendedBitmapCodec|Vector/VectorCodec|Vector/SvgParser|Layered/LayeredDocumentCodec|Layered/OpenRasterParser|Layered/PsdParser|Layered/PsdWriter|Timeline/TimelineInterchange|Timeline/TimelineXmlWriter)\\.cpp$")
 foreach(source_file IN LISTS core_sources)
     file(READ "${source_file}" source_contents)
     if(source_contents MATCHES "#[ \t]*include[ \t]*<Q[A-Za-z]")

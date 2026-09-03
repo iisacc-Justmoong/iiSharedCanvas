@@ -488,6 +488,20 @@ zlib compression. Existing Qt Gui codecs and PDF writing provide image and
 PDF interchange. Text shaping and GPU vector path rasterization remain
 separate decisions.
 
+The `Layered` adapters map OpenRaster and a bounded PSD pixel-layer subset to
+detached native raster assets/layers. Reviewed libzip supplies ZIP reading;
+Qt XML/PNG and zlib are reused. No archive files are extracted, and no merged
+preview replaces unsupported layer semantics. The `iisc-import` utility uses
+the existing `DocumentFile::create` boundary for new working files. It does not
+add a second persistence model or consumer-specific conversion bridge.
+
+PSD export is a one-way frame-zero projection of the native document. It
+serializes embedded vector PDF Smart Objects using the existing Qt PDF writer,
+plus native-rendered per-layer pixel caches and a merged preview. Bitmap
+transforms other than integer translation are baked into viewport pixels.
+Simple bitmap layers keep their source pixels/offsets. It does not add PSD records to the
+native model, change timeline ownership, or imply Smart Object import support.
+
 The video-editing timeline model likewise uses only C++ standard-library
 aggregates and variants. FFmpeg/ffprobe supply actual video probe/decode/encode
 as optional runtime executables without adding that large codec surface to
@@ -599,6 +613,14 @@ Complete when:
   render, edit, undo, and serialize sparse signed-coordinate raster chunks.
 
 ### Phase 4 - product hardening
+
+The `TimelineInterchange` adapter projects the persisted canvas timeline into
+paired XML/FCPXML manifests plus independent PNG layer states. A shared private
+plan separates native key-interval/media preparation from the two concrete XML
+writers. The package retains `source.iisc` and never mutates its input. Its CLI
+shares the native snapshot/read-only working-file loader with PSD export; no
+consumer-specific model or native NLE plug-in is added. See
+[TIMELINE_INTERCHANGE.md](TIMELINE_INTERCHANGE.md).
 
 Complete when:
 

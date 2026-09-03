@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.5.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.8.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -13,7 +13,8 @@ if(EXISTS "$ENV{HOME}/.local/iiPaintEngine")
 endif()
 
 find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)
-find_package(ZLIB REQUIRED)
+find_package(ZLIB 1.2.9 REQUIRED)
+find_package(libzip 1.7.3 CONFIG REQUIRED)
 block(SCOPE_FOR VARIABLES)
     # Prefer the SDK/library headers over SQLite copies embedded in unrelated frameworks.
     set(CMAKE_FIND_FRAMEWORK LAST)
@@ -49,6 +50,14 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Document/DocumentEditor.h
         src/File/DocumentFile.cpp
         src/File/DocumentFile.h
+        src/Layered/LayeredDocumentCodec.cpp
+        src/Layered/LayeredDocumentCodec.h
+        src/Layered/OpenRasterParser.cpp
+        src/Layered/OpenRasterParser_p.hpp
+        src/Layered/PsdParser.cpp
+        src/Layered/PsdParser_p.hpp
+        src/Layered/PsdWriter.cpp
+        src/Layered/PsdWriter_p.hpp
         src/Media/MediaIo.cpp
         src/Media/MediaIo.h
         src/Media/MediaIo_p.hpp
@@ -68,6 +77,10 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Serialization/IiscCodec.h
         src/Timeline/TimelineEditor.cpp
         src/Timeline/TimelineEditor.h
+        src/Timeline/TimelineInterchange.cpp
+        src/Timeline/TimelineInterchange.h
+        src/Timeline/TimelineXmlWriter.cpp
+        src/Timeline/TimelineXmlWriter_p.hpp
         src/Timeline/TimelineProject.cpp
         src/Timeline/TimelineProject.h
         src/Validation/Validation.cpp
@@ -94,7 +107,7 @@ target_link_libraries(iiSharedCanvas PUBLIC
         iiPaintEngine::iiPaintEngine
         Qt6::Qml
         Qt6::Quick)
-target_link_libraries(iiSharedCanvas PRIVATE SQLite3::SQLite3 ZLIB::ZLIB)
+target_link_libraries(iiSharedCanvas PRIVATE SQLite3::SQLite3 ZLIB::ZLIB libzip::zip)
 if(APPLE OR UNIX)
     target_link_options(iiSharedCanvas INTERFACE
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
@@ -118,6 +131,40 @@ elseif(UNIX)
             "$ORIGIN/../../iiPaintEngine/lib")
 endif()
 
+add_executable(iisc-import tools/iisc-import.cpp)
+target_link_libraries(iisc-import PRIVATE iiSharedCanvas::iiSharedCanvas)
+# Keep the configured external Qt/framework runtime paths in a host install,
+# in addition to the relocatable sibling library path below.
+set_target_properties(iisc-import PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+if(APPLE)
+    set_property(TARGET iisc-import APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
+elseif(UNIX)
+    set_property(TARGET iisc-import APPEND PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
+install(TARGETS iisc-import RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+add_executable(iisc-export-psd tools/iisc-export-psd.cpp)
+target_sources(iisc-export-psd PRIVATE tools/IiscInput.cpp tools/IiscInput_p.hpp)
+target_link_libraries(iisc-export-psd PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+set_target_properties(iisc-export-psd PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+if(APPLE)
+    set_property(TARGET iisc-export-psd APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
+elseif(UNIX)
+    set_property(TARGET iisc-export-psd APPEND PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
+install(TARGETS iisc-export-psd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+add_executable(iisc-export-timeline tools/iisc-export-timeline.cpp)
+target_sources(iisc-export-timeline PRIVATE tools/IiscInput.cpp tools/IiscInput_p.hpp)
+target_link_libraries(iisc-export-timeline PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+set_target_properties(iisc-export-timeline PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+if(APPLE)
+    set_property(TARGET iisc-export-timeline APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
+elseif(UNIX)
+    set_property(TARGET iisc-export-timeline APPEND PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
+install(TARGETS iisc-export-timeline RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
 install(TARGETS iiSharedCanvas
         EXPORT iiSharedCanvasTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -125,7 +172,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY src/Bitmap src/Camera src/Document src/File src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
+install(DIRECTORY src/Bitmap src/Camera src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
@@ -139,6 +186,9 @@ install(FILES cmake/iiSharedCanvasAppleQtCompatibility.cmake
 install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
 install(FILES README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
+        docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
+        docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md
+        docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/iiSharedCanvas)
 
 configure_package_config_file(
@@ -155,6 +205,34 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 
 if(BUILD_TESTING)
+    foreach(import_test LayeredDocumentCodec OpenRasterImport PsdLayeredImport LayeredImportCli PsdExport PsdExportCli TimelineInterchange TimelineInterchangeCli)
+        add_executable(iiSharedCanvas${import_test}Test tests/${import_test}Test.cpp)
+        target_compile_definitions(iiSharedCanvas${import_test}Test PRIVATE
+                IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+        target_link_libraries(iiSharedCanvas${import_test}Test PRIVATE iiSharedCanvas::iiSharedCanvas)
+        add_test(NAME iiSharedCanvas.${import_test} COMMAND iiSharedCanvas${import_test}Test)
+        set_tests_properties(iiSharedCanvas.${import_test} PROPERTIES
+                ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endforeach()
+    target_link_libraries(iiSharedCanvasOpenRasterImportTest PRIVATE libzip::zip)
+    target_link_libraries(iiSharedCanvasPsdLayeredImportTest PRIVATE ZLIB::ZLIB)
+    target_compile_definitions(iiSharedCanvasLayeredImportCliTest PRIVATE
+            IISHAREDCANVAS_IMPORT_EXECUTABLE="$<TARGET_FILE:iisc-import>")
+    add_dependencies(iiSharedCanvasLayeredImportCliTest iisc-import)
+    target_link_libraries(iiSharedCanvasPsdExportCliTest PRIVATE SQLite3::SQLite3)
+    target_compile_definitions(iiSharedCanvasPsdExportCliTest PRIVATE
+            IISHAREDCANVAS_EXPORT_PSD_EXECUTABLE="$<TARGET_FILE:iisc-export-psd>")
+    add_dependencies(iiSharedCanvasPsdExportCliTest iisc-export-psd)
+    target_link_libraries(iiSharedCanvasTimelineInterchangeCliTest PRIVATE SQLite3::SQLite3)
+    target_compile_definitions(iiSharedCanvasTimelineInterchangeCliTest PRIVATE
+            IISHAREDCANVAS_EXPORT_TIMELINE_EXECUTABLE="$<TARGET_FILE:iisc-export-timeline>")
+    add_dependencies(iiSharedCanvasTimelineInterchangeCliTest iisc-export-timeline)
+    add_executable(iiSharedCanvasTimelineXmlWriterTest tests/TimelineXmlWriterTest.cpp src/Timeline/TimelineXmlWriter.cpp)
+    target_link_libraries(iiSharedCanvasTimelineXmlWriterTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasTimelineXmlWriterTest PRIVATE
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.TimelineXmlWriter COMMAND iiSharedCanvasTimelineXmlWriterTest)
+
     foreach(codec Bitmap Vector Video)
         add_executable(iiSharedCanvas${codec}CodecTest tests/${codec}CodecTest.cpp)
         target_compile_definitions(iiSharedCanvas${codec}CodecTest PRIVATE

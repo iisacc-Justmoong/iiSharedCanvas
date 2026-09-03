@@ -7,6 +7,82 @@ import into an open working file, add its assets/layers/keys inside one
 `DocumentFile::edit` transaction. Imports themselves do not mutate a document.
 Explicit interchange exports do not replace manual-save-free working-file I/O.
 
+## Layered documents
+
+`layeredDocumentFormats()` advertises the layer-preserving OpenRaster (`ora`)
+and Photoshop (`psd`) readers. `decodeLayeredDocument(bytes, options)` and
+`importLayeredDocument(localPath, options)` identify the input by its content,
+not its suffix. They return `LayeredDocumentImportResult` containing a detached,
+validated `Document`, the selected format, and a `MediaIoResult`. Unsupported
+formats, unsupported drawing semantics, corrupt data and resource limits fail
+the whole import; the returned document is empty on failure. No merged preview
+or composite bitmap is substituted for the original layers.
+
+Supported pixel layers map to separate `RasterAsset` / `BitmapLayer` pairs.
+Canvas size, bottom-to-top order, names, visibility, opacity, signed offsets
+and supported blend modes remain native editable fields. The source file,
+archive entries and foreign decoder never become persisted layer content.
+OpenRaster uses ZIP/XML with PNG layer payloads. PSD supports version 1,
+8-bit RGB raster layers; it is not a complete Photoshop scene interpreter.
+Masks, adjustment layers, unsupported grouping/blending and other semantics
+which cannot be represented faithfully are rejected, including hidden ones.
+Neutral pass-through ORA groups may be ungrouped with an explicit warning.
+The exact subsets, compression modes, metadata/color handling and rejection
+rules are specified in [OPENRASTER_IMPORT.md](OPENRASTER_IMPORT.md) and
+[PSD_IMPORT.md](PSD_IMPORT.md).
+
+`LayeredDocumentImportOptions::idPrefix` defaults to `"import"`. It must be
+nonempty canonical UTF-8, at most 1024 bytes, with no NUL. Each imported pair
+receives `<prefix>-asset-<index>` / `<prefix>-layer-<index>`, starting at zero in
+bottom-to-top order. Duplicate source names do not create duplicate ids.
+Choose a distinct prefix when inserting multiple imports into one document;
+there is no implicit mutation or renaming of an existing document.
+`maxLayers` defaults to 4096 and `maxArchiveEntries` to 16384. `limits` also
+bounds input bytes, decoded data, layer pixel dimensions and XML depth; see the
+format-specific accounting. Zero budgets permit no corresponding resource.
+Limits bound adapter allocations, not total process memory in third-party
+libraries. The readers do not extract files, run applications, fetch resources,
+or use FFmpeg. libzip supplies ZIP reading; Qt and zlib are reused.
+
+Create a new native working file directly from a successful import:
+
+```cpp
+auto imported = importLayeredDocument("/art/source.ora");
+if (!imported.ok()) { /* surface imported.result and stop */ }
+else {
+    // Surface imported.result.warnings before presenting the imported artwork.
+    DocumentFile file;
+    auto created = file.create("/art/converted.iisc", imported.document);
+    // Check created.ok(); an existing destination is never replaced.
+}
+```
+
+For an existing file, append the returned assets and layers inside one
+`DocumentFile::edit` transaction using a unique id prefix. The import is static
+at frame zero and has its own canvas extent; choose any destination placement
+explicitly. A failed validation/collision rolls back the complete transaction.
+`encodeIisc(imported.document)` remains available for canonical snapshot bytes;
+`DocumentFile::create` creates the write-through SQLite working-file variant.
+The installed [`iisc-import`](LAYERED_IMPORT_CLI.md) utility also accepts an
+input file and a new `.iisc` output path as command-line arguments.
+
+`encodePsd(document)` and `exportPsd(document, localPath)` export a static PSD
+at native frame zero. `layeredDocumentFormats()` reports `psd.canWrite = true`;
+OpenRaster remains read-only. Vectors retain vector PDF content in embedded
+Smart Objects, while raster caches provide display compatibility. Pixel layers
+with simple integer translation retain source pixels and offsets. Other bitmap
+transforms/chunks are projected onto the document viewport and baked in.
+Animation, clipping and precision losses are reported as warnings. PSD export
+does not change the `.iisc` snapshot or working-file schemas and is not a backup
+of the complete native timeline. See [PSD_EXPORT.md](PSD_EXPORT.md) and the
+installed [`iisc-export-psd`](PSD_EXPORT_CLI.md) utility.
+
+The normal CTest fixtures are constructed locally and require no downloads.
+For an additional independently produced fixture, pass its local path to
+`iiSharedCanvasLayeredDocumentCodecTest`; the optional probe checks native
+serialization, rendered-frame identity and working-file reopen, and prints the
+actual layer order/names/offsets. It never modifies the input file.
+
 ## Bitmap
 
 `bitmapFormats()` reports actual Qt plugins and optional FFmpeg extended image
@@ -16,9 +92,11 @@ canvas frame. PNG, JPEG, BMP, portable bitmap formats, icons, TIFF, WebP, HEIC
 and JPEG 2000 depend on the deployed Qt build. The optional extended adapter
 adds TGA, QOI, OpenEXR, DPX, Radiance HDR, PCX and SGI read/write plus PSD and DDS
 readers, only when those codecs are present. PSD imports its composite image,
-not Photoshop layers. DDS imports one surface, not a texture/cubemap asset.
+not Photoshop layers; use `importLayeredDocument` for the supported editable
+PSD subset. DDS imports one surface, not a texture/cubemap asset.
 `extendedCodecs = false` disables this backend; `bitmapFormats(backend, false)`
-queries only Qt. Neither Camera RAW decoding nor PSD export is claimed.
+queries only Qt. Camera RAW decoding is not claimed. The bitmap writer does not
+write PSD; use the separate layered `encodePsd`/`exportPsd` API described above.
 A name is not a guarantee for
 every subtype, page layout, color model, or encoder option.
 
@@ -164,3 +242,13 @@ The validation host uses Qt 6.8.3 and FFmpeg 9.0.1; capability-gated tests do no
 establish that the same optional codecs are present on a consumer's machine.
 
 See [DEPENDENCIES.md](DEPENDENCIES.md) for runtime packaging and licenses.
+
+## Editable editor timelines
+
+`exportTimelineInterchange` and `iisc-export-timeline` export the complete canvas
+timeline as a new package of legacy XML, FCPXML and independent layer-state PNGs.
+Layer order, names, hold-key cuts, lifetimes, visibility and compositing remain
+represented independently; this is not the flattened `exportVideo` operation or
+the frame-zero PSD projection. The native snapshot is included as `source.iisc`.
+See [TIMELINE_INTERCHANGE.md](TIMELINE_INTERCHANGE.md) for exact boundaries,
+resource limits, source preservation and editor import instructions.

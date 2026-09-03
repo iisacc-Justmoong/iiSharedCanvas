@@ -39,6 +39,25 @@ never a hidden download or link dependency. See docs/MEDIA_IO.md and the media
 review in docs/DEPENDENCIES.md. Imports return detached values; inserting them
 into a working document must use its existing validated edit transaction.
 
+Layer-preserving foreign-document import uses the reviewed libzip dependency
+for OpenRaster ZIP data and the existing Qt/zlib primitives. PSD import is a
+bounded, fail-closed pixel-layer subset. Do not silently substitute merged
+previews, discard unsupported compositing, extract archive paths, or mutate
+the source file. See docs/MEDIA_IO.md and docs/DEPENDENCIES.md.
+
+PSD export snapshots native frame zero. Vectors must carry an embedded vector
+PDF Smart Object, not just a raster preview labeled as one. Preserve source
+documents, report animation/viewport losses, reuse existing Qt PDF primitives,
+and publish completed outputs atomically. Smart Object export does not imply
+Smart Object import or native timeline round-trip support.
+
+Timeline interchange exports the full persisted canvas timeline through paired
+legacy XML/FCPXML manifests and independent layer-state PNGs. Never substitute
+a flattened movie for editable tracks. Keep source.iisc in the package, report
+vector/transform projection losses, preserve exact frame intervals and publish
+only new directories atomically. Native editor plug-in support and the separate
+TimelineProject model are not implied by this interchange adapter.
+
 Consumer adoption is sequential, not a parallel compatibility exercise:
 
 1. Specify, implement, validate, version, and install iiSharedCanvas on its own.

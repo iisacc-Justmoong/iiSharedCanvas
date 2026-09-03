@@ -187,12 +187,13 @@ sequence renderer or audio mixer. The separate `Video/VideoCodec.h` adapter
 now probes, decodes and encodes canvas animation using an optional FFmpeg
 runtime. `TimelineProject` is not encoded by `.iisc` version 1.3.
 
-## Bitmap, vector and video interchange
+## Layered document, bitmap, vector and video interchange
 
 The installed public API includes real byte/file import and export adapters:
 
 | Content | Import | Export |
 | --- | --- | --- |
+| Layered document | OpenRaster PNG layers; PSD v1 8-bit RGB pixel layers, with names, order, visibility, opacity, offsets and supported blending | PSD at frame zero; vectors as embedded PDF Smart Objects, bitmaps as pixel layers; native `.iisc` through `DocumentFile::create` or `encodeIisc` |
 | Bitmap | Qt readers: PNG, JPEG, BMP, TIFF, WebP, HEIC, JP2, icons and portable bitmaps; optional extended TGA/QOI/EXR/DPX/HDR/PCX/SGI, PSD composite and DDS | Available Qt writers plus extended TGA/QOI/EXR/DPX/HDR/PCX/SGI; alpha matte and PNG text controls |
 | Editable vector | Solid SVG/SVGZ paths, shapes, transforms, linear/quadratic/cubic segments and arc conversion | Native SVG/SVGZ; PDF with vector paths and separate bitmap drawing |
 | Rasterized vector | Explicit SVG/PDF page rasterization through an installed Qt plugin | Bitmap/frame output at the canvas extent |
@@ -210,6 +211,27 @@ SVG drawing features fail the complete editable import; they are not silently
 dropped. Defaults protect existing exports and all working `.iisc` files.
 Limits, codec deployment, supported SVG details and examples are specified in
 [MEDIA_IO.md](docs/MEDIA_IO.md).
+
+`importLayeredDocument(path)` and `decodeLayeredDocument(bytes)` return a
+validated native document with separate bitmap layers, not one merged preview.
+Unrepresentable layer semantics fail closed; supported ungrouping and omitted
+metadata are reported as warnings. `layeredDocumentFormats()` lists only the
+implemented subset readers and PSD writer. The installed `iisc-import input.ora output.iisc`
+command creates a new immediately editable working file and refuses existing
+destinations. See [LAYERED_IMPORT_CLI.md](docs/LAYERED_IMPORT_CLI.md),
+[OPENRASTER_IMPORT.md](docs/OPENRASTER_IMPORT.md) and
+[PSD_IMPORT.md](docs/PSD_IMPORT.md) for precise format and safety contracts.
+
+`exportPsd(document, "/art/output.psd")` exports native frame zero, retaining
+vectors as embedded vector PDF Smart Objects, names, order, visibility and
+supported blending. Animation is intentionally reduced to its first frame.
+Integer-translated bitmaps keep their pixels/offsets; other transforms/chunks
+are baked into canvas-clipped pixel layers, with loss warnings.
+`encodePsd(document)` returns bytes without filesystem I/O. Neither
+mutates the native document, and file export refuses existing destinations by
+default. See [PSD_EXPORT.md](docs/PSD_EXPORT.md) and
+[PSD_EXPORT_CLI.md](docs/PSD_EXPORT_CLI.md). The strict PSD importer does not
+yet import Smart Objects; keep `.iisc` as the complete editable master.
 
 ## Data access and structural editing
 
@@ -413,15 +435,18 @@ non-canonical raster records, and enforces configurable byte, pixel, string,
 metadata-entry, asset, layer, path, command, and keyframe limits before
 allocation. The binary
 container has no archive entry paths, so ZIP path traversal is structurally
-absent without introducing an archive or JSON dependency.
+absent from the canonical codec. The separate OpenRaster importer uses libzip
+and validates foreign entry paths without extracting them.
 
 ## Dependency
 
-The direct project dependencies are iiPaintEngine 0.1.0, SQLite 3.26 or newer, and zlib.
+The direct project dependencies are iiPaintEngine 0.1.0, SQLite 3.26 or newer,
+zlib 1.2.9 or newer, and libzip 1.7.3 or newer (CMake target `libzip::zip`).
 SQLite is a private implementation dependency for durable working files;
 [the review](docs/DEPENDENCIES.md) covers maintenance, public-domain licensing,
 footprint, and platform packaging. The API minimum does not pin an old runtime.
-zlib supplies SVGZ compression and PNG integrity checks. Optional FFmpeg/ffprobe executables are supplied
+zlib supplies SVGZ/PSD compression and PNG integrity checks; libzip supplies
+bounded OpenRaster ZIP reads. Optional FFmpeg/ffprobe executables are supplied
 by the application; this package neither downloads nor bundles them. Their
 maintenance, configuration-dependent licensing and footprint are reviewed in
 [DEPENDENCIES.md](docs/DEPENDENCIES.md).
@@ -490,9 +515,9 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.5.0 with SOVERSION 0.5 and exact-version
+The current C++ package version is 0.8.0 with SOVERSION 0.8 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the media APIs. The canonical snapshot model remains version 1.3;
+package to adopt the layered-document APIs. The canonical snapshot model remains version 1.3;
 1.0 through 1.3 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 
@@ -633,6 +658,9 @@ canonical UTF-8, and byte-exact format-1.2 round-trip.
 
 ## Documents
 
+- docs/OPENRASTER_IMPORT.md and docs/PSD_IMPORT.md define layer-preserving
+  import subsets, safety limits, unsupported features and metadata handling.
+- docs/LAYERED_IMPORT_CLI.md defines the installed file-to-file converter.
 - docs/API.md defines Camera RAW and Stable Diffusion metadata objects, public
   document data ownership, stable-id lookup, validated mutation, failure,
   lifetime, revision, and threading contracts.
@@ -640,6 +668,17 @@ canonical UTF-8, and byte-exact format-1.2 round-trip.
   completion gates.
 - docs/FORMAT.md defines the implemented canonical `.iisc` binary contract.
 - AGENTS.md fixes the engineering rules that future changes must preserve.
+
+## Editable timeline exchange
+
+`exportTimelineInterchange` and the installed `iisc-export-timeline` CLI create
+a new directory with legacy XML (Premiere/Resolve), FCPXML (Final Cut Pro),
+separate layer-state PNGs and `source.iisc`. Native layers remain independent
+tracks/lanes and every hold-key interval remains a clip with exact timing.
+This is an XML import workflow, not a native `.iisc` plug-in. Vector geometry
+and spatial transforms are projected into clip pixels; the native snapshot
+retains full editability. See [the contract](docs/TIMELINE_INTERCHANGE.md) and
+[CLI usage](docs/TIMELINE_INTERCHANGE_CLI.md).
 
 ## License
 
