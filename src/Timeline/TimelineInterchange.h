@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Document/Document.h"
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 #include "Media/MediaIo.h"
 
 #include <cstdint>

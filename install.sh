@@ -3,8 +3,8 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${PROJECT_ROOT}/build"
-INSTALL_PREFIX="${IISHAREDCANVAS_INSTALL_PREFIX:-${HOME}/.local/iiSharedCanvas}"
-PAINT_ENGINE_PREFIX="${IISHAREDCANVAS_IIPAINTENGINE_PREFIX:-${HOME}/.local/iiPaintEngine}"
+INSTALL_PREFIX="${IISHAREDCANVAS_INSTALL_PREFIX:-${HOME}/.local/SDK/iiSharedCanvas}"
+PAINT_ENGINE_PREFIX="${IISHAREDCANVAS_IIPAINTENGINE_PREFIX:-${HOME}/.local/SDK/iiPaintEngine}"
 CONSUMER_BUILD_DIR="${BUILD_DIR}/consumer"
 
 if [[ ! -f "${PAINT_ENGINE_PREFIX}/lib/cmake/iiPaintEngine/iiPaintEngineConfig.cmake" ]]; then
@@ -98,7 +98,8 @@ if [[ -z "${installed_library}" ]]; then
 fi
 
 echo "Configuring standalone installed-package consumer"
-cmake --fresh \
+# Exercise CMake's implicit-link-directory behavior without a DYLD fallback.
+env LIBRARY_PATH="${INSTALL_PREFIX}/lib${LIBRARY_PATH:+:${LIBRARY_PATH}}" cmake --fresh \
     -S "${PROJECT_ROOT}/tests/consumer" \
     -B "${CONSUMER_BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
@@ -122,5 +123,5 @@ if [[ -z "${consumer_executable}" ]]; then
     exit 1
 fi
 
-"${consumer_executable}"
+env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH "${consumer_executable}"
 echo "Verified installed package: ${installed_library}"

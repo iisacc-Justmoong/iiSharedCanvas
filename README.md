@@ -506,7 +506,7 @@ ctest --test-dir build --output-on-failure -j4
 ~~~
 
 iiPaintEngine is discovered from CMAKE_PREFIX_PATH or, for the local developer
-layout, from $HOME/.local/iiPaintEngine.
+layout, from $HOME/.local/SDK/iiPaintEngine.
 The generated library records the selected iiPaintEngine runtime directory and
 the standard sibling-install fallback so Debug, Release, and installed
 consumers resolve the same engine binary.
@@ -684,3 +684,24 @@ retains full editability. See [the contract](docs/TIMELINE_INTERCHANGE.md) and
 
 The project is AGPL-3.0-only because iiPaintEngine is an AGPL-3.0-only public
 dependency. See LICENSE and NOTICE.md.
+
+### SDK installation layout
+
+The checkout is `Workspace/SDK/iiSharedCanvas`. Both direct CMake configuration
+and `./install.sh` default to `~/.local/SDK/iiSharedCanvas`; iiPaintEngine is
+resolved from the sibling SDK installation. `IISHAREDCANVAS_INSTALL_PREFIX`
+and `IISHAREDCANVAS_IIPAINTENGINE_PREFIX` retain explicit custom paths. The
+installer regenerates build and consumer CMake caches after checkout moves.
+`iiSharedCanvas.InstallScript` tests the default and custom installation prefix.
+
+Public headers resolve the generated visibility header as
+`iiSharedCanvas/Export.h`. The exported include directories support this
+qualified path alongside the existing short public includes. This prevents
+collisions when another installed SDK also exports an `Export.h`. Both the
+public API compile test and installed consumer put an unrelated `Export.h`
+first in the include search path as a regression check.
+
+On macOS, the installed CMake target also supplies its runtime search path when
+`LIBRARY_PATH` makes the package an implicit linker directory. The installer
+builds its consumer with that condition and runs it without `DYLD_LIBRARY_PATH`
+or `DYLD_FALLBACK_LIBRARY_PATH` to verify normal package loading.

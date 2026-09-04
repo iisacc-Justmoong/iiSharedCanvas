@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Bitmap/BitmapEditor.h"
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 
 #include <QColor>
 #include <QPointF>

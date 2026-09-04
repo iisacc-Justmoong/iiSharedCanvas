@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Document/Document.h"
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 
 #include <Core/PaintRect.h>
 #include <Stroke/Rasterizer.h>

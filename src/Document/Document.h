@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 #include "Metadata/StableDiffusionMetadata.h"
 
 #include <Core/RasterBlendMode.h>

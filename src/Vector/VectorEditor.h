@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Document/DocumentEditor.h"
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 
 #include <cstddef>
 #include <cstdint>

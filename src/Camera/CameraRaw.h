@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 
 #include <cstdint>
 #include <optional>

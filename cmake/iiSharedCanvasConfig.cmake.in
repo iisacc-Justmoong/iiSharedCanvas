@@ -7,8 +7,8 @@ get_filename_component(_iiSharedCanvasSiblingPaintEngine
 if(EXISTS "${_iiSharedCanvasSiblingPaintEngine}")
     list(PREPEND CMAKE_PREFIX_PATH "${_iiSharedCanvasSiblingPaintEngine}")
 endif()
-if(EXISTS "$ENV{HOME}/.local/iiPaintEngine")
-    list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/iiPaintEngine")
+if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiPaintEngine")
 endif()
 
 find_dependency(iiPaintEngine 0.1.0 CONFIG REQUIRED)
@@ -23,6 +23,21 @@ if(NOT TARGET SQLite3::SQLite3)
 endif()
 include("${CMAKE_CURRENT_LIST_DIR}/iiSharedCanvasAppleQtCompatibility.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/iiSharedCanvasTargets.cmake")
+
+# LIBRARY_PATH can make this package an implicit linker directory, but dyld
+# still needs its directory to resolve the library's @rpath install name.
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND TARGET iiSharedCanvas::iiSharedCanvas)
+    get_filename_component(_iiSharedCanvasLibraryDirectory
+            "${CMAKE_CURRENT_LIST_DIR}/../.." ABSOLUTE)
+    list(FIND CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES
+            "${_iiSharedCanvasLibraryDirectory}" _iiSharedCanvasImplicitDirectoryIndex)
+    if(NOT _iiSharedCanvasImplicitDirectoryIndex EQUAL -1)
+        set_property(TARGET iiSharedCanvas::iiSharedCanvas APPEND PROPERTY
+                INTERFACE_LINK_OPTIONS "LINKER:-rpath,${_iiSharedCanvasLibraryDirectory}")
+    endif()
+    unset(_iiSharedCanvasLibraryDirectory)
+    unset(_iiSharedCanvasImplicitDirectoryIndex)
+endif()
 check_required_components(iiSharedCanvas)
 
 unset(_iiSharedCanvasSiblingPaintEngine)

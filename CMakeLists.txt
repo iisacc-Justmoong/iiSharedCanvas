@@ -3,13 +3,23 @@ project(iiSharedCanvas VERSION 0.8.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
+if(PROJECT_IS_TOP_LEVEL AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+    set(_sdk_home "$ENV{HOME}")
+    if(_sdk_home STREQUAL "")
+        set(_sdk_home "$ENV{USERPROFILE}")
+    endif()
+    set(CMAKE_INSTALL_PREFIX "${_sdk_home}/.local/SDK/iiSharedCanvas"
+        CACHE PATH "SDK installation prefix" FORCE)
+    unset(_sdk_home)
+endif()
+
 include(CTest)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 
-if(EXISTS "$ENV{HOME}/.local/iiPaintEngine")
-    list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/iiPaintEngine")
+if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiPaintEngine")
 endif()
 
 find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)
@@ -96,13 +106,14 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
 
 generate_export_header(iiSharedCanvas
-        EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h")
+        EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h")
 
 target_compile_features(iiSharedCanvas PUBLIC cxx_std_20)
 target_include_directories(iiSharedCanvas PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>)
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(iiSharedCanvas PUBLIC
         iiPaintEngine::iiPaintEngine
         Qt6::Qml
@@ -175,7 +186,7 @@ install(FILES src/iiSharedCanvas.h
 install(DIRECTORY src/Bitmap src/Camera src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/Export.h"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 install(EXPORT iiSharedCanvasTargets
         FILE iiSharedCanvasTargets.cmake
@@ -205,6 +216,10 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 
 if(BUILD_TESTING)
+    if(UNIX)
+        add_test(NAME iiSharedCanvas.InstallScript
+            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/InstallScriptTest.sh")
+    endif()
     foreach(import_test LayeredDocumentCodec OpenRasterImport PsdLayeredImport LayeredImportCli PsdExport PsdExportCli TimelineInterchange TimelineInterchangeCli)
         add_executable(iiSharedCanvas${import_test}Test tests/${import_test}Test.cpp)
         target_compile_definitions(iiSharedCanvas${import_test}Test PRIVATE
@@ -311,6 +326,8 @@ if(BUILD_TESTING)
 
     add_executable(iiSharedCanvasPublicApiTest
             tests/PublicApiTest.cpp)
+    target_include_directories(iiSharedCanvasPublicApiTest BEFORE PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}/tests/foreign-headers")
     target_link_libraries(iiSharedCanvasPublicApiTest PRIVATE
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.PublicApi

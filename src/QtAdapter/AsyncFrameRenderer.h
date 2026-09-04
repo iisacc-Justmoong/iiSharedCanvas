@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Document/Document.h"
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 #include "Render/FrameRenderer.h"
 
 #include <QObject>

@@ -3,7 +3,7 @@
 #include "Bitmap/BitmapEditor.h"
 #include "Bitmap/ChunkedBitmapEditor.h"
 #include "Document/DocumentEditor.h"
-#include "Export.h"
+#include "iiSharedCanvas/Export.h"
 #include "File/DocumentFile.h"
 #include "QtAdapter/AsyncFrameRenderer.h"
 
