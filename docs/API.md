@@ -673,3 +673,18 @@ aggregate mutation. The serializer persists only aggregate state; editor
 revision counters, undo stacks, selection, and callbacks are runtime state.
 For file-backed authoring, validation and direct disk commit are automatic at
 the editing boundary. Render snapshots remain detached and cannot write files.
+
+## Persisted audio timeline
+
+`Document::audioAssets` owns `AudioAsset` PCM16 data; `Document::audioTracks` owns
+`AudioTrackLayer` clip layers. `findAudioAsset`, `findAudioTrack`, and
+`findAudioClip` expose typed lookups. `DocumentEditor` inserts/replaces/removes
+assets, tracks and clips and reorders tracks transactionally. Audio clips use
+video-frame positions/durations and per-channel sample-frame source offsets.
+`audioSampleFrameCount` calculates a bounded exact ceiling for source validation.
+See [audio contract](AUDIO_TIMELINE.md) for validation and editing examples.
+`decodeAudioWav` / `importAudioWav` return detached PCM16 assets; `encodeAudioWav` /
+`exportAudioWav` preserve signed samples in a mono/stereo RIFF/WAVE container.
+Import/export supports 8000..192000 Hz with explicit byte budgets and no
+resampling or implicit external decoder. Unsupported bit depths, compression,
+channel layouts, malformed chunk boundaries and partial sample frames fail.

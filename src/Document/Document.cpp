@@ -2,9 +2,70 @@
 
 #include <algorithm>
 #include <iterator>
+#include <limits>
 #include <unordered_map>
 
 namespace iiSharedCanvas {
+
+std::optional<std::uint64_t> audioSampleFrameCount(
+    FrameIndex frameCount, FrameRate frameRate, std::uint32_t sampleRate) noexcept
+{
+    if (frameRate.numerator == 0 || frameRate.denominator == 0 || sampleRate == 0) {
+        return std::nullopt;
+    }
+    const std::uint64_t ticks = static_cast<std::uint64_t>(frameCount) * frameRate.denominator;
+    const std::uint64_t whole = ticks / frameRate.numerator;
+    const std::uint64_t remainder = ticks % frameRate.numerator;
+    const std::uint64_t fractionalSamples = remainder * sampleRate;
+    const std::uint64_t fraction = fractionalSamples / frameRate.numerator
+        + (fractionalSamples % frameRate.numerator != 0 ? 1 : 0);
+    if (whole > (std::numeric_limits<std::uint64_t>::max() - fraction) / sampleRate) {
+        return std::nullopt;
+    }
+    return whole * sampleRate + fraction;
+}
+
+AudioAsset *findAudioAsset(Document &document, const std::string &id) noexcept
+{
+    const auto found = std::find_if(document.audioAssets.begin(), document.audioAssets.end(),
+        [&id](const AudioAsset &asset) { return asset.id == id; });
+    return found == document.audioAssets.end() ? nullptr : &*found;
+}
+
+const AudioAsset *findAudioAsset(const Document &document, const std::string &id) noexcept
+{
+    const auto found = std::find_if(document.audioAssets.begin(), document.audioAssets.end(),
+        [&id](const AudioAsset &asset) { return asset.id == id; });
+    return found == document.audioAssets.end() ? nullptr : &*found;
+}
+
+AudioTrackLayer *findAudioTrack(Document &document, const std::string &id) noexcept
+{
+    const auto found = std::find_if(document.audioTracks.begin(), document.audioTracks.end(),
+        [&id](const AudioTrackLayer &track) { return track.id == id; });
+    return found == document.audioTracks.end() ? nullptr : &*found;
+}
+
+const AudioTrackLayer *findAudioTrack(const Document &document, const std::string &id) noexcept
+{
+    const auto found = std::find_if(document.audioTracks.begin(), document.audioTracks.end(),
+        [&id](const AudioTrackLayer &track) { return track.id == id; });
+    return found == document.audioTracks.end() ? nullptr : &*found;
+}
+
+AudioClip *findAudioClip(AudioTrackLayer &track, const std::string &id) noexcept
+{
+    const auto found = std::find_if(track.clips.begin(), track.clips.end(),
+        [&id](const AudioClip &clip) { return clip.id == id; });
+    return found == track.clips.end() ? nullptr : &*found;
+}
+
+const AudioClip *findAudioClip(const AudioTrackLayer &track, const std::string &id) noexcept
+{
+    const auto found = std::find_if(track.clips.begin(), track.clips.end(),
+        [&id](const AudioClip &clip) { return clip.id == id; });
+    return found == track.clips.end() ? nullptr : &*found;
+}
 
 ContentKind contentKind(const Asset &asset) noexcept
 {

@@ -78,3 +78,10 @@ The shared loader adds no dependency: both tools reuse the already reviewed
 private SQLite dependency and public iiSharedCanvas APIs. See
 [SQLite's online backup API](https://sqlite.org/backup.html) and the package
 format's library documentation for interchange limitations.
+
+Persisted `.iisc` 1.4 audio tracks are exported automatically with the same command.
+The resulting package contains WAV sources as well as PNG media. Import
+`timeline.xml` in Premiere Pro/Resolve or `timeline.fcpxml` in Final Cut Pro.
+Audio import/attachment is available through `importAudioWav` and
+`DocumentEditor::insertAudioAsset` / `insertAudioTrack`; the CLI consumes the
+complete saved document and never changes its input.

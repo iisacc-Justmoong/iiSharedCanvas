@@ -10,7 +10,8 @@ not install native `.iisc` importer plug-ins into other applications.
 | `timeline.xml` | Legacy Final Cut Pro XML timeline for Premiere and Resolve |
 | `timeline.fcpxml` | FCPXML timeline for Final Cut Pro and compatible editors |
 | `media/*.png` | Independently rendered, straight-alpha layer states |
-| `manifest.json` | Version 1 mapping of native layer/asset IDs to clips and media |
+| `media/*.wav` | PCM16 source audio, independent editable audio tracks |
+| `manifest.json` | Version 1 for visual-only packages; version 2 adds audio mapping |
 | `source.iisc` | Canonical native snapshot retaining original editable data |
 
 Import the appropriate XML, not `source.iisc` or the PNG files individually.
@@ -51,11 +52,11 @@ baked into full-canvas PNGs, while timing and compositing remain separate. The
 source canvas region defines the output frame; infinite-canvas content outside
 that region is not included in clip pixels. These conversions return warnings.
 
-The separate in-memory `TimelineProject` audio/video editing model is not stored
-in `.iisc` 1.3 and is not silently conflated with the canvas document. This API
-does not invent audio, movie clips, transitions, Bezier automation or effects
-that do not exist in the persisted canvas timeline. Native format 1.3 and
-working-file schema 1 are unchanged; the library package API is version 0.8.0.
+The separate in-memory `TimelineProject` remains independent of the persisted
+canvas document. This adapter exports the canvas audio track subset described in
+[AUDIO_TIMELINE.md](AUDIO_TIMELINE.md). It does not map arbitrary `TimelineProject`
+movie clips, transitions, automation or effects. Native format 1.4 persists `Document::audioAssets` and `Document::audioTracks`;
+working-file schema 1 is retained and the package API is version 0.9.0.
 
 ## Limits and publishing
 
@@ -112,3 +113,48 @@ syntax/structure, not claimed as a live application pass. Single-frame exposures
 all compositing modes, every editor/version and pixel-exact target color output
 still require an application-specific acceptance matrix. This verification does
 not constitute importing changed editor projects back into `.iisc`.
+
+## Persisted audio tracks (0.9.0)
+
+`Document::audioTracks` contains independent `AudioTrackLayer` values with ordered,
+nonoverlapping clips; different tracks may overlap. Both XML outputs retain gaps,
+clip positions/durations, mute/enabled state, source handles and combined track +
+clip gain. PCM16 mono/stereo WAV media is written without lossy compression or
+resampling. Legacy XML uses linked per-channel audio tracks for stereo; FCPXML
+uses one audio asset clip per negative lane. Track and clip gain sum into the
+receiving editor's editable clip gain; their separate values remain in the source.
+
+The version 2 manifest adds `audioTracks`. Each clip records `sourceOffsetSamples`
+(native), `mediaOffsetSamples` (XML), `mediaTrimSamples` (WAV origin shift), and
+`sampleFrameCount` as decimal strings to avoid JSON double precision loss.
+Sample offsets refer to per-channel sample frames. When legacy XML cannot exactly
+represent a source offset at the editing frame rate, the WAV omits only the
+minimal leading samples needed for exact frame alignment. It retains all trailing
+source handles, and the entire original is always stored in `source.iisc`.
+The offset mapping is exact: native = mediaTrimSamples + mediaOffsetSamples.
+Repeated references to the same asset and origin reuse one WAV. No channel mix,
+normalization, gain baking, playback engine or audio DSP is introduced.
+
+Audio assets, tracks, clip metadata, WAV data and the native PCM snapshot all count
+against the package limits. `maxLayers` counts visual and audio tracks together;
+`maxClips` counts both kinds. Failure never publishes a partial package.
+
+### Audio application check (2026-09-05)
+
+A dedicated Final Cut Pro test library under `build/audio-finalcut-validation/`
+imported the 1280x720, 24 fps, five-second audio package. Three stereo clips on
+native two-track lanes appeared at 0s, 1s and 3s. The audio inspector showed the
+opening clip's editable -9 dB combined gain and stereo channel configuration.
+Final Cut re-exported FCPXML 1.14; the independent oracle confirmed both lanes,
+all clip and source timing, mute/enabled state, gain, channel counts and identical
+WAV bytes after Final Cut copied the media into its library. The test library was
+closed after verification. Final Cut normalized custom metadata and role names;
+separate native labels and edit values remain authoritative in `source.iisc` and
+the manifest. Empty audio tracks have no FCPXML lane object until they have clips.
+
+Both generated XML formats passed their published DTDs. A mixed PNG/audio fixture
+at 30000/1001 fps also passed the independent oracle, including an exact one-sample
+WAV origin shift; this fixture was not imported in Final Cut. Premiere Pro and
+DaVinci Resolve are not installed on this host, so audio application acceptance
+for those editors remains unverified. The fresh Release build, all 36 CTest
+checks, staging installation and standalone 0.9.0 package consumer passed.

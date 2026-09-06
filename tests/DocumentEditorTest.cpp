@@ -130,8 +130,8 @@ int main()
     expect(layerRangeEdit.ok() && layerRangeEdit.changed
                && layerProperties(*findLayer(document, "paint")).frameRange
                     == std::optional<LayerFrameRange>{{1, 16}}
-               && document.formatVersion.minor == 3,
-           "setting a layer range must atomically migrate the document to format 1.3");
+               && document.formatVersion.minor == CurrentFormatMinor,
+           "setting a layer range must atomically migrate the document to the current format");
     const std::uint64_t beforeRangeNoOp = editor.revision();
     expect(editor.setLayerFrameRange("paint", LayerFrameRange{1, 16}).ok()
                && !editor.lastResult().changed
@@ -157,7 +157,7 @@ int main()
            "timeline expansion must preserve an explicit layer range instead of widening it");
     expect(editor.setLayerFrameRange("paint", std::nullopt).changed
                && !layerProperties(*findLayer(document, "paint")).frameRange
-               && document.formatVersion.minor == 3,
+               && document.formatVersion.minor == CurrentFormatMinor,
            "clearing a layer range must restore whole-timeline existence without downgrading format");
 
     StableDiffusionMetadata generation;
@@ -204,13 +204,13 @@ int main()
                     rangedAnimation,
                     {KeyframePlacement{0, "vector-a"},
                      KeyframePlacement{6, "vector-b"}}).changed
-               && legacyRangedLayerDocument.formatVersion.minor == 3
+               && legacyRangedLayerDocument.formatVersion.minor == CurrentFormatMinor
                && findKeyframe(legacyRangedLayerDocument,
                                "ranged-animation", 0)
                && layerProperties(*findLayer(legacyRangedLayerDocument,
                                              "ranged-animation")).frameRange
                     == std::optional<LayerFrameRange>{{3, 8}},
-           "inserting a ranged keyframed layer must preserve pre-range keys and atomically migrate format 1.2 to 1.3");
+           "inserting a ranged keyframed layer must preserve pre-range keys and atomically migrate format 1.2 to the current format");
 
     Document rejectedLegacyRangeDocument = makeDocument();
     rejectedLegacyRangeDocument.formatVersion = {1, 2};

@@ -28,6 +28,11 @@ struct SerializationLimits {
     std::uint32_t maximumFrames = 262144U;
     std::uint32_t maximumRasterChunks = 1048576U;
     std::uint32_t maximumMetadataEntries = 65536U;
+    std::uint32_t maximumAudioAssets = 65536U;
+    std::uint32_t maximumAudioTracks = 65536U;
+    std::uint64_t maximumTotalAudioClips = 16ULL * 1024ULL * 1024ULL;
+    // Scalar interleaved PCM16 samples, including every channel (two bytes each).
+    std::uint64_t maximumTotalAudioSamples = 256ULL * 1024ULL * 1024ULL;
 };
 
 enum class IiscErrorCode {

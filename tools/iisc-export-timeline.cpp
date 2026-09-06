@@ -19,7 +19,7 @@ constexpr std::string_view usage =
     "Usage: iisc-export-timeline [--name TEXT] [--] INPUT.iisc OUTPUT_DIR\n"
     "       iisc-export-timeline --help\n"
     "Export a native snapshot or working-file timeline to a NEW package directory.\n"
-    "The package contains timeline.xml, timeline.fcpxml, PNG media, manifest.json,\n"
+    "The package contains timeline.xml, timeline.fcpxml, PNG/WAV media, manifest.json,\n"
     "and a native source.iisc snapshot. Existing outputs are never overwritten.\n"
     "Source databases are opened read-only and backed up before document decoding.\n"
     "Use -- before dashed paths.\n";

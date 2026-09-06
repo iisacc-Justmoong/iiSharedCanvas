@@ -30,7 +30,8 @@ if (!renamed.ok() || !bitmap.setPixel(10, 20, 0xff336699U)) {
 Brush begin/continue/end calls persist the pixels produced by that call,
 including while the gesture is still active. A gesture remains one in-memory
 undo step. Cancellation, undo, redo, patches, clears, raster replacements,
-vector changes, metadata edits, layer ranges, and frame-owned keys all use the
+vector changes, metadata edits, layer ranges, frame-owned keys, and audio
+assets/tracks/clips all use the
 same transaction boundary. Only pixels and native model fields are stored,
 never brush input, transient dab streams, or undo/redo history.
 
@@ -111,7 +112,7 @@ without destructors. They are not hardware power-cut certification.
 A working `.iisc` file begins with SQLite's `SQLite format 3\0` header, has
 `application_id=0x49495343` and `user_version=1`, and contains exactly these two
 application tables. Schema versions are independent of the canvas model's
-`FormatVersion` (currently 1.3). Unknown identities/versions/schema objects,
+`FormatVersion` (currently 1.4). Unknown identities/versions/schema objects,
 invalid record identities/order, failed checksums, invalid references, and
 configured resource-limit violations fail closed.
 
@@ -128,13 +129,26 @@ ids are bound SQL text values, never SQL syntax or filesystem paths.
 | 2 | One layer count, empty id | u32 layer count |
 | 3 | One record per layer, layer id | Snapshot layer record, including projected frame-owned keys and optional range |
 | 4 | One metadata trailer, empty id | The version's optional generation metadata payload, empty before model 1.2 |
+| 5 | One audio asset count, empty id, model 1.4+ only | u32 audio asset count |
+| 6 | One record per audio asset, asset id, model 1.4+ only | Snapshot audio asset record, including raw interleaved signed PCM16 |
+| 7 | One audio track count, empty id, model 1.4+ only | u32 audio track count |
+| 8 | One record per audio track, track id, model 1.4+ only | Snapshot audio track record, including clips, trims, mute, enabled state, and gain |
 
 The field encodings follow `FORMAT.md`, except raw raster storage is required
 even where the interchange codec would choose run-length encoding. Stable ids
 separate records from collection positions: reordering does not rewrite pixel
-payloads. Unchanged raster assets are not serialized again. Equal-size changed
+payloads. Unchanged raster and audio assets are not serialized again. Equal-size changed
 records use incremental BLOB writes for changed spans; a resized record is
 replaced individually. No complete canvas dump is written for an edit.
+
+Model 1.4 retains schema 1 because the existing table already supports typed
+records without a restricted kind range. Records 0–4 and their encodings remain
+unchanged. Model 1.0–1.3 working files omit records 5–8 and continue to reopen
+without audio. A model 1.4 file requires both audio count records, even when
+empty. Earlier readers reject the newer model/kinds and cannot silently discard
+audio. Audio PCM has its own record, so clip timing, source trim, track mute and
+gain edits never rewrite the associated audio payload. A changed PCM16 scalar
+sample writes at most two logical payload bytes through the same BLOB patcher.
 
 `lastWriteStatistics()` reports logical record/payload writes for the last
 operation, excluding SQLite pages, hashes, indices, and journal overhead. A
@@ -145,7 +159,7 @@ copies. Large-document latency and cross-device sync costs require profiling.
 
 ## Legacy interchange
 
-`encodeIisc` / `decodeIisc` retain their canonical version-1.0–1.3 binary
+`encodeIisc` / `decodeIisc` retain their canonical version-1.0–1.4 binary
 snapshot contract and fixed golden compatibility tests. They are explicit
 import/export APIs, not the working-file editing path. Detect the header, not
 just the extension. `DocumentFile::open` rejects a legacy snapshot without
@@ -154,5 +168,6 @@ modifying it. To adopt one, decode and validate it, then call `create` with a
 To export a snapshot, call `encodeIisc(*file.document())` explicitly.
 
 `CameraRawData` and the separate `TimelineProject` remain import/adjacent models,
-not fields of the persisted canvas. This change does not claim a new RAW codec
-or media-timeline file format, and it does not edit any downstream application.
+not fields of the persisted canvas. Native model 1.4 audio belongs to the canvas
+timeline; it does not serialize that separate video-project model or add a RAW
+codec, and it does not edit any downstream application.

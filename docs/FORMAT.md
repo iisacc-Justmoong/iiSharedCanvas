@@ -13,7 +13,7 @@ snapshots. Import explicitly into a new working file before editing it.
 
 - Extension: `.iisc`
 - Media type: `application/vnd.iisacc.ii-shared-canvas`
-- Current model version: major 1, minor 3
+- Current model version: major 1, minor 4
 - Integer byte order: little-endian
 - Floating-point representation: IEEE 754 binary64, stored as little-endian bits
 - Raster channel representation: 32-bit ARGB as defined by iiPaintEngine
@@ -43,7 +43,7 @@ mismatch, and unsupported versions before exposing a document.
 
 ## Primitive encoding
 
-- `u8`, `u16`, `u32`, `u64`, and `i32` are fixed-width little-endian values.
+- `u8`, `u16`, `u32`, `u64`, `i16`, and `i32` are fixed-width little-endian values.
 - `f64` is the little-endian bit representation of an IEEE 754 `double`.
 - Boolean values are a `u8` and must be exactly 0 or 1.
 - Strings are `u32 byteCount` followed by exactly that many canonical UTF-8
@@ -78,6 +78,12 @@ Layer layers[layerCount]
   bool hasStableDiffusionMetadata
   [if hasStableDiffusionMetadata]
     StableDiffusionMetadata generation
+
+[if minor >= 4]
+  u32 audioAssetCount
+  AudioAsset audioAssets[audioAssetCount]
+  u32 audioTrackCount
+  AudioTrackLayer audioTracks[audioTrackCount]
 ~~~
 
 Assets and layers preserve their document vector order. Layers are ordered
@@ -100,6 +106,12 @@ immediately after that layer's complete source payload. Version 1.0 through 1.2
 layer records end after their source and contain no range bytes, so their
 canonical encoding remains unchanged. The generation-metadata block continues
 to follow the complete layer collection.
+
+Version 1.4 appends owned PCM16 audio assets and editable audio track layers
+after the complete metadata block. Version 1.0 through 1.3 contain no audio
+tail and decode with empty audio collections; their canonical bytes are
+unchanged. A writer rejects audio in older model versions rather than dropping
+it. Audio assets and tracks preserve vector order independently of visual layers.
 
 Within the existing 1.2 metadata record, `generationParametersText` contains the
 complete Stable Diffusion generation-parameters text extracted from a compatible
@@ -271,6 +283,62 @@ and keyframed bitmap or vector layers. It is a non-destructive existence gate:
 keyframes may remain outside the range, and entering the range immediately uses
 the last frame-zero-based hold value at or before that frame.
 
+## Audio assets and track layers (1.4)
+
+An audio asset is encoded as:
+
+~~~text
+string id
+u32 sampleRate
+u16 channelCount
+u64 sampleCount
+i16 samples[sampleCount]
+~~~
+
+Samples are signed little-endian interleaved PCM16 in channel order. The count
+is the total scalar sample count across channels, while `sampleCount /
+channelCount` is the number of source sample frames. The sample rate is
+8000–192000 Hz, the channel count is one or two, and samples are nonempty with
+a count divisible by the channel count. This embeds decoded audio samples,
+not an external path or original compressed codec stream. Audio and visual
+asset ids share the document identity namespace.
+
+An audio track layer is encoded as:
+
+~~~text
+string id
+string name
+bool muted
+f64 gainDb
+u32 clipCount
+repeat clipCount:
+  string id
+  string name
+  string assetId
+  u32 startFrame
+  u32 durationFrames
+  u64 sourceOffsetSamples
+  f64 gainDb
+  bool enabled
+~~~
+
+Audio and visual layer ids share the layer identity namespace. Audio clip ids
+are unique across all audio tracks. Clips are ordered by start frame without
+overlap inside one track; separate tracks may overlap. Intervals are half-open
+`[startFrame, startFrame + durationFrames)`, with positive duration and an end
+at or before the document frame count. Every clip references an audio asset.
+`sourceOffsetSamples` is a nonnegative trim in per-channel source sample
+frames, not scalar interleaved samples or timeline frames. The required source
+sample frames are the ceiling of `durationFrames * sampleRate *
+frameRateDenominator / frameRateNumerator`; trim plus that duration must fit
+the asset, including for muted or disabled clips. Gain is finite and between
+-96 and 24 dB for both track and clip. Mute and enabled flags do not delete
+source media, timing, or gain values.
+
+Audio is independent of visual hold keys and visual frame rendering. Its
+track/clip information can be projected through explicit audio interchange;
+the native data remains authoritative and lossless in this container.
+
 ## Stable Diffusion generation metadata
 
 The optional version 1.2 record is encoded in this exact order:
@@ -371,7 +439,7 @@ bottom-to-top order before applying opacity and blend mode.
 
 ## Authoring-only state
 
-`TimelineProject` is not encoded by `.iisc` version 1.3. The video-editing
+`TimelineProject` is not encoded by `.iisc` version 1.4. The video-editing
 model has multiple sequences, source representations, typed streams, tracks,
 clips, effects, markers, and render profiles whose references and media timing
 do not belong to the canvas payload above. Adding durable video-project storage
@@ -389,7 +457,7 @@ transient iiPaintEngine dab stream only while a pointer gesture is active.
 input events, and UI tool state are not encoded.
 
 `CameraRawData` is not encoded by `.iisc` version 1.1 and remains outside
-version 1.3. It is decoded/import state containing sensor samples and
+version 1.4. It is decoded/import state containing sensor samples and
 capture/calibration metadata, not a canvas asset or a third layer kind. A host
 must explicitly process it into committed
 ARGB pixels and then create a `RasterAsset` if the result belongs in a document.
@@ -416,6 +484,10 @@ settings are added to the current container.
 | Vector paths | 1,048,576 |
 | Path commands | 16,777,216 |
 | Keyframes | 16,777,216 |
+| Audio assets | 65,536 |
+| Audio track layers | 65,536 |
+| Total audio clips | 16,777,216 |
+| Total interleaved PCM16 scalar samples | 268,435,456 (512 MiB) |
 
 The reader checks declared counts and aggregate totals before allocating the
 corresponding collections or pixel buffers. It derives the unique sparse-frame
@@ -428,6 +500,11 @@ may lower these limits for its device class.
 Layer-range endpoints allocate no collections, but both endpoints are checked
 against the timeline's bounded `frameCount` before a decoded document is
 exposed.
+Audio ids/names share the existing string limits. Audio sample and clip totals
+are cumulative across all assets/tracks. Sample counts are bounded by both the
+sample limit and half the container-byte limit before PCM allocation; the
+reader verifies that declared audio collections fit the remaining payload
+before reserving them. Checked division avoids overflow in byte-size checks.
 
 ## Compatibility and migration
 
@@ -448,6 +525,9 @@ and re-encodes byte-identically unless a caller explicitly attaches metadata.
 Version 1.3 appends one optional inclusive existence range to each layer
 record. A 1.0, 1.1, or 1.2 layer decodes with no range and re-encodes
 byte-identically; adding a range requires upgrading the document to 1.3.
+Version 1.4 adds native audio assets and track layers. A 1.0 through 1.3
+document has empty audio collections on decode and remains byte-identical
+on re-encode. Adding audio requires upgrading the document to 1.4.
 `DocumentEditor` upgrades edited documents atomically to the current minor.
 Future minor or major
 support requires an explicit decoder and canonical re-encoder plus
@@ -466,15 +546,16 @@ from 0.2.x.
 File-bound editing adds the separate working-file owner in package 0.4.0 with
 SOVERSION 0.4; rebuild consumers against that package. It does not change these
 canonical snapshot bytes.
-Package ABI versioning is separate from this file format: `.iisc` is now 1.3,
-while canonical 1.0, 1.1, and 1.2 fixtures continue to re-encode
+Package ABI versioning is separate from this file format: `.iisc` is now 1.4,
+while canonical 1.0, 1.1, 1.2, and 1.3 fixtures continue to re-encode
 byte-identically.
 
 Media interchange in package 0.5.0 does not change the snapshot wire format or
 working-file schema. Foreign images/videos become committed ARGB raster assets
 and frame-owned keys; SVG becomes native path commands. Original codec bytes,
-SVG markup, packet timestamps, audio tracks and decoder state are not embedded
-in `.iisc`. SVG/PDF/image/video exports are explicitly separate interchange
+SVG markup, packet timestamps and decoder state are not embedded in `.iisc`.
+The later 1.4 model adds explicit native audio data; the video-import adapter
+does not implicitly import a movie's audio. SVG/PDF/image/video exports are explicitly separate interchange
 operations; they never replace write-through editing of the working file.
 
 Layer-preserving import in package 0.6.0 also leaves snapshot version 1.3 and

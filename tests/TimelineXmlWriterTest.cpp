@@ -79,6 +79,19 @@ InterchangePlan fixture()
         {"overlay", "Overlay", true, 0.5, RasterBlendMode::Overlay, {{30, 30, 2, "c"}}}};
     return plan;
 }
+InterchangePlan audioFixture()
+{
+    auto plan = fixture();
+    plan.audioMedia = {{QStringLiteral("media/음악 & stereo.wav"), 48000, 2, 240240},
+                       {QStringLiteral("media/voice.wav"), 44100, 1, 220721}};
+    plan.audioTracks = {
+        {"music", "Music <&>", false, -3.0,
+         {{5, 30, 0, "music-a", "Intro", "stereo", 48048, -3.0, true},
+          {60, 20, 0, "music-b", "Outro", "stereo", 0, 0.0, false}}},
+        {"voice", "Voice 한글", true, 2.0,
+         {{0, 45, 1, "voice-a", "Voice", "mono", 0, -2.0, true}}}};
+    return plan;
+}
 QString outputDirectory()
 {
     return QDir(QString::fromUtf8(IISHAREDCANVAS_TEST_OUTPUT_DIR)).absoluteFilePath(
@@ -199,6 +212,69 @@ void verifyFcpxml(const TimelineXmlResult &encoded, const InterchangePlan &plan)
         expect(clips[2]->one("adjust-blend").attr("amount") == "0.25", "FCPXML opacity is not baked into PNG");
     }
 }
+void verifyAudio(const TimelineXmlResult &encoded, const InterchangePlan &plan)
+{
+    const auto legacy = parse(encoded.legacyXml);
+    const auto &audio = legacy.one("sequence").one("media").one("audio");
+    const auto tracks = audio.all("track");
+    expect(tracks.size() == 3, "legacy preserves stereo as a linked channel pair and mono as one track");
+    if (tracks.size() != 3) { return; }
+    expect(audio.one("format").one("samplecharacteristics").one("samplerate").text == "48000",
+           "legacy sequence uses an explicit 48 kHz audio output");
+    for (std::size_t channel = 0; channel < 2; ++channel) {
+        const auto clips = tracks[channel]->all("clipitem");
+        expect(clips.size() == 2, "legacy stereo channel has every original clip");
+        if (clips.size() != 2) { continue; }
+        const auto &clip = *clips[0];
+        expect(clip.one("start").text == "5" && clip.one("end").text == "35"
+               && clip.one("in").text == "30" && clip.one("out").text == "60",
+               "legacy NTSC audio timeline and source trim are exact integer frames");
+        expect(clip.one("sourcetrack").one("mediatype").text == "audio"
+               && clip.one("sourcetrack").one("trackindex").text.toUInt() == channel + 1,
+               "legacy source channel maps left and right distinctly");
+        const auto links = clip.all("link");
+        expect(links.size() == 2 && links[0]->one("groupindex").text == "1"
+               && links[1]->one("groupindex").text == "1", "legacy channel pair is linked as stereo");
+        const auto &effect = clip.one("filter").one("effect");
+        expect(effect.one("effectid").text == "audiolevels"
+               && effect.one("parameter").one("parameterid").text == "level"
+               && std::abs(effect.one("parameter").one("value").text.toDouble() - std::pow(10.0, -6.0 / 20.0)) < 1e-14,
+               "legacy Audio Levels combines native track and clip dB as linear gain");
+        expect(clips[1]->one("enabled").text == "FALSE", "legacy disabled audio clips are preserved");
+    }
+    expect(tracks[2]->one("enabled").text == "FALSE"
+           && tracks[2]->one("clipitem").one("enabled").text == "FALSE", "legacy muted layer and clip are disabled");
+    const auto &file = tracks[0]->one("clipitem").one("file");
+    const auto &sample = file.one("media").one("audio").one("samplecharacteristics");
+    expect(sample.one("depth").text == "16" && sample.one("samplerate").text == "48000"
+           && file.one("media").one("audio").one("channelcount").text == "2", "legacy PCM channel metadata is preserved");
+    expect(QUrl(file.one("pathurl").text).toLocalFile()
+           == QDir(outputDirectory()).filePath(plan.audioMedia[0].relativePath), "legacy WAV URL targets final package");
+
+    const auto fcpxml = parse(encoded.fcpxml);
+    const auto assets = fcpxml.one("resources").all("asset");
+    expect(assets.size() == plan.media.size() + 2, "audio resources coexist with video resources");
+    const auto &sequence = fcpxml.one("project").one("sequence");
+    expect(sequence.attr("audioLayout") == "stereo" && sequence.attr("audioRate") == "48k",
+           "FCPXML sequence audio output is explicit");
+    const auto clips = sequence.one("spine").one("gap").all("asset-clip");
+    expect(clips.size() == 3, "FCPXML has one editable clip per native audio clip");
+    if (clips.size() != 3 || assets.size() != plan.media.size() + 2) { return; }
+    const auto &stereo = *assets[plan.media.size()];
+    expect(stereo.attr("hasAudio") == "1" && stereo.attr("hasVideo") == "0"
+           && stereo.attr("audioSources") == "1" && stereo.attr("audioChannels") == "2"
+           && stereo.attr("audioRate") == "48000" && stereo.attr("duration") == "1001/200s",
+           "FCPXML audio-only asset has exact sample-clock duration and stereo metadata");
+    expect(clips[0]->attr("lane") == "-1" && clips[2]->attr("lane") == "-2"
+           && clips[0]->attr("start") == "1001/1000s" && clips[0]->attr("offset") == "1001/6000s"
+           && clips[0]->attr("duration") == "1001/1000s", "negative audio lanes and independent rational source/timeline timing");
+    expect(clips[0]->one("adjust-volume").attr("amount") == "-6dB"
+           && clips[0]->attr("srcEnable") == "audio", "FCPXML native gain remains an editable audio-only adjustment");
+    expect(clips[1]->attr("enabled") == "0" && clips[2]->attr("enabled") == "0",
+           "FCPXML retains individually disabled clips and muted tracks");
+    expect(clips[0]->attr("name").contains("Music <&>") && clips[0]->attr("name").contains("Intro"),
+           "both track and clip labels survive the trackless target representation");
+}
 void rejected(const InterchangePlan &plan, MediaIoCode code, const std::string &message,
               std::uint64_t limit = 1024 * 1024, const QString &directory = outputDirectory())
 {
@@ -265,6 +341,39 @@ void validationCases()
     expect(parse(empty.fcpxml).one("project").one("sequence").one("spine").one("gap").attr("duration") == "3003/1000s",
            "empty FCPXML still carries full duration");
 }
+void audioValidationCases()
+{
+    auto plan = audioFixture(); plan.audioTracks[0].clips[0].sourceOffsetSamples = 1;
+    rejected(plan, MediaIoCode::UnsupportedFeature, "unrepresentable legacy sample trim is never silently rounded");
+    plan = audioFixture(); plan.audioTracks[0].clips[0].mediaIndex = 9;
+    rejected(plan, MediaIoCode::InvalidArgument, "audio clip must reference an existing WAV");
+    plan = audioFixture(); plan.audioTracks[0].clips[1].start = 10;
+    rejected(plan, MediaIoCode::InvalidArgument, "overlapping audio clips cannot silently overlap within a track");
+    plan = audioFixture(); plan.audioTracks[0].clips[0].duration = 90;
+    rejected(plan, MediaIoCode::InvalidArgument, "audio interval must fit timeline");
+    plan = audioFixture(); plan.audioMedia[0].sampleFrameCount = 48048;
+    rejected(plan, MediaIoCode::InvalidArgument, "audio source interval must fit its sample frames");
+    plan = audioFixture(); plan.audioMedia[0].channelCount = 3;
+    rejected(plan, MediaIoCode::InvalidArgument, "unsupported audio channel layout fails closed");
+    plan = audioFixture(); plan.audioMedia[0].sampleRate = 0;
+    rejected(plan, MediaIoCode::InvalidArgument, "zero sample rate fails closed");
+    plan = audioFixture(); plan.audioMedia[0].relativePath = "../escape.wav";
+    rejected(plan, MediaIoCode::InvalidArgument, "audio media cannot escape package");
+    plan = audioFixture(); plan.audioTracks[0].gainDb = std::numeric_limits<double>::infinity();
+    rejected(plan, MediaIoCode::InvalidArgument, "non-finite track gain fails closed");
+    plan = audioFixture(); plan.audioTracks[0].clips[0].gainDb = std::numeric_limits<double>::quiet_NaN();
+    rejected(plan, MediaIoCode::InvalidArgument, "non-finite clip gain fails closed");
+    plan = audioFixture(); plan.audioTracks[0].clips[0].name = std::string("bad\0name", 8);
+    rejected(plan, MediaIoCode::InvalidArgument, "audio clip labels must be XML-safe");
+    plan = audioFixture(); plan.audioTracks[0].gainDb = 24; plan.audioTracks[0].clips[0].gainDb = 24;
+    expect(encodeTimelineXml(plan, outputDirectory(), 1024 * 1024).result.ok(), "combined positive 48 dB gain remains representable");
+    plan = audioFixture(); plan.audioTracks[0].gainDb = -96; plan.audioTracks[0].clips[0].gainDb = -96;
+    expect(encodeTimelineXml(plan, outputDirectory(), 1024 * 1024).result.ok(), "combined negative 192 dB gain remains representable");
+    const auto full = encodeTimelineXml(audioFixture(), outputDirectory(), 1024 * 1024);
+    const auto exact = std::uint64_t(full.legacyXml.size() + full.fcpxml.size());
+    expect(encodeTimelineXml(audioFixture(), outputDirectory(), exact).result.ok(), "exact aggregate audio XML budget succeeds");
+    rejected(audioFixture(), MediaIoCode::LimitExceeded, "audio and video XML share one bounded budget", exact - 1);
+}
 } // namespace
 
 int main(int argc, char **argv)
@@ -275,10 +384,17 @@ int main(int argc, char **argv)
     expect(encoded.result.ok(), "timeline XML encoding succeeds: " + encoded.result.message);
     if (encoded.result.ok()) { verifyLegacy(encoded, plan); verifyFcpxml(encoded, plan); }
     validationCases();
+    const auto audioPlan = audioFixture();
+    const auto audioEncoded = encodeTimelineXml(audioPlan, outputDirectory(), 1024 * 1024);
+    expect(audioEncoded.result.ok(), "audio XML encoding succeeds: " + audioEncoded.result.message);
+    if (audioEncoded.result.ok()) { verifyAudio(audioEncoded, audioPlan); }
+    audioValidationCases();
     if (failures == 0) {
         QDir().mkpath(QString::fromUtf8(IISHAREDCANVAS_TEST_OUTPUT_DIR));
         for (const auto &entry : {std::pair{"timeline-writer.xml", encoded.legacyXml},
-                                  std::pair{"timeline-writer.fcpxml", encoded.fcpxml}}) {
+                                  std::pair{"timeline-writer.fcpxml", encoded.fcpxml},
+                                  std::pair{"timeline-audio-writer.xml", audioEncoded.legacyXml},
+                                  std::pair{"timeline-audio-writer.fcpxml", audioEncoded.fcpxml}}) {
             QFile file(QDir(QString::fromUtf8(IISHAREDCANVAS_TEST_OUTPUT_DIR)).filePath(QString::fromUtf8(entry.first)));
             expect(file.open(QIODevice::WriteOnly) && file.write(entry.second) == entry.second.size(), "write independent XML validation fixture");
         }

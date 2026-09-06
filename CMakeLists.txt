@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.8.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.9.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -44,6 +44,8 @@ if(IISHAREDCANVAS_BUILD_SHARED AND NOT EMSCRIPTEN)
 endif()
 
 add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
+        src/Audio/AudioCodec.cpp
+        src/Audio/AudioCodec.h
         src/Bitmap/BitmapCodec.cpp
         src/Bitmap/BitmapCodec.h
         src/Bitmap/ExtendedBitmapCodec.cpp
@@ -183,7 +185,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY src/Bitmap src/Camera src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
+install(DIRECTORY src/Audio src/Bitmap src/Camera src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h"
@@ -196,7 +198,7 @@ install(FILES cmake/iiSharedCanvasAppleQtCompatibility.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
-install(FILES README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
+install(FILES docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
         docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md
         docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md
@@ -302,6 +304,15 @@ if(BUILD_TESTING)
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.TimelineEditor
             COMMAND iiSharedCanvasTimelineEditorTest)
+
+    foreach(audio_test AudioCodec AudioInterchange DocumentAudio AudioPersistence)
+        add_executable(iiSharedCanvas${audio_test}Test tests/${audio_test}Test.cpp)
+        target_link_libraries(iiSharedCanvas${audio_test}Test PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+        target_compile_definitions(iiSharedCanvas${audio_test}Test PRIVATE
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+        add_test(NAME iiSharedCanvas.${audio_test} COMMAND iiSharedCanvas${audio_test}Test)
+        set_tests_properties(iiSharedCanvas.${audio_test} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    endforeach()
 
     add_executable(iiSharedCanvasDocumentModelTest
             tests/DocumentModelTest.cpp)

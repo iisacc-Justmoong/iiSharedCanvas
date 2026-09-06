@@ -63,17 +63,51 @@ QString text(const std::string &value)
 
 QString number(std::uint64_t value) { return QString::number(qulonglong(value)); }
 
-QString time(FrameIndex frames, const Rate &rate)
+QString rationalTime(std::uint64_t numerator, std::uint32_t denominator)
 {
-    // Both multiplicands are uint32, so their product fits uint64. FCPXML time
-    // uses a 64-bit numerator and a 32-bit denominator, never decimal seconds.
-    const auto numerator = std::uint64_t(frames) * rate.denominator;
-    const auto divisor = std::gcd(numerator, std::uint64_t(rate.numerator));
+    const auto divisor = std::gcd(numerator, std::uint64_t(denominator));
     const auto reducedNumerator = numerator / divisor;
-    const auto reducedDenominator = rate.numerator / divisor;
+    const auto reducedDenominator = denominator / divisor;
     return number(reducedNumerator)
         + (reducedDenominator == 1 ? QString{} : QStringLiteral("/") + number(reducedDenominator))
         + QStringLiteral("s");
+}
+
+QString time(FrameIndex frames, const Rate &rate)
+{
+    return rationalTime(std::uint64_t(frames) * rate.denominator, rate.numerator);
+}
+
+bool safeMediaPath(const QString &path)
+{
+    if (path.isEmpty() || !xmlText(path) || QDir::isAbsolutePath(path)
+        || path.contains('\\') || path.contains(':') || path.endsWith('/')) { return false; }
+    const auto components = path.split('/');
+    return std::none_of(components.begin(), components.end(), [](const auto &component) {
+        return component.isEmpty() || component == "." || component == "..";
+    });
+}
+
+bool checkedProduct(std::uint64_t a, std::uint64_t b, std::uint64_t &result)
+{
+    if (b && a > std::numeric_limits<std::uint64_t>::max() / b) { return false; }
+    result = a * b;
+    return true;
+}
+
+// Reduced numerator/denominator for converting a sample frame to a video frame.
+std::pair<std::uint64_t, std::uint64_t> audioFrameRatio(const InterchangeAudioMedia &media, const Rate &rate)
+{
+    const auto denominator = std::uint64_t(media.sampleRate) * rate.denominator;
+    const auto divisor = std::gcd(denominator, std::uint64_t(rate.numerator));
+    return {rate.numerator / divisor, denominator / divisor};
+}
+
+std::uint64_t audioSourceFrames(const InterchangeAudioMedia &media, const Rate &rate)
+{
+    const auto [numerator, denominator] = audioFrameRatio(media, rate);
+    const auto scaled = media.sampleFrameCount * numerator; // checked during validation
+    return scaled / denominator + (scaled % denominator != 0);
 }
 
 const char *legacyBlend(RasterBlendMode mode)
@@ -118,7 +152,9 @@ MediaIoResult validatePlan(const InterchangePlan &plan, const QString &directory
     };
     if (!charge(std::uint64_t(directory.size())) || !charge(plan.name.size())
         || plan.tracks.size() > maxBytes / 32 || !charge(plan.tracks.size() * 32)
-        || plan.media.size() > maxBytes / 64 || !charge(plan.media.size() * 64)) { return limitError(); }
+        || plan.media.size() > maxBytes / 64 || !charge(plan.media.size() * 64)
+        || plan.audioTracks.size() > maxBytes / 32 || !charge(plan.audioTracks.size() * 32)
+        || plan.audioMedia.size() > maxBytes / 64 || !charge(plan.audioMedia.size() * 64)) { return limitError(); }
     if (!utf8XmlText(plan.name)) { return invalid(QStringLiteral("Timeline sequence name is not valid UTF-8/XML text.")); }
     const auto divisor = std::gcd(plan.frameRate.numerator, plan.frameRate.denominator);
     rate.numerator = plan.frameRate.numerator / divisor;
@@ -135,16 +171,8 @@ MediaIoResult validatePlan(const InterchangePlan &plan, const QString &directory
     }
     for (const auto &media : plan.media) {
         if (!charge(std::uint64_t(media.relativePath.size()))) { return limitError(); }
-        if (media.relativePath.isEmpty() || !xmlText(media.relativePath)
-            || QDir::isAbsolutePath(media.relativePath) || media.relativePath.contains('\\')
-            || media.relativePath.contains(':') || media.relativePath.endsWith('/')) {
+        if (!safeMediaPath(media.relativePath)) {
             return invalid(QStringLiteral("Timeline media must use safe relative paths inside the package."));
-        }
-        const auto components = media.relativePath.split('/');
-        if (std::any_of(components.begin(), components.end(), [](const auto &component) {
-                return component.isEmpty() || component == "." || component == "..";
-            })) {
-            return invalid(QStringLiteral("Timeline media paths cannot contain traversal or empty components."));
         }
     }
     for (const auto &track : plan.tracks) {
@@ -167,10 +195,54 @@ MediaIoResult validatePlan(const InterchangePlan &plan, const QString &directory
             previousEnd = end;
         }
     }
+    for (const auto &media : plan.audioMedia) {
+        if (!charge(std::uint64_t(media.relativePath.size()))) { return limitError(); }
+        if (!safeMediaPath(media.relativePath) || media.sampleRate < 8000 || media.sampleRate > 192000
+            || (media.channelCount != 1 && media.channelCount != 2) || !media.sampleFrameCount) {
+            return invalid(QStringLiteral("Timeline audio requires safe WAV paths, sample rates, and nonempty mono/stereo sources."));
+        }
+        const auto [numerator, denominator] = audioFrameRatio(media, rate);
+        std::uint64_t scaled;
+        if (!checkedProduct(media.sampleFrameCount, numerator, scaled)) {
+            return invalid(QStringLiteral("Timeline audio sample duration exceeds exact XML timing capacity."));
+        }
+    }
+    for (const auto &track : plan.audioTracks) {
+        if (!charge(track.name.size()) || track.clips.size() > maxBytes / 128
+            || !charge(track.clips.size() * 128)) { return limitError(); }
+        if (!utf8XmlText(track.name) || !std::isfinite(track.gainDb) || track.gainDb < -96 || track.gainDb > 24) {
+            return invalid(QStringLiteral("Timeline audio track names and gain must be valid XML values."));
+        }
+        std::uint64_t previousEnd = 0;
+        for (const auto &clip : track.clips) {
+            if (!charge(clip.name.size())) { return limitError(); }
+            const auto end = std::uint64_t(clip.start) + clip.duration;
+            if (!clip.duration || clip.mediaIndex >= plan.audioMedia.size() || clip.start < previousEnd
+                || end > plan.frameCount || !utf8XmlText(clip.name)
+                || !std::isfinite(clip.gainDb) || clip.gainDb < -96 || clip.gainDb > 24) {
+                return invalid(QStringLiteral("Timeline audio clips must be ordered, in range, and have valid media, names and gain."));
+            }
+            const auto &media = plan.audioMedia[clip.mediaIndex];
+            const auto [numerator, denominator] = audioFrameRatio(media, rate);
+            if (clip.sourceOffsetSamples % denominator) {
+                return media_detail::error(MediaIoCode::UnsupportedFeature,
+                    QStringLiteral("Legacy audio source trim must align to exact timeline frames; remap the WAV prefix first."));
+            }
+            std::uint64_t requested, available;
+            if (clip.sourceOffsetSamples > media.sampleFrameCount
+                || !checkedProduct(clip.duration, denominator, requested)
+                || !checkedProduct(media.sampleFrameCount - clip.sourceOffsetSamples, numerator, available)
+                || requested > available) {
+                return invalid(QStringLiteral("Timeline audio source range must fit its exact sample-clock duration."));
+            }
+            previousEnd = end;
+        }
+    }
     return {};
 }
 
-QString mediaUrl(const InterchangeMedia &media, const QString &directory)
+template<typename Media>
+QString mediaUrl(const Media &media, const QString &directory)
 {
     return QUrl::fromLocalFile(QDir(directory).filePath(media.relativePath)).toString(QUrl::FullyEncoded);
 }
@@ -244,6 +316,170 @@ void legacyOpacity(QXmlStreamWriter &xml, double opacity)
     xml.writeEndElement();
 }
 
+QString audioClipName(const InterchangeAudioTrack &track, const InterchangeAudioClip &clip)
+{
+    return clip.name.empty() ? text(track.name) : text(track.name) + QStringLiteral(" / ") + text(clip.name);
+}
+
+void legacyAudioSample(QXmlStreamWriter &xml, std::uint32_t sampleRate)
+{
+    xml.writeStartElement("samplecharacteristics");
+    xml.writeTextElement("depth", "16");
+    xml.writeTextElement("samplerate", number(sampleRate));
+    xml.writeEndElement();
+}
+
+void legacyAudioFile(QXmlStreamWriter &xml, const InterchangeAudioMedia &media,
+                     std::size_t index, const QString &directory, const Rate &rate, bool first)
+{
+    xml.writeStartElement("file");
+    xml.writeAttribute("id", QStringLiteral("audio-file-") + number(index + 1));
+    if (first) {
+        xml.writeTextElement("name", media.relativePath.section('/', -1));
+        xml.writeTextElement("pathurl", mediaUrl(media, directory));
+        legacyRate(xml, rate);
+        xml.writeTextElement("duration", number(audioSourceFrames(media, rate)));
+        xml.writeStartElement("media");
+        xml.writeStartElement("audio");
+        legacyAudioSample(xml, media.sampleRate);
+        xml.writeTextElement("channelcount", number(media.channelCount));
+        xml.writeTextElement("layout", media.channelCount == 2 ? "stereo" : "mono");
+        for (std::uint16_t channel = 1; channel <= media.channelCount; ++channel) {
+            xml.writeStartElement("audiochannel");
+            xml.writeTextElement("channellabel", media.channelCount == 1 ? "discrete" : channel == 1 ? "left" : "right");
+            xml.writeTextElement("sourcechannel", number(channel));
+            xml.writeEndElement();
+        }
+        xml.writeEndElement(); // audio
+        xml.writeEndElement(); // media
+    }
+    xml.writeEndElement(); // file
+}
+
+void legacyAudioGain(QXmlStreamWriter &xml, double gainDb)
+{
+    xml.writeStartElement("filter");
+    xml.writeTextElement("enabled", "TRUE");
+    xml.writeStartElement("effect");
+    xml.writeTextElement("name", "Audio Levels");
+    xml.writeTextElement("effectid", "audiolevels");
+    xml.writeTextElement("effectcategory", "audiolevels");
+    xml.writeTextElement("effecttype", "audiolevels");
+    xml.writeTextElement("mediatype", "audio");
+    xml.writeStartElement("parameter");
+    xml.writeTextElement("parameterid", "level");
+    xml.writeTextElement("name", "Level");
+    xml.writeTextElement("value", QString::number(std::pow(10.0, gainDb / 20.0), 'g', 17));
+    xml.writeEndElement();
+    xml.writeEndElement();
+    xml.writeEndElement();
+}
+
+void legacyAudioPan(QXmlStreamWriter &xml, int pan)
+{
+    xml.writeStartElement("filter");
+    xml.writeTextElement("enabled", "TRUE");
+    xml.writeStartElement("effect");
+    xml.writeTextElement("name", "Audio Pan");
+    xml.writeTextElement("effectid", "audiopan");
+    xml.writeTextElement("effectcategory", "audiopan");
+    xml.writeTextElement("effecttype", "audiopan");
+    xml.writeTextElement("mediatype", "audio");
+    xml.writeStartElement("parameter");
+    xml.writeTextElement("parameterid", "pan");
+    xml.writeTextElement("name", "Pan");
+    xml.writeTextElement("value", QString::number(pan));
+    xml.writeEndElement();
+    xml.writeEndElement();
+    xml.writeEndElement();
+}
+
+QString audioClipId(std::size_t track, std::size_t clip, std::uint16_t channel)
+{
+    return QStringLiteral("audio-clip-") + number(track + 1) + '-' + number(clip + 1) + '-' + number(channel);
+}
+
+void legacyAudio(QXmlStreamWriter &xml, const InterchangePlan &plan, const QString &directory, const Rate &rate)
+{
+    if (plan.audioTracks.empty()) { return; }
+    xml.writeStartElement("audio");
+    xml.writeStartElement("format");
+    legacyAudioSample(xml, 48000);
+    xml.writeEndElement();
+    xml.writeStartElement("outputs");
+    xml.writeStartElement("group");
+    xml.writeTextElement("index", "1");
+    xml.writeTextElement("numchannels", "2");
+    xml.writeTextElement("downmix", "0");
+    for (const auto channel : {1, 2}) {
+        xml.writeStartElement("channel");
+        xml.writeTextElement("index", number(channel));
+        xml.writeEndElement();
+    }
+    xml.writeEndElement(); // group
+    xml.writeEndElement(); // outputs
+    std::vector<bool> emitted(plan.audioMedia.size(), false);
+    std::size_t physicalTrack = 1;
+    for (std::size_t trackIndex = 0; trackIndex < plan.audioTracks.size(); ++trackIndex) {
+        const auto &track = plan.audioTracks[trackIndex];
+        std::uint16_t channels = 1;
+        for (const auto &clip : track.clips) { channels = std::max(channels, plan.audioMedia[clip.mediaIndex].channelCount); }
+        for (std::uint16_t channel = 1; channel <= channels; ++channel) {
+            xml.writeStartElement("track");
+            std::size_t stereoClipIndex = 0;
+            for (std::size_t clipIndex = 0; clipIndex < track.clips.size(); ++clipIndex) {
+                if (xml.hasError()) { return; }
+                const auto &clip = track.clips[clipIndex];
+                const auto &media = plan.audioMedia[clip.mediaIndex];
+                stereoClipIndex += media.channelCount == 2;
+                if (channel > media.channelCount) { continue; }
+                const auto [numerator, denominator] = audioFrameRatio(media, rate);
+                const auto sourceIn = (clip.sourceOffsetSamples / denominator) * numerator;
+                xml.writeStartElement("clipitem");
+                xml.writeAttribute("id", audioClipId(trackIndex, clipIndex, channel));
+                xml.writeTextElement("name", audioClipName(track, clip));
+                xml.writeTextElement("duration", number(audioSourceFrames(media, rate)));
+                legacyRate(xml, rate);
+                xml.writeTextElement("start", number(clip.start));
+                xml.writeTextElement("end", number(std::uint64_t(clip.start) + clip.duration));
+                xml.writeTextElement("in", number(sourceIn));
+                xml.writeTextElement("out", number(sourceIn + clip.duration));
+                xml.writeTextElement("enabled", !track.muted && clip.enabled ? "TRUE" : "FALSE");
+                legacyAudioFile(xml, media, clip.mediaIndex, directory, rate, !emitted[clip.mediaIndex]);
+                emitted[clip.mediaIndex] = true;
+                xml.writeStartElement("sourcetrack");
+                xml.writeTextElement("mediatype", "audio");
+                xml.writeTextElement("trackindex", number(channel));
+                xml.writeEndElement();
+                if (media.channelCount == 2) {
+                    for (std::uint16_t linkedChannel = 1; linkedChannel <= 2; ++linkedChannel) {
+                        xml.writeStartElement("link");
+                        xml.writeTextElement("linkclipref", audioClipId(trackIndex, clipIndex, linkedChannel));
+                        xml.writeTextElement("mediatype", "audio");
+                        xml.writeTextElement("trackindex", number(physicalTrack + linkedChannel - 1));
+                        // Mono clips are absent from the right-channel track.
+                        xml.writeTextElement("clipindex", number(linkedChannel == 1 ? clipIndex + 1 : stereoClipIndex));
+                        xml.writeTextElement("groupindex", "1");
+                        xml.writeEndElement();
+                    }
+                }
+                legacyAudioGain(xml, track.gainDb + clip.gainDb);
+                legacyAudioPan(xml, media.channelCount == 1 ? 0 : channel == 1 ? -1 : 1);
+                xml.writeStartElement("logginginfo");
+                xml.writeTextElement("description", text(track.name));
+                xml.writeTextElement("lognote", text(clip.name));
+                xml.writeEndElement();
+                xml.writeEndElement(); // clipitem
+            }
+            xml.writeTextElement("enabled", track.muted ? "FALSE" : "TRUE");
+            xml.writeTextElement("locked", "FALSE");
+            xml.writeEndElement(); // track
+        }
+        physicalTrack += channels;
+    }
+    xml.writeEndElement(); // audio
+}
+
 void legacyDocument(QXmlStreamWriter &xml, const InterchangePlan &plan, const QString &directory, const Rate &rate)
 {
     xml.writeStartDocument();
@@ -297,6 +533,7 @@ void legacyDocument(QXmlStreamWriter &xml, const InterchangePlan &plan, const QS
         xml.writeEndElement();
     }
     xml.writeEndElement(); // video
+    legacyAudio(xml, plan, directory, rate);
     xml.writeEndElement(); // media
     xml.writeEndElement(); // sequence
     xml.writeEndElement(); // xmeml
@@ -304,6 +541,7 @@ void legacyDocument(QXmlStreamWriter &xml, const InterchangePlan &plan, const QS
 }
 
 QString assetId(std::size_t index) { return QStringLiteral("r") + number(index + 3); }
+QString audioAssetId(std::size_t index) { return QStringLiteral("a") + number(index + 1); }
 
 void fcpxmlFormat(QXmlStreamWriter &xml, const InterchangePlan &plan, const Rate &rate, bool still)
 {
@@ -348,6 +586,24 @@ void fcpxmlDocument(QXmlStreamWriter &xml, const InterchangePlan &plan, const QS
         xml.writeAttribute("src", mediaUrl(media, directory));
         xml.writeEndElement();
     }
+    for (std::size_t index = 0; index < plan.audioMedia.size(); ++index) {
+        if (xml.hasError()) { return; }
+        const auto &media = plan.audioMedia[index];
+        xml.writeStartElement("asset");
+        xml.writeAttribute("id", audioAssetId(index));
+        xml.writeAttribute("name", media.relativePath.section('/', -1));
+        xml.writeAttribute("start", "0s");
+        xml.writeAttribute("duration", rationalTime(media.sampleFrameCount, media.sampleRate));
+        xml.writeAttribute("hasVideo", "0");
+        xml.writeAttribute("hasAudio", "1");
+        xml.writeAttribute("audioSources", "1");
+        xml.writeAttribute("audioChannels", number(media.channelCount));
+        xml.writeAttribute("audioRate", number(media.sampleRate));
+        xml.writeEmptyElement("media-rep");
+        xml.writeAttribute("kind", "original-media");
+        xml.writeAttribute("src", mediaUrl(media, directory));
+        xml.writeEndElement(); // asset
+    }
     xml.writeEndElement(); // resources
     xml.writeStartElement("project");
     xml.writeAttribute("name", text(plan.name));
@@ -356,6 +612,10 @@ void fcpxmlDocument(QXmlStreamWriter &xml, const InterchangePlan &plan, const QS
     xml.writeAttribute("duration", time(plan.frameCount, rate));
     xml.writeAttribute("tcStart", "0s");
     xml.writeAttribute("tcFormat", "NDF");
+    if (!plan.audioTracks.empty()) {
+        xml.writeAttribute("audioLayout", "stereo");
+        xml.writeAttribute("audioRate", "48k");
+    }
     xml.writeStartElement("spine");
     xml.writeStartElement("gap");
     xml.writeAttribute("name", "iisc Timeline");
@@ -389,6 +649,39 @@ void fcpxmlDocument(QXmlStreamWriter &xml, const InterchangePlan &plan, const QS
             xml.writeAttribute("type", "none");
             xml.writeEndElement(); // video
             xml.writeEndElement(); // clip
+        }
+    }
+    for (std::size_t index = 0; index < plan.audioTracks.size(); ++index) {
+        const auto &track = plan.audioTracks[index];
+        for (const auto &clip : track.clips) {
+            if (xml.hasError()) { return; }
+            const auto &media = plan.audioMedia[clip.mediaIndex];
+            xml.writeStartElement("asset-clip");
+            xml.writeAttribute("ref", audioAssetId(clip.mediaIndex));
+            xml.writeAttribute("name", audioClipName(track, clip));
+            xml.writeAttribute("lane", QStringLiteral("-") + number(index + 1));
+            xml.writeAttribute("offset", time(clip.start, rate));
+            xml.writeAttribute("start", rationalTime(clip.sourceOffsetSamples, media.sampleRate));
+            xml.writeAttribute("duration", time(clip.duration, rate));
+            xml.writeAttribute("enabled", !track.muted && clip.enabled ? "1" : "0");
+            xml.writeAttribute("srcEnable", "audio");
+            xml.writeAttribute("audioRole", QStringLiteral("dialogue.iisc-track-") + number(index + 1));
+            xml.writeEmptyElement("adjust-volume");
+            xml.writeAttribute("amount", QString::number(track.gainDb + clip.gainDb, 'g', 17) + QStringLiteral("dB"));
+            if (media.channelCount == 2) {
+                xml.writeEmptyElement("audio-channel-source");
+                xml.writeAttribute("srcCh", "1,2");
+                xml.writeAttribute("outCh", "L,R");
+            }
+            xml.writeStartElement("metadata");
+            for (const auto &entry : {std::pair{"org.iisacc.iiSharedCanvas.audioTrack.name", track.name},
+                                      std::pair{"org.iisacc.iiSharedCanvas.audioClip.name", clip.name}}) {
+                xml.writeEmptyElement("md");
+                xml.writeAttribute("key", QString::fromLatin1(entry.first));
+                xml.writeAttribute("value", text(entry.second));
+            }
+            xml.writeEndElement(); // metadata
+            xml.writeEndElement(); // asset-clip
         }
     }
     xml.writeEndElement(); // gap

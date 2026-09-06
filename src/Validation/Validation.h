@@ -25,6 +25,10 @@ enum class ValidationCode {
     InvalidKeyframes,
     ContentKindMismatch,
     InvalidStableDiffusionMetadata,
+    InvalidAudioAsset,
+    InvalidAudioTrack,
+    InvalidAudioClip,
+    DuplicateAudioClipId,
 };
 
 struct ValidationIssue {

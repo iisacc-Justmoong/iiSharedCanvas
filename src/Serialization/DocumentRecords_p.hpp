@@ -8,7 +8,10 @@ namespace iiSharedCanvas::detail {
 
 // Private working-file records reuse the versioned .iisc field encodings.
 // Raster payloads are raw ARGB32 so one changed pixel never shifts later bytes.
-enum class RecordKind : int { Header, Asset, LayerCount, Layer, Metadata };
+enum class RecordKind : int {
+    Header, Asset, LayerCount, Layer, Metadata,
+    AudioAssetCount, AudioAsset, AudioTrackCount, AudioTrack,
+};
 
 struct DocumentRecord {
     RecordKind kind;

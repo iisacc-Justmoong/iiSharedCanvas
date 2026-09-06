@@ -90,6 +90,9 @@ Document document(std::uint32_t color = 0xff112233U, bool withVector = true)
         vector.source = StaticSource{"shape"};
         result.layers.emplace_back(vector);
     }
+    result.audioAssets.push_back({"audio", 48000, 1, std::vector<std::int16_t>(12000, 200)});
+    result.audioTracks.push_back({"voice", "Voice", false, -3,
+        {{"spoken", "Spoken clip", "audio", 0, 6, 0, -6, true}}});
     return result;
 }
 
@@ -109,6 +112,7 @@ void workingFile(const QString &path, const Document &value)
 
 void expectPackage(const QString &directory, const Document &source, const QString &name = "iisc Timeline")
 {
+    expect(QFile::exists(directory + "/media/audio-0001.wav"), "CLI includes persisted audio WAV");
     // QProcess 6.8 encodes Unix arguments with QFile::encodeName. On macOS
     // that decomposes Unicode to NFD before the utility receives argv.
 #if defined(Q_OS_DARWIN)
@@ -307,6 +311,7 @@ void failure(const QString &directory)
            "symbolic output cannot redirect package publication to source");
     auto unsupported = document();
     unsupported.timeline.frameRate = {123, 7};
+    unsupported.audioTracks.clear(); unsupported.audioAssets.clear();
     snapshot(QDir(directory).filePath("unsupported.iisc"), unsupported);
     result = run({"unsupported.iisc", "unsupported-package"}, directory);
     expect(result.code == 1 && result.error.contains("UnsupportedFeature")

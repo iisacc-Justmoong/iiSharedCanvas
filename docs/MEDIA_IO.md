@@ -252,3 +252,14 @@ represented independently; this is not the flattened `exportVideo` operation or
 the frame-zero PSD projection. The native snapshot is included as `source.iisc`.
 See [TIMELINE_INTERCHANGE.md](TIMELINE_INTERCHANGE.md) for exact boundaries,
 resource limits, source preservation and editor import instructions.
+
+## Audio WAV
+
+`importAudioWav` and `decodeAudioWav` return detached signed PCM16 mono/stereo
+assets at 8000..192000 Hz. `encodeAudioWav` and `exportAudioWav` preserve samples
+exactly; export refuses collisions and publishes atomically. RIFF chunk sizes,
+format consistency, frame alignment and configured input/decoded/output limits
+are checked before allocating PCM data. Ancillary chunks are omitted with a
+warning; compressed WAV, RF64, 24/32-bit and float samples are unsupported. Use
+`DocumentEditor` or `DocumentFile::edit` to attach audio to a working document.
+See [audio timeline](AUDIO_TIMELINE.md) for XML export and deliberate boundaries.

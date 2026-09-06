@@ -185,7 +185,7 @@ binding and revision instead of detaching the editor.
 These timeline objects remain standard-library-only authoring data, not a
 sequence renderer or audio mixer. The separate `Video/VideoCodec.h` adapter
 now probes, decodes and encodes canvas animation using an optional FFmpeg
-runtime. `TimelineProject` is not encoded by `.iisc` version 1.3.
+runtime. `TimelineProject` is not encoded by `.iisc`; persisted canvas audio uses the smaller `AudioTrackLayer` contract.
 
 ## Layered document, bitmap, vector and video interchange
 
@@ -515,10 +515,10 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.8.0 with SOVERSION 0.8 and exact-version
+The current C++ package version is 0.9.0 with SOVERSION 0.9 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the layered-document APIs. The canonical snapshot model remains version 1.3;
-1.0 through 1.3 compatibility is tested with fixed legacy goldens. Working-file
+package to adopt the layered-document APIs. The canonical snapshot model is version 1.4;
+1.0 through 1.4 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 
 For a tested host install, including an installed-package consumer check:
@@ -679,6 +679,18 @@ This is an XML import workflow, not a native `.iisc` plug-in. Vector geometry
 and spatial transforms are projected into clip pixels; the native snapshot
 retains full editability. See [the contract](docs/TIMELINE_INTERCHANGE.md) and
 [CLI usage](docs/TIMELINE_INTERCHANGE_CLI.md).
+
+## Persisted audio timeline
+
+`Document::audioAssets` embeds signed PCM16 mono/stereo samples, and
+`Document::audioTracks` stores independent `AudioTrackLayer` values with named
+clips, frame positions/durations, sample-accurate source trims, mute and gain.
+Use `importAudioWav` to read a bounded WAV, then validated `DocumentEditor`
+operations to attach it. Native `.iisc` 1.4 and synchronous working files preserve
+all PCM and edits; visual rendering remains independent of audio playback.
+`exportTimelineInterchange` exports PNG/WAV media and both XML dialects for
+Premiere Pro, Final Cut Pro and DaVinci Resolve. Details and examples are in
+[AUDIO_TIMELINE.md](docs/AUDIO_TIMELINE.md).
 
 ## License
 

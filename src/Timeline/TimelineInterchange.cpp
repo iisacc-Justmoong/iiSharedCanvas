@@ -1,6 +1,7 @@
 #include "TimelineInterchange.h"
 #include "TimelineXmlWriter_p.hpp"
 
+#include "Audio/AudioCodec.h"
 #include "Bitmap/BitmapCodec.h"
 #include "Media/MediaIo_p.hpp"
 #include "Render/FrameRenderer.h"
@@ -88,6 +89,15 @@ std::uint64_t sourceSnapshotUpperBound(const Document &document, std::uint64_t l
         if (const auto *source = std::get_if<StaticSource>(&layerSource(layer))) { strings({&source->assetId}); }
         else { items(std::get<KeyframedSource>(layerSource(layer)).frameIndices.size(), 8); }
     }
+    items(document.audioAssets.size(), 64);
+    for (const auto &asset : document.audioAssets) {
+        strings({&asset.id}); items(asset.samples.size(), 2);
+    }
+    items(document.audioTracks.size(), 128);
+    for (const auto &track : document.audioTracks) {
+        strings({&track.id, &track.name}); items(track.clips.size(), 128);
+        for (const auto &clip : track.clips) { strings({&clip.id, &clip.name, &clip.assetId}); }
+    }
     items(document.frames.size(), 64);
     for (const auto &frame : document.frames) {
         items(frame.keyframes.size(), 128);
@@ -147,9 +157,11 @@ std::string blendName(RasterBlendMode blend)
     }
 }
 struct MediaTask { std::size_t layerIndex; const Asset *asset; };
+struct AudioMediaTask { const AudioAsset *asset; std::uint64_t trimSamples; };
 struct Prepared {
     InterchangePlan plan;
     std::vector<MediaTask> tasks;
+    std::vector<AudioMediaTask> audioTasks;
     std::uint64_t metadataBytes = 0;
 };
 Prepared prepare(const Document &document, const TimelineInterchangeOptions &options, MediaIoResult &result)
@@ -160,7 +172,8 @@ Prepared prepare(const Document &document, const TimelineInterchangeOptions &opt
         fail(MediaIoCode::LimitExceeded, "timeline sequence name exceeds the memory budget");
     }
     charge(prepared.metadataBytes, options.sequenceName.size() * 8ULL, options.limits.maxDecodedBytes);
-    if (document.layers.size() > options.maxLayers || document.timeline.frameCount > options.limits.maxFrames) {
+    if (document.layers.size() > options.maxLayers
+        || document.audioTracks.size() > options.maxLayers - document.layers.size() || document.timeline.frameCount > options.limits.maxFrames) {
         fail(MediaIoCode::LimitExceeded, "timeline layer/frame count exceeds the export limits");
     }
     const auto valid = validate(document);
@@ -219,6 +232,41 @@ Prepared prepare(const Document &document, const TimelineInterchangeOptions &opt
         if (t.m11 != 1 || t.m12 != 0 || t.m21 != 0 || t.m22 != 1 || t.translationX != 0 || t.translationY != 0) {
             warn(result, "Layer transforms are baked into full-canvas PNG media; clip positions, durations, opacity and compositing remain editable");
         }
+    }
+    for (const auto &sourceTrack : document.audioTracks) {
+        xmlText(sourceTrack.id); xmlText(sourceTrack.name);
+        charge(prepared.metadataBytes, (sourceTrack.id.size() + sourceTrack.name.size()) * 8ULL + 1024, options.limits.maxDecodedBytes);
+        InterchangeAudioTrack track{sourceTrack.id, sourceTrack.name, sourceTrack.muted, sourceTrack.gainDb, {}};
+        for (const auto &clip : sourceTrack.clips) {
+            charge(clipCount, 1, options.maxClips);
+            xmlText(clip.id); xmlText(clip.name); xmlText(clip.assetId);
+            charge(prepared.metadataBytes, (clip.id.size() + clip.name.size() + clip.assetId.size()) * 8ULL + 1024, options.limits.maxDecodedBytes);
+            const auto *asset = findAudioAsset(document, clip.assetId);
+            const auto sampleTicks = std::uint64_t(asset->sampleRate) * plan.frameRate.denominator;
+            const auto quantum = sampleTicks / std::gcd(sampleTicks, std::uint64_t(plan.frameRate.numerator));
+            const auto trim = clip.sourceOffsetSamples % quantum;
+            std::size_t mediaIndex = 0;
+            for (; mediaIndex < prepared.audioTasks.size(); ++mediaIndex) {
+                const auto &task = prepared.audioTasks[mediaIndex];
+                if (task.asset == asset && task.trimSamples == trim) { break; }
+            }
+            if (mediaIndex == prepared.audioTasks.size()) {
+                charge(prepared.metadataBytes, 1024, options.limits.maxDecodedBytes);
+                const auto path = QStringLiteral("media/audio-%1.wav").arg(mediaIndex + 1, 4, 10, QChar('0'));
+                plan.audioMedia.push_back({path, asset->sampleRate, asset->channelCount,
+                    asset->samples.size() / asset->channelCount - trim});
+                prepared.audioTasks.push_back({asset, trim});
+            }
+            track.clips.push_back({clip.startFrame, clip.durationFrames, mediaIndex, clip.id, clip.name,
+                clip.assetId, clip.sourceOffsetSamples - trim, clip.gainDb, clip.enabled});
+            if (trim) {
+                warn(result, "Sample-accurate source trims use WAV files with an adjusted origin for legacy XML; full original PCM and source offsets remain in source.iisc");
+            }
+        }
+        plan.audioTracks.push_back(std::move(track));
+    }
+    if (!plan.audioTracks.empty()) {
+        warn(result, "Track and clip audio gain are combined into editable clip gain; legacy XML uses linked channel tracks for stereo");
     }
     if (document.canvasMode == CanvasMode::Infinite) { warn(result, "Infinite canvas content is clipped to canvasRegion for fixed-resolution editor timelines"); }
     if (document.stableDiffusionMetadata) { warn(result, "Generation metadata remains in source.iisc and is not represented as NLE effects"); }
@@ -279,13 +327,31 @@ QByteArray manifest(const Document &document, const InterchangePlan &plan, const
             {"kind", contentKind(document.layers[index]) == ContentKind::Vector ? "vector" : "bitmap"},
             {"visible", track.visible}, {"opacity", track.opacity}, {"blendMode", QString::fromStdString(blendName(track.blendMode))}, {"clips", clips}});
     }
+    QJsonArray audioTracks;
+    for (std::size_t trackIndex = 0; trackIndex < plan.audioTracks.size(); ++trackIndex) {
+        const auto &track = plan.audioTracks[trackIndex]; QJsonArray clips;
+        for (std::size_t i = 0; i < track.clips.size(); ++i) {
+            const auto &clip = track.clips[i]; const auto &native = document.audioTracks[trackIndex].clips[i];
+            const auto &media = plan.audioMedia[clip.mediaIndex];
+            clips.push_back(QJsonObject{{"id", QString::fromUtf8(clip.id)}, {"name", QString::fromUtf8(clip.name)},
+                {"assetId", QString::fromUtf8(clip.assetId)}, {"startFrame", qint64(clip.start)}, {"durationFrames", qint64(clip.duration)},
+                {"sourceOffsetSamples", QString::number(native.sourceOffsetSamples)},
+                {"mediaOffsetSamples", QString::number(clip.sourceOffsetSamples)},
+                {"mediaTrimSamples", QString::number(native.sourceOffsetSamples - clip.sourceOffsetSamples)},
+                {"gainDb", clip.gainDb}, {"enabled", clip.enabled}, {"media", media.relativePath},
+                {"sampleRate", qint64(media.sampleRate)}, {"channelCount", media.channelCount},
+                {"sampleFrameCount", QString::number(media.sampleFrameCount)}});
+        }
+        audioTracks.push_back(QJsonObject{{"layerId", QString::fromUtf8(track.id)}, {"name", QString::fromUtf8(track.name)},
+            {"muted", track.muted}, {"gainDb", track.gainDb}, {"clips", clips}});
+    }
     QJsonArray warnings; for (const auto &warning : result.warnings) { warnings.push_back(QString::fromUtf8(warning)); }
     const auto origin = canvasOrigin(document);
-    return QJsonDocument(QJsonObject{{"format", "iiSharedCanvas.timeline-interchange"}, {"version", 1},
+    return QJsonDocument(QJsonObject{{"format", "iiSharedCanvas.timeline-interchange"}, {"version", plan.audioTracks.empty() ? 1 : 2},
         {"source", "source.iisc"}, {"sequenceName", QString::fromUtf8(plan.name)}, {"frameCount", qint64(plan.frameCount)},
         {"frameRate", QJsonObject{{"numerator", qint64(plan.frameRate.numerator)}, {"denominator", qint64(plan.frameRate.denominator)}}},
         {"canvas", QJsonObject{{"width", plan.extent.width}, {"height", plan.extent.height}, {"originX", origin.x}, {"originY", origin.y}}},
-        {"legacyXml", "timeline.xml"}, {"fcpxml", "timeline.fcpxml"}, {"tracks", tracks}, {"warnings", warnings}}).toJson();
+        {"legacyXml", "timeline.xml"}, {"fcpxml", "timeline.fcpxml"}, {"tracks", tracks}, {"audioTracks", audioTracks}, {"warnings", warnings}}).toJson();
 }
 void write(const QString &path, std::span<const std::uint8_t> bytes, std::uint64_t &used, std::uint64_t limit)
 {
@@ -350,6 +416,7 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
         }
         auto xml = encodeTimelineXml(prepared.plan, destination, std::min(options.limits.maxOutputBytes, serializationBudget));
         checked(xml.result);
+        for (const auto &warning : xml.result.warnings) { warn(result, warning); }
         auto json = manifest(document, prepared.plan, result);
         if (std::uint64_t(json.size()) > serializationBudget) { fail(MediaIoCode::LimitExceeded, "timeline manifest exceeds the memory budget"); }
         QTemporaryDir stage(QFileInfo(destination).dir().filePath(".iisc-timeline-XXXXXX"));
@@ -365,6 +432,10 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
             limits.maximumCanvasPixels = options.limits.maxPixelsPerFrame;
             limits.maximumTotalRasterPixels = options.limits.maxDecodedBytes / 4;
             limits.maximumTotalPathCommands = options.limits.maxVectorCommands;
+            limits.maximumAudioAssets = options.maxClips;
+            limits.maximumAudioTracks = options.maxLayers;
+            limits.maximumTotalAudioClips = options.maxClips;
+            limits.maximumTotalAudioSamples = options.limits.maxDecodedBytes / 2;
             limits.maximumLayers = options.maxLayers; limits.maximumTotalKeyframes = options.maxClips;
             const auto source = encodeIisc(document, limits);
             if (!source.ok()) { fail(source.error.code == IiscErrorCode::LimitExceeded ? MediaIoCode::LimitExceeded : MediaIoCode::InvalidArgument, source.error.message); }
@@ -376,6 +447,22 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
             const auto pixels = renderMedia(document, prepared.tasks[index]);
             const auto png = encodeBitmap(pixels, bitmap); checked(png.result);
             write(stage.filePath(prepared.plan.media[index].relativePath), png.bytes, used, options.limits.maxOutputBytes);
+        }
+        for (std::size_t index = 0; index < prepared.audioTasks.size(); ++index) {
+            const auto &task = prepared.audioTasks[index];
+            MediaLimits limits = options.limits;
+            limits.maxOutputBytes = std::min(options.limits.maxOutputBytes - used, serializationBudget);
+            limits.maxDecodedBytes = serializationBudget;
+            MediaBytesResult wav;
+            if (task.trimSamples == 0) { wav = encodeAudioWav(*task.asset, limits); }
+            else {
+                AudioAsset shifted{task.asset->id, task.asset->sampleRate, task.asset->channelCount, {}};
+                const auto first = task.asset->samples.begin() + static_cast<std::ptrdiff_t>(task.trimSamples * task.asset->channelCount);
+                shifted.samples.assign(first, task.asset->samples.end());
+                wav = encodeAudioWav(shifted, limits);
+            }
+            checked(wav.result);
+            write(stage.filePath(prepared.plan.audioMedia[index].relativePath), wav.bytes, used, options.limits.maxOutputBytes);
         }
         publish(stage.path(), destination); stage.setAutoRemove(false);
     } catch (const Failure &failure) { result.code = failure.code; result.message = failure.message; }

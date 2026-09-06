@@ -283,6 +283,32 @@ ValidationResult validate(const Document &document)
         }
     }
 
+    std::unordered_map<std::string, const AudioAsset *> audioAssetsById;
+    if ((!document.audioAssets.empty() || !document.audioTracks.empty())
+        && document.formatVersion.minor < 4) {
+        addIssue(result, ValidationCode::UnsupportedFormatVersion, "audioTracks",
+                 "audio assets and tracks require document format 1.4 or newer");
+    }
+    for (std::size_t index = 0; index < document.audioAssets.size(); ++index) {
+        const AudioAsset &asset = document.audioAssets[index];
+        const std::string path = "audioAssets[" + std::to_string(index) + "]";
+        if (asset.id.empty()) {
+            addIssue(result, ValidationCode::InvalidAssetId, path + ".id",
+                     "audio asset id must not be empty");
+        } else if (assetsById.contains(asset.id)
+                   || !audioAssetsById.emplace(asset.id, &asset).second) {
+            addIssue(result, ValidationCode::DuplicateAssetId, path + ".id",
+                     "visual and audio asset ids must be unique");
+        }
+        if (asset.sampleRate < 8000 || asset.sampleRate > 192000
+            || asset.channelCount < 1 || asset.channelCount > 2
+            || asset.samples.empty()
+            || (asset.channelCount != 0 && asset.samples.size() % asset.channelCount != 0)) {
+            addIssue(result, ValidationCode::InvalidAudioAsset, path,
+                     "audio requires non-empty interleaved PCM16, 1-2 channels, and 8000-192000 Hz");
+        }
+    }
+
     std::unordered_set<std::string> layerIds;
     std::unordered_map<std::string, const Layer *> layersById;
     std::unordered_map<std::string, std::size_t> layerPositions;
@@ -358,6 +384,62 @@ ValidationResult validate(const Document &document)
                     && frame <= source.frameIndices[framePosition - 1])) {
                 addIssue(result, ValidationCode::InvalidKeyframes, indexPath,
                          "derived owner-frame indices must start at zero and be strictly increasing");
+            }
+        }
+    }
+
+    std::unordered_set<std::string> audioClipIds;
+    for (std::size_t trackIndex = 0; trackIndex < document.audioTracks.size(); ++trackIndex) {
+        const AudioTrackLayer &track = document.audioTracks[trackIndex];
+        const std::string trackPath = "audioTracks[" + std::to_string(trackIndex) + "]";
+        if (track.id.empty()) {
+            addIssue(result, ValidationCode::InvalidAudioTrack, trackPath + ".id",
+                     "audio track id must not be empty");
+        } else if (!layerIds.insert(track.id).second) {
+            addIssue(result, ValidationCode::DuplicateLayerId, trackPath + ".id",
+                     "visual and audio track ids must be unique");
+        }
+        if (!std::isfinite(track.gainDb) || track.gainDb < -96.0 || track.gainDb > 24.0) {
+            addIssue(result, ValidationCode::InvalidAudioTrack, trackPath + ".gainDb",
+                     "audio track gain must be finite and within -96 to 24 dB");
+        }
+        std::uint64_t previousEnd = 0;
+        for (std::size_t clipIndex = 0; clipIndex < track.clips.size(); ++clipIndex) {
+            const AudioClip &clip = track.clips[clipIndex];
+            const std::string clipPath = trackPath + ".clips[" + std::to_string(clipIndex) + "]";
+            if (clip.id.empty()) {
+                addIssue(result, ValidationCode::InvalidAudioClip, clipPath + ".id",
+                         "audio clip id must not be empty");
+            } else if (!audioClipIds.insert(clip.id).second) {
+                addIssue(result, ValidationCode::DuplicateAudioClipId, clipPath + ".id",
+                         "audio clip ids must be unique across all tracks");
+            }
+            const std::uint64_t end = static_cast<std::uint64_t>(clip.startFrame) + clip.durationFrames;
+            if (clip.durationFrames == 0 || end > document.timeline.frameCount
+                || (clipIndex > 0 && clip.startFrame < previousEnd)) {
+                addIssue(result, ValidationCode::InvalidAudioClip, clipPath,
+                         "audio clips require positive duration, timeline bounds, and nonoverlapping start order");
+            }
+            previousEnd = end;
+            if (!std::isfinite(clip.gainDb) || clip.gainDb < -96.0 || clip.gainDb > 24.0) {
+                addIssue(result, ValidationCode::InvalidAudioClip, clipPath + ".gainDb",
+                         "audio clip gain must be finite and within -96 to 24 dB");
+            }
+            const auto found = audioAssetsById.find(clip.assetId);
+            if (found == audioAssetsById.end()) {
+                addIssue(result, ValidationCode::MissingAsset, clipPath + ".assetId",
+                         "an audio clip must reference an existing audio asset");
+                continue;
+            }
+            const AudioAsset &asset = *found->second;
+            const std::optional<std::uint64_t> required = audioSampleFrameCount(
+                clip.durationFrames, document.timeline.frameRate, asset.sampleRate);
+            const std::uint64_t available = asset.channelCount == 0
+                ? 0 : asset.samples.size() / asset.channelCount;
+            if (!required || clip.sourceOffsetSamples > available
+                || *required > available - clip.sourceOffsetSamples) {
+                addIssue(result, ValidationCode::InvalidAudioClip, clipPath + ".sourceOffsetSamples",
+                         "audio clip trim plus its exact rational duration must fit the source sample frames");
             }
         }
     }

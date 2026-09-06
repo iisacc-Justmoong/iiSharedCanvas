@@ -16,6 +16,30 @@
 
 namespace {
 
+bool verifyAudioTimeline()
+{
+    using namespace iiSharedCanvas;
+    Document document; document.extent = {4, 4}; document.timeline.frameCount = 24;
+    DocumentEditor editor(document);
+    AudioAsset pcm{"pcm", 48000, 1, std::vector<std::int16_t>(48001, 1234)};
+    const auto wav = encodeAudioWav(pcm);
+    auto decoded = decodeAudioWav(wav.bytes, {.assetId = "pcm"});
+    if (!wav.ok() || !decoded.ok() || decoded.asset.samples != pcm.samples
+        || !editor.insertAudioAsset(std::move(decoded.asset)).changed
+        || !editor.insertAudioTrack({"audio", "Voice", false, -3,
+            {{"clip", "Trim", "pcm", 0, 24, 1, -6, true}}}).changed) { return false; }
+    QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/audio-XXXXXX"));
+    if (!directory.isValid()) { return false; }
+    const auto path = directory.filePath("working.iisc").toStdString();
+    DocumentFile file;
+    if (!file.create(path, document).ok()) { return false; }
+    DocumentFile reopened;
+    return reopened.open(path).ok() && reopened.document()->audioAssets == document.audioAssets
+        && reopened.document()->audioTracks == document.audioTracks
+        && exportTimelineInterchange(*reopened.document(), directory.filePath("package").toStdString()).ok()
+        && QFile::exists(directory.filePath("package/media/audio-0001.wav"));
+}
+
 bool verifyTimelineInterchange()
 {
     using namespace iiSharedCanvas;
@@ -433,6 +457,7 @@ int main(int argc, char **argv)
     const TimelineEditResult timelineCodec = timelineEditor.setRenderVideoCodec(
         timelineProfile.id, av1);
     return verifyWorkingFile(document) && verifyMediaInterchange() && verifyLayeredInterchange() && verifyPsdExport() && verifyTimelineInterchange()
+        && verifyAudioTimeline()
         && validate(document).ok()
         && validateCameraRaw(cameraRaw).ok()
         && cameraRawSampleAt(cameraRaw.image, 1, 0)
@@ -480,7 +505,7 @@ int main(int argc, char **argv)
         && !asyncRenderer.busy()
         && decoded.ok()
         && decoded.document.formatVersion.major == 1
-        && decoded.document.formatVersion.minor == 3
+        && decoded.document.formatVersion.minor == CurrentFormatMinor
         && decoded.document.stableDiffusionMetadata == generation
         && decodedImage
         && decodedImage->pixels.width == 4

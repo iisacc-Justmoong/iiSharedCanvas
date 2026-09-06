@@ -34,6 +34,8 @@ enum class DocumentEditCode {
     DuplicateKeyframe,
     ValidationRejected,
     PersistenceFailed,
+    DuplicateAudioClipId,
+    AudioClipNotFound,
 };
 
 struct DocumentEditResult {
@@ -92,6 +94,22 @@ public:
     DocumentEditResult moveAsset(const std::string &assetId,
                                  std::size_t destinationIndex);
     DocumentEditResult removeAsset(const std::string &assetId);
+
+    DocumentEditResult insertAudioAsset(AudioAsset asset,
+                                       std::size_t index = AppendDocumentIndex);
+    // Replacement preserves the stable id. Remove rejects any referencing clip.
+    DocumentEditResult replaceAudioAsset(const std::string &assetId, AudioAsset asset);
+    DocumentEditResult removeAudioAsset(const std::string &assetId);
+    DocumentEditResult insertAudioTrack(AudioTrackLayer track,
+                                       std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceAudioTrack(const std::string &trackId, AudioTrackLayer track);
+    DocumentEditResult moveAudioTrack(const std::string &trackId, std::size_t destinationIndex);
+    DocumentEditResult removeAudioTrack(const std::string &trackId);
+    // Insert/replace canonicalize clip start order; overlapping clips are rejected.
+    DocumentEditResult insertAudioClip(const std::string &trackId, AudioClip clip);
+    DocumentEditResult replaceAudioClip(const std::string &trackId,
+                                       const std::string &clipId, AudioClip clip);
+    DocumentEditResult removeAudioClip(const std::string &trackId, const std::string &clipId);
 
     DocumentEditResult insertLayer(Layer layer,
                                    std::size_t index = AppendDocumentIndex);

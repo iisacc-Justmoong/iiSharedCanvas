@@ -18,7 +18,7 @@ struct TimelineInterchangeOptions {
 };
 
 // Publishes a NEW directory containing timeline.xml (legacy FCP XML),
-// timeline.fcpxml, per-layer PNG media, a manifest and a native source snapshot.
+// timeline.fcpxml, per-layer PNG/WAV media, a manifest and a native source snapshot.
 // No existing directory is overwritten. Native documents are never mutated.
 IISHAREDCANVAS_EXPORT MediaIoResult exportTimelineInterchange(
     const Document &document, const std::string &directory,

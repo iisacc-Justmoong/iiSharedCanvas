@@ -17,7 +17,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 3;
+inline constexpr std::uint16_t CurrentFormatMinor = 4;
 
 using FrameIndex = std::uint32_t;
 
@@ -167,6 +167,39 @@ struct VectorLayer {
 
 using Layer = std::variant<BitmapLayer, VectorLayer>;
 
+// Owned interleaved signed PCM16. A sample frame contains channelCount samples.
+struct AudioAsset {
+    std::string id;
+    std::uint32_t sampleRate = 48000;
+    std::uint16_t channelCount = 2;
+    std::vector<std::int16_t> samples;
+
+    friend bool operator==(const AudioAsset &, const AudioAsset &) = default;
+};
+
+struct AudioClip {
+    std::string id;
+    std::string name;
+    std::string assetId;
+    FrameIndex startFrame = 0;
+    FrameIndex durationFrames = 1;
+    std::uint64_t sourceOffsetSamples = 0; // Per-channel source sample frames.
+    double gainDb = 0.0;
+    bool enabled = true;
+
+    friend bool operator==(const AudioClip &, const AudioClip &) = default;
+};
+
+struct AudioTrackLayer {
+    std::string id;
+    std::string name;
+    bool muted = false;
+    double gainDb = 0.0;
+    std::vector<AudioClip> clips; // Ordered by startFrame; no intra-track overlap.
+
+    friend bool operator==(const AudioTrackLayer &, const AudioTrackLayer &) = default;
+};
+
 struct Document {
     FormatVersion formatVersion;
     CanvasExtent extent;
@@ -177,6 +210,8 @@ struct Document {
     std::vector<Layer> layers;
     std::vector<Frame> frames;
     std::optional<StableDiffusionMetadata> stableDiffusionMetadata;
+    std::vector<AudioAsset> audioAssets;
+    std::vector<AudioTrackLayer> audioTracks;
 };
 
 struct AssetReference {
@@ -186,6 +221,22 @@ struct AssetReference {
 };
 
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Asset &asset) noexcept;
+// ceil(frameCount * frameRate.denominator * sampleRate / frameRate.numerator).
+// Invalid rates or uint64 overflow return nullopt.
+IISHAREDCANVAS_EXPORT std::optional<std::uint64_t> audioSampleFrameCount(
+    FrameIndex frameCount, FrameRate frameRate, std::uint32_t sampleRate) noexcept;
+IISHAREDCANVAS_EXPORT AudioAsset *findAudioAsset(Document &document,
+                                                const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const AudioAsset *findAudioAsset(const Document &document,
+                                                      const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT AudioTrackLayer *findAudioTrack(Document &document,
+                                                     const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const AudioTrackLayer *findAudioTrack(const Document &document,
+                                                           const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT AudioClip *findAudioClip(AudioTrackLayer &track,
+                                              const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const AudioClip *findAudioClip(const AudioTrackLayer &track,
+                                                    const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const std::string &assetId(const Asset &asset) noexcept;
 IISHAREDCANVAS_EXPORT LayerProperties &layerProperties(Layer &layer) noexcept;

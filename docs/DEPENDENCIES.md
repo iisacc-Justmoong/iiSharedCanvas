@@ -254,3 +254,17 @@ distributed library. Existing Qt and PNG deployment/license obligations are
 unchanged. The `.iisc` document remains authoritative; interchange packages
 preserve editorial layers and exposure timing without claiming native vector
 path editing in the receiving NLE.
+
+## Audio timeline and PCM16 WAV (0.9.0)
+
+No new linked or runtime dependency is introduced. The existing Qt Core file and
+XML utilities implement bounded I/O and escaping. PCM16 container framing is a
+small domain adapter following Microsoft's [RIFF specification](https://learn.microsoft.com/en-us/windows/win32/xaudio2/resource-interchange-file-format--riff-).
+It does not implement compressed audio decoding, resampling or DSP. A general
+codec library or another FFmpeg process dependency would add deployment and
+maintenance cost without improving byte-exact PCM16 interchange; compressed
+formats remain explicitly unsupported. Existing optional FFmpeg movie codecs
+are not invoked to import or export these WAV assets. Unknown ancillary WAV
+chunks are skipped within verified bounds and reported as omitted metadata.
+OpenTimelineIO does not eliminate the application's native persistence mapping
+or the dual XML audio translation, so the existing dependency decision stands.

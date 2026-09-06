@@ -223,6 +223,8 @@ struct LimitTotals {
     std::uint64_t keyframes = 0;
     std::uint64_t stringBytes = 0;
     std::uint64_t metadataEntries = 0;
+    std::uint64_t audioSamples = 0;
+    std::uint64_t audioClips = 0;
 };
 
 IiscError makeError(IiscErrorCode code, std::uint64_t offset, std::string message)
@@ -343,6 +345,11 @@ IiscError checkDocumentLimits(const Document &document,
         return makeError(IiscErrorCode::LimitExceeded, 0,
                          "owned frame count exceeds the configured limit");
     }
+    if (document.audioAssets.size() > limits.maximumAudioAssets
+        || document.audioTracks.size() > limits.maximumAudioTracks) {
+        return makeError(IiscErrorCode::LimitExceeded, 0,
+                         "audio asset or track count exceeds the configured limit");
+    }
 
     std::uint64_t canvasPixels = 0;
     if (!pixelCountWithin(document.extent.width,
@@ -354,6 +361,40 @@ IiscError checkDocumentLimits(const Document &document,
     }
 
     LimitTotals totals;
+    for (const AudioAsset &asset : document.audioAssets) {
+        if (IiscError error = trackString(asset.id, limits, totals);
+            error.code != IiscErrorCode::None) {
+            return error;
+        }
+        if (!addWithin(totals.audioSamples, asset.samples.size(),
+                       std::min(limits.maximumTotalAudioSamples,
+                                limits.maximumContainerBytes / 2))) {
+            return makeError(IiscErrorCode::LimitExceeded, 0,
+                             "audio sample count exceeds the configured limit");
+        }
+    }
+    for (const AudioTrackLayer &track : document.audioTracks) {
+        for (const std::string *value : {&track.id, &track.name}) {
+            if (IiscError error = trackString(*value, limits, totals);
+                error.code != IiscErrorCode::None) {
+                return error;
+            }
+        }
+        if (track.clips.size() > std::numeric_limits<std::uint32_t>::max()
+            || !addWithin(totals.audioClips, track.clips.size(),
+                          limits.maximumTotalAudioClips)) {
+            return makeError(IiscErrorCode::LimitExceeded, 0,
+                             "audio clip count exceeds the configured limit");
+        }
+        for (const AudioClip &clip : track.clips) {
+            for (const std::string *value : {&clip.id, &clip.name, &clip.assetId}) {
+                if (IiscError error = trackString(*value, limits, totals);
+                    error.code != IiscErrorCode::None) {
+                    return error;
+                }
+            }
+        }
+    }
     for (const Asset &asset : document.assets) {
         if (IiscError error = trackString(assetId(asset), limits, totals);
             error.code != IiscErrorCode::None) {
@@ -951,6 +992,50 @@ void writePayload(ByteWriter &writer, const Document &document,
         }
     }
     record(detail::RecordKind::Metadata);
+    if (document.formatVersion.minor >= 4) {
+        writer.writeU32(static_cast<std::uint32_t>(document.audioAssets.size()));
+        record(detail::RecordKind::AudioAssetCount);
+        for (std::size_t index = 0; index < document.audioAssets.size(); ++index) {
+            const AudioAsset &asset = document.audioAssets[index];
+            const AudioAsset *prior = previous ? findAudioAsset(*previous, asset.id) : nullptr;
+            if (records && prior && *prior == asset) {
+                records->push_back({detail::RecordKind::AudioAsset, asset.id,
+                                   static_cast<std::uint32_t>(index), std::nullopt});
+                continue;
+            }
+            writer.writeString(asset.id);
+            writer.writeU32(asset.sampleRate);
+            writer.writeU16(asset.channelCount);
+            writer.writeU64(asset.samples.size());
+            for (const std::int16_t sample : asset.samples) {
+                writer.writeU16(std::bit_cast<std::uint16_t>(sample));
+            }
+            record(detail::RecordKind::AudioAsset, asset.id,
+                   static_cast<std::uint32_t>(index));
+        }
+        writer.writeU32(static_cast<std::uint32_t>(document.audioTracks.size()));
+        record(detail::RecordKind::AudioTrackCount);
+        for (std::size_t index = 0; index < document.audioTracks.size(); ++index) {
+            const AudioTrackLayer &track = document.audioTracks[index];
+            writer.writeString(track.id);
+            writer.writeString(track.name);
+            writer.writeU8(track.muted ? 1U : 0U);
+            writer.writeDouble(track.gainDb);
+            writer.writeU32(static_cast<std::uint32_t>(track.clips.size()));
+            for (const AudioClip &clip : track.clips) {
+                writer.writeString(clip.id);
+                writer.writeString(clip.name);
+                writer.writeString(clip.assetId);
+                writer.writeU32(clip.startFrame);
+                writer.writeU32(clip.durationFrames);
+                writer.writeU64(clip.sourceOffsetSamples);
+                writer.writeDouble(clip.gainDb);
+                writer.writeU8(clip.enabled ? 1U : 0U);
+            }
+            record(detail::RecordKind::AudioTrack, track.id,
+                   static_cast<std::uint32_t>(index));
+        }
+    }
 }
 
 class DocumentReader final {
@@ -1053,10 +1138,76 @@ public:
         if (version.minor >= 2 && readBoolean()) {
             document.stableDiffusionMetadata = readStableDiffusionMetadata();
         }
+        if (version.minor >= 4) {
+            readAudio(document);
+        }
         return document;
     }
 
 private:
+    void requireCollectionBytes(std::uint64_t count, std::uint64_t minimumBytes)
+    {
+        if (count > m_reader.remaining() / minimumBytes) {
+            m_reader.fail(IiscErrorCode::TruncatedData,
+                          "audio collection cannot fit its declared payload");
+        }
+    }
+
+    void readAudio(Document &document)
+    {
+        const auto assetCount = limitedCount(m_limits.maximumAudioAssets, "audio asset");
+        requireCollectionBytes(assetCount, 18);
+        document.audioAssets.reserve(assetCount);
+        for (std::uint32_t index = 0; index < assetCount; ++index) {
+            AudioAsset asset;
+            asset.id = readString();
+            asset.sampleRate = m_reader.readU32();
+            asset.channelCount = m_reader.readU16();
+            const auto count = m_reader.readU64();
+            addTotal(m_totals.audioSamples, count,
+                     std::min(m_limits.maximumTotalAudioSamples,
+                              m_limits.maximumContainerBytes / 2), "audio sample");
+            requireCollectionBytes(count, sizeof(std::int16_t));
+            if (count > asset.samples.max_size()) {
+                m_reader.fail(IiscErrorCode::LimitExceeded,
+                              "audio sample count exceeds the platform address space");
+            }
+            asset.samples.reserve(static_cast<std::size_t>(count));
+            for (std::uint64_t sample = 0; sample < count; ++sample) {
+                asset.samples.push_back(std::bit_cast<std::int16_t>(m_reader.readU16()));
+            }
+            document.audioAssets.push_back(std::move(asset));
+        }
+        const auto trackCount = limitedCount(m_limits.maximumAudioTracks, "audio track");
+        requireCollectionBytes(trackCount, 21);
+        document.audioTracks.reserve(trackCount);
+        for (std::uint32_t index = 0; index < trackCount; ++index) {
+            AudioTrackLayer track;
+            track.id = readString();
+            track.name = readString();
+            track.muted = readBoolean();
+            track.gainDb = m_reader.readDouble();
+            const auto clipCount = m_reader.readU32();
+            addTotal(m_totals.audioClips, clipCount,
+                     m_limits.maximumTotalAudioClips, "audio clip");
+            requireCollectionBytes(clipCount, 37);
+            track.clips.reserve(clipCount);
+            for (std::uint32_t clipIndex = 0; clipIndex < clipCount; ++clipIndex) {
+                AudioClip clip;
+                clip.id = readString();
+                clip.name = readString();
+                clip.assetId = readString();
+                clip.startFrame = m_reader.readU32();
+                clip.durationFrames = m_reader.readU32();
+                clip.sourceOffsetSamples = m_reader.readU64();
+                clip.gainDb = m_reader.readDouble();
+                clip.enabled = readBoolean();
+                track.clips.push_back(std::move(clip));
+            }
+            document.audioTracks.push_back(std::move(track));
+        }
+    }
+
     std::uint32_t limitedCount(std::uint32_t maximum, const char *kind)
     {
         const std::uint32_t count = m_reader.readU32();
@@ -1560,16 +1711,26 @@ IiscDecodeResult detail::decodeDocumentRecords(
         };
         if (records.size() < 3
             || records.size() > static_cast<std::uint64_t>(limits.maximumAssets)
-                                  + limits.maximumLayers + 3) {
+                                  + limits.maximumLayers + limits.maximumAudioAssets
+                                  + limits.maximumAudioTracks + 5) {
             invalid("working-file record count is invalid");
         }
         std::size_t assetCount = 0;
         std::size_t layerCount = 0;
+        std::size_t audioAssetCount = 0;
+        std::size_t audioTrackCount = 0;
         bool sawLayerCount = false;
+        bool sawMetadata = false;
+        bool sawAudioAssetCount = false;
+        bool sawAudioTrackCount = false;
         ByteWriter writer;
         std::uint64_t total = IiscHeaderSize - 4;
         for (std::size_t index = 0; index < records.size(); ++index) {
             const DocumentRecord &record = records[index];
+            if (index > 0 && static_cast<int>(record.kind)
+                                 < static_cast<int>(records[index - 1].kind)) {
+                invalid("working-file record kinds are not in canonical order");
+            }
             bool valid = false;
             switch (record.kind) {
             case RecordKind::Header:
@@ -1583,11 +1744,29 @@ IiscDecodeResult detail::decodeDocumentRecords(
                 sawLayerCount = true;
                 break;
             case RecordKind::Layer:
-                valid = sawLayerCount && record.position == layerCount++;
+                valid = sawLayerCount && !sawMetadata && record.position == layerCount++;
                 break;
             case RecordKind::Metadata:
-                valid = sawLayerCount && index + 1 == records.size()
+                valid = sawLayerCount && !sawMetadata
                     && record.id.empty() && record.position == 0;
+                sawMetadata = true;
+                break;
+            case RecordKind::AudioAssetCount:
+                valid = sawMetadata && !sawAudioAssetCount
+                    && record.id.empty() && record.position == 0;
+                sawAudioAssetCount = true;
+                break;
+            case RecordKind::AudioAsset:
+                valid = sawAudioAssetCount && !sawAudioTrackCount
+                    && record.position == audioAssetCount++;
+                break;
+            case RecordKind::AudioTrackCount:
+                valid = sawAudioAssetCount && !sawAudioTrackCount
+                    && record.id.empty() && record.position == 0;
+                sawAudioTrackCount = true;
+                break;
+            case RecordKind::AudioTrack:
+                valid = sawAudioTrackCount && record.position == audioTrackCount++;
                 break;
             }
             if (!valid || !record.data) {
@@ -1600,7 +1779,7 @@ IiscDecodeResult detail::decodeDocumentRecords(
             writer.writeBytes(*record.data);
         }
         if (records.front().kind != RecordKind::Header
-            || records.back().kind != RecordKind::Metadata || !sawLayerCount) {
+            || !sawMetadata || !sawLayerCount) {
             invalid("working-file singleton records are missing");
         }
         ByteReader bytes(writer.bytes());
@@ -1608,6 +1787,10 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if (version.major != CurrentFormatMajor || version.minor > CurrentFormatMinor) {
             throw DecodeFailure(IiscErrorCode::UnsupportedVersion, 0,
                                 "working-file document version is not supported");
+        }
+        if ((version.minor >= 4) != (sawAudioAssetCount && sawAudioTrackCount)
+            || (version.minor < 4 && (sawAudioAssetCount || sawAudioTrackCount))) {
+            invalid("working-file audio records do not match the document version");
         }
         const auto storedChunkSize = bytes.readI32();
         DocumentReader reader(bytes, limits, true);
@@ -1618,7 +1801,9 @@ IiscDecodeResult detail::decodeDocumentRecords(
         }
         document.infiniteCanvas.chunkSize = storedChunkSize;
         if (!bytes.empty() || document.assets.size() != assetCount
-            || document.layers.size() != layerCount) {
+            || document.layers.size() != layerCount
+            || document.audioAssets.size() != audioAssetCount
+            || document.audioTracks.size() != audioTrackCount) {
             invalid("working-file records do not match the document counts");
         }
         for (const DocumentRecord &record : records) {
@@ -1629,6 +1814,14 @@ IiscDecodeResult detail::decodeDocumentRecords(
             if (record.kind == RecordKind::Layer
                 && record.id != layerProperties(document.layers[record.position]).id) {
                 invalid("working-file layer identity does not match its payload");
+            }
+            if (record.kind == RecordKind::AudioAsset
+                && record.id != document.audioAssets[record.position].id) {
+                invalid("working-file audio asset identity does not match its payload");
+            }
+            if (record.kind == RecordKind::AudioTrack
+                && record.id != document.audioTracks[record.position].id) {
+                invalid("working-file audio track identity does not match its payload");
             }
         }
         const ValidationResult validation = validate(document);

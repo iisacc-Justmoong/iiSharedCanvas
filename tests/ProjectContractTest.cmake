@@ -25,7 +25,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(ZLIB 1.
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in" "find_dependency(ZLIB 1.2.9 REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(libzip 1.7.3 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in" "find_dependency(libzip 1.7.3 CONFIG REQUIRED)")
-foreach(module Bitmap/BitmapCodec Vector/VectorCodec Video/VideoCodec Media/MediaIo Layered/LayeredDocumentCodec)
+foreach(module Audio/AudioCodec Bitmap/BitmapCodec Vector/VectorCodec Video/VideoCodec Media/MediaIo Layered/LayeredDocumentCodec)
     require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "src/${module}.cpp")
     require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h" "${module}.h")
     require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "${module}.h")
@@ -67,13 +67,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
              "public domain")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.8.0 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.9.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.8.0 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.9.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -139,7 +139,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.8.0")
+             "The current C++ package version is 0.9.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -223,7 +223,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "Generation-parameters text remains byte-exact")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "`TimelineProject` is not encoded by `.iisc` version 1.3")
+             "`TimelineProject` is not encoded by `.iisc` version 1.4")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "ctest --test-dir")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
@@ -245,7 +245,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.8.0.dylib")
+             "libiiSharedCanvas.0.9.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
@@ -284,7 +284,7 @@ if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
     message(FATAL_ERROR "co-located public headers and implementations must live under src/")
 endif()
 
-foreach(module Bitmap Camera Document File Layered Media Metadata QtAdapter Render Serialization Timeline Validation Vector Video)
+foreach(module Audio Bitmap Camera Document File Layered Media Metadata QtAdapter Render Serialization Timeline Validation Vector Video)
     if(EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/${module}")
         message(FATAL_ERROR "${module} must live under src/, not at the repository root")
     endif()

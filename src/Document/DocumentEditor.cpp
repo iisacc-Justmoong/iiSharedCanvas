@@ -229,9 +229,18 @@ bool eraseFrameKeyframe(Document &document,
 
 DocumentEditCode codeForValidationIssue(const ValidationIssue &issue) noexcept
 {
-    return issue.code == ValidationCode::ContentKindMismatch
-        ? DocumentEditCode::AssetKindMismatch
-        : DocumentEditCode::ValidationRejected;
+    switch (issue.code) {
+    case ValidationCode::ContentKindMismatch:
+        return DocumentEditCode::AssetKindMismatch;
+    case ValidationCode::DuplicateAssetId:
+        return DocumentEditCode::DuplicateAssetId;
+    case ValidationCode::DuplicateLayerId:
+        return DocumentEditCode::DuplicateLayerId;
+    case ValidationCode::DuplicateAudioClipId:
+        return DocumentEditCode::DuplicateAudioClipId;
+    default:
+        return DocumentEditCode::ValidationRejected;
+    }
 }
 
 } // namespace
@@ -750,6 +759,258 @@ DocumentEditResult DocumentEditor::removeAsset(const std::string &id)
         return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
     }
     return applied();
+}
+
+DocumentEditResult DocumentEditor::insertAudioAsset(AudioAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertAudioAsset(std::move(asset), index);
+        });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    if (asset.id.empty()) {
+        return reject(DocumentEditCode::InvalidArgument, "audioAsset.id", "audio asset id must not be empty");
+    }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "audioAsset.id", "asset id already exists");
+    }
+    const std::size_t position = insertionIndex(index, m_document->audioAssets.size());
+    if (position > m_document->audioAssets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "audioAssets", "audio asset insertion index is outside the collection");
+    }
+    const FormatVersion priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->audioAssets.insert(m_document->audioAssets.begin()
+        + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->audioAssets.erase(m_document->audioAssets.begin()
+            + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceAudioAsset(const std::string &id, AudioAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.replaceAudioAsset(id, std::move(asset));
+        });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    AudioAsset *target = findAudioAsset(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::AssetNotFound, "audioAssets", "audio asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "audioAsset.id", "replacement must preserve the audio asset id");
+    }
+    if (*target == asset) {
+        return unchanged();
+    }
+    AudioAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::removeAudioAsset(const std::string &id)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.removeAudioAsset(id); });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    AudioAsset *target = findAudioAsset(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::AssetNotFound, "audioAssets", "audio asset was not found");
+    }
+    for (const AudioTrackLayer &track : m_document->audioTracks) {
+        if (std::any_of(track.clips.begin(), track.clips.end(),
+                        [&id](const AudioClip &clip) { return clip.assetId == id; })) {
+            return reject(DocumentEditCode::AssetReferenced, "audioAssets", "audio asset is referenced by a clip");
+        }
+    }
+    m_document->audioAssets.erase(m_document->audioAssets.begin()
+        + (target - m_document->audioAssets.data()));
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertAudioTrack(AudioTrackLayer track, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.insertAudioTrack(std::move(track), index);
+        });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    if (track.id.empty()) {
+        return reject(DocumentEditCode::InvalidArgument, "audioTrack.id", "audio track id must not be empty");
+    }
+    if (findLayer(*m_document, track.id) || findAudioTrack(*m_document, track.id)) {
+        return reject(DocumentEditCode::DuplicateLayerId, "audioTrack.id", "layer id already exists");
+    }
+    const std::size_t position = insertionIndex(index, m_document->audioTracks.size());
+    if (position > m_document->audioTracks.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "audioTracks", "audio track insertion index is outside the collection");
+    }
+    const FormatVersion priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->audioTracks.insert(m_document->audioTracks.begin()
+        + static_cast<std::ptrdiff_t>(position), std::move(track));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->audioTracks.erase(m_document->audioTracks.begin()
+            + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceAudioTrack(const std::string &id, AudioTrackLayer track)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.replaceAudioTrack(id, std::move(track));
+        });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    AudioTrackLayer *target = findAudioTrack(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::LayerNotFound, "audioTracks", "audio track was not found");
+    }
+    if (track.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "audioTrack.id", "replacement must preserve the audio track id");
+    }
+    if (*target == track) {
+        return unchanged();
+    }
+    AudioTrackLayer prior = std::move(*target);
+    *target = std::move(track);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::moveAudioTrack(const std::string &id, std::size_t destinationIndex)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.moveAudioTrack(id, destinationIndex); });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    AudioTrackLayer *target = findAudioTrack(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::LayerNotFound, "audioTracks", "audio track was not found");
+    }
+    if (destinationIndex >= m_document->audioTracks.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "audioTracks", "audio track destination is outside the collection");
+    }
+    const auto sourceIndex = static_cast<std::size_t>(target - m_document->audioTracks.data());
+    if (sourceIndex == destinationIndex) {
+        return unchanged();
+    }
+    moveElement(m_document->audioTracks, sourceIndex, destinationIndex);
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::removeAudioTrack(const std::string &id)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.removeAudioTrack(id); });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    AudioTrackLayer *target = findAudioTrack(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::LayerNotFound, "audioTracks", "audio track was not found");
+    }
+    m_document->audioTracks.erase(m_document->audioTracks.begin()
+        + (target - m_document->audioTracks.data()));
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertAudioClip(const std::string &id, AudioClip clip)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertAudioClip(id, std::move(clip)); });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    const AudioTrackLayer *target = findAudioTrack(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::LayerNotFound, "audioTracks", "audio track was not found");
+    }
+    AudioTrackLayer replacement = *target;
+    replacement.clips.push_back(std::move(clip));
+    std::stable_sort(replacement.clips.begin(), replacement.clips.end(),
+        [](const AudioClip &a, const AudioClip &b) { return a.startFrame < b.startFrame; });
+    return replaceAudioTrack(id, std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::replaceAudioClip(const std::string &id,
+                                                   const std::string &clipId, AudioClip clip)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceAudioClip(id, clipId, std::move(clip)); });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    const AudioTrackLayer *target = findAudioTrack(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::LayerNotFound, "audioTracks", "audio track was not found");
+    }
+    if (!findAudioClip(*target, clipId)) {
+        return reject(DocumentEditCode::AudioClipNotFound, "audioTrack.clips", "audio clip was not found");
+    }
+    if (clip.id != clipId) {
+        return reject(DocumentEditCode::InvalidArgument, "audioClip.id", "replacement must preserve the audio clip id");
+    }
+    AudioTrackLayer replacement = *target;
+    *findAudioClip(replacement, clipId) = std::move(clip);
+    std::stable_sort(replacement.clips.begin(), replacement.clips.end(),
+        [](const AudioClip &a, const AudioClip &b) { return a.startFrame < b.startFrame; });
+    return replaceAudioTrack(id, std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::removeAudioClip(const std::string &id, const std::string &clipId)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.removeAudioClip(id, clipId); });
+    }
+    if (!requireValidDocument()) {
+        return m_lastResult;
+    }
+    const AudioTrackLayer *target = findAudioTrack(*m_document, id);
+    if (!target) {
+        return reject(DocumentEditCode::LayerNotFound, "audioTracks", "audio track was not found");
+    }
+    if (!findAudioClip(*target, clipId)) {
+        return reject(DocumentEditCode::AudioClipNotFound, "audioTrack.clips", "audio clip was not found");
+    }
+    AudioTrackLayer replacement = *target;
+    std::erase_if(replacement.clips, [&clipId](const AudioClip &clip) { return clip.id == clipId; });
+    return replaceAudioTrack(id, std::move(replacement));
 }
 
 DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)

@@ -106,6 +106,9 @@ iiSharedCanvas::Document legacyGoldenDocument(std::uint16_t minor)
         metadata.software = "iiSharedCanvas 0.2.0";
         document.stableDiffusionMetadata = std::move(metadata);
     }
+    if (minor >= 3) {
+        layerProperties(document.layers.front()).frameRange = LayerFrameRange{0, 1};
+    }
     return document;
 }
 
@@ -226,6 +229,7 @@ iiSharedCanvas::Document simpleRangeDocument()
 {
     using namespace iiSharedCanvas;
     Document document;
+    document.formatVersion = {1, 3};
     document.extent = {1, 1};
     document.timeline = {{24, 1}, 4};
     document.assets.emplace_back(
@@ -251,8 +255,9 @@ int main()
 {
     using namespace iiSharedCanvas;
 
-    // These fixed containers were emitted by the separately installed 0.2.0
-    // package, so this compatibility proof does not generate its own oracle.
+    // The 1.0-1.2 fixed containers came from the separately installed 0.2.0
+    // package. The 1.3 fixture inserts its explicit [0,1] range into that known
+    // layer record; its size/CRC were calculated independently of this codec.
     struct LegacyGolden {
         std::uint16_t minor;
         std::string_view hex;
@@ -264,6 +269,8 @@ int main()
          "494953430d0a1a0a01000100000000008a0000000000000080829638000000000100000001000000001800000001000000020000000100000000010000007001000000010000000100000000000000000400000000000000030201ff01000000010000006c010000004c01000000000000f03f000000000000f03f00000000000000000000000000000000000000000000f03f0000000000000000000000000000000000000100000070"},
         {2,
          "494953430d0a1a0a0100020000000000e4000000000000005618fe6a000000000100000001000000001800000001000000020000000100000000010000007001000000010000000100000000000000000400000000000000030201ff01000000010000006c010000004c01000000000000f03f000000000000f03f00000000000000000000000000000000000000000000f03f0000000000000000000000000000000000000100000070010e0000006c656761637920666978747572650000000000000000000000000000000000000014000000696953686172656443616e76617320302e322e3000000000000000000000000000000000000000000000000000000000"},
+        {3,
+         "494953430d0a1a0a0100030000000000ed000000000000001b6d91ab000000000100000001000000001800000001000000020000000100000000010000007001000000010000000100000000000000000400000000000000030201ff01000000010000006c010000004c01000000000000f03f000000000000f03f00000000000000000000000000000000000000000000f03f0000000000000000000000000000000000000100000070010000000001000000010e0000006c656761637920666978747572650000000000000000000000000000000000000014000000696953686172656443616e76617320302e322e3000000000000000000000000000000000000000000000000000000000"},
     };
     for (const LegacyGolden &golden : legacyGoldens) {
         const std::vector<std::uint8_t> oldBytes = bytesFromHex(golden.hex);
@@ -294,7 +301,7 @@ int main()
                    && oldReencoded.ok()
                    && oldReencoded.bytes == oldBytes,
                fixtureName
-                   + " must decode semantically and re-encode byte-identically under 1.3");
+                   + " must decode semantically and re-encode byte-identically under 1.4");
     }
 
     const Document original = completeDocument();
@@ -308,7 +315,7 @@ int main()
     expect(decoded.document.layers.size() == original.layers.size()
                && decoded.document.assets.size() == original.assets.size(),
            "round-trip must preserve every layer and asset");
-    expect(decoded.document.formatVersion.minor == 3
+    expect(decoded.document.formatVersion.minor == CurrentFormatMinor
                && decoded.document.stableDiffusionMetadata
                && original.stableDiffusionMetadata
                && decoded.document.stableDiffusionMetadata

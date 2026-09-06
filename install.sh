@@ -30,6 +30,8 @@ echo "Installing iiSharedCanvas into ${INSTALL_PREFIX}"
 cmake --install "${BUILD_DIR}" --prefix "${INSTALL_PREFIX}" --config Release
 
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/iiSharedCanvas.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Audio/AudioCodec.h"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/AUDIO_TIMELINE.md"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Media/MediaIo.h"
@@ -89,8 +91,8 @@ test -x "${export_timeline_executable}"
 "${export_timeline_executable}" --help
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.8.0.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.8.0' \
+    \( -name 'libiiSharedCanvas.0.9.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.9.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2
