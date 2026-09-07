@@ -206,6 +206,10 @@ ValidationResult validate(const Document &document)
 {
     ValidationResult result;
 
+    if (document.formatVersion.minor < 5 && !document.authorship.isEmpty()) {
+        addIssue(result, ValidationCode::UnsupportedFormatVersion, "authorship",
+                 "authorship metadata requires format 1.5");
+    }
     if (document.formatVersion.major != CurrentFormatMajor
         || document.formatVersion.minor > CurrentFormatMinor) {
         addIssue(result, ValidationCode::UnsupportedFormatVersion, "formatVersion",

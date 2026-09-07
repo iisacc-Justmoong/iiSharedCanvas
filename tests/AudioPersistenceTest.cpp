@@ -191,10 +191,10 @@ int main()
         draft.audioTracks.front().clips.front().sourceOffsetSamples = 500;
         return true;
     }).ok(), "audio edits must commit through the normal working-file transaction");
-    expect(file.lastWriteStatistics().recordsWritten == 1
-               && file.lastWriteStatistics().payloadBytesWritten < 32
+    expect(file.lastWriteStatistics().recordsWritten == 2
+               && file.lastWriteStatistics().payloadBytesWritten < 36 + static_cast<std::uint64_t>(file.document()->authorship.dump().size())
                && assetDigest(path) == priorDigest,
-           "track-only edits must patch one record without rewriting PCM payloads");
+           "track edits must patch track and authorship records without rewriting PCM payloads");
     const auto committed = encodeIisc(*file.document()).bytes;
     const auto revision = file.revision();
     const auto unchanged = file.edit([](Document &) { return true; });
@@ -219,9 +219,9 @@ int main()
     expect(file.edit([](Document &draft) {
         draft.audioAssets.front().samples[0] = -32767;
         return true;
-    }).ok() && file.lastWriteStatistics().recordsWritten == 1
-               && file.lastWriteStatistics().payloadBytesWritten <= 2,
-           "a one-sample edit must incrementally patch its independent PCM record");
+    }).ok() && file.lastWriteStatistics().recordsWritten == 2
+               && file.lastWriteStatistics().payloadBytesWritten <= 6 + static_cast<std::uint64_t>(file.document()->authorship.dump().size()),
+           "a one-sample edit must incrementally patch PCM and bounded authorship metadata");
     const auto updated = encodeIisc(*file.document()).bytes;
     file.close();
     expect(file.open(path).ok() && encodeIisc(*file.document()).bytes == updated,

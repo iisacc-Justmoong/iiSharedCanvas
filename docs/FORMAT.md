@@ -579,3 +579,15 @@ rate, layer IDs, asset IDs, generated media paths and projection warnings.
 Legacy XML and FCPXML reference independent PNG layer states; `source.iisc`
 retains the complete canonical native document. This is an outbound editor
 exchange, not an XML-to-native round-trip or TimelineProject serialization.
+
+## Authorship extension (1.5)
+
+After the 1.4 audio track section, 1.5 appends one length-prefixed UTF-8 string
+(`u32` byte length, bytes) containing the iiFileProvider `Authorship` JSON dump.
+The per-record cap is 1 MiB and it participates in the aggregate string/container
+limits. Revision is an exact unsigned-decimal string, with contributor profiles,
+first/last contribution times and the latest contributor reference. No credential
+fields exist in this schema. Malformed JSON, unknown schema, duplicate authors,
+invalid identifiers/times and future native versions are rejected. Empty ledgers
+are encoded explicitly. Nonempty authorship cannot be encoded under a minor
+version below 5. Legacy versions retain their byte-identical encoding until edited.

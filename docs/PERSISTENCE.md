@@ -112,7 +112,7 @@ without destructors. They are not hardware power-cut certification.
 A working `.iisc` file begins with SQLite's `SQLite format 3\0` header, has
 `application_id=0x49495343` and `user_version=1`, and contains exactly these two
 application tables. Schema versions are independent of the canvas model's
-`FormatVersion` (currently 1.4). Unknown identities/versions/schema objects,
+`FormatVersion` (currently 1.5). Unknown identities/versions/schema objects,
 invalid record identities/order, failed checksums, invalid references, and
 configured resource-limit violations fail closed.
 
@@ -171,3 +171,15 @@ To export a snapshot, call `encodeIisc(*file.document())` explicitly.
 not fields of the persisted canvas. Native model 1.4 audio belongs to the canvas
 timeline; it does not serialize that separate video-project model or add a RAW
 codec, and it does not edit any downstream application.
+
+## Authorship transaction record (1.5)
+
+Record kind 9 is a singleton with empty id and position 0. Its payload is the
+1.5 length-prefixed authorship JSON string and it follows audio track records.
+It is required exactly once in 1.5 and forbidden in older models. Schema 1 remains
+unchanged. Editors eagerly refresh the ledger; a raw file edit is stamped by
+`DocumentFile` if it changed content without stamping itself. The record is patched
+in the same transaction as content. Rollback/conflict preserves both live content
+and metadata. No-op edits do not write; selecting the same recorded author only
+updates the runtime editing identity. Read-only decoded snapshots have no active
+author or writable file binding.

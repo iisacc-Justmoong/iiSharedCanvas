@@ -6,6 +6,7 @@ BUILD_DIR="${PROJECT_ROOT}/build"
 INSTALL_PREFIX="${IISHAREDCANVAS_INSTALL_PREFIX:-${HOME}/.local/SDK/iiSharedCanvas}"
 PAINT_ENGINE_PREFIX="${IISHAREDCANVAS_IIPAINTENGINE_PREFIX:-${HOME}/.local/SDK/iiPaintEngine}"
 CONSUMER_BUILD_DIR="${BUILD_DIR}/consumer"
+QT_PREFIX="${QT_PREFIX_PATH:-/Volumes/Storage/Qt/6.8.3/macos}"
 
 if [[ ! -f "${PAINT_ENGINE_PREFIX}/lib/cmake/iiPaintEngine/iiPaintEngineConfig.cmake" ]]; then
     echo "iiPaintEngine CMake package is required: ${PAINT_ENGINE_PREFIX}" >&2
@@ -18,7 +19,7 @@ cmake --fresh \
     -B "${BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
-    -DCMAKE_PREFIX_PATH="${PAINT_ENGINE_PREFIX}"
+    -DCMAKE_PREFIX_PATH="${PAINT_ENGINE_PREFIX};${QT_PREFIX}"
 
 echo "Building iiSharedCanvas"
 cmake --build "${BUILD_DIR}" --config Release --parallel
@@ -91,8 +92,8 @@ test -x "${export_timeline_executable}"
 "${export_timeline_executable}" --help
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.9.0.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.9.0' \
+    \( -name 'libiiSharedCanvas.0.10.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.10.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2
@@ -105,7 +106,7 @@ env LIBRARY_PATH="${INSTALL_PREFIX}/lib${LIBRARY_PATH:+:${LIBRARY_PATH}}" cmake 
     -S "${PROJECT_ROOT}/tests/consumer" \
     -B "${CONSUMER_BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX};${PAINT_ENGINE_PREFIX}"
+    -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX};${PAINT_ENGINE_PREFIX};${QT_PREFIX}"
 cmake --build "${CONSUMER_BUILD_DIR}" --config Release --parallel
 
 consumer_executable=""
@@ -127,3 +128,5 @@ fi
 
 env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH "${consumer_executable}"
 echo "Verified installed package: ${installed_library}"
+
+env -u DYLD_LIBRARY_PATH -u DYLD_FALLBACK_LIBRARY_PATH ctest --test-dir "${CONSUMER_BUILD_DIR}" --output-on-failure

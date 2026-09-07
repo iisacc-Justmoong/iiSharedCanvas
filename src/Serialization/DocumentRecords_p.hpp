@@ -10,7 +10,7 @@ namespace iiSharedCanvas::detail {
 // Raster payloads are raw ARGB32 so one changed pixel never shifts later bytes.
 enum class RecordKind : int {
     Header, Asset, LayerCount, Layer, Metadata,
-    AudioAssetCount, AudioAsset, AudioTrackCount, AudioTrack,
+    AudioAssetCount, AudioAsset, AudioTrackCount, AudioTrack, Authorship,
 };
 
 struct DocumentRecord {

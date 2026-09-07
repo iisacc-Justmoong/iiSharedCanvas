@@ -282,9 +282,9 @@ int main()
     legacyMetadataDocument.formatVersion = {1, 1};
     DocumentEditor legacyMetadataEditor(legacyMetadataDocument);
     expect(legacyMetadataEditor.setStableDiffusionMetadata(generation).changed
-               && legacyMetadataDocument.formatVersion.minor == 2
+               && legacyMetadataDocument.formatVersion.minor == CurrentFormatMinor
                && legacyMetadataDocument.stableDiffusionMetadata == generation,
-           "adding generation metadata to an older document must atomically migrate it to format 1.2");
+           "adding generation metadata must atomically migrate a legacy document with authorship");
 
     expect(editor.insertRasterAsset("raster-b", makeRasterLayer(4, 4, 0xffaabbccU), 1).changed
                && assetIndex(document, "raster-b") == std::optional<std::size_t>{1},

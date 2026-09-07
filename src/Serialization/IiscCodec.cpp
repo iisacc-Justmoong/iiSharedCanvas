@@ -361,6 +361,12 @@ IiscError checkDocumentLimits(const Document &document,
     }
 
     LimitTotals totals;
+    if (document.formatVersion.minor >= 5) {
+        if (auto error = trackString(document.authorship.dump().toStdString(), limits, totals,
+                iiFileProvider::Authorship::MaximumBytes); error.code != IiscErrorCode::None) {
+            return error;
+        }
+    }
     for (const AudioAsset &asset : document.audioAssets) {
         if (IiscError error = trackString(asset.id, limits, totals);
             error.code != IiscErrorCode::None) {
@@ -1036,6 +1042,10 @@ void writePayload(ByteWriter &writer, const Document &document,
                    static_cast<std::uint32_t>(index));
         }
     }
+    if (document.formatVersion.minor >= 5) {
+        writer.writeString(document.authorship.dump().toStdString());
+        record(detail::RecordKind::Authorship);
+    }
 }
 
 class DocumentReader final {
@@ -1140,6 +1150,12 @@ public:
         }
         if (version.minor >= 4) {
             readAudio(document);
+        }
+        if (version.minor >= 5) {
+            const auto dump = readStringWithLimit(iiFileProvider::Authorship::MaximumBytes, "authorship");
+            auto authorship = iiFileProvider::Authorship::fromDump(QByteArray::fromStdString(dump));
+            if (!authorship) m_reader.fail(IiscErrorCode::InvalidData, "invalid authorship metadata");
+            document.authorship = std::move(*authorship);
         }
         return document;
     }
@@ -1712,7 +1728,7 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if (records.size() < 3
             || records.size() > static_cast<std::uint64_t>(limits.maximumAssets)
                                   + limits.maximumLayers + limits.maximumAudioAssets
-                                  + limits.maximumAudioTracks + 5) {
+                                  + limits.maximumAudioTracks + 6) {
             invalid("working-file record count is invalid");
         }
         std::size_t assetCount = 0;
@@ -1723,6 +1739,7 @@ IiscDecodeResult detail::decodeDocumentRecords(
         bool sawMetadata = false;
         bool sawAudioAssetCount = false;
         bool sawAudioTrackCount = false;
+        bool sawAuthorship = false;
         ByteWriter writer;
         std::uint64_t total = IiscHeaderSize - 4;
         for (std::size_t index = 0; index < records.size(); ++index) {
@@ -1768,6 +1785,10 @@ IiscDecodeResult detail::decodeDocumentRecords(
             case RecordKind::AudioTrack:
                 valid = sawAudioTrackCount && record.position == audioTrackCount++;
                 break;
+            case RecordKind::Authorship:
+                valid = sawAudioTrackCount && !sawAuthorship && record.id.empty() && record.position == 0;
+                sawAuthorship = true;
+                break;
             }
             if (!valid || !record.data) {
                 invalid("working-file record layout is invalid");
@@ -1791,6 +1812,9 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if ((version.minor >= 4) != (sawAudioAssetCount && sawAudioTrackCount)
             || (version.minor < 4 && (sawAudioAssetCount || sawAudioTrackCount))) {
             invalid("working-file audio records do not match the document version");
+        }
+        if ((version.minor >= 5) != sawAuthorship) {
+            invalid("working-file authorship record does not match the document version");
         }
         const auto storedChunkSize = bytes.readI32();
         DocumentReader reader(bytes, limits, true);

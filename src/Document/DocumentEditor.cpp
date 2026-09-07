@@ -1833,8 +1833,24 @@ DocumentEditResult DocumentEditor::unchanged()
     return m_lastResult;
 }
 
-DocumentEditResult DocumentEditor::applied()
+DocumentEditResult DocumentEditor::setFileAuthor(const iiFileProvider::FileAuthor &author)
 {
+    if (m_file) {
+        return editFile([&](DocumentEditor &working) { return working.setFileAuthor(author); });
+    }
+    if (!requireValidDocument()) return m_lastResult;
+    try {
+        if (!m_document->authorship.setAuthor(author)) return unchanged();
+        m_document->formatVersion.minor = CurrentFormatMinor;
+        return applied(false);
+    } catch (const std::exception &error) {
+        return reject(DocumentEditCode::InvalidArgument, "authorship", error.what());
+    }
+}
+
+DocumentEditResult DocumentEditor::applied(bool recordAuthorship)
+{
+    if (recordAuthorship) recordDocumentChange(*m_document);
     ++m_revision;
     m_lastResult = {DocumentEditCode::None, true, {}, {}};
     return m_lastResult;

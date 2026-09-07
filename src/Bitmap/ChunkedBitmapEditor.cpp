@@ -533,6 +533,7 @@ void ChunkedBitmapEditor::noteChange(DevicePixelRect bounds)
     if (isEmpty(bounds)) {
         return;
     }
+    recordDocumentChange(*m_document);
     m_dirtyBounds = uniteDevicePixelRects(m_dirtyBounds, bounds);
     ++m_revision;
 }

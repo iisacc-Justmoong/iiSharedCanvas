@@ -515,10 +515,10 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.9.0 with SOVERSION 0.9 and exact-version
+The current C++ package version is 0.10.0 with SOVERSION 0.10 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the layered-document APIs. The canonical snapshot model is version 1.4;
-1.0 through 1.4 compatibility is tested with fixed legacy goldens. Working-file
+package to adopt the layered-document APIs. The canonical snapshot model is version 1.5;
+1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 
 For a tested host install, including an installed-package consumer check:
@@ -724,3 +724,24 @@ On macOS, the installed CMake target also supplies its runtime search path when
 `LIBRARY_PATH` makes the package an implicit linker directory. The installer
 builds its consumer with that condition and runs it without `DYLD_LIBRARY_PATH`
 or `DYLD_FALLBACK_LIBRARY_PATH` to verify normal package loading.
+
+## File authorship (0.10.0)
+
+`Document::authorship` is an iiFileProvider 0.2 `Authorship` value. Select the
+current editor with `DocumentEditor::setFileAuthor(author)` before editing.
+Structural, vector, bitmap, chunked-bitmap and audio changes synchronously refresh
+its cached JSON dump; no-op and rejected operations preserve it. `DocumentFile`
+commits the changed content and an independent authorship record in the same
+SQLite transaction before returning, including raw `edit` callbacks. There is no
+autosave timer or whole-document snapshot dump in the working-file path.
+
+Native snapshots use `.iisc` 1.5. Legacy 1.0–1.4 files remain readable and are
+upgraded on the first accepted change. Undo/cancel of already committed pixels
+is itself a recorded change. Detached public aggregates have no observers; use
+editors or `recordDocumentChange` after a direct detached mutation. File-bound
+mutable edits must use `DocumentFile::edit`. Loaded profiles never become the
+current editing identity automatically. Credentials are excluded from all file
+metadata; the ledger is attribution data, not proof of ownership or login.
+
+The installer accepts `QT_PREFIX_PATH` (the external Qt 6.8.3 macOS prefix by
+default) so clean builds and installed consumers do not rely on an old Qt cache.

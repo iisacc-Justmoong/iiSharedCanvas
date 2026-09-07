@@ -268,3 +268,16 @@ are not invoked to import or export these WAV assets. Unknown ancillary WAV
 chunks are skipped within verified bounds and reported as omitted metadata.
 OpenTimelineIO does not eliminate the application's native persistence mapping
 or the dual XML audio translation, so the existing dependency decision stands.
+
+## iiFileProvider authorship (0.10.0)
+
+The user-requested dependency is public and required at version 0.2.0. It is an
+actively maintained sibling SDK under AGPL-3.0-only, matching this library, and
+uses the existing Qt 6 Core runtime. It adds small value/JSON contracts without
+network activity, authentication SDKs, threads or another storage engine. Reuse
+avoids divergent account validation and token filtering across file libraries.
+The aggregate layout change ships with SOVERSION 0.10 and exact package matching;
+consumers must rebuild against this version.
+
+Installed iiSharedCanvas include directories are non-system directories, so a
+selected staged package takes precedence over global headers from an older ABI.

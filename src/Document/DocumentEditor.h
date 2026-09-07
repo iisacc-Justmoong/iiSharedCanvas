@@ -70,6 +70,7 @@ public:
     [[nodiscard]] std::uint64_t revision() const noexcept;
     [[nodiscard]] const DocumentEditResult &lastResult() const noexcept;
 
+    DocumentEditResult setFileAuthor(const iiFileProvider::FileAuthor &author);
     DocumentEditResult setCanvasExtent(CanvasExtent extent);
     DocumentEditResult ensureInfiniteCanvasRegion(CanvasRegion region);
     DocumentEditResult setFrameRate(FrameRate frameRate);
@@ -168,7 +169,7 @@ private:
                                             std::string path,
                                             std::string message);
     [[nodiscard]] DocumentEditResult unchanged();
-    [[nodiscard]] DocumentEditResult applied();
+    [[nodiscard]] DocumentEditResult applied(bool recordAuthorship = true);
     [[nodiscard]] bool requireValidDocument();
 
     Document *m_document = nullptr;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.9.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.10.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -22,7 +22,9 @@ if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
     list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiPaintEngine")
 endif()
 
+list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiFileProvider")
 find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)
+find_package(iiFileProvider 0.2.0 CONFIG REQUIRED)
 find_package(ZLIB 1.2.9 REQUIRED)
 find_package(libzip 1.7.3 CONFIG REQUIRED)
 block(SCOPE_FOR VARIABLES)
@@ -117,6 +119,7 @@ target_include_directories(iiSharedCanvas PUBLIC
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(iiSharedCanvas PUBLIC
+        iiFileProvider::iiFileProvider
         iiPaintEngine::iiPaintEngine
         Qt6::Qml
         Qt6::Quick)
@@ -128,12 +131,14 @@ endif()
 
 set_target_properties(iiSharedCanvas PROPERTIES
         AUTOMOC ON
+        EXPORT_NO_SYSTEM TRUE
         VERSION ${PROJECT_VERSION}
         SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 set_property(TARGET iiSharedCanvas APPEND PROPERTY
         BUILD_RPATH "$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 set_property(TARGET iiSharedCanvas APPEND PROPERTY
-        INSTALL_RPATH "$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
+        INSTALL_RPATH "$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>"
+        "$<TARGET_FILE_DIR:iiFileProvider::iiFileProvider>")
 if(APPLE)
     set_property(TARGET iiSharedCanvas APPEND PROPERTY INSTALL_RPATH
             "@loader_path/../../iiPaintEngine/platforms/macos/lib"
@@ -414,4 +419,10 @@ if(BUILD_TESTING)
             COMMAND ${CMAKE_COMMAND}
                     -DIISHAREDCANVAS_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
                     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/ProjectContractTest.cmake)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(iiSharedCanvasAuthorshipTest tests/AuthorshipTest.cpp)
+    target_link_libraries(iiSharedCanvasAuthorshipTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.Authorship COMMAND iiSharedCanvasAuthorshipTest)
 endif()

@@ -7,6 +7,13 @@
 
 namespace iiSharedCanvas {
 
+void recordDocumentChange(Document &document)
+{
+    document.authorship.recordChange();
+    document.formatVersion.minor = CurrentFormatMinor;
+}
+
+
 std::optional<std::uint64_t> audioSampleFrameCount(
     FrameIndex frameCount, FrameRate frameRate, std::uint32_t sampleRate) noexcept
 {

@@ -1,3 +1,4 @@
+#include <iiSharedCanvas/Document/Document.h>
 #include <iiSharedCanvas.h>
 
 #include <algorithm>

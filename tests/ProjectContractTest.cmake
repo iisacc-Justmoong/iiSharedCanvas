@@ -13,8 +13,8 @@ endfunction()
 file(READ "${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" cmake_lists)
 string(REGEX MATCHALL "find_package\\(" direct_find_packages "${cmake_lists}")
 list(LENGTH direct_find_packages direct_dependency_count)
-if(NOT direct_dependency_count EQUAL 4)
-    message(FATAL_ERROR "iiSharedCanvas must have only the reviewed iiPaintEngine, SQLite, zlib and libzip link dependencies")
+if(NOT direct_dependency_count EQUAL 5)
+    message(FATAL_ERROR "iiSharedCanvas must have only the reviewed iiFileProvider, iiPaintEngine, SQLite, zlib and libzip link dependencies")
 endif()
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -67,13 +67,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
              "public domain")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.9.0 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.10.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.9.0 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.10.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -139,7 +139,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.9.0")
+             "The current C++ package version is 0.10.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -245,7 +245,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.9.0.dylib")
+             "libiiSharedCanvas.0.10.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"

@@ -107,10 +107,10 @@ void testWriteThrough(const std::string &path)
 
     BitmapEditor bitmap(file, "paint");
     expect(bitmap.setPixel(3, 4, 0xff123456U), "pixel editing must write through");
-    expect(file.lastWriteStatistics().payloadBytesWritten <= 4,
-           "one pixel must update only its changed bytes, not dump a document or raster");
-    expect(file.lastWriteStatistics().recordsWritten == 1,
-           "a pixel edit must not rewrite unrelated layer or vector records");
+    expect(file.lastWriteStatistics().payloadBytesWritten <= 8 + static_cast<std::uint64_t>(file.document()->authorship.dump().size()),
+           "one pixel must update only its changed bytes and bounded authorship metadata");
+    expect(file.lastWriteStatistics().recordsWritten == 2,
+           "a pixel edit must write only raster and authorship records");
     expectCurrent(file, "pixels must reach the file before setPixel returns");
 
     const auto revision = file.revision();
@@ -130,7 +130,8 @@ void testWriteThrough(const std::string &path)
     expect(bitmap.clear(), "bitmap clear must write through");
     expectCurrent(file, "cleared pixels must persist");
 
-    const auto beforeStroke = snapshot(*file.document());
+    const auto beforeStrokeDocument = *file.document();
+    const auto beforeStroke = snapshot(beforeStrokeDocument);
     BitmapBrush brush;
     brush.size = 3;
     brush.argb = 0xffff3300U;
@@ -139,8 +140,12 @@ void testWriteThrough(const std::string &path)
     expect(bitmap.continueStroke({30, 8}), "streamed stroke samples must be accepted");
     expectCurrent(file, "each stroke increment must write pixels while the stroke is active");
     bitmap.cancelStroke();
-    expect(!bitmap.strokeActive() && snapshot(*file.document()) == beforeStroke,
-           "cancelling a stroke must restore the document");
+    auto restoredStroke = *file.document();
+    expect(restoredStroke.authorship.revision() > beforeStrokeDocument.authorship.revision(),
+           "stroke cancellation must retain the record of committed changes");
+    restoredStroke.authorship = beforeStrokeDocument.authorship;
+    expect(!bitmap.strokeActive() && snapshot(restoredStroke) == beforeStroke,
+           "cancelling a stroke must restore content and retain authorship history");
     expectCurrent(file, "stroke cancellation must immediately restore file pixels too");
     expect(bitmap.beginStroke({5, 5}) && bitmap.continueStroke({20, 20}) && bitmap.endStroke({30, 30}),
            "a completed streamed stroke must write through every stage");
@@ -284,11 +289,13 @@ void testRecordStructure(const std::string &path)
         return;
     }
     DocumentEditor editor(file);
-    expect(editor.moveAsset("vector", 0).ok() && file.lastWriteStatistics().payloadBytesWritten == 0,
+    expect(editor.moveAsset("vector", 0).ok() && file.lastWriteStatistics().payloadBytesWritten
+               <= 4 + static_cast<std::uint64_t>(file.document()->authorship.dump().size()),
            "asset reordering must update positions without rewriting raster payloads");
     expectCurrent(file, "reordered asset positions must reopen identically");
-    expect(editor.moveLayer("vector-layer", 0).ok() && file.lastWriteStatistics().payloadBytesWritten == 0,
-           "layer reordering must not rewrite payloads");
+    expect(editor.moveLayer("vector-layer", 0).ok() && file.lastWriteStatistics().payloadBytesWritten
+               <= 4 + static_cast<std::uint64_t>(file.document()->authorship.dump().size()),
+           "layer reordering must update only positions and authorship payload");
     expect(editor.renameAsset("paint", "renamed-paint").ok(), "asset rename must update dependent records");
     expect(editor.renameLayer("vector-layer", "renamed-vector").ok(), "layer rename must move the record identity");
     expectCurrent(file, "renames must persist identities and references together");

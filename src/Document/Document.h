@@ -1,6 +1,7 @@
 #pragma once
 
 #include "iiSharedCanvas/Export.h"
+#include <iiFileProvider.h>
 #include "Metadata/StableDiffusionMetadata.h"
 
 #include <Core/RasterBlendMode.h>
@@ -17,7 +18,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 4;
+inline constexpr std::uint16_t CurrentFormatMinor = 5;
 
 using FrameIndex = std::uint32_t;
 
@@ -212,6 +213,7 @@ struct Document {
     std::optional<StableDiffusionMetadata> stableDiffusionMetadata;
     std::vector<AudioAsset> audioAssets;
     std::vector<AudioTrackLayer> audioTracks;
+    iiFileProvider::Authorship authorship;
 };
 
 struct AssetReference {
@@ -219,6 +221,9 @@ struct AssetReference {
     std::optional<std::size_t> frameIndex;
     std::optional<std::size_t> keyframeIndex;
 };
+
+// Updates the cached metadata dump and upgrades legacy documents on actual edits.
+IISHAREDCANVAS_EXPORT void recordDocumentChange(Document &document);
 
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Asset &asset) noexcept;
 // ceil(frameCount * frameRate.denominator * sampleRate / frameRate.numerator).

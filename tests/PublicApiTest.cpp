@@ -222,7 +222,7 @@ static_assert(!std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::CanvasItem>)
 int main()
 {
     return iiSharedCanvas::CurrentFormatMajor == 1
-        && iiSharedCanvas::CurrentFormatMinor == 4
+        && iiSharedCanvas::CurrentFormatMinor == 5
         ? 0
         : 1;
 }
