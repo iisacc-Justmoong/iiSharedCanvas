@@ -1,4 +1,5 @@
 #include "Metadata/StableDiffusionGenerationParameters.h"
+#include <fast_float.h>
 
 #include <algorithm>
 #include <charconv>
@@ -421,8 +422,9 @@ std::optional<double> finiteNumber(StableDiffusionGenerationParametersParseResul
     double value = 0.0;
     const char *begin = entry->value.data();
     const char *end = begin + entry->value.size();
-    const auto parsed = std::from_chars(
-        begin, end, value, std::chars_format::general);
+    // Retain from_chars semantics without libc++'s macOS 26 deployment floor.
+    const auto parsed = fast_float::from_chars(
+        begin, end, value, fast_float::chars_format::general);
     if (entry->value.empty() || parsed.ec != std::errc{}
         || parsed.ptr != end || !std::isfinite(value)) {
         addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidNumber,

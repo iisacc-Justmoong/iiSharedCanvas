@@ -1,5 +1,30 @@
 # Dependency review
 
+## macOS release compatibility (2026-09-09)
+
+Floating-point metadata conversion uses
+[fast_float 8.2.10](https://github.com/fastfloat/fast_float/releases/tag/v8.2.10),
+released 2026-06-14. Its MIT license is selected from the upstream license
+options. The private, unmodified 177,375-byte single header has no separate
+runtime dependencies; its official release digest is recorded in
+`third_party/fast_float/UPSTREAM.md`, and notices are installed with the SDK.
+The maintained upstream implements locale-independent `from_chars` semantics.
+This preserves the Qt-free domain model and supports macOS 12, where the
+compiler's libc++ floating-point overload is unavailable. Integer conversion
+is unchanged. Standard iostream conversion was also evaluated, but flags
+representable subnormal values as failures on the current libc++ runtime.
+Regression cases cover scientific/subnormal values, range errors, invalid
+suffixes, embedded NUL, and quoted whitespace under a comma-decimal locale.
+
+The macOS 12 release build uses libzip 1.11.4 from the workspace's existing
+pinned source (commit `6f8a0cdd24a0dc6cce9dac4a7679da784ab124ea`), built statically
+with system zlib and optional compression backends disabled. The system
+CommonCrypto backend remains enabled so the tests can create encrypted ZIP
+fixtures and verify their rejection. This meets
+the existing unencrypted stored/DEFLATE-only ORA contract and removes a runtime
+dependency on the host's newer Homebrew libraries. Pass the resulting package
+with `libzip_DIR`; preserve its BSD-3-Clause notice in application bundles.
+
 ## PSD export (2026-09-03)
 
 The frame-zero writer reuses the already linked

@@ -124,6 +124,8 @@ target_link_libraries(iiSharedCanvas PUBLIC
         Qt6::Qml
         Qt6::Quick)
 target_link_libraries(iiSharedCanvas PRIVATE SQLite3::SQLite3 ZLIB::ZLIB libzip::zip)
+target_include_directories(iiSharedCanvas SYSTEM PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fast_float")
 if(APPLE OR UNIX)
     target_link_options(iiSharedCanvas INTERFACE
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
@@ -203,6 +205,8 @@ install(FILES cmake/iiSharedCanvasAppleQtCompatibility.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
+install(FILES third_party/fast_float/LICENSE-MIT third_party/fast_float/UPSTREAM.md
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas/fast_float)
 install(FILES docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
         docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md

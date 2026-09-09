@@ -63,7 +63,7 @@ std::vector<std::uint8_t> archive(const std::vector<Entry> &entries)
         }
     }
     if (!good || zip_close(zip) != 0) {
-        expect(false, "finish independent libzip fixture");
+        expect(false, "finish independent libzip fixture: " + std::string(zip_strerror(zip)));
         zip_discard(zip);
         zip_source_free(source);
         zip_error_fini(&error);

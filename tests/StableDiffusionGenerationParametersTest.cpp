@@ -3,12 +3,19 @@
 #include <algorithm>
 #include <cstdint>
 #include <iostream>
+#include <limits>
+#include <locale>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace {
 
 int failures = 0;
+
+struct CommaDecimal final : std::numpunct<char> {
+    char do_decimal_point() const override { return ','; }
+};
 
 void expect(bool condition, const std::string &message)
 {
@@ -209,6 +216,28 @@ int main()
     expect(!badNumber.ok()
                && contains(badNumber, StableDiffusionGenerationParametersParseCode::InvalidNumber),
            "typed floating-point conversion must reject non-finite text");
+    const std::locale previousLocale;
+    std::locale::global(std::locale(std::locale::classic(), new CommaDecimal));
+    for (const auto &[text, expected] : {
+             std::pair{"6.5e+0", 6.5}, std::pair{".5", 0.5},
+             std::pair{"7.", 7.0}, std::pair{"-0", -0.0},
+             std::pair{"5e-324", std::numeric_limits<double>::denorm_min()}}) {
+        const auto number = parseStableDiffusionGenerationParameters(
+            std::string{"prompt\nSteps: 20, Sampler: Euler, CFG scale: "} + text);
+        expect(number.ok() && number.metadata.samplingPasses.size() == 1
+                   && number.metadata.samplingPasses.front().cfgScale == expected,
+               std::string{"decimal numbers must remain locale-independent: "} + text);
+    }
+    std::locale::global(previousLocale);
+    for (const char *text : {"+7", "7x", "1e400", "1e-400", "inf", "-inf",
+                             "0x1.8p2", "\" 7\"", "\"7 \"", "\"7,5\"",
+                             "\"7\\u0000ignored\""}) {
+        const auto number = parseStableDiffusionGenerationParameters(
+            std::string{"prompt\nSteps: 20, Sampler: Euler, CFG scale: "} + text);
+        expect(!number.ok()
+                   && contains(number, StableDiffusionGenerationParametersParseCode::InvalidNumber),
+               std::string{"invalid number text must fail closed: "} + text);
+    }
     const StableDiffusionGenerationParametersParseResult badSize =
         parseStableDiffusionGenerationParameters(
             "prompt\nSteps: 20, Sampler: Euler, CFG scale: 7, "

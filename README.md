@@ -104,6 +104,13 @@ The common projection maps output size, batch and CLIP settings, base and Hires
 sampler passes, checkpoint/VAE/Hires/refiner resources, software version, and
 10-character SHA-256 prefixes. Unmapped settings remain unique generic extras,
 while the raw infotext remains authoritative and byte-exact.
+Floating-point fields use the privately bundled MIT-licensed fast_float 8.2.10
+header so the Qt-free model can target macOS 12 without libc++'s macOS 26
+floating-point `from_chars` requirement. Scientific notation and subnormal values remain
+supported; overflow, underflow, non-finite values, trailing characters,
+leading plus signs, and whitespace inside quoted numeric values are rejected.
+The generation-parameters test exercises these boundaries under a comma-decimal
+default locale as well as the normal parser fixtures.
 
 The text format alone cannot prove which application wrote it. Parsing does
 not fill `StableDiffusionMetadata::software`; a carrier adapter that has
