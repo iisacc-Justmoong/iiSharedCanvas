@@ -65,7 +65,7 @@ Python 3.11+; cryptography/image/font extras are unused. The inspected bundled
 copy occupies approximately 3.3 MB. Both development parsers are outside the
 shipping runtime dependency graph.
 
-The export CLI reuses SQLite's
+The export CLI delegates to iiFileProvider::Database, which reuses SQLite's
 [online backup API](https://www.sqlite.org/backup.html) to obtain a consistent
 private snapshot from a read-only working-file connection, including committed
 WAL content. Only the temporary copy is opened by the authoring `DocumentFile`
@@ -177,10 +177,11 @@ layered formats are not advertised as editable imports.
 
 ## SQLite for write-through document files (2026-09-03)
 
-SQLite is the additional direct dependency for `DocumentFile`. iiPaintEngine
+SQLite is the private storage dependency of iiFileProvider, used by `DocumentFile`
+through its provider-owned Database interface. iiPaintEngine
 remains the sole painting dependency; it never depends on iiSharedCanvas.
-The SQLite C API is private to the implementation, with no SQL or SQLite types
-in public headers. CMake uses the platform/package-provided `SQLite::SQLite3`
+The SQLite C API is private to iiFileProvider; canvas public headers expose no SQL
+or SQLite types. Provider CMake uses the platform/package-provided `SQLite::SQLite3`
 target (named `SQLite3::SQLite3` in newer CMake). No server, service, Qt SQL
 plugin, download, or vendored fork is added.
 On macOS, discovery locally prefers SDK/library headers over unrelated
@@ -296,7 +297,7 @@ or the dual XML audio translation, so the existing dependency decision stands.
 
 ## iiFileProvider authorship (0.10.0)
 
-The user-requested dependency is public and required at version 0.2.0. It is an
+The user-requested dependency is public and required at version 0.5.0. It is an
 actively maintained sibling SDK under AGPL-3.0-only, matching this library, and
 uses the existing Qt 6 Core runtime. It adds small value/JSON contracts without
 network activity, authentication SDKs, threads or another storage engine. Reuse
@@ -306,3 +307,7 @@ consumers must rebuild against this version.
 
 Installed iiSharedCanvas include directories are non-system directories, so a
 selected staged package takes precedence over global headers from an older ABI.
+
+## Storage ownership review
+
+iiFileProvider 0.5 now privately owns the existing public domain SQLite dependency. Production canvas and CLI targets do not link SQLite directly; raw-SQL corruption tests still do. File APIs use existing Qt Core without a new archive/codec dependency. Direction: iiSharedCanvas -> iiFileProvider -> Qt Core/SQLite. The provider contains no canvas types.

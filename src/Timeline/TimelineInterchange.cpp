@@ -9,7 +9,7 @@
 #include "Validation/Validation.h"
 
 #include <QDir>
-#include <QFile>
+#include <iiFileProvider.h>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -357,11 +357,10 @@ void write(const QString &path, std::span<const std::uint8_t> bytes, std::uint64
 {
     charge(used, bytes.size(), limit);
     if (bytes.size() > std::uint64_t(std::numeric_limits<qint64>::max())) { fail(MediaIoCode::LimitExceeded, "package file is too large"); }
-    QFile file(path);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly)
-        || file.write(reinterpret_cast<const char *>(bytes.data()), qint64(bytes.size())) != qint64(bytes.size()) || !file.flush()) {
-        fail(MediaIoCode::IoError, "cannot write complete timeline package file: " + file.errorString().toStdString());
-    }
+    try {
+        iiFileProvider::File::create(path, QByteArray::fromRawData(
+            reinterpret_cast<const char *>(bytes.data()), static_cast<qsizetype>(bytes.size())));
+    } catch (const std::exception &error) { fail(MediaIoCode::IoError, error.what()); }
 }
 void write(const QString &path, const QByteArray &bytes, std::uint64_t &used, std::uint64_t limit)
 {
@@ -369,27 +368,11 @@ void write(const QString &path, const QByteArray &bytes, std::uint64_t &used, st
 }
 void publish(const QString &temporary, const QString &destination)
 {
-    // Ordinary rename can replace an existing empty directory. Use an exclusive
-    // kernel operation so even a concurrent destination creator is preserved.
-#if defined(__APPLE__)
-    const auto status = renamex_np(QFile::encodeName(temporary).constData(), QFile::encodeName(destination).constData(), RENAME_EXCL);
-#elif defined(__linux__) && defined(SYS_renameat2)
-    const auto status = syscall(SYS_renameat2, AT_FDCWD, QFile::encodeName(temporary).constData(),
-                                AT_FDCWD, QFile::encodeName(destination).constData(), 1 /* RENAME_NOREPLACE */);
-#elif defined(_WIN32)
-    if (MoveFileExW(reinterpret_cast<LPCWSTR>(temporary.utf16()), reinterpret_cast<LPCWSTR>(destination.utf16()), 0)) { return; }
-    const auto error = GetLastError();
-    fail(error == ERROR_ALREADY_EXISTS || error == ERROR_FILE_EXISTS ? MediaIoCode::AlreadyExists : MediaIoCode::IoError,
-         "cannot publish completed timeline package without replacement");
-#else
-    fail(MediaIoCode::UnsupportedFeature, "exclusive directory publishing is unavailable on this platform");
-#endif
-#if defined(__APPLE__) || (defined(__linux__) && defined(SYS_renameat2))
-    if (status != 0) {
-        fail(errno == EEXIST || errno == ENOTEMPTY ? MediaIoCode::AlreadyExists : MediaIoCode::IoError,
-             "cannot publish completed timeline package without replacement");
+    try { iiFileProvider::File::publishDirectory(temporary, destination); }
+    catch (const iiFileProvider::FileError &error) {
+        fail(error.code() == iiFileProvider::FileCode::AlreadyExists
+            ? MediaIoCode::AlreadyExists : MediaIoCode::IoError, error.what());
     }
-#endif
 }
 }
 

@@ -5,11 +5,10 @@
 
 #include <QDir>
 #include <QElapsedTimer>
-#include <QFile>
+#include <iiFileProvider.h>
 #include <QFileInfo>
 #include <QTemporaryDir>
 
-#include <sqlite3.h>
 
 #include <algorithm>
 #include <memory>
@@ -38,45 +37,6 @@ const char *codeName(MediaIoCode code)
 }
 
 namespace {
-struct CloseDatabase {
-    void operator()(sqlite3 *database) const { sqlite3_close_v2(database); }
-};
-using Database = std::unique_ptr<sqlite3, CloseDatabase>;
-
-struct FinishBackup {
-    void operator()(sqlite3_backup *backup) const { sqlite3_backup_finish(backup); }
-};
-
-void checkSql(int status, sqlite3 *database)
-{
-    if (status != SQLITE_OK) {
-        throw Failure(MediaIoCode::IoError, database ? sqlite3_errmsg(database) : sqlite3_errstr(status));
-    }
-}
-
-Database openDatabase(const QString &path, int flags)
-{
-    sqlite3 *raw = nullptr;
-    const auto status = sqlite3_open_v2(path.toUtf8().constData(), &raw, flags | SQLITE_OPEN_FULLMUTEX, nullptr);
-    Database database(raw);
-    checkSql(status, raw);
-    checkSql(sqlite3_busy_timeout(raw, 250), raw);
-    return database;
-}
-
-std::uint64_t scalar(sqlite3 *database, const char *query)
-{
-    sqlite3_stmt *raw = nullptr;
-    checkSql(sqlite3_prepare_v2(database, query, -1, &raw, nullptr), database);
-    std::unique_ptr<sqlite3_stmt, decltype(&sqlite3_finalize)> statement(raw, sqlite3_finalize);
-    const auto status = sqlite3_step(raw);
-    if (status != SQLITE_ROW || sqlite3_column_type(raw, 0) != SQLITE_INTEGER
-        || sqlite3_column_int64(raw, 0) < 0) {
-        throw Failure(MediaIoCode::InvalidData, "cannot read bounded SQLite source dimensions");
-    }
-    return std::uint64_t(sqlite3_column_int64(raw, 0));
-}
-
 void backupWorkingFile(const QString &sourcePath, const QString &destinationPath,
                         const MediaLimits &mediaLimits)
 {
@@ -95,44 +55,19 @@ void backupWorkingFile(const QString &sourcePath, const QString &destinationPath
     }
     // No URI flag or immutable mode: the read-only connection must include
     // committed WAL content and may not force a checkpoint or journal-mode change.
-    auto source = openDatabase(sourcePath, SQLITE_OPEN_READONLY);
-    checkSql(sqlite3_exec(source.get(), "PRAGMA query_only=ON; PRAGMA trusted_schema=OFF; BEGIN",
-                         nullptr, nullptr, nullptr), source.get());
-    const auto pageSize = scalar(source.get(), "PRAGMA page_size");
-    const auto pageCount = scalar(source.get(), "PRAGMA page_count");
     const auto byteLimit = std::min(mediaLimits.maxInputBytes, mediaLimits.maxDecodedBytes);
-    if (pageSize == 0 || pageSize > byteLimit || pageCount > byteLimit / pageSize) {
-        throw Failure(MediaIoCode::LimitExceeded, "SQLite source snapshot exceeds the input/decoded byte budget");
+    try {
+        iiFileProvider::Database source(sourcePath.toStdString(), true);
+        source.execute("PRAGMA query_only=ON; PRAGMA trusted_schema=OFF");
+        iiFileProvider::Transaction transaction(&source, false);
+        iiFileProvider::File::create(destinationPath, {});
+        iiFileProvider::Database destination(destinationPath.toStdString());
+        source.backupTo(destination, byteLimit);
+        transaction.commit();
+    } catch (const iiFileProvider::FileError &error) {
+        throw Failure(error.code() == iiFileProvider::FileCode::LimitExceeded ? MediaIoCode::LimitExceeded
+            : error.code() == iiFileProvider::FileCode::TimedOut ? MediaIoCode::TimedOut : MediaIoCode::IoError, error.what());
     }
-    QFile placeholder(destinationPath);
-    if (!placeholder.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
-        throw Failure(MediaIoCode::IoError, "cannot create the private working-file snapshot");
-    }
-    placeholder.close();
-    auto destination = openDatabase(destinationPath, SQLITE_OPEN_READWRITE);
-    std::unique_ptr<sqlite3_backup, FinishBackup> backup(
-        sqlite3_backup_init(destination.get(), "main", source.get(), "main"));
-    if (!backup) { throw Failure(MediaIoCode::IoError, sqlite3_errmsg(destination.get())); }
-    QElapsedTimer timer;
-    timer.start();
-    while (true) {
-        if (timer.elapsed() >= 30000) {
-            throw Failure(MediaIoCode::TimedOut, "SQLite read-only backup exceeded its 30-second time budget");
-        }
-        const auto status = sqlite3_backup_step(backup.get(), 128);
-        const auto currentPages = sqlite3_backup_pagecount(backup.get());
-        if (currentPages < 0 || std::uint64_t(currentPages) > byteLimit / pageSize) {
-            throw Failure(MediaIoCode::LimitExceeded, "SQLite backup grew beyond its byte budget");
-        }
-        if (status == SQLITE_DONE) { break; }
-        if (status != SQLITE_OK) {
-            throw Failure(MediaIoCode::IoError, "cannot obtain a consistent read-only SQLite snapshot: "
-                          + std::string(sqlite3_errstr(status)));
-        }
-    }
-    checkSql(sqlite3_backup_finish(backup.release()), destination.get());
-    checkSql(sqlite3_exec(source.get(), "ROLLBACK", nullptr, nullptr, nullptr), source.get());
-    destination.reset();
     if (QFileInfo(destinationPath).size() < 0
         || std::uint64_t(QFileInfo(destinationPath).size()) > byteLimit) {
         throw Failure(MediaIoCode::LimitExceeded, "private SQLite backup exceeds its byte budget");
@@ -154,8 +89,8 @@ SerializationLimits serializationLimits(const MediaLimits &mediaLimits, std::uin
 Document loadDocument(const QString &path, const QString &outputParent,
                        const MediaLimits &mediaLimits, std::uint32_t maxLayers)
 {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) { throw Failure(MediaIoCode::IoError, file.errorString().toStdString()); }
+    auto input = iiFileProvider::File::openRead(path);
+    QIODevice &file = *input;
     if (file.size() <= 0) { throw Failure(MediaIoCode::InvalidData, "native input is empty"); }
     if (std::uint64_t(file.size()) > mediaLimits.maxInputBytes) {
         throw Failure(MediaIoCode::LimitExceeded, "native input exceeds the input byte budget");
@@ -187,7 +122,7 @@ Document loadDocument(const QString &path, const QString &outputParent,
     std::vector<std::uint8_t> bytes;
     while (!file.atEnd()) {
         const auto block = file.read(64 * 1024);
-        if (block.isEmpty() && file.error() != QFileDevice::NoError) {
+        if (block.isEmpty() && !file.atEnd()) {
             throw Failure(MediaIoCode::IoError, file.errorString().toStdString());
         }
         if (std::uint64_t(block.size()) > mediaLimits.maxInputBytes - bytes.size()) {

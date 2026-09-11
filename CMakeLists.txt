@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.10.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.10.1 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -24,16 +24,18 @@ endif()
 
 list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiFileProvider")
 find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)
-find_package(iiFileProvider 0.2.0 CONFIG REQUIRED)
+find_package(iiFileProvider 0.5.0 CONFIG REQUIRED)
 find_package(ZLIB 1.2.9 REQUIRED)
 find_package(libzip 1.7.3 CONFIG REQUIRED)
-block(SCOPE_FOR VARIABLES)
-    # Prefer the SDK/library headers over SQLite copies embedded in unrelated frameworks.
-    set(CMAKE_FIND_FRAMEWORK LAST)
-    find_package(SQLite3 3.26 REQUIRED)
-endblock()
-if(NOT TARGET SQLite3::SQLite3)
-    add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+if(BUILD_TESTING)
+    block(SCOPE_FOR VARIABLES)
+        # Prefer the SDK/library headers over SQLite copies embedded in unrelated frameworks.
+        set(CMAKE_FIND_FRAMEWORK LAST)
+        find_package(SQLite3 3.26 REQUIRED)
+    endblock()
+    if(NOT TARGET SQLite3::SQLite3)
+        add_library(SQLite3::SQLite3 ALIAS SQLite::SQLite3)
+    endif()
 endif()
 
 include(cmake/iiSharedCanvasAppleQtCompatibility.cmake)
@@ -123,7 +125,7 @@ target_link_libraries(iiSharedCanvas PUBLIC
         iiPaintEngine::iiPaintEngine
         Qt6::Qml
         Qt6::Quick)
-target_link_libraries(iiSharedCanvas PRIVATE SQLite3::SQLite3 ZLIB::ZLIB libzip::zip)
+target_link_libraries(iiSharedCanvas PRIVATE ZLIB::ZLIB libzip::zip)
 target_include_directories(iiSharedCanvas SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fast_float")
 if(APPLE OR UNIX)
@@ -165,7 +167,7 @@ install(TARGETS iisc-import RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_executable(iisc-export-psd tools/iisc-export-psd.cpp)
 target_sources(iisc-export-psd PRIVATE tools/IiscInput.cpp tools/IiscInput_p.hpp)
-target_link_libraries(iisc-export-psd PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+target_link_libraries(iisc-export-psd PRIVATE iiSharedCanvas::iiSharedCanvas)
 set_target_properties(iisc-export-psd PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 if(APPLE)
     set_property(TARGET iisc-export-psd APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
@@ -176,7 +178,7 @@ install(TARGETS iisc-export-psd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_executable(iisc-export-timeline tools/iisc-export-timeline.cpp)
 target_sources(iisc-export-timeline PRIVATE tools/IiscInput.cpp tools/IiscInput_p.hpp)
-target_link_libraries(iisc-export-timeline PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+target_link_libraries(iisc-export-timeline PRIVATE iiSharedCanvas::iiSharedCanvas)
 set_target_properties(iisc-export-timeline PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 if(APPLE)
     set_property(TARGET iisc-export-timeline APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")

@@ -522,7 +522,7 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.10.0 with SOVERSION 0.10 and exact-version
+The current C++ package version is 0.10.1 with SOVERSION 0.10 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
 package to adopt the layered-document APIs. The canonical snapshot model is version 1.5;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
@@ -752,3 +752,7 @@ metadata; the ledger is attribution data, not proof of ownership or login.
 
 The installer accepts `QT_PREFIX_PATH` (the external Qt 6.8.3 macOS prefix by
 default) so clean builds and installed consumers do not rely on an old Qt cache.
+
+## 파일 저장 소유권
+
+0.10.1부터 실제 파일 CRUD, SQLite 연결·트랜잭션·부분 BLOB 기록·백업은 iiFileProvider 0.5에 위임한다. DocumentFile은 캔버스 스키마, 형식 검증, 편집 상태, 충돌 판정을 소유한다. `.iisc` 기존 파일 형식과 즉시 반영 동작은 유지한다. 의존성은 iiSharedCanvas → iiFileProvider이며 역참조는 없다.

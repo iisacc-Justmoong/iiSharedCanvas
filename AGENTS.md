@@ -22,13 +22,17 @@ pointer sequence, curve, dab stream, or replay command.
 ## Dependency direction
 
 Application -> iiSharedCanvas -> iiPaintEngine.
+Application/domain SDK -> iiFileProvider -> Qt Core / SQLite.
+File CRUD and SQLite execution belong to iiFileProvider. The provider must not
+reference iiSharedCanvas or any other higher-level iisacc SDK. Canvas schemas,
+validation, serialization and in-memory editing remain here.
 
 iiPaintEngine must not depend on iiSharedCanvas. The only direct dependency in
 the initial milestone is iiPaintEngine. Any additional archive, serialization,
 vector, text, or codec library requires an explicit maintenance, license, and
 dependency-size review.
 
-SQLite is the reviewed second dependency for write-through working files;
+SQLite is the reviewed storage engine, now owned privately by iiFileProvider;
 see docs/DEPENDENCIES.md. File-bound edits commit synchronously through
 DocumentFile, never a delayed autosave or whole-document dump. Read-only
 render snapshots must not retain a writable file binding.
@@ -101,4 +105,4 @@ iiSharedCanvas API during the same implementation phase.
 - BitmapItem is a selected-raster display/input adapter, not evidence that the
   mixed-layer frame renderer or serializer is complete.
 - Qt Quick is consumed through the Qt targets exported transitively by
-  iiPaintEngine; product QML continues to use LVRS. SQLite remains private storage.
+  iiPaintEngine; product QML continues to use LVRS. SQLite is private to iiFileProvider; direct SQLite use here is restricted to tests.

@@ -11,7 +11,7 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 #include <QSet>
-#include <QTemporaryFile>
+#include <iiFileProvider.h>
 
 #include <algorithm>
 #include <cmath>
@@ -296,10 +296,10 @@ MediaIoResult exportVideo(const Document &document, const std::string &path, con
     if (std::find(available.begin(), available.end(), options.codec) == available.end()) {
         return error(MediaIoCode::UnsupportedFormat, "requested video encoder is not installed");
     }
-    QTemporaryFile temporary(QFileInfo(absolute).dir().filePath(".iisc-video-XXXXXX"));
-    if (!temporary.open()) { return error(MediaIoCode::IoError, temporary.errorString()); }
-    const auto temporaryPath = temporary.fileName();
-    temporary.close();
+    std::unique_ptr<iiFileProvider::StagedFile> temporary;
+    try { temporary = std::make_unique<iiFileProvider::StagedFile>(absolute); }
+    catch (const iiFileProvider::FileError &failure) { return error(MediaIoCode::IoError, QString::fromUtf8(failure.what())); }
+    const auto temporaryPath = temporary->path();
     const auto rate = rateText(document.timeline.frameRate);
     QStringList arguments{"-v", "error", "-nostdin", "-y", "-filter_threads", "1",
                           "-f", "rawvideo", "-pixel_format", "rgba", "-video_size",

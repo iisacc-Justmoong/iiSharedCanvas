@@ -1,4 +1,5 @@
 #include <iiSharedCanvas.h>
+#include <iiFileProvider.h>
 #include <File/DocumentFile.h>
 
 #include <QDir>
@@ -470,5 +471,12 @@ int main(int argc, char **argv)
     expect(ownedCanvas.openFile(ownedPath) && ownedCanvas.documentReady(),
            "QML must reopen a working file without importing a snapshot");
 
+    const auto providerPath = directory.filePath("provider-owned.iisc");
+    {
+        DocumentFile owned;
+        expect(owned.create(providerPath.toStdString(), makeDocument()).ok(), "provider storage creates working file");
+        expect(iiFileProvider::File::readPrefix(providerPath, 16) == QByteArray("SQLite format 3\0", 16), "working format unchanged");
+    }
+    expect(iiFileProvider::File::remove(providerPath), "provider deletes closed working file");
     return failures == 0 ? 0 : 1;
 }

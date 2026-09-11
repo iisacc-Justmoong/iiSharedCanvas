@@ -3,12 +3,10 @@
 #include <QColorSpace>
 #include <QDir>
 #include <QElapsedTimer>
-#include <QFile>
+#include <iiFileProvider.h>
 #include <QFileInfo>
 #include <QProcess>
-#include <QSaveFile>
 #include <QStandardPaths>
-#include <QTemporaryFile>
 
 #include <algorithm>
 #include <cstring>
@@ -81,11 +79,9 @@ MediaIoResult checkDestination(const std::string &path, bool overwrite, QString 
     }
     if (info.exists()) {
         if (!overwrite) { return error(MediaIoCode::AlreadyExists, "export destination already exists"); }
-        QFile existing(absolute);
-        if (!existing.open(QIODevice::ReadOnly)) {
-            return error(MediaIoCode::IoError, "cannot inspect existing export destination");
-        }
-        const auto header = existing.peek(16);
+        QByteArray header;
+        try { header = iiFileProvider::File::readPrefix(absolute, 16); }
+        catch (const std::exception &failure) { return error(MediaIoCode::IoError, QString::fromUtf8(failure.what())); }
         if (header.startsWith("SQLite format 3") || header.startsWith("IISC\r\n\x1a\n")) {
             return error(MediaIoCode::InvalidArgument, "media export refuses to replace a canvas/database file");
         }
@@ -99,24 +95,14 @@ MediaBytesResult readFile(const std::string &path, const MediaLimits &limits)
     QString absolute;
     result.result = checkInput(path, limits, absolute);
     if (!result.ok()) { return result; }
-    QFile file(absolute);
-    if (!file.open(QIODevice::ReadOnly)) {
-        result.result = error(MediaIoCode::IoError, file.errorString());
-        return result;
+    try {
+        const auto bytes = iiFileProvider::File::read(absolute, static_cast<qint64>(std::min<std::uint64_t>(
+            limits.maxInputBytes, std::numeric_limits<qsizetype>::max() - 1)));
+        result.bytes.assign(bytes.begin(), bytes.end());
+    } catch (const iiFileProvider::FileError &failure) {
+        result.result = error(failure.code() == iiFileProvider::FileCode::LimitExceeded
+            ? MediaIoCode::LimitExceeded : MediaIoCode::IoError, QString::fromUtf8(failure.what()));
     }
-    while (!file.atEnd()) {
-        const QByteArray block = file.read(64 * 1024);
-        if (block.isEmpty() && file.error() != QFile::NoError) {
-            result.result = error(MediaIoCode::IoError, file.errorString());
-            break;
-        }
-        if (std::uint64_t(block.size()) > limits.maxInputBytes - result.bytes.size()) {
-            result.result = error(MediaIoCode::LimitExceeded, "input grew beyond the byte limit");
-            break;
-        }
-        result.bytes.insert(result.bytes.end(), block.begin(), block.end());
-    }
-    if (!result.ok()) { result.bytes.clear(); }
     return result;
 }
 
@@ -131,30 +117,11 @@ MediaIoResult publishFile(const QString &temporary, const std::string &path,
     if (std::uint64_t(size) > limits.maxOutputBytes) {
         return error(MediaIoCode::LimitExceeded, "encoded output exceeds the byte limit");
     }
-    if (!overwrite) {
-        if (QFile::rename(temporary, absolute)) { return {}; }
-        return error(QFileInfo::exists(absolute) ? MediaIoCode::AlreadyExists : MediaIoCode::IoError,
-                     "cannot publish the completed export without replacing another file");
-    }
-    QFile source(temporary);
-    QSaveFile output(absolute);
-    output.setDirectWriteFallback(false);
-    if (!source.open(QIODevice::ReadOnly) || !output.open(QIODevice::WriteOnly)) {
-        return error(MediaIoCode::IoError, "cannot open the completed export for atomic publication");
-    }
-    std::uint64_t copied = 0;
-    while (!source.atEnd()) {
-        const auto block = source.read(64 * 1024);
-        if (block.isEmpty() && source.error() != QFile::NoError) {
-            return error(MediaIoCode::IoError, source.errorString());
-        }
-        copied += std::uint64_t(block.size());
-        if (copied > limits.maxOutputBytes) {
-            return error(MediaIoCode::LimitExceeded, "encoded output exceeds the byte limit");
-        }
-        if (output.write(block) != block.size()) { return error(MediaIoCode::IoError, output.errorString()); }
-    }
-    return output.commit() ? MediaIoResult{} : error(MediaIoCode::IoError, output.errorString());
+    const auto published = iiFileProvider::File::publish(
+        std::filesystem::path(temporary.toStdU16String()), std::filesystem::path(absolute.toStdU16String()), overwrite);
+    if (!published.succeeded) return error(published.diagnosticSuffix == "already_exists"
+        ? MediaIoCode::AlreadyExists : MediaIoCode::IoError, QString::fromStdString(published.message));
+    return {};
 }
 
 MediaIoResult writeFile(const std::string &path, std::span<const std::uint8_t> bytes,
@@ -166,14 +133,15 @@ MediaIoResult writeFile(const std::string &path, std::span<const std::uint8_t> b
     if (bytes.size() > limits.maxOutputBytes || bytes.size() > std::uint64_t(std::numeric_limits<qint64>::max())) {
         return error(MediaIoCode::LimitExceeded, "encoded output exceeds the byte limit");
     }
-    QTemporaryFile temporary(QFileInfo(absolute).dir().filePath(".iisc-export-XXXXXX"));
-    if (!temporary.open() || temporary.write(reinterpret_cast<const char *>(bytes.data()), qint64(bytes.size()))
-                               != qint64(bytes.size()) || !temporary.flush()) {
-        return error(MediaIoCode::IoError, temporary.errorString());
+    try {
+        const auto payload = QByteArray::fromRawData(reinterpret_cast<const char *>(bytes.data()), static_cast<qsizetype>(bytes.size()));
+        if (overwrite) iiFileProvider::File::write(absolute, payload);
+        else iiFileProvider::File::create(absolute, payload);
+        return {};
+    } catch (const iiFileProvider::FileError &failure) {
+        return error(failure.code() == iiFileProvider::FileCode::AlreadyExists
+            ? MediaIoCode::AlreadyExists : MediaIoCode::IoError, QString::fromUtf8(failure.what()));
     }
-    const auto temporaryPath = temporary.fileName();
-    temporary.close();
-    return publishFile(temporaryPath, path, overwrite, limits);
 }
 
 QImage imageFromRaster(const RasterLayer &pixels)

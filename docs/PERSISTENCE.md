@@ -183,3 +183,7 @@ in the same transaction as content. Rollback/conflict preserves both live conten
 and metadata. No-op edits do not write; selecting the same recorded author only
 updates the runtime editing identity. Read-only decoded snapshots have no active
 author or writable file binding.
+
+## 파일 저장 소유권
+
+0.10.1부터 실제 파일 CRUD, SQLite 연결·트랜잭션·부분 BLOB 기록·백업은 iiFileProvider 0.5에 위임한다. DocumentFile은 캔버스 스키마, 형식 검증, 편집 상태, 충돌 판정을 소유한다. `.iisc` 기존 파일 형식과 즉시 반영 동작은 유지한다. 의존성은 iiSharedCanvas → iiFileProvider이며 역참조는 없다.
