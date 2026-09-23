@@ -96,6 +96,11 @@ public:
                                  std::size_t destinationIndex);
     DocumentEditResult removeAsset(const std::string &assetId);
 
+    DocumentEditResult insertVideoAsset(VideoAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceVideoAsset(const std::string &assetId, VideoAsset asset);
+    DocumentEditResult setVideoPlayback(const std::string &layerId, VideoPlayback playback);
+    DocumentEditResult setLayerMotion(const std::string &layerId, std::vector<MotionKeyframe> keyframes);
+
     DocumentEditResult insertAudioAsset(AudioAsset asset,
                                        std::size_t index = AppendDocumentIndex);
     // Replacement preserves the stable id. Remove rejects any referencing clip.

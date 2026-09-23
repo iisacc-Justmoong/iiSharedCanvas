@@ -302,6 +302,30 @@ int main(int argc, char **argv)
                && output.pixel(0, 0) == 0x00000000U,
            "transformed raster editing must land in the selected layer footprint only");
 
+    Document animatedDocument = transformedDocument;
+    animatedDocument.timeline.frameCount = 3;
+    findRasterAsset(animatedDocument, "paint")->pixels = makeRasterLayer(1, 1);
+    MotionKeyframe motionStart;
+    MotionKeyframe motionEnd;
+    motionEnd.frame = 2;
+    motionEnd.value.position.x = 1;
+    layerProperties(animatedDocument.layers.front()).motion = {motionStart, motionEnd};
+    animatedDocument.assets.emplace_back(VideoAsset{"movie", {24, 1},
+        {makeRasterLayer(1, 1, 0xffff0000), makeRasterLayer(1, 1, 0xff0000ff)}});
+    animatedDocument.layers.emplace_back(VideoLayer{{"movie", "Video"}, StaticSource{"movie"},
+        {0, {}, VideoEndBehavior::Hold}});
+    CanvasItem animatedItem;
+    expect(animatedItem.bind(animatedDocument) && animatedItem.selectLayer(QStringLiteral("paint-layer")),
+           "a native video and motion canvas must bind to Qt Quick");
+    animatedItem.setFrame(2);
+    animatedItem.setBrushColor(QColor::fromRgba(0xff22d3eeU));
+    animatedItem.setBrushSize(1.0);
+    expect(animatedItem.beginStrokeAt({2.0, 0.0}, 1.0) && animatedItem.endStrokeAt({2.0, 0.0}, 1.0),
+           "brush input must invert the evaluated motion transform at the current frame");
+    output = render(animatedItem, 3, 1);
+    expect(output.pixel(0, 0) == 0xff0000ff && output.pixelColor(2, 0).alpha() > 0,
+           "async canvas presentation must contain native video and the edited moving raster");
+
     CanvasItem largeCanvas;
     largeCanvas.setWidth(1024);
     largeCanvas.setHeight(768);

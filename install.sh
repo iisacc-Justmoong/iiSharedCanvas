@@ -41,6 +41,8 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Video/VideoCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/ChunkedBitmapEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Camera/CameraRaw.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/Document.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/CanvasSampling.h"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/CANVAS_MEDIA.md"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/DocumentEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/File/DocumentFile.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Layered/LayeredDocumentCodec.h"
@@ -92,8 +94,8 @@ test -x "${export_timeline_executable}"
 "${export_timeline_executable}" --help
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.10.1.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.10.1' \
+    \( -name 'libiiSharedCanvas.0.11.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.11.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2

@@ -311,3 +311,9 @@ selected staged package takes precedence over global headers from an older ABI.
 ## Storage ownership review
 
 iiFileProvider 0.5 now privately owns the existing public domain SQLite dependency. Production canvas and CLI targets do not link SQLite directly; raw-SQL corruption tests still do. File APIs use existing Qt Core without a new archive/codec dependency. Direction: iiSharedCanvas -> iiFileProvider -> Qt Core/SQLite. The provider contains no canvas types.
+
+Native canvas video/motion (0.11.0) adds no dependency: rational frame selection,
+transform interpolation and versioned fields use standard C++23. Native video
+import reuses the existing optional FFmpeg process adapter; saved native frames
+render and reopen without it. The reviewed file-provider, paint-engine, Qt,
+zlib and libzip boundaries are unchanged.

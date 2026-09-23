@@ -13,7 +13,7 @@ snapshots. Import explicitly into a new working file before editing it.
 
 - Extension: `.iisc`
 - Media type: `application/vnd.iisacc.ii-shared-canvas`
-- Current model version: major 1, minor 4
+- Current model version: major 1, minor 6
 - Integer byte order: little-endian
 - Floating-point representation: IEEE 754 binary64, stored as little-endian bits
 - Raster channel representation: 32-bit ARGB as defined by iiPaintEngine
@@ -84,6 +84,8 @@ Layer layers[layerCount]
   AudioAsset audioAssets[audioAssetCount]
   u32 audioTrackCount
   AudioTrackLayer audioTracks[audioTrackCount]
+[if minor >= 5]
+  string authorshipJson
 ~~~
 
 Assets and layers preserve their document vector order. Layers are ordered
@@ -269,7 +271,7 @@ The encoded `contentKind` is the owning layer's canonical type tag, and
 validation rejects a key whose layer is static or whose asset kind differs
 from the referenced layer.
 
-Version 1 uses hold sampling only. The selected asset is the last frame-owned
+Version 1 asset-reference keys use hold sampling only. The selected asset is the last frame-owned
 key for the requested layer at or before the requested frame. Sparse frame
 indices are strictly increasing and remain within `[0, frameCount)`; every
 animated layer has a frame-zero key, and one frame may directly own keys for
@@ -546,7 +548,7 @@ from 0.2.x.
 File-bound editing adds the separate working-file owner in package 0.4.0 with
 SOVERSION 0.4; rebuild consumers against that package. It does not change these
 canonical snapshot bytes.
-Package ABI versioning is separate from this file format: `.iisc` is now 1.4,
+Package ABI versioning is separate from this file format: `.iisc` is now 1.6,
 while canonical 1.0, 1.1, 1.2, and 1.3 fixtures continue to re-encode
 byte-identically.
 
@@ -591,3 +593,25 @@ fields exist in this schema. Malformed JSON, unknown schema, duplicate authors,
 invalid identifiers/times and future native versions are rejected. Empty ledgers
 are encoded explicitly. Nonempty authorship cannot be encoded under a minor
 version below 5. Legacy versions retain their byte-identical encoding until edited.
+
+## Native video and motion extension (1.6)
+
+Minor 6 adds asset tag `3`: after the ordinary asset id, write `u32 rateNumerator`,
+`u32 rateDenominator`, `u32 frameCount`, then that many ordinary raster records.
+Every owned frame has the same positive extent. Frame counts share the new
+`maximumTotalVideoFrames` budget; their pixels share `maximumTotalRasterPixels`.
+A static source referencing tag 3 reconstructs a `VideoLayer`. Keyframed source
+content tags remain raster/vector only; video uses its own temporal sampling.
+
+After each layer's 1.3 optional frame range, minor 6 writes `u32 motionKeyCount`.
+Each key is `u32 frame`, six `f64` values (position x/y, scale x/y, anchor x/y),
+`f64 rotationDegrees`, `f64 opacity`, and `u8 interpolation` (0 Hold, 1 Linear,
+2 SmoothStep). These keys are strictly ordered and timeline-bounded. They use
+`maximumTotalMotionKeyframes`, independently of asset-reference keys.
+
+For a video layer only, append `u32 sourceInFrame`, Boolean `hasSourceOutFrame`,
+an optional `u32 sourceOutFrame` (exclusive), and `u8 endBehavior` (0 Transparent,
+1 Hold). All other sections, including metadata, audio and authorship, retain
+their previous order. Unknown tags and invalid references fail closed. Models
+1.0–1.5 may not contain video or motion fields and their encodings are unchanged.
+See [CANVAS_MEDIA.md](CANVAS_MEDIA.md) for sampling semantics.

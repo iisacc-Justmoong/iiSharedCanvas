@@ -18,7 +18,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 5;
+inline constexpr std::uint16_t CurrentFormatMinor = 6;
 
 using FrameIndex = std::uint32_t;
 
@@ -65,6 +65,7 @@ struct Timeline {
 struct Point {
     double x = 0.0;
     double y = 0.0;
+    friend bool operator==(const Point &, const Point &) = default;
 };
 
 struct MoveTo { Point point; };
@@ -111,11 +112,19 @@ struct VectorAsset {
     std::vector<VectorPath> paths;
 };
 
-using Asset = std::variant<RasterAsset, VectorAsset, ChunkedRasterAsset>;
+// Self-contained constant-rate display frames; no external decoder is needed to render.
+struct VideoAsset {
+    std::string id;
+    FrameRate frameRate;
+    std::vector<RasterLayer> frames;
+};
+
+using Asset = std::variant<RasterAsset, VectorAsset, ChunkedRasterAsset, VideoAsset>;
 
 enum class ContentKind {
     Raster,
     Vector,
+    Video,
 };
 
 struct StaticSource {
@@ -146,6 +155,24 @@ struct LayerFrameRange {
                                      const LayerFrameRange &) = default;
 };
 
+enum class MotionInterpolation : std::uint8_t { Hold, Linear, SmoothStep };
+
+struct MotionValue {
+    Point position;
+    Point scale{1.0, 1.0};
+    Point anchor;
+    double rotationDegrees = 0.0; // Unwrapped; 0 -> 720 performs two revolutions.
+    double opacity = 1.0; // Multiplies the layer's base opacity.
+    friend bool operator==(const MotionValue &, const MotionValue &) = default;
+};
+
+struct MotionKeyframe {
+    FrameIndex frame = 0; // Absolute document frame.
+    MotionValue value;
+    MotionInterpolation interpolation = MotionInterpolation::Linear; // Outgoing segment.
+    friend bool operator==(const MotionKeyframe &, const MotionKeyframe &) = default;
+};
+
 struct LayerProperties {
     std::string id;
     std::string name;
@@ -154,6 +181,7 @@ struct LayerProperties {
     AffineTransform transform;
     RasterBlendMode blendMode = RasterBlendMode::SourceOver;
     std::optional<LayerFrameRange> frameRange;
+    std::vector<MotionKeyframe> motion; // Empty preserves the static layer properties.
 };
 
 struct BitmapLayer {
@@ -166,7 +194,22 @@ struct VectorLayer {
     LayerSource source;
 };
 
-using Layer = std::variant<BitmapLayer, VectorLayer>;
+enum class VideoEndBehavior : std::uint8_t { Transparent, Hold };
+
+struct VideoPlayback {
+    FrameIndex sourceInFrame = 0;
+    std::optional<FrameIndex> sourceOutFrame; // Exclusive; absent means the asset end.
+    VideoEndBehavior endBehavior = VideoEndBehavior::Transparent;
+    friend bool operator==(const VideoPlayback &, const VideoPlayback &) = default;
+};
+
+struct VideoLayer {
+    LayerProperties properties;
+    LayerSource source; // Must be a StaticSource referring to one VideoAsset.
+    VideoPlayback playback; // Starts at frameRange.firstFrame, or zero when absent.
+};
+
+using Layer = std::variant<BitmapLayer, VectorLayer, VideoLayer>;
 
 // Owned interleaved signed PCM16. A sample frame contains channelCount samples.
 struct AudioAsset {
@@ -277,6 +320,8 @@ IISHAREDCANVAS_EXPORT VectorAsset *findVectorAsset(Document &document,
                                                    const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const VectorAsset *findVectorAsset(const Document &document,
                                                          const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT VideoAsset *findVideoAsset(Document &document, const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const VideoAsset *findVideoAsset(const Document &document, const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT std::optional<std::size_t> assetIndex(const Document &document,
                                                            const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT Layer *findLayer(Document &document,
@@ -291,6 +336,8 @@ IISHAREDCANVAS_EXPORT VectorLayer *findVectorLayer(Document &document,
                                                    const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const VectorLayer *findVectorLayer(const Document &document,
                                                          const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT VideoLayer *findVideoLayer(Document &document, const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const VideoLayer *findVideoLayer(const Document &document, const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT std::optional<std::size_t> layerIndex(const Document &document,
                                                            const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT Frame *findFrame(Document &document,

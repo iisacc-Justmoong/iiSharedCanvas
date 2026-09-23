@@ -53,11 +53,20 @@ struct VideoExportOptions {
     MediaLimits limits;
 };
 
+struct VideoAssetImportResult {
+    VideoAsset asset;
+    MediaIoResult result;
+    [[nodiscard]] bool ok() const noexcept { return result.ok(); }
+};
+
 IISHAREDCANVAS_EXPORT VideoCapabilities videoCapabilities(const MediaBackendOptions &backend = {});
 IISHAREDCANVAS_EXPORT VideoProbeResult probeVideo(
     const std::string &path, const MediaBackendOptions &backend = {}, const MediaLimits &limits = {});
 IISHAREDCANVAS_EXPORT MediaDocumentResult importVideo(
     const std::string &path, const VideoImportOptions &options = {});
+// The same bounded decoder as importVideo, returning one owned native video asset.
+IISHAREDCANVAS_EXPORT VideoAssetImportResult importVideoAsset(
+    const std::string &path, std::string assetId, const VideoImportOptions &options = {});
 IISHAREDCANVAS_EXPORT MediaIoResult exportVideo(
     const Document &document, const std::string &path, const VideoExportOptions &options = {});
 

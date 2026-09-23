@@ -305,6 +305,12 @@ std::vector<ExportLayer> preflight(const Document &document, const PsdExportOpti
 {
     const auto validation = validate(document);
     if (!validation.ok()) { fail(MediaIoCode::InvalidArgument, validation.issues.front().message); }
+    if (std::any_of(document.layers.begin(), document.layers.end(), [](const Layer &layer) {
+            return std::holds_alternative<VideoLayer>(layer) || !layerProperties(layer).motion.empty();
+        })) {
+        fail(MediaIoCode::UnsupportedFeature,
+             "PSD export does not support native video or motion; use .iisc or exportVideo");
+    }
     if (document.extent.width > 30000 || document.extent.height > 30000) {
         fail(MediaIoCode::UnsupportedFeature, "PSD v1 supports canvas dimensions up to 30000 pixels; PSB export is unavailable");
     }

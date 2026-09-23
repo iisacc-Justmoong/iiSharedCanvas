@@ -112,7 +112,7 @@ without destructors. They are not hardware power-cut certification.
 A working `.iisc` file begins with SQLite's `SQLite format 3\0` header, has
 `application_id=0x49495343` and `user_version=1`, and contains exactly these two
 application tables. Schema versions are independent of the canvas model's
-`FormatVersion` (currently 1.5). Unknown identities/versions/schema objects,
+`FormatVersion` (currently 1.6). Unknown identities/versions/schema objects,
 invalid record identities/order, failed checksums, invalid references, and
 configured resource-limit violations fail closed.
 
@@ -176,7 +176,7 @@ codec, and it does not edit any downstream application.
 
 Record kind 9 is a singleton with empty id and position 0. Its payload is the
 1.5 length-prefixed authorship JSON string and it follows audio track records.
-It is required exactly once in 1.5 and forbidden in older models. Schema 1 remains
+It is required exactly once in 1.5 and newer and forbidden in older models. Schema 1 remains
 unchanged. Editors eagerly refresh the ledger; a raw file edit is stamped by
 `DocumentFile` if it changed content without stamping itself. The record is patched
 in the same transaction as content. Rollback/conflict preserves both live content
@@ -187,3 +187,13 @@ author or writable file binding.
 ## 파일 저장 소유권
 
 0.10.1부터 실제 파일 CRUD, SQLite 연결·트랜잭션·부분 BLOB 기록·백업은 iiFileProvider 0.5에 위임한다. DocumentFile은 캔버스 스키마, 형식 검증, 편집 상태, 충돌 판정을 소유한다. `.iisc` 기존 파일 형식과 즉시 반영 동작은 유지한다. 의존성은 iiSharedCanvas → iiFileProvider이며 역참조는 없다.
+
+## Native video and motion records (1.6)
+
+Schema 1 stores `VideoAsset` in the existing asset record kind. Its frame data
+uses raw ARGB records so pixel-span updates retain stable offsets when dimensions
+stay equal. Motion keys and video playback metadata are in each layer's 1.6
+record. Unchanged video assets skip payload serialization during property-only
+edits; no external file is needed on reopen. `DocumentEditor` video/motion edits
+use the same synchronous transactions, conflict checks and rollback as other
+content. The new serialization budgets apply to both snapshots and working files.

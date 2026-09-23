@@ -1,4 +1,5 @@
 #include "VectorCodec.h"
+#include "Document/CanvasSampling.h"
 
 #include "Media/MediaIo_p.hpp"
 #include "Render/FrameRenderer.h"
@@ -18,6 +19,7 @@
 #include <zlib.h>
 
 #include <array>
+#include <cmath>
 #include <limits>
 
 namespace iiSharedCanvas {
@@ -251,12 +253,13 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
         QPainter painter(&writer);
         if (!painter.isActive()) { return error(MediaIoCode::IoError, "cannot initialize PDF painter"); }
         painter.setRenderHint(QPainter::Antialiasing, true);
+        painter.setRenderHint(QPainter::LosslessImageRendering, true);
         for (std::uint64_t frame = options.firstFrame; frame <= last; ++frame) {
             if (frame != options.firstFrame && !writer.newPage()) { return error(MediaIoCode::IoError, "cannot append PDF page"); }
             bool rasterizeFrame = false;
             for (const auto &layer : document.layers) {
                 const auto &properties = layerProperties(layer);
-                if (properties.visible && layerExistsAt(document, layer, FrameIndex(frame))
+                if (sampleLayerAt(document, layer, FrameIndex(frame)).visible
                     && properties.blendMode != RasterBlendMode::SourceOver) { rasterizeFrame = true; }
             }
             if (rasterizeFrame && !options.rasterizeUnsupportedBlending) {
@@ -271,8 +274,13 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
             }
             for (std::size_t index = 0; index < document.layers.size(); ++index) {
                 const auto &layer = document.layers[index];
-                const auto &properties = layerProperties(layer);
-                if (!properties.visible || properties.opacity <= 0 || !layerExistsAt(document, layer, FrameIndex(frame))) { continue; }
+                const auto properties = sampleLayerAt(document, layer, FrameIndex(frame));
+                if (!properties.visible || properties.opacity <= 0) { continue; }
+                const auto &t = properties.transform;
+                if (!std::isfinite(t.m11) || !std::isfinite(t.m12) || !std::isfinite(t.m21)
+                    || !std::isfinite(t.m22) || !std::isfinite(t.translationX) || !std::isfinite(t.translationY)) {
+                    return error(MediaIoCode::InvalidData, "sampled PDF transform exceeds finite coordinates");
+                }
                 const auto *asset = resolveAssetAt(document, layer, FrameIndex(frame));
                 if (!asset) { return error(MediaIoCode::InvalidData, "cannot resolve PDF layer asset"); }
                 painter.save();
@@ -287,7 +295,6 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
                     painter.drawImage(0, 0, imageFromRaster(rendered.tiles[0].pixels));
                     result.warnings.emplace_back("translucent vector layer rasterized to preserve isolated group opacity in PDF");
                 } else {
-                    const auto &t = properties.transform;
                     const auto origin = canvasOrigin(document);
                     painter.setTransform(QTransform(t.m11, t.m12, t.m21, t.m22, t.translationX - origin.x, t.translationY - origin.y));
                     if (vector) {
@@ -299,6 +306,9 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
                         }
                     } else if (const auto *raster = std::get_if<RasterAsset>(asset)) {
                         painter.drawImage(0, 0, imageFromRaster(raster->pixels));
+                    } else if (const auto *video = std::get_if<VideoLayer>(&layer)) {
+                        const auto *pixels = resolveVideoFrameAt(document, *video, FrameIndex(frame));
+                        if (pixels) { painter.drawImage(0, 0, imageFromRaster(*pixels)); }
                     } else if (const auto *chunks = std::get_if<ChunkedRasterAsset>(asset)) {
                         for (const auto &chunk : chunks->chunks) {
                             painter.drawImage(QPointF(double(chunk.column) * document.infiniteCanvas.chunkSize,

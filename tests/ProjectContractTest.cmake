@@ -66,13 +66,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
              "public domain")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.10.1 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.11.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.10.1 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.11.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -132,13 +132,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`VectorEditor` binds to a vector asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "`BitmapLayer | VectorLayer` variant")
+             "`BitmapLayer | VectorLayer | VideoLayer` variant")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "every `Frame` directly owns its")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.10.1")
+             "The current C++ package version is 0.11.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -158,7 +158,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "Container and codec identifiers are open strings")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`Layer` | `BitmapLayer \\| VectorLayer`")
+             "`Layer` | `BitmapLayer \\| VectorLayer \\| VideoLayer`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "`validateCameraRaw` validates the Camera RAW aggregate independently")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
@@ -204,7 +204,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "`TimelineProject` is independent from the canvas `Document`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Version 1 uses hold sampling only")
+             "Version 1 asset-reference keys use hold sampling only")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
              "`Document::frames` owns strictly increasing")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
@@ -244,7 +244,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.10.1.dylib")
+             "libiiSharedCanvas.0.11.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
@@ -369,3 +369,8 @@ file(READ "${IISHAREDCANVAS_SOURCE_DIR}/src/QtAdapter/CanvasItem.h" canvas_item_
 if(canvas_item_header MATCHES "QQuickPaintedItem")
     message(FATAL_ERROR "CanvasItem must use bounded scene-graph tiles, not QQuickPaintedItem")
 endif()
+
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h" "Document/CanvasSampling.h")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/CANVAS_MEDIA.md" "VideoAsset")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md" "Native video and motion extension (1.6)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "CanvasMediaTest.cpp")

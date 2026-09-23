@@ -629,3 +629,12 @@ Complete when:
   snapshots, and GPU scene transforms for tens-of-thousands-pixel canvases.
 - Partial decode, thumbnails, device-level write latency, and power-cut recovery are measured.
 - Public API compatibility and file migration policy are published.
+
+## Native canvas media extension (0.11.0)
+
+The canvas `Document` now owns images, vectors and constant-rate video assets,
+with transform/opacity motion graphics on every visual layer. `CanvasSampling`
+centralizes pure frame evaluation; rendering and async tile presentation consume
+that same evaluated state. This does not merge the separate metadata-rich
+`TimelineProject` model into the document. The persisted contract is `.iisc` 1.6;
+see [CANVAS_MEDIA.md](CANVAS_MEDIA.md) for exact supported behavior and limits.

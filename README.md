@@ -1,15 +1,15 @@
 # iiSharedCanvas
 
-iiSharedCanvas is a C++20 document and authoring foundation for composing
-raster artwork, native vector paths, and frame-based raster or vector animation
-on one canvas. It also provides format-neutral decoded Camera RAW authoring
+iiSharedCanvas is a C++23 document and authoring foundation for composing
+raster artwork, native vector paths, self-contained video, and interpolated
+motion graphics on one canvas. It also provides format-neutral decoded Camera RAW authoring
 data for import pipelines and a format-neutral video-editing timeline model.
 It is the authoritative canvas standard for iisacc
 products; applications adopt its model and format through application-owned
 adapters.
 
 The repository contains the versioned in-memory model, validation rules,
-deterministic keyframe evaluation, bounded mixed raster/vector tile rendering,
+deterministic keyframe evaluation, bounded mixed image/vector/video tile rendering,
 an editable raster-asset boundary, sparse infinite-canvas chunks, asynchronous
 Qt Quick scene-graph presentation, CMake package export, canonical `.iisc`
 serialization, write-through document files, and contract tests. Cross-platform
@@ -50,11 +50,17 @@ are never silently converted or overwritten. See [the persistence contract](docs
 | Vector path | M/L/Q/C/Z path commands with solid fill or stroke | Static layer |
 | Raster keyframes | Frame-owned raster asset references | Integer-frame hold sampling |
 | Vector keyframes | Frame-owned vector asset references | Integer-frame hold sampling |
+| Video | `VideoAsset` owning constant-rate ARGB frames | Typed `VideoLayer`, rational timing and source trim |
+| Motion graphics | Layer-local transform/opacity keys over any visual layer | Hold, linear or smooth interpolation |
 
 Brush trajectories, dab sequences, and replay commands are never part of the
 iiSharedCanvas format. iiPaintEngine rasterizes brush input immediately, and
 iiSharedCanvas receives only the committed pixels. This keeps raster editing
 compatible with iiPaintEngine's bitmap-only contract.
+
+Native video and motion are editable, rendered and persisted in `.iisc` 1.6.
+See [CANVAS_MEDIA.md](docs/CANVAS_MEDIA.md) for the complete model, examples,
+limits and interchange boundaries.
 
 ## Camera RAW authoring data
 
@@ -244,14 +250,15 @@ yet import Smart Objects; keep `.iisc` as the complete editable master.
 
 Every persisted field remains directly available through the public aggregate
 types in `Document/Document.h`. Stable-id lookup helpers expose typed raster and
-vector assets, sparse frames, exact keyframes, collection indices, and every
+vector/video assets, sparse frames, exact keyframes, collection indices, and every
 static or keyframed reference to an asset.
 
-The ordered layer stack is a `BitmapLayer | VectorLayer` variant. Both concrete
-types have the same `LayerProperties + LayerSource` structure, while validation
+The ordered layer stack is a `BitmapLayer | VectorLayer | VideoLayer` variant. All concrete
+types share the `LayerProperties + LayerSource` structure, while validation
 and `DocumentEditor` reject every cross-type asset reference. Bitmap layers may
 hold only finite or chunked raster assets; vector layers may hold only native
-vector assets. `LayerProperties::frameRange` optionally stores an inclusive
+vector assets; video layers reference one native video asset and add playback trim.
+`LayerProperties::motion` animates every visual layer. `LayerProperties::frameRange` optionally stores an inclusive
 `LayerFrameRange {firstFrame, lastFrame}`. Both boundaries belong to the layer;
 an absent range means that the layer exists throughout the current document
 timeline. A range limits rendering, not animation storage, so frame-owned
@@ -522,9 +529,9 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.10.1 with SOVERSION 0.10 and exact-version
+The current C++ package version is 0.11.0 with SOVERSION 0.11 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the layered-document APIs. The canonical snapshot model is version 1.5;
+package to adopt the new video alternatives and motion fields. The canonical snapshot model is version 1.6;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 
@@ -742,7 +749,7 @@ commits the changed content and an independent authorship record in the same
 SQLite transaction before returning, including raw `edit` callbacks. There is no
 autosave timer or whole-document snapshot dump in the working-file path.
 
-Native snapshots use `.iisc` 1.5. Legacy 1.0–1.4 files remain readable and are
+Native snapshots use `.iisc` 1.6. Legacy 1.0–1.5 files remain readable and are
 upgraded on the first accepted change. Undo/cancel of already committed pixels
 is itself a recorded change. Detached public aggregates have no observers; use
 editors or `recordDocumentChange` after a direct detached mutation. File-bound

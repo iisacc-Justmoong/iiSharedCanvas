@@ -225,6 +225,8 @@ struct LimitTotals {
     std::uint64_t metadataEntries = 0;
     std::uint64_t audioSamples = 0;
     std::uint64_t audioClips = 0;
+    std::uint64_t videoFrames = 0;
+    std::uint64_t motionKeyframes = 0;
 };
 
 IiscError makeError(IiscErrorCode code, std::uint64_t offset, std::string message)
@@ -435,6 +437,18 @@ IiscError checkDocumentLimits(const Document &document,
             continue;
         }
 
+        if (const auto *video = std::get_if<VideoAsset>(&asset)) {
+            if (!addWithin(totals.videoFrames, video->frames.size(), limits.maximumTotalVideoFrames)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "video frame count exceeds the configured limit");
+            }
+            for (const auto &frame : video->frames) {
+                if (!addWithin(totals.rasterPixels, frame.pixels.size(), limits.maximumTotalRasterPixels)) {
+                    return makeError(IiscErrorCode::LimitExceeded, 0, "video pixels exceed the total raster pixel limit");
+                }
+            }
+            continue;
+        }
+
         const VectorAsset &vector = std::get<VectorAsset>(asset);
         std::uint64_t viewportPixels = 0;
         if (!pixelCountWithin(vector.viewport.width,
@@ -466,6 +480,10 @@ IiscError checkDocumentLimits(const Document &document,
     for (const Layer &layer : document.layers) {
         const LayerProperties &properties = layerProperties(layer);
         const LayerSource &sourceValue = layerSource(layer);
+        if (properties.motion.size() > std::numeric_limits<std::uint32_t>::max()
+            || !addWithin(totals.motionKeyframes, properties.motion.size(), limits.maximumTotalMotionKeyframes)) {
+            return makeError(IiscErrorCode::LimitExceeded, 0, "motion key count exceeds the configured limit");
+        }
         for (const std::string *value : {&properties.id, &properties.name}) {
             if (IiscError error = trackString(*value, limits, totals);
                 error.code != IiscErrorCode::None) {
@@ -864,6 +882,13 @@ bool unchangedRasterAsset(const Asset &asset, const Document *previous)
     if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
         return sameRasterPixels(raster->pixels, std::get<RasterAsset>(*prior).pixels);
     }
+    if (const auto *video = std::get_if<VideoAsset>(&asset)) {
+        const auto &priorVideo = std::get<VideoAsset>(*prior);
+        return video->frameRate.numerator == priorVideo.frameRate.numerator
+            && video->frameRate.denominator == priorVideo.frameRate.denominator
+            && video->frames.size() == priorVideo.frames.size()
+            && std::equal(video->frames.begin(), video->frames.end(), priorVideo.frames.begin(), sameRasterPixels);
+    }
     if (const auto *chunked = std::get_if<ChunkedRasterAsset>(&asset)) {
         const auto &priorChunks = std::get<ChunkedRasterAsset>(*prior).chunks;
         return chunked->chunks.size() == priorChunks.size()
@@ -915,13 +940,19 @@ void writePayload(ByteWriter &writer, const Document &document,
         }
         const std::uint8_t kind = std::holds_alternative<RasterAsset>(asset)
             ? 0U
-            : (std::holds_alternative<VectorAsset>(asset) ? 1U : 2U);
+            : (std::holds_alternative<VectorAsset>(asset) ? 1U
+                : (std::holds_alternative<ChunkedRasterAsset>(asset) ? 2U : 3U));
         writer.writeU8(kind);
         writer.writeString(assetId(asset));
         if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
             writeRaster(writer, raster->pixels, !records);
         } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
             writeVector(writer, *vector);
+        } else if (const auto *video = std::get_if<VideoAsset>(&asset)) {
+            writer.writeU32(video->frameRate.numerator);
+            writer.writeU32(video->frameRate.denominator);
+            writer.writeU32(static_cast<std::uint32_t>(video->frames.size()));
+            for (const auto &frame : video->frames) { writeRaster(writer, frame, !records); }
         } else {
             writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset), !records);
         }
@@ -986,6 +1017,23 @@ void writePayload(ByteWriter &writer, const Document &document,
             if (properties.frameRange) {
                 writer.writeU32(properties.frameRange->firstFrame);
                 writer.writeU32(properties.frameRange->lastFrame);
+            }
+        }
+        if (document.formatVersion.minor >= 6) {
+            writer.writeU32(static_cast<std::uint32_t>(properties.motion.size()));
+            for (const auto &key : properties.motion) {
+                writer.writeU32(key.frame);
+                writePoint(writer, key.value.position);
+                writePoint(writer, key.value.scale);
+                writePoint(writer, key.value.anchor);
+                writer.writeDouble(key.value.rotationDegrees);
+                writer.writeDouble(key.value.opacity);
+                writer.writeU8(static_cast<std::uint8_t>(key.interpolation));
+            }
+            if (const auto *video = std::get_if<VideoLayer>(&layer)) {
+                writer.writeU32(video->playback.sourceInFrame);
+                writeOptionalU32(writer, video->playback.sourceOutFrame);
+                writer.writeU8(static_cast<std::uint8_t>(video->playback.endBehavior));
             }
         }
         record(detail::RecordKind::Layer, properties.id, static_cast<std::uint32_t>(layerIndex));
@@ -1102,6 +1150,16 @@ public:
                 document.assets.emplace_back(readVector(id));
             } else if (kind == 2 && version.minor >= 1) {
                 document.assets.emplace_back(readChunkedRaster(id));
+            } else if (kind == 3 && version.minor >= 6) {
+                VideoAsset video;
+                video.id = id;
+                video.frameRate = {m_reader.readU32(), m_reader.readU32()};
+                const auto count = m_reader.readU32();
+                addTotal(m_totals.videoFrames, count, m_limits.maximumTotalVideoFrames, "video frame");
+                requireCollectionBytes(count, 25);
+                video.frames.reserve(count);
+                for (std::uint32_t frame = 0; frame < count; ++frame) { video.frames.push_back(readRaster()); }
+                document.assets.emplace_back(std::move(video));
             } else {
                 m_reader.fail(IiscErrorCode::InvalidData, "unknown asset kind tag");
             }
@@ -1165,7 +1223,7 @@ private:
     {
         if (count > m_reader.remaining() / minimumBytes) {
             m_reader.fail(IiscErrorCode::TruncatedData,
-                          "audio collection cannot fit its declared payload");
+                          "collection cannot fit its declared payload");
         }
     }
 
@@ -1680,6 +1738,38 @@ private:
                 m_reader.readU32(),
                 m_reader.readU32(),
             };
+        }
+        if (version.minor >= 6) {
+            const auto count = m_reader.readU32();
+            addTotal(m_totals.motionKeyframes, count, m_limits.maximumTotalMotionKeyframes, "motion key");
+            requireCollectionBytes(count, 69);
+            properties.motion.reserve(count);
+            for (std::uint32_t index = 0; index < count; ++index) {
+                MotionKeyframe key;
+                key.frame = m_reader.readU32();
+                key.value.position = readPoint();
+                key.value.scale = readPoint();
+                key.value.anchor = readPoint();
+                key.value.rotationDegrees = m_reader.readDouble();
+                key.value.opacity = m_reader.readDouble();
+                const auto interpolation = m_reader.readU8();
+                if (interpolation > static_cast<std::uint8_t>(MotionInterpolation::SmoothStep)) {
+                    m_reader.fail(IiscErrorCode::InvalidData, "unknown motion interpolation tag");
+                }
+                key.interpolation = static_cast<MotionInterpolation>(interpolation);
+                properties.motion.push_back(key);
+            }
+            if (kind == ContentKind::Video) {
+                VideoPlayback playback;
+                playback.sourceInFrame = m_reader.readU32();
+                playback.sourceOutFrame = readOptionalU32();
+                const auto behavior = m_reader.readU8();
+                if (behavior > static_cast<std::uint8_t>(VideoEndBehavior::Hold)) {
+                    m_reader.fail(IiscErrorCode::InvalidData, "unknown video end behavior tag");
+                }
+                playback.endBehavior = static_cast<VideoEndBehavior>(behavior);
+                return VideoLayer{std::move(properties), std::move(source), playback};
+            }
         }
         if (kind == ContentKind::Raster) {
             return BitmapLayer{std::move(properties), std::move(source)};

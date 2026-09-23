@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Document/CanvasSampling.h"
+
 #include "Audio/AudioCodec.h"
 
 #include "Bitmap/BitmapEditor.h"

@@ -1,4 +1,5 @@
 #include "Render/FrameRenderer.h"
+#include "Document/CanvasSampling.h"
 
 #include "Validation/Validation.h"
 
@@ -558,9 +559,10 @@ bool validRequests(const Document &document,
 
 FrameRenderResult renderLayerRegion(const Document &document,
                                     const Asset &asset,
-                                    const LayerProperties &properties,
+                                    const LayerSample &properties,
                                     CanvasRegion region,
-                                    CanvasExtent outputExtent)
+                                    CanvasExtent outputExtent,
+                                    const RasterLayer *videoFrame)
 {
     ::LayerStack layerPieces;
 
@@ -600,7 +602,9 @@ FrameRenderResult renderLayerRegion(const Document &document,
                                             outputExtent.height));
     };
 
-    if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
+    if (videoFrame) {
+        appendRasterLayer(*videoFrame, properties.transform);
+    } else if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
         appendRasterLayer(raster->pixels, properties.transform);
     } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
         appendOutputPiece(rasterizeVector(*vector,
@@ -637,15 +641,25 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
 {
     const iiSharedCanvas::Layer &documentLayer = document.layers[layerIndex];
     const LayerProperties &properties = layerProperties(documentLayer);
+    const LayerSample sampled = sampleLayerAt(document, documentLayer, frame);
 
     FrameLayerTileRenderResult result;
     result.layerIndex = layerIndex;
     result.layerId = properties.id;
-    result.visible = properties.visible
-        && layerExistsAt(document, documentLayer, frame);
-    result.opacity = properties.opacity;
+    result.visible = sampled.visible;
+    result.opacity = sampled.opacity;
     result.blendMode = properties.blendMode;
     if (!result.visible) {
+        return result;
+    }
+    const auto &transform = sampled.transform;
+    const double determinant = transform.m11 * transform.m22 - transform.m21 * transform.m12;
+    if (!std::isfinite(transform.m11) || !std::isfinite(transform.m12)
+        || !std::isfinite(transform.m21) || !std::isfinite(transform.m22)
+        || !std::isfinite(transform.translationX) || !std::isfinite(transform.translationY)
+        || !std::isfinite(determinant)) {
+        result.status = FrameRenderStatus::InvalidDocument;
+        result.message = "sampled motion transform exceeds finite coordinates";
         return result;
     }
 
@@ -656,13 +670,16 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
         return result;
     }
 
+    const auto *videoLayer = std::get_if<VideoLayer>(&documentLayer);
+    const auto *videoFrame = videoLayer ? resolveVideoFrameAt(document, *videoLayer, frame) : nullptr;
     result.tiles.reserve(requests.size());
     for (const FrameRenderTileRequest &request : requests) {
         FrameRenderResult tile = renderLayerRegion(document,
                                                    *asset,
-                                                   properties,
+                                                   sampled,
                                                    request.region,
-                                                   request.outputExtent);
+                                                   request.outputExtent,
+                                                   videoFrame);
         result.tiles.push_back({request.region, std::move(tile.pixels)});
     }
     return result;

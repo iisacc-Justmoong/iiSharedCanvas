@@ -263,3 +263,21 @@ are checked before allocating PCM data. Ancillary chunks are omitted with a
 warning; compressed WAV, RF64, 24/32-bit and float samples are unsupported. Use
 `DocumentEditor` or `DocumentFile::edit` to attach audio to a working document.
 See [audio timeline](AUDIO_TIMELINE.md) for XML export and deliberate boundaries.
+
+## Native video assets and motion (0.11.0)
+
+`importVideoAsset(path, assetId, options)` returns `VideoAssetImportResult` with a
+single owned constant-rate video asset. It reuses `importVideo` limits, trimming,
+backend policy, cancellation and conversion warnings; `importVideo` itself keeps
+its existing bitmap-key return model. `exportVideo` samples native `VideoLayer`
+frames and every visual layer's motion keys through the canonical renderer.
+See [CANVAS_MEDIA.md](CANVAS_MEDIA.md). PSD and timeline XML/FCPXML exporters
+reject native video/motion with `UnsupportedFeature` until their interchange
+projection is defined; no partial output is published.
+
+PDF export also evaluates native video and layer motion at each requested frame.
+Opaque vector geometry remains vector output; video contributes the selected
+owned raster frame. Existing explicit blend-mode fallback and group-opacity
+rasterization rules still apply.
+PDF raster embedding requests lossless image compression, including video frames,
+to avoid changing source colors through the PDF backend's default JPEG encoding.

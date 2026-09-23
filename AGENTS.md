@@ -2,8 +2,8 @@
 
 ## Product boundary
 
-iiSharedCanvas composes static raster pixels, native vector paths, and
-keyframed raster or vector assets in one document.
+iiSharedCanvas composes raster pixels, native vector paths, owned constant-rate
+video and interpolated transform/opacity motion in one document.
 
 iiSharedCanvas is the authoritative canvas document, rendering, editing, and
 serialization standard for iisacc products. Consumer applications are
@@ -92,9 +92,9 @@ iiSharedCanvas API during the same implementation phase.
 
 - RasterAsset owns iiPaintEngine RasterLayer pixels.
 - VectorAsset owns M/L/Q/C/Z paths with solid fill or stroke.
-- A layer has exactly one static or keyframed source.
+- A layer has exactly one static or keyframed source; video uses a static video reference.
 - One keyframed source has one content kind and begins at frame zero.
-- Keyframe sampling is hold-only.
+- Asset-reference keyframe sampling is hold-only; motion property keys use their explicit interpolation.
 - Layer order is bottom-to-top.
 - Rendering never mutates source assets.
 - Persisted model fields remain public aggregate data. Use `DocumentEditor` for
@@ -106,3 +106,11 @@ iiSharedCanvas API during the same implementation phase.
   mixed-layer frame renderer or serializer is complete.
 - Qt Quick is consumed through the Qt targets exported transitively by
   iiPaintEngine; product QML continues to use LVRS. SQLite is private to iiFileProvider; direct SQLite use here is restricted to tests.
+
+## Native video and motion (0.11.0)
+
+VideoAsset owns bounded decoded frames; never require an external media path to
+render a persisted native document. CanvasSampling is the shared rational-time
+and motion evaluator. Keep media input warnings and resource limits explicit.
+Video/motion fields require .iisc 1.6. PSD/XML adapters currently reject these
+fields; do not silently discard animation or route video through a bitmap cast.

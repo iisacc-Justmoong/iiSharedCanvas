@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.10.1 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.11.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -17,6 +17,17 @@ include(CTest)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
+
+if(BUILD_TESTING)
+    add_executable(iiSharedCanvasCanvasMediaTest tests/CanvasMediaTest.cpp)
+    target_link_libraries(iiSharedCanvasCanvasMediaTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.CanvasMedia COMMAND iiSharedCanvasCanvasMediaTest)
+    add_executable(iiSharedCanvasCanvasMediaPersistenceTest tests/CanvasMediaPersistenceTest.cpp)
+    target_link_libraries(iiSharedCanvasCanvasMediaPersistenceTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasCanvasMediaPersistenceTest PRIVATE
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.CanvasMediaPersistence COMMAND iiSharedCanvasCanvasMediaPersistenceTest)
+endif()
 
 if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
     list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiPaintEngine")
@@ -62,6 +73,8 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Camera/CameraRaw.h
         src/Document/Document.cpp
         src/Document/Document.h
+        src/Document/CanvasSampling.cpp
+        src/Document/CanvasSampling.h
         src/Document/DocumentEditor.cpp
         src/Document/DocumentEditor.h
         src/File/DocumentFile.cpp
@@ -114,7 +127,7 @@ add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
 generate_export_header(iiSharedCanvas
         EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h")
 
-target_compile_features(iiSharedCanvas PUBLIC cxx_std_20)
+target_compile_features(iiSharedCanvas PUBLIC cxx_std_23)
 target_include_directories(iiSharedCanvas PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
@@ -209,7 +222,7 @@ install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
 install(FILES third_party/fast_float/LICENSE-MIT third_party/fast_float/UPSTREAM.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas/fast_float)
-install(FILES docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
+install(FILES docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
         docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md
         docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md

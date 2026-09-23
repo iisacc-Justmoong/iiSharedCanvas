@@ -76,6 +76,7 @@ const AudioClip *findAudioClip(const AudioTrackLayer &track, const std::string &
 
 ContentKind contentKind(const Asset &asset) noexcept
 {
+    if (std::holds_alternative<VideoAsset>(asset)) { return ContentKind::Video; }
     return std::holds_alternative<VectorAsset>(asset)
         ? ContentKind::Vector
         : ContentKind::Raster;
@@ -83,9 +84,34 @@ ContentKind contentKind(const Asset &asset) noexcept
 
 ContentKind contentKind(const Layer &layer) noexcept
 {
+    if (std::holds_alternative<VideoLayer>(layer)) { return ContentKind::Video; }
     return std::holds_alternative<VectorLayer>(layer)
         ? ContentKind::Vector
         : ContentKind::Raster;
+}
+
+VideoAsset *findVideoAsset(Document &document, const std::string &id) noexcept
+{
+    Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<VideoAsset>(asset) : nullptr;
+}
+
+const VideoAsset *findVideoAsset(const Document &document, const std::string &id) noexcept
+{
+    const Asset *asset = findAsset(document, id);
+    return asset ? std::get_if<VideoAsset>(asset) : nullptr;
+}
+
+VideoLayer *findVideoLayer(Document &document, const std::string &id) noexcept
+{
+    Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<VideoLayer>(layer) : nullptr;
+}
+
+const VideoLayer *findVideoLayer(const Document &document, const std::string &id) noexcept
+{
+    const Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<VideoLayer>(layer) : nullptr;
 }
 
 const std::string &assetId(const Asset &asset) noexcept

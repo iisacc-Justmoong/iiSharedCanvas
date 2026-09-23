@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
     auto old = encodeIisc(legacy); check(old.ok(), "legacy encoding");
     auto restored = decodeIisc(old.bytes); check(restored.ok() && restored.document.authorship.isEmpty(), "legacy read");
     DocumentEditor migrate(restored.document); check(migrate.setFrameCount(3).changed, "legacy edit");
-    check(restored.document.formatVersion.minor == 5 && restored.document.authorship.revision() == 1,
+    check(restored.document.formatVersion.minor == CurrentFormatMinor && restored.document.authorship.revision() == 1,
           "only a real legacy edit upgrades authorship format");
     return 0;
 }

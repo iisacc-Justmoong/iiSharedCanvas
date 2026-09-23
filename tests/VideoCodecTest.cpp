@@ -85,6 +85,33 @@ int main(int argc, char **argv)
         }
     }
     const auto audioPath = directory.filePath("with-audio.mkv");
+    auto native = importVideoAsset(losslessPath, "native-video");
+    expect(native.ok() && native.asset.frames.size() == 4, "decode video into a single native video asset");
+    if (native.ok()) {
+        Document canvas;
+        canvas.extent = document.extent;
+        canvas.timeline = document.timeline;
+        canvas.assets.emplace_back(std::move(native.asset));
+        VideoLayer layer{{"movie", "Animated native footage"}, StaticSource{"native-video"}};
+        MotionKeyframe first;
+        MotionKeyframe last;
+        last.frame = 3;
+        last.value.position.x = 3;
+        layer.properties.motion = {first, last};
+        canvas.layers.emplace_back(std::move(layer));
+        const auto nativePath = directory.filePath("native-motion.mkv").toStdString();
+        expect(exportVideo(canvas, nativePath).ok(), "render native video and motion through the real video encoder");
+        const auto roundTrip = importVideo(nativePath);
+        expect(roundTrip.ok(), "read rendered native video output");
+        if (roundTrip.ok()) {
+            for (FrameIndex frame = 0; frame < 4; ++frame) {
+                expect(renderFrame(canvas, frame).pixels.pixels == renderFrame(roundTrip.document, frame).pixels.pixels,
+                       "lossless media output must match native video plus motion on every frame");
+            }
+        }
+    }
+    expect(importVideoAsset(losslessPath, "").result.code == MediaIoCode::InvalidArgument,
+           "native video import validates its asset id before decoding");
     QProcess mux;
     mux.start("ffmpeg", {"-v", "error", "-nostdin", "-i", QString::fromStdString(losslessPath),
         "-f", "lavfi", "-i", "sine=frequency=440:duration=0.3", "-map", "0:v:0", "-map", "1:a:0",

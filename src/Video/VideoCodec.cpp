@@ -267,6 +267,25 @@ MediaDocumentResult importVideo(const std::string &path, const VideoImportOption
     return result;
 }
 
+VideoAssetImportResult importVideoAsset(const std::string &path, std::string id, const VideoImportOptions &options)
+{
+    VideoAssetImportResult result;
+    if (!validId(id)) {
+        result.result = error(MediaIoCode::InvalidArgument, "invalid video asset id");
+        return result;
+    }
+    auto imported = importVideo(path, options);
+    result.result = std::move(imported.result);
+    if (!result.ok()) { return result; }
+    result.asset.id = std::move(id);
+    result.asset.frameRate = imported.document.timeline.frameRate;
+    result.asset.frames.reserve(imported.document.assets.size());
+    for (auto &asset : imported.document.assets) {
+        result.asset.frames.push_back(std::move(std::get<RasterAsset>(asset).pixels));
+    }
+    return result;
+}
+
 MediaIoResult exportVideo(const Document &document, const std::string &path, const VideoExportOptions &options)
 {
     QString absolute;

@@ -385,6 +385,14 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
             fail(MediaIoCode::LimitExceeded, "timeline destination path exceeds the memory budget");
         }
         const auto destination = destinationPath(directory);
+        if (std::any_of(document.assets.begin(), document.assets.end(), [](const Asset &asset) {
+                return std::holds_alternative<VideoAsset>(asset);
+            }) || std::any_of(document.layers.begin(), document.layers.end(), [](const Layer &layer) {
+                return !layerProperties(layer).motion.empty();
+            })) {
+            fail(MediaIoCode::UnsupportedFeature,
+                 "native video and motion are not supported by timeline XML interchange; use .iisc or exportVideo");
+        }
         // Preflight before validation can build any source-sized lookup tables.
         const auto snapshotBytes = sourceSnapshotUpperBound(document, options.limits.maxDecodedBytes / 4);
         auto prepared = prepare(document, options, result);

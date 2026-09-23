@@ -178,6 +178,35 @@ int main(int argc, char **argv)
                "independent PDF rasterizer sees the expected vector fill");
     }
     Document pages = document;
+    Document motionPdf = document;
+    motionPdf.timeline.frameCount = 3;
+    MotionKeyframe initialMotion;
+    MotionKeyframe finalMotion;
+    finalMotion.frame = 2;
+    finalMotion.value.position.x = 30;
+    layerProperties(motionPdf.layers[0]).motion = {initialMotion, finalMotion};
+    motionPdf.assets.emplace_back(VideoAsset{"movie", {24, 1},
+        {makeRasterLayer(2, 2, 0xffff0000), makeRasterLayer(2, 2, 0xff0000ff)}});
+    motionPdf.layers.emplace_back(VideoLayer{{"movie", "Video"}, StaticSource{"movie"},
+        {0, {}, VideoEndBehavior::Hold}});
+    PdfExportOptions motionOptions;
+    motionOptions.firstFrame = 2;
+    const auto motionPdfPath = directory.filePath("motion-video.pdf").toStdString();
+    expect(exportPdf(motionPdf, motionPdfPath, motionOptions).ok(), "PDF samples native video and vector motion at the selected frame");
+    QFile motionPdfFile(QString::fromStdString(motionPdfPath));
+    expect(motionPdfFile.open(QIODevice::ReadOnly) && motionPdfFile.readAll().contains("/Subtype /Image"),
+           "native video must be included in PDF rather than silently skipped");
+    auto motionRaster = rasterizeVectorFile(motionPdfPath, rasterOptions);
+    if (motionRaster.ok()) {
+        if (motionRaster.asset.pixels.pixels[0] != 0xff0000ff
+            || motionRaster.asset.pixels.pixels[7 * 80 + 37] != 0xffff3311) {
+            std::cerr << "PDF sampled pixels: video=" << std::hex << motionRaster.asset.pixels.pixels[0]
+                      << " vector=" << motionRaster.asset.pixels.pixels[7 * 80 + 37] << std::dec << '\n';
+        }
+        expect(motionRaster.asset.pixels.pixels[0] == 0xff0000ff
+            && motionRaster.asset.pixels.pixels[7 * 80 + 37] == 0xffff3311,
+            "independent PDF rasterization must see the selected video frame and shifted vector");
+    }
     pages.timeline.frameCount = 3;
     layerProperties(pages.layers[0]).frameRange = LayerFrameRange{1, 1};
     PdfExportOptions pdfOptions;

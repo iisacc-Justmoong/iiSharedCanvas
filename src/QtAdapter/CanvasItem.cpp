@@ -1,4 +1,5 @@
 #include "QtAdapter/CanvasItem.h"
+#include "Document/CanvasSampling.h"
 
 #include "Render/FrameRenderer.h"
 #include "Validation/Validation.h"
@@ -2171,10 +2172,10 @@ bool CanvasItem::mapDocumentToSelectedAsset(const QPointF &documentPosition,
         return false;
     }
 
-    const AffineTransform &transform = layerProperties(*layer).transform;
+    const AffineTransform transform = sampleLayerAt(*m_document, *layer, m_frame).transform;
     const double determinant = transform.m11 * transform.m22
         - transform.m21 * transform.m12;
-    if (std::abs(determinant) <= std::numeric_limits<double>::epsilon()) {
+    if (!std::isfinite(determinant) || std::abs(determinant) <= std::numeric_limits<double>::epsilon()) {
         setLastError(QStringLiteral("selected layer transform is singular"));
         return false;
     }
@@ -2185,6 +2186,10 @@ bool CanvasItem::mapDocumentToSelectedAsset(const QPointF &documentPosition,
         (translatedX * transform.m22 - translatedY * transform.m21) / determinant,
         (-translatedX * transform.m12 + translatedY * transform.m11) / determinant,
     };
+    if (!std::isfinite(assetPosition.x) || !std::isfinite(assetPosition.y)) {
+        setLastError(QStringLiteral("selected layer transform exceeds finite coordinates"));
+        return false;
+    }
     return true;
 }
 

@@ -33,6 +33,8 @@ struct SerializationLimits {
     std::uint64_t maximumTotalAudioClips = 16ULL * 1024ULL * 1024ULL;
     // Scalar interleaved PCM16 samples, including every channel (two bytes each).
     std::uint64_t maximumTotalAudioSamples = 256ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumTotalVideoFrames = 262144ULL;
+    std::uint64_t maximumTotalMotionKeyframes = 1024ULL * 1024ULL;
 };
 
 enum class IiscErrorCode {

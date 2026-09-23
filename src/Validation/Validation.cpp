@@ -93,6 +93,51 @@ bool validChunkSize(std::int32_t chunkSize) noexcept
         && (chunkSize & (chunkSize - 1)) == 0;
 }
 
+void validateVideoAsset(const Document &document, const VideoAsset &asset,
+                        std::size_t index, ValidationResult &result)
+{
+    const std::string path = "assets[" + std::to_string(index) + "]";
+    if (document.formatVersion.minor < 6) {
+        addIssue(result, ValidationCode::UnsupportedFormatVersion, path, "video assets require format 1.6");
+    }
+    if (!asset.frameRate.numerator || !asset.frameRate.denominator || asset.frames.empty()
+        || asset.frames.size() > std::numeric_limits<FrameIndex>::max()) {
+        addIssue(result, ValidationCode::InvalidVideoAsset, path,
+                 "video requires a positive rational rate and a nonempty uint32-sized frame sequence");
+    }
+    for (std::size_t frame = 0; frame < asset.frames.size(); ++frame) {
+        const auto &pixels = asset.frames[frame];
+        if (pixels.width <= 0 || pixels.height <= 0
+            || std::uint64_t(pixels.width) * std::uint64_t(pixels.height) != pixels.pixels.size()
+            || pixels.width != asset.frames.front().width || pixels.height != asset.frames.front().height) {
+            addIssue(result, ValidationCode::InvalidVideoAsset, path + ".frames[" + std::to_string(frame) + "]",
+                     "video frames must have equal positive extents and complete ARGB pixel storage");
+        }
+    }
+}
+
+void validateMotion(const Document &document, const LayerProperties &properties,
+                    const std::string &path, ValidationResult &result)
+{
+    if (!properties.motion.empty() && document.formatVersion.minor < 6) {
+        addIssue(result, ValidationCode::UnsupportedFormatVersion, path, "motion requires format 1.6");
+    }
+    for (std::size_t index = 0; index < properties.motion.size(); ++index) {
+        const auto &key = properties.motion[index];
+        const auto &value = key.value;
+        if (key.frame >= document.timeline.frameCount
+            || (index && properties.motion[index - 1].frame >= key.frame)
+            || !isFinite(value.position) || !isFinite(value.scale) || !isFinite(value.anchor)
+            || !std::isfinite(value.rotationDegrees) || !std::isfinite(value.opacity)
+            || value.opacity < 0 || value.opacity > 1
+            || (key.interpolation != MotionInterpolation::Hold && key.interpolation != MotionInterpolation::Linear
+                && key.interpolation != MotionInterpolation::SmoothStep)) {
+            addIssue(result, ValidationCode::InvalidMotion, path + ".motion[" + std::to_string(index) + "]",
+                     "motion keys require ordered timeline frames, finite values, opacity in [0,1] and supported interpolation");
+        }
+    }
+}
+
 void validateChunkedRasterAsset(const Document &document,
                                 const ChunkedRasterAsset &asset,
                                 std::size_t index,
@@ -279,6 +324,8 @@ ValidationResult validate(const Document &document)
             validateRasterAsset(*raster, index, result);
         } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
             validateVectorAsset(*vector, index, result);
+        } else if (const auto *video = std::get_if<VideoAsset>(&asset)) {
+            validateVideoAsset(document, *video, index, result);
         } else {
             validateChunkedRasterAsset(document,
                                        std::get<ChunkedRasterAsset>(asset),
@@ -356,6 +403,20 @@ ValidationResult validate(const Document &document)
                      ValidationCode::InvalidLayerFrameRange,
                      layerPath + ".properties.frameRange",
                      "an explicit inclusive layer frame range requires format 1.3 and must remain ordered inside the timeline");
+        }
+
+        validateMotion(document, properties, layerPath + ".properties", result);
+        if (const auto *video = std::get_if<VideoLayer>(&layer)) {
+            const auto *source = std::get_if<StaticSource>(&sourceValue);
+            const auto *asset = source ? findVideoAsset(document, source->assetId) : nullptr;
+            const auto &playback = video->playback;
+            if (document.formatVersion.minor < 6 || !source
+                || (playback.endBehavior != VideoEndBehavior::Transparent && playback.endBehavior != VideoEndBehavior::Hold)
+                || (asset && (playback.sourceInFrame >= playback.sourceOutFrame.value_or(asset->frames.size())
+                    || playback.sourceOutFrame.value_or(asset->frames.size()) > asset->frames.size()))) {
+                addIssue(result, ValidationCode::InvalidVideoPlayback, layerPath + ".playback",
+                         "video requires format 1.6, one static video source, a nonempty source trim and supported end behavior");
+            }
         }
 
         if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {

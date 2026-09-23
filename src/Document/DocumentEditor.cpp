@@ -557,6 +557,88 @@ DocumentEditResult DocumentEditor::insertRasterAsset(std::string id,
     return applied();
 }
 
+DocumentEditResult DocumentEditor::insertVideoAsset(VideoAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertVideoAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceVideoAsset(const std::string &id, VideoAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceVideoAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findVideoAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "video asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the video asset id");
+    }
+    if (target->frameRate.numerator == asset.frameRate.numerator && target->frameRate.denominator == asset.frameRate.denominator
+        && target->frames.size() == asset.frames.size()
+        && std::equal(target->frames.begin(), target->frames.end(), asset.frames.begin(), sameRaster)) { return unchanged(); }
+    VideoAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::setVideoPlayback(const std::string &id, VideoPlayback playback)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.setVideoPlayback(id, playback); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *target = findVideoLayer(*m_document, id);
+    if (!target) {
+        return reject(findLayer(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::LayerNotFound,
+                      "layers", "video layer was not found");
+    }
+    if (target->playback == playback) { return unchanged(); }
+    auto replacement = *target;
+    replacement.playback = playback;
+    return replaceLayer(id, std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setLayerMotion(const std::string &id, std::vector<MotionKeyframe> keyframes)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.setLayerMotion(id, std::move(keyframes)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *target = findLayer(*m_document, id);
+    if (!target) { return reject(DocumentEditCode::LayerNotFound, "layers", "layer was not found"); }
+    if (layerProperties(*target).motion == keyframes) { return unchanged(); }
+    auto replacement = *target;
+    layerProperties(replacement).motion = std::move(keyframes);
+    return replaceLayer(id, std::move(replacement));
+}
+
 DocumentEditResult DocumentEditor::insertVectorAsset(std::string id,
                                                      CanvasExtent viewport,
                                                      std::vector<VectorPath> paths,
@@ -1039,7 +1121,8 @@ DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)
     }
 
     const FormatVersion priorVersion = m_document->formatVersion;
-    if (layerProperties(layer).frameRange) {
+    if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
+        || std::holds_alternative<VideoLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
     m_document->layers.insert(
@@ -1092,7 +1175,8 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
                   return left.frame < right.frame;
               });
     const FormatVersion priorVersion = m_document->formatVersion;
-    if (layerProperties(layer).frameRange) {
+    if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
+        || std::holds_alternative<VideoLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
     std::get<KeyframedSource>(layerSource(layer)).frameIndices.clear();
@@ -1142,7 +1226,8 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
     }
 
     const FormatVersion priorVersion = m_document->formatVersion;
-    if (layerProperties(layer).frameRange) {
+    if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
+        || std::holds_alternative<VideoLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
     const std::string priorId = layerProperties(m_document->layers[*position]).id;

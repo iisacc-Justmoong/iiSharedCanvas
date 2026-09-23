@@ -153,3 +153,9 @@ The final Release build passed all 28 CTest tests, staged installation and
 standalone installed-package consumption. The installed consumer's
 `installed-frame-zero.psd` also passed the independent `psd-tools`/`pypdf`
 oracle, including native PDF vector operators and exact first-frame pixels.
+
+Native `VideoLayer` or `LayerProperties::motion` (package 0.11.0) currently returns
+`UnsupportedFeature`. This avoids misrepresenting video or interpolated motion
+as a supported PSD snapshot. Use `.iisc` to retain editable content or
+`exportVideo` for rendered output. Existing asset-switch key snapshots remain
+supported.

@@ -1,9 +1,25 @@
 # iiSharedCanvas data and mutation API
 
-iiSharedCanvas exposes its canonical canvas data as C++20 aggregate types and
+iiSharedCanvas exposes its canonical canvas data as C++23 aggregate types and
 adds validated editors for callers that do not want to maintain cross-reference
 invariants manually. The aggregates are the serialized truth; the editors are
 convenience and safety boundaries over the same data rather than a second model.
+
+## Native video and motion graphics
+
+`Document/CanvasSampling.h` evaluates all visual layer types without decoding files.
+`VideoAsset` / `VideoLayer`, `VideoPlayback`, `MotionValue` and `MotionKeyframe`
+are public aggregates in `Document/Document.h`. `findVideoAsset` and
+`findVideoLayer` expose typed values. `sampleLayerAt` returns visibility, composed
+affine transform and multiplied opacity; `videoFrameIndexAt` /
+`resolveVideoFrameAt` return the selected owned frame or an empty result.
+`DocumentEditor::insertVideoAsset`, `replaceVideoAsset`, `setVideoPlayback` and
+`setLayerMotion` are validated, transactional edits with no-op revision preservation.
+`setLayerMotion(id, {})` clears animation. `importVideoAsset(path, id, options)`
+returns `VideoAssetImportResult`; `importVideo` retains its bitmap-key behavior.
+See [CANVAS_MEDIA.md](CANVAS_MEDIA.md) for exact timing and transform semantics.
+PSD and timeline XML adapters reject the new native video/motion with
+`UnsupportedFeature`; `.iisc` and `exportVideo` support the mixed canvas.
 
 ## Media import and export
 
@@ -290,12 +306,17 @@ not in the timeline authoring model.
 | `RasterAsset` | `id`, `pixels` | Stable id and iiPaintEngine ARGB pixel storage |
 | `ChunkedRasterAsset` | `id`, `chunks` | Stable id and canonical sparse raster chunks for an infinite canvas |
 | `VectorAsset` | `id`, `viewport`, `paths` | Stable id and native vector paint data |
+| `VideoAsset` | `id`, `frameRate`, `frames` | Owned constant-rate ARGB video frames |
+| `MotionValue` | `position`, `scale`, `anchor`, `rotationDegrees`, `opacity` | Editable local transform and opacity multiplier |
+| `MotionKeyframe` | `frame`, `value`, `interpolation` | Absolute integer-frame property key |
 | `VectorPath` | `commands`, `fill`, `stroke` | M/L/Q/C/Z geometry and solid paints |
 | `LayerFrameRange` | `firstFrame`, `lastFrame` | Optional inclusive layer existence boundaries |
-| `LayerProperties` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `frameRange` | Presentation and timeline-existence state shared by both layer types |
+| `LayerProperties` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `frameRange`, `motion` | Presentation and timeline-existence state shared by all visual layer types |
 | `BitmapLayer` | `properties`, `source` | Raster-only finite or chunked bitmap layer |
 | `VectorLayer` | `properties`, `source` | Native-vector-only layer |
-| `Layer` | `BitmapLayer \| VectorLayer` | Type-distinguished bottom-to-top compositing entry |
+| `VideoLayer` | `properties`, `source`, `playback` | One video source and a source trim |
+| `VideoPlayback` | `sourceInFrame`, `sourceOutFrame`, `endBehavior` | Half-open source range and transparent/hold behavior |
+| `Layer` | `BitmapLayer \| VectorLayer \| VideoLayer` | Type-distinguished bottom-to-top compositing entry |
 | `StaticSource` | `assetId` | One durable asset reference |
 | `KeyframedSource` | `frameIndices` | Derived increasing index of the exact frames that own this layer's keys; it owns no `Keyframe` |
 | `Frame` | `index`, `keyframes` | Sparse integer frame that directly owns all keys at that position |
@@ -688,3 +709,7 @@ See [audio contract](AUDIO_TIMELINE.md) for validation and editing examples.
 Import/export supports 8000..192000 Hz with explicit byte budgets and no
 resampling or implicit external decoder. Unsupported bit depths, compression,
 channel layouts, malformed chunk boundaries and partial sample frames fail.
+
+`CanvasItem` inverts `sampleLayerAt` at its current frame when mapping document
+brush positions into a selected raster asset. `exportPdf` evaluates the same
+motion transform and video source frame for each requested page.

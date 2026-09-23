@@ -158,3 +158,8 @@ WAV origin shift; this fixture was not imported in Final Cut. Premiere Pro and
 DaVinci Resolve are not installed on this host, so audio application acceptance
 for those editors remains unverified. The fresh Release build, all 36 CTest
 checks, staging installation and standalone 0.9.0 package consumer passed.
+
+Native video assets or property motion keys introduced in 0.11.0 currently
+return `UnsupportedFeature` before package publication. Their editable timing
+and interpolation remain in `.iisc` 1.6; `exportVideo` renders them. Existing
+bitmap/vector hold-key and audio-track interchange is unchanged.

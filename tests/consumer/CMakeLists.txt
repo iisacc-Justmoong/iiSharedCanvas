@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.10.1 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.11.0 CONFIG REQUIRED)
 
 add_executable(iiSharedCanvasConsumer main.cpp)
 target_compile_definitions(iiSharedCanvasConsumer PRIVATE
@@ -17,3 +17,12 @@ enable_testing()
 add_executable(iiSharedCanvasInstalledAuthorship ../AuthorshipTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledAuthorship PRIVATE iiSharedCanvas::iiSharedCanvas)
 add_test(NAME iiSharedCanvas.InstalledAuthorship COMMAND iiSharedCanvasInstalledAuthorship)
+
+add_executable(iiSharedCanvasInstalledCanvasMedia ../CanvasMediaTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledCanvasMedia PRIVATE iiSharedCanvas::iiSharedCanvas)
+add_test(NAME iiSharedCanvas.InstalledCanvasMedia COMMAND iiSharedCanvasInstalledCanvasMedia)
+add_executable(iiSharedCanvasInstalledCanvasMediaPersistence ../CanvasMediaPersistenceTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledCanvasMediaPersistence PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledCanvasMediaPersistence PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledCanvasMediaPersistence COMMAND iiSharedCanvasInstalledCanvasMediaPersistence)
