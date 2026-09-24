@@ -10,9 +10,13 @@ printf '%s\n' "$@" > "${INSTALL_TEST_ARGUMENTS}"
 exit 91
 MOCK
 chmod +x "${work}/bin/cmake"
-for mode in default override; do
+for mode in default override dependencies; do
     expected="${work}/home/.local/SDK/iiSharedCanvas"
-    options=("PATH=${work}/bin:${PATH}")
+    options=("PATH=${work}/bin:${PATH}" "QT_PREFIX_PATH=${work}/qt" "CMAKE_PREFIX_PATH=")
+    dependency_prefix="${work}/dependency one;${work}/dependency two"
+    if [[ "${mode}" == dependencies ]]; then
+        options+=("CMAKE_PREFIX_PATH=${work}/dependency one:${work}/dependency two")
+    fi
     if [[ "${mode}" == override ]]; then
         expected="${work}/custom prefix"
         options+=("IISHAREDCANVAS_INSTALL_PREFIX=${expected}")
@@ -27,4 +31,7 @@ for mode in default override; do
     [[ ${result} == 91 ]] || { cat "${work}/output"; exit 1; }
     grep -Fx -- "-DCMAKE_INSTALL_PREFIX=${expected}" "${work}/arguments"
     grep -Fx -- "${source_root}/build" "${work}/arguments"
+    if [[ "${mode}" == dependencies ]]; then
+        grep -Fx -- "-DCMAKE_PREFIX_PATH=${work}/home/.local/SDK/iiPaintEngine;${work}/qt;${dependency_prefix}" "${work}/arguments"
+    fi
 done

@@ -725,7 +725,12 @@ and `./install.sh` default to `~/.local/SDK/iiSharedCanvas`; iiPaintEngine is
 resolved from the sibling SDK installation. `IISHAREDCANVAS_INSTALL_PREFIX`
 and `IISHAREDCANVAS_IIPAINTENGINE_PREFIX` retain explicit custom paths. The
 installer regenerates build and consumer CMake caches after checkout moves.
-`iiSharedCanvas.InstallScript` tests the default and custom installation prefix.
+The installer preserves caller `CMAKE_PREFIX_PATH` entries for both the fresh
+SDK configuration and the installed-package consumer. Entries may use semicolon
+or Unix colon separators, including paths containing spaces. Supply the pinned
+libzip installation prefix through this variable when it is outside standard
+package locations. `iiSharedCanvas.InstallScript` tests the default and custom
+installation prefix and external dependency-prefix forwarding.
 
 Public headers resolve the generated visibility header as
 `iiSharedCanvas/Export.h`. The exported include directories support this

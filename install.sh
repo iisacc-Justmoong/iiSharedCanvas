@@ -8,6 +8,11 @@ PAINT_ENGINE_PREFIX="${IISHAREDCANVAS_IIPAINTENGINE_PREFIX:-${HOME}/.local/SDK/i
 CONSUMER_BUILD_DIR="${BUILD_DIR}/consumer"
 QT_PREFIX="${QT_PREFIX_PATH:-/Volumes/Storage/Qt/6.8.3/macos}"
 
+DEPENDENCY_PREFIXES="${PAINT_ENGINE_PREFIX};${QT_PREFIX}"
+if [[ -n "${CMAKE_PREFIX_PATH:-}" ]]; then
+    DEPENDENCY_PREFIXES+=";${CMAKE_PREFIX_PATH//:/;}"
+fi
+
 if [[ ! -f "${PAINT_ENGINE_PREFIX}/lib/cmake/iiPaintEngine/iiPaintEngineConfig.cmake" ]]; then
     echo "iiPaintEngine CMake package is required: ${PAINT_ENGINE_PREFIX}" >&2
     exit 1
@@ -19,7 +24,7 @@ cmake --fresh \
     -B "${BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${INSTALL_PREFIX}" \
-    -DCMAKE_PREFIX_PATH="${PAINT_ENGINE_PREFIX};${QT_PREFIX}"
+    -DCMAKE_PREFIX_PATH="${DEPENDENCY_PREFIXES}"
 
 echo "Building iiSharedCanvas"
 cmake --build "${BUILD_DIR}" --config Release --parallel
@@ -108,7 +113,7 @@ env LIBRARY_PATH="${INSTALL_PREFIX}/lib${LIBRARY_PATH:+:${LIBRARY_PATH}}" cmake 
     -S "${PROJECT_ROOT}/tests/consumer" \
     -B "${CONSUMER_BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX};${PAINT_ENGINE_PREFIX};${QT_PREFIX}"
+    -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX};${DEPENDENCY_PREFIXES}"
 cmake --build "${CONSUMER_BUILD_DIR}" --config Release --parallel
 
 consumer_executable=""
