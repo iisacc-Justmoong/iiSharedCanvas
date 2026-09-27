@@ -197,3 +197,72 @@ record. Unchanged video assets skip payload serialization during property-only
 edits; no external file is needed on reopen. `DocumentEditor` video/motion edits
 use the same synchronous transactions, conflict checks and rollback as other
 content. The new serialization budgets apply to both snapshots and working files.
+
+Semantic layers (package 0.13.0) use versioned 1.7 Layer records in the existing
+working schema. Definitions/settings change independently of mask pixels; unchanged
+mask assets remain eligible for record reuse. See SEMANTIC_SEGMENT.md.
+
+Pose assets/layers (0.14.0) use 1.8 records. Anchor and expression edits write the
+changed PoseAsset with normal authorship updates; control-only edits can retain
+unchanged pose records. See POSE.md for dense topology and source sampling.
+
+Depth assets/layers (0.15.0) use 1.9 records. Binary64 values survive snapshot
+and working-file round trips without grayscale quantization. Individual sample
+and bulk asset edits write the changed depth asset; control-only edits reuse
+unchanged asset records. SQLite schema remains 1. See DEPTH.md.
+
+Line Art assets/layers (0.16.0) use 1.10 records. Native binary64 coverage is
+preserved across snapshots and working files. Sample/bulk edits write changed
+assets; control-only edits reuse unchanged assets. SQLite schema stays 1. See
+LINE_ART.md.
+
+Canny/Scribble (0.17.0) use 1.11 records with one byte per binary sample.
+Snapshots and working files preserve exact mask bytes and source kinds. Sample
+edits replace the changed asset record; control-only edits reuse unchanged
+mask records. SQLite schema remains 1. See BINARY_LINE_CONTROL.md.
+
+MLSD (0.18.0) uses 1.12 geometry records. Segment coordinates, ids, confidence
+and enabled state survive exact binary64 snapshot and working-file round trips.
+Geometry edits rewrite the changed asset, while control-only edits reuse it.
+SQLite schema stays 1. See MLSD.md.
+
+Normal Map (0.19.0) uses model 1.13 records containing binary64 XYZ unit normals
+and a separate validity bit per sample. File-bound sample/asset edits validate
+and commit synchronously; failed edits preserve the previous data and revision.
+Control-only changes reuse unchanged asset records. SQLite schema remains 1;
+RGB previews are derived outputs, never the authoritative normal values.
+See [NORMAL_MAP.md](NORMAL_MAP.md).
+
+Shuffle (0.20.0) adds model 1.14 RGB8 asset records. File-bound sample and asset
+changes validate and commit synchronously. Rejected edits preserve state/revision;
+control-only changes reuse unchanged assets. Stored pixels are the exact prepared
+conditioning image, so reopening or changing frames never reruns a random shuffle.
+SQLite schema remains 1. See [SHUFFLE.md](SHUFFLE.md).
+
+Tile (0.21.0) uses model 1.15 RGB8 records, preserving spatial arrangement and
+exact channels. DocumentFile-bound edits validate and commit synchronously;
+failed edits preserve state/revision, and control-only edits reuse unchanged
+asset records. Whole-image and region exports read the same authored image.
+SQLite schema remains 1. See [TILE.md](TILE.md).
+
+Reference (0.22.0) uses model 1.16 RGB8 records and a layer extension for application
+mode/style fidelity. File-bound sample and settings edits validate and commit
+synchronously. Failed edits preserve state/revision; common or reference-specific
+settings changes reuse unchanged image records. SQLite schema remains 1.
+See [REFERENCE.md](REFERENCE.md).
+
+IP-Adapter (0.23.0) persists owned binary32 embedding tensors and provenance in
+model 1.17 records. Conditional/unconditional branches remain independent; an absent
+unconditional branch is explicit. Static and hold-only dynamic source references
+round-trip. File-bound scalar/replacement/settings edits commit synchronously and
+roll back validation failures. Settings edits reuse unchanged tensor records.
+SQLite schema stays 1. See [IP_ADAPTER.md](IP_ADAPTER.md).
+
+## Detailed ControlNet parameters (0.24.0)
+
+All 12 conditioning types expose typed layer/object snapshots through
+`getControlNetParameters` and `DocumentEditor::controlNetParameters`.
+`setControlNetParameters` applies one layer and all unique source states atomically;
+`patchControlNetSettings` edits selected common fields without replacing the others.
+Detailed fields, output options, ownership and rollback rules are documented in
+[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). Native model remains 1.17.

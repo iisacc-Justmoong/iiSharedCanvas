@@ -27,3 +27,18 @@
 #include "Vector/VectorEditor.h"
 #include "Vector/VectorCodec.h"
 #include "Video/VideoCodec.h"
+
+#include "ControlNet/SemanticSegment.h"
+
+#include "ControlNet/Pose.h"
+#include "ControlNet/Depth.h"
+#include "ControlNet/IpAdapter.h"
+#include "ControlNet/ControlNetParameters.h"
+#include "ControlNet/Reference.h"
+#include "ControlNet/Tile.h"
+#include "ControlNet/Shuffle.h"
+#include "ControlNet/NormalMap.h"
+#include "ControlNet/LineArt.h"
+#include "ControlNet/Canny.h"
+#include "ControlNet/Mlsd.h"
+#include "ControlNet/Scribble.h"

@@ -36,6 +36,7 @@ int main()
 {
     using namespace iiSharedCanvas;
     Document source;
+    source.formatVersion.minor = 6; // Keep the independent legacy 1.6 grammar regression.
     source.extent = {4, 4};
     source.timeline = {{24, 1}, 12};
     source.assets.emplace_back(VideoAsset{"movie", {12, 1},
@@ -127,6 +128,7 @@ int main()
         && !QDir(QString::fromStdString(interchange)).exists(),
         "timeline XML must reject unsupported native animation without publishing a partial package");
     const auto path = directory.filePath("mixed.iisc").toStdString();
+    source.formatVersion.minor = CurrentFormatMinor; // Incremental-write budget excludes a format upgrade.
     DocumentFile file;
     expect(file.create(path, source).ok(), "working file must persist the new native fields");
     DocumentEditor editor(file);

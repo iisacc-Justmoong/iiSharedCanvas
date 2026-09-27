@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.11.0 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.24.0 CONFIG REQUIRED)
 
 add_executable(iiSharedCanvasConsumer main.cpp)
 target_compile_definitions(iiSharedCanvasConsumer PRIVATE
@@ -26,3 +26,68 @@ target_link_libraries(iiSharedCanvasInstalledCanvasMediaPersistence PRIVATE iiSh
 target_compile_definitions(iiSharedCanvasInstalledCanvasMediaPersistence PRIVATE
     IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
 add_test(NAME iiSharedCanvas.InstalledCanvasMediaPersistence COMMAND iiSharedCanvasInstalledCanvasMediaPersistence)
+
+add_executable(iiSharedCanvasInstalledLayerKind ../LayerKindTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledLayerKind PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledLayerKind PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledLayerKind COMMAND iiSharedCanvasInstalledLayerKind)
+
+add_executable(iiSharedCanvasInstalledSemanticSegment ../SemanticSegmentTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledSemanticSegment PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledSemanticSegment PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledSemanticSegment COMMAND iiSharedCanvasInstalledSemanticSegment)
+
+add_executable(iiSharedCanvasInstalledPose ../PoseTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledPose PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledPose PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledPose COMMAND iiSharedCanvasInstalledPose)
+
+add_executable(iiSharedCanvasInstalledNormalMap ../NormalMapTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledNormalMap PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledNormalMap PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledNormalMap COMMAND iiSharedCanvasInstalledNormalMap)
+add_executable(iiSharedCanvasInstalledShuffle ../ShuffleTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledShuffle PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledShuffle PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledShuffle COMMAND iiSharedCanvasInstalledShuffle)
+add_executable(iiSharedCanvasInstalledTile ../TileTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledTile PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledTile PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledTile COMMAND iiSharedCanvasInstalledTile)
+add_executable(iiSharedCanvasInstalledReference ../ReferenceTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledReference PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledReference PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledReference COMMAND iiSharedCanvasInstalledReference)
+add_executable(iiSharedCanvasInstalledControlNetParameters ../ControlNetParametersTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledControlNetParameters PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledControlNetParameters PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledControlNetParameters COMMAND iiSharedCanvasInstalledControlNetParameters)
+add_executable(iiSharedCanvasInstalledIpAdapter ../IpAdapterTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledIpAdapter PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledIpAdapter PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledIpAdapter COMMAND iiSharedCanvasInstalledIpAdapter)
+add_executable(iiSharedCanvasInstalledDepth ../DepthTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledDepth PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledDepth PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledDepth COMMAND iiSharedCanvasInstalledDepth)
+
+add_executable(iiSharedCanvasInstalledLineArt ../LineArtTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledLineArt PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledLineArt PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledLineArt COMMAND iiSharedCanvasInstalledLineArt)
+
+add_executable(iiSharedCanvasInstalledCanny ../CannyTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledCanny PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledCanny PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledCanny COMMAND iiSharedCanvasInstalledCanny)
+
+add_executable(iiSharedCanvasInstalledScribble ../ScribbleTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledScribble PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledScribble PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledScribble COMMAND iiSharedCanvasInstalledScribble)
+
+add_executable(iiSharedCanvasInstalledMlsd ../MlsdTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledMlsd PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledMlsd PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledMlsd COMMAND iiSharedCanvasInstalledMlsd)

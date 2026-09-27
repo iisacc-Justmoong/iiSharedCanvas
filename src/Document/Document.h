@@ -3,6 +3,18 @@
 #include "iiSharedCanvas/Export.h"
 #include <iiFileProvider.h>
 #include "Metadata/StableDiffusionMetadata.h"
+#include "ControlNet/SemanticSegment.h"
+#include "ControlNet/Pose.h"
+#include "ControlNet/Depth.h"
+#include "ControlNet/IpAdapter.h"
+#include "ControlNet/Reference.h"
+#include "ControlNet/Tile.h"
+#include "ControlNet/Shuffle.h"
+#include "ControlNet/NormalMap.h"
+#include "ControlNet/LineArt.h"
+#include "ControlNet/Canny.h"
+#include "ControlNet/Mlsd.h"
+#include "ControlNet/Scribble.h"
 
 #include <Core/RasterBlendMode.h>
 #include <Layer/RasterLayer.h>
@@ -18,7 +30,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 6;
+inline constexpr std::uint16_t CurrentFormatMinor = 17;
 
 using FrameIndex = std::uint32_t;
 
@@ -119,12 +131,104 @@ struct VideoAsset {
     std::vector<RasterLayer> frames;
 };
 
-using Asset = std::variant<RasterAsset, VectorAsset, ChunkedRasterAsset, VideoAsset>;
+struct PoseAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<PosePerson> people;
+};
+
+struct DepthAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<double> values; // Row-major normalized proximity, [0,1], zero = empty.
+};
+
+struct LineArtAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<double> coverage; // Row-major [0,1]: white background to full black ink.
+};
+
+struct CannyAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<std::uint8_t> mask; // Binary edge field: 0 background, 1 edge.
+};
+
+struct ScribbleAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<std::uint8_t> mask; // Binary stroke field: 0 background, 1 stroke.
+};
+
+struct MlsdAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<MlsdSegment> segments; // Editable straight-line geometry, not a baked mask.
+};
+
+struct NormalMapAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<NormalMapSample> samples; // Row-major native signed XYZ unit normals.
+};
+
+struct ShuffleAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<ShuffleColor> colors; // Row-major prepared RGB conditioning image.
+};
+
+struct TileAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<TileColor> colors; // Row-major prepared RGB conditioning image.
+};
+
+struct ReferenceAsset {
+    std::string id;
+    CanvasExtent viewport;
+    std::vector<ReferenceColor> colors; // Row-major prepared RGB conditioning image.
+};
+
+struct IpAdapterAsset {
+    std::string id;
+    IpAdapterEmbeddingDescriptor descriptor;
+    IpAdapterTensor conditional;
+    std::optional<IpAdapterTensor> unconditional; // Absence is explicit; never infer zeros.
+    bool operator==(const IpAdapterAsset &) const = default;
+};
+
+using Asset = std::variant<RasterAsset, VectorAsset, ChunkedRasterAsset, VideoAsset, PoseAsset, DepthAsset, LineArtAsset, CannyAsset, ScribbleAsset, MlsdAsset, NormalMapAsset, ShuffleAsset, TileAsset, ReferenceAsset, IpAdapterAsset>;
 
 enum class ContentKind {
     Raster,
     Vector,
     Video,
+    Pose,
+    Depth,
+    LineArt,
+    Canny,
+    Scribble,
+    Mlsd,
+    NormalMap,
+    Shuffle,
+    Tile,
+    Reference,
+    IpAdapter,
+};
+
+// Content identity has two independent axes. Motion/visibility do not change
+// content timing; a video is always dynamic bitmap content.
+enum class LayerTiming : std::uint8_t { Static, Dynamic };
+enum class LayerRepresentation : std::uint8_t { Bitmap, Vector, Embedding };
+enum class LayerKind : std::uint8_t {
+    StaticBitmap,
+    StaticVector,
+    DynamicBitmap,
+    DynamicVector,
+    StaticEmbedding,
+    DynamicEmbedding,
 };
 
 struct StaticSource {
@@ -209,7 +313,86 @@ struct VideoLayer {
     VideoPlayback playback; // Starts at frameRange.firstFrame, or zero when absent.
 };
 
-using Layer = std::variant<BitmapLayer, VectorLayer, VideoLayer>;
+// Conditioning role is orthogonal to timing/representation. Includes IP-Adapter
+// attention conditioning; it does not imply the ControlNet network architecture.
+enum class LayerRole : std::uint8_t { Artwork, ControlNet };
+enum class ControlNetKind : std::uint8_t { SemanticSegment, Pose, Depth, LineArt, Canny, Scribble, Mlsd, NormalMap, Shuffle, Tile, Reference, IpAdapter };
+
+struct SemanticSegmentLayer {
+    LayerProperties properties;
+    LayerSource source; // RasterAsset identity mask, static or frame-selected.
+    ControlNetSettings control;
+    SemanticSegmentation segmentation;
+};
+
+struct PoseLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed PoseAsset, with editable vector anchors.
+    ControlNetSettings control;
+};
+
+struct DepthLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed dense DepthAsset.
+    ControlNetSettings control;
+};
+
+struct LineArtLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed dense LineArtAsset.
+    ControlNetSettings control;
+};
+
+struct CannyLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed CannyAsset.
+    ControlNetSettings control;
+};
+
+struct ScribbleLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed ScribbleAsset.
+    ControlNetSettings control;
+};
+
+struct MlsdLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed MlsdAsset geometry.
+    ControlNetSettings control;
+};
+
+struct NormalMapLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed dense NormalMapAsset.
+    ControlNetSettings control;
+};
+
+struct ShuffleLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed dense ShuffleAsset.
+    ControlNetSettings control;
+};
+
+struct TileLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed dense TileAsset.
+    ControlNetSettings control;
+};
+
+struct ReferenceLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed dense ReferenceAsset.
+    ControlNetSettings control;
+    ReferenceSettings reference;
+};
+
+struct IpAdapterLayer {
+    LayerProperties properties;
+    LayerSource source; // Static or keyframed embedding state, not spatial pixels.
+    ControlNetSettings control; // Adapter identity must match every referenced asset.
+};
+
+using Layer = std::variant<BitmapLayer, VectorLayer, VideoLayer, SemanticSegmentLayer, PoseLayer, DepthLayer, LineArtLayer, CannyLayer, ScribbleLayer, MlsdLayer, NormalMapLayer, ShuffleLayer, TileLayer, ReferenceLayer, IpAdapterLayer>;
 
 // Owned interleaved signed PCM16. A sample frame contains channelCount samples.
 struct AudioAsset {
@@ -286,6 +469,13 @@ IISHAREDCANVAS_EXPORT AudioClip *findAudioClip(AudioTrackLayer &track,
 IISHAREDCANVAS_EXPORT const AudioClip *findAudioClip(const AudioTrackLayer &track,
                                                     const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Layer &layer) noexcept;
+// Derived from the source, never separately persisted or cached.
+IISHAREDCANVAS_EXPORT LayerTiming layerTiming(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT LayerRepresentation layerRepresentation(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT LayerKind layerKind(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT bool isLineControlNetLayer(const Layer &) noexcept;
+IISHAREDCANVAS_EXPORT LayerRole layerRole(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT std::optional<ControlNetKind> controlNetKind(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const std::string &assetId(const Asset &asset) noexcept;
 IISHAREDCANVAS_EXPORT LayerProperties &layerProperties(Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const LayerProperties &layerProperties(const Layer &layer) noexcept;

@@ -77,6 +77,10 @@ bool BitmapEditor::bind(DocumentFile &file, const std::string &assetId)
 
 bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
 {
+    if (isSemanticMaskAsset(document, assetIdValue)) {
+        setError("semantic identity masks require exact categorical edits through DocumentEditor");
+        return false;
+    }
     Asset *candidate = findAsset(document, assetIdValue);
     auto *raster = candidate ? std::get_if<RasterAsset>(candidate) : nullptr;
     if (!raster) {
@@ -526,6 +530,7 @@ RasterAsset *BitmapEditor::rasterAsset() noexcept
         || (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))) {
         return nullptr;
     }
+    if (isSemanticMaskAsset(*m_document, m_assetId)) { return nullptr; }
     Asset *asset = findAsset(*m_document, m_assetId);
     return asset ? std::get_if<RasterAsset>(asset) : nullptr;
 }
@@ -536,6 +541,7 @@ const RasterAsset *BitmapEditor::rasterAsset() const noexcept
         || (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))) {
         return nullptr;
     }
+    if (isSemanticMaskAsset(*m_document, m_assetId)) { return nullptr; }
     const Asset *asset = findAsset(std::as_const(*m_document), m_assetId);
     return asset ? std::get_if<RasterAsset>(asset) : nullptr;
 }

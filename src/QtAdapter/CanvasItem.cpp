@@ -1823,7 +1823,7 @@ void CanvasItem::applyAsyncRender(qulonglong requestId)
             m_layerTileCache.end());
     }
     for (FrameLayerTileRenderResult &layer : layerResult.layers) {
-        if (!layer.visible) {
+        if (!layer.visible || layer.role == LayerRole::ControlNet) {
             continue;
         }
         for (FrameRenderTile &rendered : layer.tiles) {
@@ -2022,7 +2022,7 @@ bool CanvasItem::canPresentLayerTiles() const noexcept
     bool hasVisibleLayer = false;
     for (const iiSharedCanvas::Layer &layer : m_document->layers) {
         const LayerProperties &properties = layerProperties(layer);
-        if (!properties.visible || !layerExistsAt(*m_document, layer, m_frame)) {
+        if (layerRole(layer) == LayerRole::ControlNet || !properties.visible || !layerExistsAt(*m_document, layer, m_frame)) {
             continue;
         }
         hasVisibleLayer = true;
@@ -2044,7 +2044,7 @@ bool CanvasItem::canPresentLayerTiles() const noexcept
              layerIndex < m_document->layers.size();
              ++layerIndex) {
             const Layer &layer = m_document->layers[layerIndex];
-            if (!layerProperties(layer).visible
+            if (layerRole(layer) == LayerRole::ControlNet || !layerProperties(layer).visible
                 || !layerExistsAt(*m_document, layer, m_frame)) {
                 continue;
             }

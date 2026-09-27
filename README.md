@@ -529,9 +529,9 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.11.0 with SOVERSION 0.11 and exact-version
+The current C++ package version is 0.24.0 with SOVERSION 0.24 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the new video alternatives and motion fields. The canonical snapshot model is version 1.6;
+package to adopt the atomic detailed-parameter APIs for all conditioning layers and their source assets. The canonical snapshot model is version 1.17;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 
@@ -540,6 +540,20 @@ For a tested host install, including an installed-package consumer check:
 ~~~sh
 ./install.sh
 ~~~
+
+## Four layer kinds (0.12.0)
+
+Bitmap/vector artwork has four public kinds: `StaticBitmap`, `StaticVector`,
+`DynamicBitmap`, and `DynamicVector`. Query `layerKind(layer)` or the independent
+`layerTiming(layer)` and `layerRepresentation(layer)` axes. Create content through
+`DocumentEditor::insertStaticLayer` and `insertDynamicLayer`; see `docs/API.md`.
+Static content holds one asset across the timeline. Dynamic content selects the
+asset for the current frame, holding the last content key until the next key.
+Native video is dynamic bitmap content. This classification concerns content;
+transform/opacity motion does not turn a single static drawing into frame content.
+The existing native source fields persist the distinction without a format change.
+Package 0.23.0 additionally distinguishes nonspatial IP-Adapter conditioning with
+`StaticEmbedding` and `DynamicEmbedding`; these are not artwork image formats.
 
 ## Source layout
 
@@ -754,7 +768,7 @@ commits the changed content and an independent authorship record in the same
 SQLite transaction before returning, including raw `edit` callbacks. There is no
 autosave timer or whole-document snapshot dump in the working-file path.
 
-Native snapshots use `.iisc` 1.6. Legacy 1.0–1.5 files remain readable and are
+Native snapshots use `.iisc` 1.17. Legacy 1.0–1.16 files remain readable and are
 upgraded on the first accepted change. Undo/cancel of already committed pixels
 is itself a recorded change. Detached public aggregates have no observers; use
 editors or `recordDocumentChange` after a direct detached mutation. File-bound
@@ -768,3 +782,87 @@ default) so clean builds and installed consumers do not rely on an old Qt cache.
 ## 파일 저장 소유권
 
 0.10.1부터 실제 파일 CRUD, SQLite 연결·트랜잭션·부분 BLOB 기록·백업은 iiFileProvider 0.5에 위임한다. DocumentFile은 캔버스 스키마, 형식 검증, 편집 상태, 충돌 판정을 소유한다. `.iisc` 기존 파일 형식과 즉시 반영 동작은 유지한다. 의존성은 iiSharedCanvas → iiFileProvider이며 역참조는 없다.
+
+## ControlNet semantic segments (0.13.0)
+
+`SemanticSegmentLayer` owns validated region identities, an explicit semantic
+taxonomy and ControlNet settings. Static and dynamic identity masks share the
+existing timeline. `renderSemanticControlMap` produces exact class colors, labels
+and region geometry while ordinary artwork rendering excludes conditioning layers.
+See [the complete object and persistence contract](docs/SEMANTIC_SEGMENT.md).
+
+## Full-body, hands and dense facial Pose (0.14.0)
+
+`PoseAsset` / `PoseLayer` own 590 anchors per person, including 523 facial anchors,
+with sparse weighted expression targets, static/dynamic sources, exact native
+persistence and explicit OpenPose projection. See [the pose contract](docs/POSE.md).
+
+## Depth ControlNet (0.15.0)
+
+`DepthLayer` stores static or dynamic normalized proximity fields: 0 is empty
+black space, 1 is white camera contact. Binary64 native samples, exact editing,
+grayscale control output and persistence are described in [DEPTH.md](docs/DEPTH.md).
+
+## Line Art ControlNet (0.16.0)
+
+`LineArtLayer` references static or dynamic native ink-coverage fields. Zero is
+white background, one is full black ink; intermediate coverage preserves soft
+contours. See [LINE_ART.md](docs/LINE_ART.md) for editing, output and persistence.
+
+## Canny and Scribble line controls (0.17.0)
+
+`CannyLayer` and `ScribbleLayer` own typed binary edge/stroke sources, with
+white lines on black control maps. `isLineControlNetLayer` identifies these
+alongside Line Art. See [BINARY_LINE_CONTROL.md](docs/BINARY_LINE_CONTROL.md).
+
+## MLSD line-segment control (0.18.0)
+
+`MlsdAsset`/`MlsdLayer` retain editable straight segments, confidence and enabled
+state. Static/dynamic vector sources render white lines on black control maps.
+See [MLSD.md](docs/MLSD.md) for coordinates, editing and persistence.
+
+## Normal-map control (0.19.0)
+
+`NormalMapSample`, `NormalMapAsset` and `NormalMapLayer` preserve per-pixel
+signed XYZ unit normals and explicit missing samples. Static/dynamic bitmap
+layers provide RGB previews and independent channel-order/Y-axis export options.
+See [NORMAL_MAP.md](docs/NORMAL_MAP.md) for the basis, editing and persistence.
+
+## Shuffle control (0.20.0)
+
+`ShuffleColor`, `ShuffleAsset` and `ShuffleLayer` retain prepared RGB conditioning
+images as static/dynamic bitmap layers. `makeShuffleAsset` builds prepared pixels
+from an explicit normalized remapping field with bilinear sampling. Rendering is
+deterministic and never reshuffles stored content. See [SHUFFLE.md](docs/SHUFFLE.md).
+
+## Tile control (0.21.0)
+
+`TileColor`, `TileAsset` and `TileLayer` preserve spatial RGB reference images
+for local-context/detail conditioning. Static/dynamic bitmap layers support
+whole-image and bounded native-region exports without implicit resizing or wrapping.
+See [TILE.md](docs/TILE.md).
+
+## Reference control (0.22.0)
+
+`ReferenceAsset` and `ReferenceLayer` retain RGB reference images together with
+Attention, AdaIN or Attention+AdaIN mode and style fidelity. Static/dynamic bitmap
+sources and reference settings survive native persistence. Export returns image
+and settings to a consuming inference adapter. See [REFERENCE.md](docs/REFERENCE.md).
+
+## IP-Adapter image embeddings (0.23.0)
+
+`IpAdapterAsset` owns actual float32 conditional/unconditional image embeddings,
+with encoder/adapter provenance and explicit pooled, hidden-state or projected-token
+stage. `IpAdapterLayer` selects static or dynamic states. The four bitmap/vector
+artwork kinds remain unchanged; nonspatial conditioning adds `StaticEmbedding` and
+`DynamicEmbedding`. Export passes typed tensors to an inference consumer without
+encoding or projection. See [IP_ADAPTER.md](docs/IP_ADAPTER.md).
+
+## Detailed ControlNet parameters (0.24.0)
+
+All 12 conditioning types expose typed layer/object snapshots through
+`getControlNetParameters` and `DocumentEditor::controlNetParameters`.
+`setControlNetParameters` applies one layer and all unique source states atomically;
+`patchControlNetSettings` edits selected common fields without replacing the others.
+Detailed fields, output options, ownership and rollback rules are documented in
+[CONTROLNET_PARAMETERS.md](docs/CONTROLNET_PARAMETERS.md). Native model remains 1.17.

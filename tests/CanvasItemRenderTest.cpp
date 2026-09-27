@@ -106,6 +106,23 @@ int main(int argc, char **argv)
     expect(qmlObject && qobject_cast<CanvasItem *>(qmlObject.get()),
            "SharedCanvas must be constructible by an actual QML engine");
 
+    {
+        auto controlled = mixedDocument();
+        controlled.assets.emplace_back(RasterAsset{"semantic-mask", makeRasterLayer(4,4,0xff112233U)});
+        SemanticSegmentLayer semantic; semantic.properties = {"semantic", "Control only"};
+        semantic.source = StaticSource{"semantic-mask"}; semantic.segmentation.taxonomy.id = "test";
+        SemanticClass category; category.id = 1; category.key = "object"; category.name = "Object";
+        semantic.segmentation.taxonomy.classes = {category};
+        SemanticRegion region; region.id = 1; region.classId = 1; region.maskColor = 0xff112233U;
+        semantic.segmentation.regions = {region}; controlled.layers.emplace_back(semantic);
+        CanvasItem controlledItem;
+        expect(controlledItem.bind(controlled), "CanvasItem accepts dedicated ControlNet layers");
+        const auto controlledImage = render(controlledItem,4,4);
+        expect(controlledImage.pixel(0,0) == 0xff102030U && controlledImage.pixel(1,1) == 0xffffcc00U
+            && controlledItem.residentLayerTileCount() == 2,
+            "ControlNet masks stay out of composed and independent artwork textures");
+    }
+
     Document document = mixedDocument();
     CanvasItem item;
     expect(item.bind(document), "CanvasItem must bind a valid caller-owned document");

@@ -153,8 +153,8 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::canvasMode),
                              iiSharedCanvas::CanvasMode>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::infiniteCanvas),
                              iiSharedCanvas::InfiniteCanvas>);
-static_assert(std::variant_size_v<iiSharedCanvas::Asset> == 4);
-static_assert(std::variant_size_v<iiSharedCanvas::Layer> == 3);
+static_assert(std::variant_size_v<iiSharedCanvas::Asset> == 15);
+static_assert(std::variant_size_v<iiSharedCanvas::Layer> == 15);
 static_assert(std::is_same_v<std::variant_alternative_t<0, iiSharedCanvas::Layer>,
                              iiSharedCanvas::BitmapLayer>);
 static_assert(std::is_same_v<std::variant_alternative_t<1, iiSharedCanvas::Layer>,
@@ -217,6 +217,10 @@ static_assert(std::is_default_constructible_v<iiSharedCanvas::FrameLayerTileRend
 static_assert(std::is_default_constructible_v<iiSharedCanvas::FrameLayerBatchRenderResult>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::FrameLayerBatchRenderResult::layers),
                              std::vector<iiSharedCanvas::FrameLayerTileRenderResult>>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::PoseLayer>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::PoseAsset>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::SemanticSegmentLayer>);
+static_assert(std::is_default_constructible_v<iiSharedCanvas::SemanticControlMapResult>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::IiscEncodeResult>);
 static_assert(std::is_default_constructible_v<iiSharedCanvas::IiscDecodeResult>);
 static_assert(std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::BitmapItem>);
@@ -226,7 +230,7 @@ static_assert(!std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::CanvasItem>)
 int main()
 {
     return iiSharedCanvas::CurrentFormatMajor == 1
-        && iiSharedCanvas::CurrentFormatMinor == 6
+        && iiSharedCanvas::CurrentFormatMinor == 17
         ? 0
         : 1;
 }

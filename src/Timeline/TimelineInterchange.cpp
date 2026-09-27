@@ -386,12 +386,12 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
         }
         const auto destination = destinationPath(directory);
         if (std::any_of(document.assets.begin(), document.assets.end(), [](const Asset &asset) {
-                return std::holds_alternative<VideoAsset>(asset);
+                return std::holds_alternative<VideoAsset>(asset) || std::holds_alternative<PoseAsset>(asset) || std::holds_alternative<DepthAsset>(asset) || std::holds_alternative<LineArtAsset>(asset) || std::holds_alternative<CannyAsset>(asset) || std::holds_alternative<ScribbleAsset>(asset) || std::holds_alternative<MlsdAsset>(asset) || std::holds_alternative<NormalMapAsset>(asset) || std::holds_alternative<ShuffleAsset>(asset) || std::holds_alternative<TileAsset>(asset) || std::holds_alternative<ReferenceAsset>(asset) || std::holds_alternative<IpAdapterAsset>(asset);
             }) || std::any_of(document.layers.begin(), document.layers.end(), [](const Layer &layer) {
-                return !layerProperties(layer).motion.empty();
+                return layerRole(layer) == LayerRole::ControlNet || !layerProperties(layer).motion.empty();
             })) {
             fail(MediaIoCode::UnsupportedFeature,
-                 "native video and motion are not supported by timeline XML interchange; use .iisc or exportVideo");
+                 "ControlNet semantic/pose/depth/line-control content, native video and motion are not supported by timeline XML interchange; use .iisc or exportVideo");
         }
         // Preflight before validation can build any source-sized lookup tables.
         const auto snapshotBytes = sourceSnapshotUpperBound(document, options.limits.maxDecodedBytes / 4);

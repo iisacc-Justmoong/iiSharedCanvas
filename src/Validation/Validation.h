@@ -32,6 +32,18 @@ enum class ValidationCode {
     InvalidVideoAsset,
     InvalidVideoPlayback,
     InvalidMotion,
+    InvalidSemanticSegment,
+    InvalidPose,
+    InvalidDepth,
+    InvalidIpAdapter,
+    InvalidReference,
+    InvalidTile,
+    InvalidShuffle,
+    InvalidNormalMap,
+    InvalidLineArt,
+    InvalidCanny,
+    InvalidMlsd,
+    InvalidScribble,
 };
 
 struct ValidationIssue {

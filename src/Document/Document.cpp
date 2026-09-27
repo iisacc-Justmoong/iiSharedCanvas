@@ -76,6 +76,17 @@ const AudioClip *findAudioClip(const AudioTrackLayer &track, const std::string &
 
 ContentKind contentKind(const Asset &asset) noexcept
 {
+    if (std::holds_alternative<MlsdAsset>(asset)) { return ContentKind::Mlsd; }
+    if (std::holds_alternative<CannyAsset>(asset)) { return ContentKind::Canny; }
+    if (std::holds_alternative<ScribbleAsset>(asset)) { return ContentKind::Scribble; }
+    if (std::holds_alternative<LineArtAsset>(asset)) { return ContentKind::LineArt; }
+    if (std::holds_alternative<NormalMapAsset>(asset)) { return ContentKind::NormalMap; }
+    if (std::holds_alternative<ShuffleAsset>(asset)) { return ContentKind::Shuffle; }
+    if (std::holds_alternative<TileAsset>(asset)) { return ContentKind::Tile; }
+    if (std::holds_alternative<ReferenceAsset>(asset)) { return ContentKind::Reference; }
+    if (std::holds_alternative<IpAdapterAsset>(asset)) { return ContentKind::IpAdapter; }
+    if (std::holds_alternative<DepthAsset>(asset)) { return ContentKind::Depth; }
+    if (std::holds_alternative<PoseAsset>(asset)) { return ContentKind::Pose; }
     if (std::holds_alternative<VideoAsset>(asset)) { return ContentKind::Video; }
     return std::holds_alternative<VectorAsset>(asset)
         ? ContentKind::Vector
@@ -84,10 +95,73 @@ ContentKind contentKind(const Asset &asset) noexcept
 
 ContentKind contentKind(const Layer &layer) noexcept
 {
+    if (std::holds_alternative<MlsdLayer>(layer)) { return ContentKind::Mlsd; }
+    if (std::holds_alternative<CannyLayer>(layer)) { return ContentKind::Canny; }
+    if (std::holds_alternative<ScribbleLayer>(layer)) { return ContentKind::Scribble; }
+    if (std::holds_alternative<LineArtLayer>(layer)) { return ContentKind::LineArt; }
+    if (std::holds_alternative<NormalMapLayer>(layer)) { return ContentKind::NormalMap; }
+    if (std::holds_alternative<ShuffleLayer>(layer)) { return ContentKind::Shuffle; }
+    if (std::holds_alternative<TileLayer>(layer)) { return ContentKind::Tile; }
+    if (std::holds_alternative<ReferenceLayer>(layer)) { return ContentKind::Reference; }
+    if (std::holds_alternative<IpAdapterLayer>(layer)) { return ContentKind::IpAdapter; }
+    if (std::holds_alternative<DepthLayer>(layer)) { return ContentKind::Depth; }
+    if (std::holds_alternative<PoseLayer>(layer)) { return ContentKind::Pose; }
     if (std::holds_alternative<VideoLayer>(layer)) { return ContentKind::Video; }
     return std::holds_alternative<VectorLayer>(layer)
         ? ContentKind::Vector
         : ContentKind::Raster;
+}
+
+bool isLineControlNetLayer(const Layer &layer) noexcept
+{
+    return std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer)
+        || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer);
+}
+
+LayerRole layerRole(const Layer &layer) noexcept
+{
+    return (std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) ? LayerRole::ControlNet : LayerRole::Artwork;
+}
+
+std::optional<ControlNetKind> controlNetKind(const Layer &layer) noexcept
+{
+    if (std::holds_alternative<MlsdLayer>(layer)) { return ControlNetKind::Mlsd; }
+    if (std::holds_alternative<CannyLayer>(layer)) { return ControlNetKind::Canny; }
+    if (std::holds_alternative<ScribbleLayer>(layer)) { return ControlNetKind::Scribble; }
+    if (std::holds_alternative<LineArtLayer>(layer)) { return ControlNetKind::LineArt; }
+    if (std::holds_alternative<NormalMapLayer>(layer)) { return ControlNetKind::NormalMap; }
+    if (std::holds_alternative<ShuffleLayer>(layer)) { return ControlNetKind::Shuffle; }
+    if (std::holds_alternative<TileLayer>(layer)) { return ControlNetKind::Tile; }
+    if (std::holds_alternative<ReferenceLayer>(layer)) { return ControlNetKind::Reference; }
+    if (std::holds_alternative<IpAdapterLayer>(layer)) { return ControlNetKind::IpAdapter; }
+    if (std::holds_alternative<DepthLayer>(layer)) { return ControlNetKind::Depth; }
+    if (std::holds_alternative<PoseLayer>(layer)) { return ControlNetKind::Pose; }
+    return std::holds_alternative<SemanticSegmentLayer>(layer)
+        ? std::optional{ControlNetKind::SemanticSegment} : std::nullopt;
+}
+
+LayerTiming layerTiming(const Layer &layer) noexcept
+{
+    return std::holds_alternative<VideoLayer>(layer)
+        || std::holds_alternative<KeyframedSource>(layerSource(layer))
+        ? LayerTiming::Dynamic : LayerTiming::Static;
+}
+
+LayerRepresentation layerRepresentation(const Layer &layer) noexcept
+{
+    if (std::holds_alternative<IpAdapterLayer>(layer)) return LayerRepresentation::Embedding;
+    return (std::holds_alternative<VectorLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<MlsdLayer>(layer))
+        ? LayerRepresentation::Vector : LayerRepresentation::Bitmap;
+}
+
+LayerKind layerKind(const Layer &layer) noexcept
+{
+    if (layerRepresentation(layer)==LayerRepresentation::Embedding)
+        return layerTiming(layer)==LayerTiming::Static ? LayerKind::StaticEmbedding : LayerKind::DynamicEmbedding;
+    const bool vector = layerRepresentation(layer) == LayerRepresentation::Vector;
+    return layerTiming(layer) == LayerTiming::Static
+        ? (vector ? LayerKind::StaticVector : LayerKind::StaticBitmap)
+        : (vector ? LayerKind::DynamicVector : LayerKind::DynamicBitmap);
 }
 
 VideoAsset *findVideoAsset(Document &document, const std::string &id) noexcept

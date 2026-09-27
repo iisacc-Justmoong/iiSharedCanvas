@@ -35,6 +35,22 @@ struct SerializationLimits {
     std::uint64_t maximumTotalAudioSamples = 256ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumTotalVideoFrames = 262144ULL;
     std::uint64_t maximumTotalMotionKeyframes = 1024ULL * 1024ULL;
+    std::uint32_t maximumMlsdSegments = 1000000;
+    std::uint64_t maximumCannySamples = 64ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumScribbleSamples = 64ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumLineArtSamples = 64ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumNormalMapSamples = 16ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumShuffleSamples = 16ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumTileSamples = 16ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumReferenceSamples = 16ULL * 1024ULL * 1024ULL;
+    std::uint64_t maximumIpAdapterValues = 16ULL * 1024ULL * 1024ULL; // All assets, both branches.
+    std::uint64_t maximumDepthSamples = 64ULL * 1024ULL * 1024ULL;
+    std::uint32_t maximumPosePeople = 4096;
+    std::uint32_t maximumPoseExpressions = 65536;
+    std::uint32_t maximumPoseDeltas = 1048576;
+    std::uint32_t maximumSemanticClasses = 65536;
+    std::uint32_t maximumSemanticRegions = 1048576;
+    std::uint32_t maximumSemanticEntries = 1048576; // Aliases and region attributes combined.
 };
 
 enum class IiscErrorCode {

@@ -324,6 +324,72 @@ ValidationResult validate(const Document &document)
             validateRasterAsset(*raster, index, result);
         } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
             validateVectorAsset(*vector, index, result);
+        } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
+            const auto message = validateMlsdAsset(*mlsd);
+            if (document.formatVersion.minor < 12 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidMlsd, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 12 ? "MLSD assets require format 1.12" : message);
+            }
+        } else if (const auto *canny = std::get_if<CannyAsset>(&asset)) {
+            const auto message = validateCannyAsset(*canny);
+            if (document.formatVersion.minor < 11 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidCanny, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 11 ? "binary line assets require format 1.11" : message);
+            }
+        } else if (const auto *scribble = std::get_if<ScribbleAsset>(&asset)) {
+            const auto message = validateScribbleAsset(*scribble);
+            if (document.formatVersion.minor < 11 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidScribble, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 11 ? "binary line assets require format 1.11" : message);
+            }
+        } else if (const auto *lineArt = std::get_if<LineArtAsset>(&asset)) {
+            const auto message = validateLineArtAsset(*lineArt);
+            if (document.formatVersion.minor < 10 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidLineArt, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 10 ? "line art assets require format 1.10" : message);
+            }
+        } else if (const auto *normalMap = std::get_if<NormalMapAsset>(&asset)) {
+            const auto message = validateNormalMapAsset(*normalMap);
+            if (document.formatVersion.minor < 13 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidNormalMap, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 13 ? "normalMap assets require format 1.13" : message);
+            }
+        } else if (const auto *shuffle = std::get_if<ShuffleAsset>(&asset)) {
+            const auto message = validateShuffleAsset(*shuffle);
+            if (document.formatVersion.minor < 14 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidShuffle, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 14 ? "shuffle assets require format 1.14" : message);
+            }
+        } else if (const auto *tile = std::get_if<TileAsset>(&asset)) {
+            const auto message = validateTileAsset(*tile);
+            if (document.formatVersion.minor < 15 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidTile, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 15 ? "tile assets require format 1.15" : message);
+            }
+        } else if (const auto *reference = std::get_if<ReferenceAsset>(&asset)) {
+            const auto message = validateReferenceAsset(*reference);
+            if (document.formatVersion.minor < 16 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidReference, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 16 ? "reference assets require format 1.16" : message);
+            }
+        } else if (const auto *ipAdapter = std::get_if<IpAdapterAsset>(&asset)) {
+            const auto message = validateIpAdapterAsset(*ipAdapter);
+            if (document.formatVersion.minor < 17 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidIpAdapter, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 17 ? "ipAdapter assets require format 1.17" : message);
+            }
+        } else if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
+            const auto message = validateDepthAsset(*depth);
+            if (document.formatVersion.minor < 9 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidDepth, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 9 ? "depth assets require format 1.9" : message);
+            }
+        } else if (const auto *pose = std::get_if<PoseAsset>(&asset)) {
+            const auto message = validatePoseAsset(*pose);
+            if (document.formatVersion.minor < 8 || !message.empty()) {
+                addIssue(result, ValidationCode::InvalidPose, "assets[" + std::to_string(index) + "]",
+                    document.formatVersion.minor < 8 ? "pose assets require format 1.8" : message);
+            }
         } else if (const auto *video = std::get_if<VideoAsset>(&asset)) {
             validateVideoAsset(document, *video, index, result);
         } else {
@@ -405,6 +471,103 @@ ValidationResult validate(const Document &document)
                      "an explicit inclusive layer frame range requires format 1.3 and must remain ordered inside the timeline");
         }
 
+        if (const auto *mlsd = std::get_if<MlsdLayer>(&layer)) {
+            const auto &c = mlsd->control;
+            if (document.formatVersion.minor < 12 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidMlsd, layerPath, "mlsd layers require format 1.12 and valid control settings");
+            }
+        }
+        if (const auto *canny = std::get_if<CannyLayer>(&layer)) {
+            const auto &c = canny->control;
+            if (document.formatVersion.minor < 11 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidCanny, layerPath, "canny layers require format 1.11 and valid control settings");
+            }
+        }
+        if (const auto *scribble = std::get_if<ScribbleLayer>(&layer)) {
+            const auto &c = scribble->control;
+            if (document.formatVersion.minor < 11 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidScribble, layerPath, "scribble layers require format 1.11 and valid control settings");
+            }
+        }
+        if (const auto *lineArt = std::get_if<LineArtLayer>(&layer)) {
+            const auto &c = lineArt->control;
+            if (document.formatVersion.minor < 10 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidLineArt, layerPath, "lineArt layers require format 1.10 and valid control settings");
+            }
+        }
+        if (const auto *normalMap = std::get_if<NormalMapLayer>(&layer)) {
+            const auto &c = normalMap->control;
+            if (document.formatVersion.minor < 13 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidNormalMap, layerPath, "normalMap layers require format 1.13 and valid control settings");
+            }
+        }
+        if (const auto *shuffle = std::get_if<ShuffleLayer>(&layer)) {
+            const auto &c = shuffle->control;
+            if (document.formatVersion.minor < 14 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidShuffle, layerPath, "shuffle layers require format 1.14 and valid control settings");
+            }
+        }
+        if (const auto *tile = std::get_if<TileLayer>(&layer)) {
+            const auto &c = tile->control;
+            if (document.formatVersion.minor < 15 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidTile, layerPath, "tile layers require format 1.15 and valid control settings");
+            }
+        }
+        if (const auto *reference = std::get_if<ReferenceLayer>(&layer)) {
+            const auto referenceError=validateReferenceSettings(reference->reference);
+            if (!referenceError.empty()) addIssue(result,ValidationCode::InvalidReference,layerPath+".reference",referenceError);
+            const auto &c = reference->control;
+            if (document.formatVersion.minor < 16 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidReference, layerPath, "reference layers require format 1.16 and valid control settings");
+            }
+        }
+        if (const auto *ipAdapter = std::get_if<IpAdapterLayer>(&layer)) {
+            const auto sourceError=validateIpAdapterLayerSources(document,*ipAdapter);
+            if (!sourceError.empty()) addIssue(result,ValidationCode::InvalidIpAdapter,layerPath+".source",sourceError);
+            const auto &c = ipAdapter->control;
+            if (document.formatVersion.minor < 17 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidIpAdapter, layerPath, "ipAdapter layers require format 1.17 and valid control settings");
+            }
+        }
+        if (const auto *depth = std::get_if<DepthLayer>(&layer)) {
+            const auto &c = depth->control;
+            if (document.formatVersion.minor < 9 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidDepth, layerPath, "depth layers require format 1.9 and valid control settings");
+            }
+        }
+        if (const auto *pose = std::get_if<PoseLayer>(&layer)) {
+            const auto &c = pose->control;
+            if (document.formatVersion.minor < 8 || !std::isfinite(c.conditioningScale) || c.conditioningScale < 0
+                || !std::isfinite(c.guidanceStart) || !std::isfinite(c.guidanceEnd)
+                || c.guidanceStart < 0 || c.guidanceEnd > 1 || c.guidanceStart >= c.guidanceEnd) {
+                addIssue(result, ValidationCode::InvalidPose, layerPath, "pose layers require format 1.8 and valid control settings");
+            }
+        }
+        if (const auto *semantic = std::get_if<SemanticSegmentLayer>(&layer)) {
+            for (const auto &issue : validateSemanticSegment(document, *semantic)) {
+                addIssue(result, ValidationCode::InvalidSemanticSegment, layerPath + "." + issue.path, issue.message);
+            }
+        }
         validateMotion(document, properties, layerPath + ".properties", result);
         if (const auto *video = std::get_if<VideoLayer>(&layer)) {
             const auto *source = std::get_if<StaticSource>(&sourceValue);

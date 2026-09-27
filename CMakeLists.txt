@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.11.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.24.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -19,6 +19,63 @@ include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 
 if(BUILD_TESTING)
+    add_executable(iiSharedCanvasMlsdTest tests/MlsdTest.cpp)
+    target_link_libraries(iiSharedCanvasMlsdTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasMlsdTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Mlsd COMMAND iiSharedCanvasMlsdTest)
+    add_executable(iiSharedCanvasCannyTest tests/CannyTest.cpp)
+    target_link_libraries(iiSharedCanvasCannyTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasCannyTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Canny COMMAND iiSharedCanvasCannyTest)
+    add_executable(iiSharedCanvasScribbleTest tests/ScribbleTest.cpp)
+    target_link_libraries(iiSharedCanvasScribbleTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasScribbleTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Scribble COMMAND iiSharedCanvasScribbleTest)
+    add_executable(iiSharedCanvasLineArtTest tests/LineArtTest.cpp)
+    target_link_libraries(iiSharedCanvasLineArtTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasLineArtTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.LineArt COMMAND iiSharedCanvasLineArtTest)
+    add_executable(iiSharedCanvasNormalMapTest tests/NormalMapTest.cpp)
+    target_link_libraries(iiSharedCanvasNormalMapTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasNormalMapTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.NormalMap COMMAND iiSharedCanvasNormalMapTest)
+    add_executable(iiSharedCanvasShuffleTest tests/ShuffleTest.cpp)
+    target_link_libraries(iiSharedCanvasShuffleTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasShuffleTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Shuffle COMMAND iiSharedCanvasShuffleTest)
+    add_executable(iiSharedCanvasTileTest tests/TileTest.cpp)
+    target_link_libraries(iiSharedCanvasTileTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasTileTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Tile COMMAND iiSharedCanvasTileTest)
+    add_executable(iiSharedCanvasReferenceTest tests/ReferenceTest.cpp)
+    target_link_libraries(iiSharedCanvasReferenceTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasReferenceTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Reference COMMAND iiSharedCanvasReferenceTest)
+    add_executable(iiSharedCanvasControlNetParametersTest tests/ControlNetParametersTest.cpp)
+    target_link_libraries(iiSharedCanvasControlNetParametersTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasControlNetParametersTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.ControlNetParameters COMMAND iiSharedCanvasControlNetParametersTest)
+    add_executable(iiSharedCanvasIpAdapterTest tests/IpAdapterTest.cpp)
+    target_link_libraries(iiSharedCanvasIpAdapterTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasIpAdapterTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.IpAdapter COMMAND iiSharedCanvasIpAdapterTest)
+    add_executable(iiSharedCanvasDepthTest tests/DepthTest.cpp)
+    target_link_libraries(iiSharedCanvasDepthTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasDepthTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Depth COMMAND iiSharedCanvasDepthTest)
+    add_executable(iiSharedCanvasPoseTest tests/PoseTest.cpp)
+    target_link_libraries(iiSharedCanvasPoseTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasPoseTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.Pose COMMAND iiSharedCanvasPoseTest)
+    add_executable(iiSharedCanvasSemanticSegmentTest tests/SemanticSegmentTest.cpp)
+    target_link_libraries(iiSharedCanvasSemanticSegmentTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasSemanticSegmentTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.SemanticSegment COMMAND iiSharedCanvasSemanticSegmentTest)
+    add_executable(iiSharedCanvasLayerKindTest tests/LayerKindTest.cpp)
+    target_link_libraries(iiSharedCanvasLayerKindTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasLayerKindTest PRIVATE
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.LayerKind COMMAND iiSharedCanvasLayerKindTest)
     add_executable(iiSharedCanvasCanvasMediaTest tests/CanvasMediaTest.cpp)
     target_link_libraries(iiSharedCanvasCanvasMediaTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.CanvasMedia COMMAND iiSharedCanvasCanvasMediaTest)
@@ -71,6 +128,33 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/ChunkedBitmapEditor.h
         src/Camera/CameraRaw.cpp
         src/Camera/CameraRaw.h
+        src/ControlNet/ControlNet.h
+        src/ControlNet/Mlsd.h
+        src/ControlNet/Mlsd.cpp
+        src/ControlNet/Canny.h
+        src/ControlNet/Canny.cpp
+        src/ControlNet/Scribble.h
+        src/ControlNet/Scribble.cpp
+        src/ControlNet/LineArt.h
+        src/ControlNet/LineArt.cpp
+        src/ControlNet/NormalMap.h
+        src/ControlNet/NormalMap.cpp
+        src/ControlNet/Shuffle.h
+        src/ControlNet/Shuffle.cpp
+        src/ControlNet/Tile.h
+        src/ControlNet/Tile.cpp
+        src/ControlNet/Reference.h
+        src/ControlNet/Reference.cpp
+        src/ControlNet/ControlNetParameters.h
+        src/ControlNet/ControlNetParameters.cpp
+        src/ControlNet/IpAdapter.h
+        src/ControlNet/IpAdapter.cpp
+        src/ControlNet/Depth.h
+        src/ControlNet/Depth.cpp
+        src/ControlNet/Pose.h
+        src/ControlNet/Pose.cpp
+        src/ControlNet/SemanticSegment.cpp
+        src/ControlNet/SemanticSegment.h
         src/Document/Document.cpp
         src/Document/Document.h
         src/Document/CanvasSampling.cpp
@@ -207,7 +291,7 @@ install(TARGETS iiSharedCanvas
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES src/iiSharedCanvas.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
-install(DIRECTORY src/Audio src/Bitmap src/Camera src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
+install(DIRECTORY src/Audio src/Bitmap src/Camera src/ControlNet src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
         FILES_MATCHING PATTERN "*.h")
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h"
@@ -222,7 +306,7 @@ install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
 install(FILES third_party/fast_float/LICENSE-MIT third_party/fast_float/UPSTREAM.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas/fast_float)
-install(FILES docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
+install(FILES docs/CONTROLNET_PARAMETERS.md docs/IP_ADAPTER.md docs/REFERENCE.md docs/TILE.md docs/SHUFFLE.md docs/NORMAL_MAP.md docs/MLSD.md docs/BINARY_LINE_CONTROL.md docs/LINE_ART.md docs/DEPTH.md docs/POSE.md docs/SEMANTIC_SEGMENT.md docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
         docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md
         docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md

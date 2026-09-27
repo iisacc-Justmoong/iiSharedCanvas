@@ -713,3 +713,160 @@ channel layouts, malformed chunk boundaries and partial sample frames fail.
 `CanvasItem` inverts `sampleLayerAt` at its current frame when mapping document
 brush positions into a selected raster asset. `exportPdf` evaluates the same
 motion transform and video source frame for each requested page.
+
+## Static/dynamic x bitmap/vector (0.12.0)
+
+`LayerKind` classifies bitmap/vector artwork in four ways:
+
+| Kind | Representation | Timeline content |
+| --- | --- | --- |
+| `StaticBitmap` | Bitmap (including chunked raster) | One pixel asset |
+| `StaticVector` | Vector | One path asset |
+| `DynamicBitmap` | Bitmap | Frame-selected pixels, including native video |
+| `DynamicVector` | Vector | Frame-selected path assets |
+| `StaticEmbedding` (0.23.0) | Embedding | One nonspatial tensor asset |
+| `DynamicEmbedding` (0.23.0) | Embedding | Frame-selected tensor assets |
+
+`layerTiming` and `layerRepresentation` expose the independent axes. `layerKind`
+is derived from the existing layer/source data, so editing a source immediately
+updates its kind and old documents acquire the same classification on load.
+`ContentKind` remains the storage asset kind (including Video); it is not the
+timing/representation layer identity. A video's static asset reference points to a changing
+sequence and therefore always reports `DynamicBitmap`.
+
+```cpp
+editor.insertStaticLayer({"background", "Background"},
+                         LayerRepresentation::Bitmap, "background-pixels");
+editor.insertDynamicLayer({"drawing", "Animated drawing"},
+                          LayerRepresentation::Vector,
+                          {{0, "pose-a"}, {1, "pose-b"}, {2, "pose-c"}});
+auto kind = layerKind(*findLayer(document, "drawing")); // DynamicVector
+```
+
+Creation validates asset references, representation, frame bounds, frame-zero
+content, and layer ids atomically, including when bound to `DocumentFile`.
+`setStaticSource` and `setKeyframedSource` convert existing bitmap/vector layers;
+`insertKeyframe` and `setKeyframeAsset` edit dynamic frame content. One content key
+still denotes a dynamic layer. Between keys, the preceding key is held; use one
+key per frame for content that changes every frame. `renderFrame` and `CanvasItem`
+resolve the current frame through the existing shared sampler. A frame change is
+not required to produce different pixels if adjacent content states are identical.
+
+Static refers to content over time, not immutability: editing its asset changes
+the drawing at all frames. Transform/opacity motion and visibility ranges are
+independent of content kind. Live producers can commit new pixel/path assets and
+content keys through the editor; this API does not supply camera/network capture
+or persist callbacks. Native video keeps its existing rational-rate sampler.
+
+Snapshot 1.6 and working-file schema 1 retain the source distinction; no redundant
+kind tag is written. LayerKind tests verify four kinds, actual rendered colors at
+frame boundaries, snapshot and working-file round trips, conversions, rejected
+edits, and installed-package use.
+
+## ControlNet semantic segments (0.13.0)
+
+`SemanticSegmentLayer` owns validated region identities, an explicit semantic
+taxonomy and ControlNet settings. Static and dynamic identity masks share the
+existing timeline. `renderSemanticControlMap` produces exact class colors, labels
+and region geometry while ordinary artwork rendering excludes conditioning layers.
+See [the complete object and persistence contract](SEMANTIC_SEGMENT.md).
+
+## Full-body, hands and dense facial Pose (0.14.0)
+
+`PoseAsset` / `PoseLayer` own 590 anchors per person, including 523 facial anchors,
+with sparse weighted expression targets, static/dynamic sources, exact native
+persistence and explicit OpenPose projection. See [the pose contract](POSE.md).
+
+## Depth ControlNet (0.15.0)
+
+Use `DepthAsset`, `DepthLayer`, `insertDepthAsset`, `replaceDepthAsset`,
+`insertDepthLayer`, `setDepthSample` and `renderDepthControlMap`. See
+[DEPTH.md](DEPTH.md) for the scalar contract, static/dynamic examples and limits.
+
+## Line Art ControlNet (0.16.0)
+
+`LineArtAsset` and `LineArtLayer` provide static/dynamic ink coverage. Use
+`insertLineArtAsset`, `replaceLineArtAsset`, `insertLineArtLayer`,
+`setLineArtSample` and `renderLineArtControlMap`. See [LINE_ART.md](LINE_ART.md).
+
+## Binary line controls (0.17.0)
+
+`CannyAsset`/`CannyLayer` and `ScribbleAsset`/`ScribbleLayer` are independent
+static/dynamic binary line controls. The insert/replace asset, insert layer,
+set sample and render control map APIs follow the existing Line Art workflow.
+`isLineControlNetLayer` groups all three controls. See
+[BINARY_LINE_CONTROL.md](BINARY_LINE_CONTROL.md).
+
+## MLSD (0.18.0)
+
+Use `MlsdSegment`, `MlsdAsset`, `MlsdLayer`, `insertMlsdAsset`, `replaceMlsdAsset`,
+`insertMlsdLayer`, `setMlsdSegment` and `renderMlsdControlMap` for native editable
+straight-line conditioning. `isLineControlNetLayer` includes MLSD. See [MLSD.md](MLSD.md).
+
+## Normal Map (0.19.0)
+
+Use `NormalMapSample`, `NormalMapAsset`, `NormalMapLayer`, `insertNormalMapAsset`,
+`replaceNormalMapAsset`, `insertNormalMapLayer`, `setNormalMapSample`, and
+`renderNormalMapControlMap` for dense surface-normal conditioning. The default
+output is XYZ RGB; `NormalMapRenderOptions` selects XYZ/ZYX, Y inversion and
+maximumPixels. `findNormalMapAsset`/`findNormalMapLayer`, `validateNormalMapAsset`
+and `normalMapRasterPreview` are public. Native samples remain signed XYZ and
+are never silently renormalized. See [NORMAL_MAP.md](NORMAL_MAP.md).
+
+## Shuffle (0.20.0)
+
+`ShuffleAsset { id, viewport, colors }` owns row-major `ShuffleColor { red, green,
+blue }` RGB8 values. `ShuffleLayer` has properties, source and ControlNet settings.
+Use `insertShuffleAsset`, `replaceShuffleAsset`, `insertShuffleLayer` and
+`setShuffleSample` for validated transactions; `setControlNetSettings` and
+`setKeyframedSource` use the shared layer contracts. `renderShuffleControlMap`
+returns opaque pixels plus exact colors. `shuffleRasterPreview`, typed find helpers,
+`validateShuffleAsset`, and `makeShuffleAsset` are public. The latter accepts an
+opaque source image, output extent and explicit normalized `ShuffleCoordinate`
+field. See [SHUFFLE.md](SHUFFLE.md).
+
+## Tile (0.21.0)
+
+`TileAsset { id, viewport, colors }` owns row-major `TileColor { red, green, blue }`.
+`TileLayer` owns properties, a typed static/keyframed source and ControlNet settings.
+`insertTileAsset`, `replaceTileAsset`, `insertTileLayer`, `setTileSample`, typed find
+helpers, `validateTileAsset`, `makeTileAsset` and `tileRasterPreview` are public.
+`renderTileControlMap` exports the complete native image; `renderTileControlRegion`
+exports an explicit in-bounds `TileRegion { x, y, width, height }` without first
+allocating a full-size output. Results contain pixels, colors, source region and
+message/ok status. See [TILE.md](TILE.md).
+
+## Reference (0.22.0)
+
+`ReferenceColor`, `ReferenceAsset`, `ReferenceMode`, `ReferenceSettings` and
+`ReferenceLayer` model RGB references and their application contract.
+`makeReferenceAsset`, typed find helpers, `validateReferenceAsset`,
+`validateReferenceSettings`, `referenceRasterPreview`, `renderReferenceControlMap`,
+`insertReferenceAsset`, `replaceReferenceAsset`, `insertReferenceLayer`,
+`setReferenceSample` and `setReferenceSettings` are public. Output includes exact
+RGB plus both reference-specific and common ControlNet settings. See REFERENCE.md.
+
+## IP-Adapter embeddings (0.23.0)
+
+`IpAdapterEmbeddingStage`, `IpAdapterBranch`, `IpAdapterEmbeddingDescriptor`,
+`IpAdapterTensor`, `IpAdapterAsset`, `IpAdapterLayer`, `IpAdapterExportOptions` and
+`IpAdapterEmbeddingResult` form the image-embedding contract. Public find helpers,
+`validateIpAdapterAsset`, `validateIpAdapterLayerSources`, `exportIpAdapterEmbeddings`
+and editor `insertIpAdapterAsset`, `replaceIpAdapterAsset`, `insertIpAdapterLayer`,
+`setIpAdapterValue` support typed lookup, frame selection and transactional edits.
+`setControlNetSettings` applies adapter identity, scale and schedule. See IP_ADAPTER.md.
+
+`LayerRepresentation::Embedding` adds `StaticEmbedding`/`DynamicEmbedding` to the
+existing four artwork kinds, preserving their numeric values. Generic artwork
+factories reject Embedding: use the dedicated layer constructor with model binding.
+`FrameLayerTileRenderResult::spatial` is false and tiles empty for embeddings; batch
+rendering/composition succeeds while omitting nonspatial conditioning from artwork.
+
+## Detailed ControlNet parameters (0.24.0)
+
+All 12 conditioning types expose typed layer/object snapshots through
+`getControlNetParameters` and `DocumentEditor::controlNetParameters`.
+`setControlNetParameters` applies one layer and all unique source states atomically;
+`patchControlNetSettings` edits selected common fields without replacing the others.
+Detailed fields, output options, ownership and rollback rules are documented in
+[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). Native model remains 1.17.

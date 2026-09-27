@@ -258,6 +258,7 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
             if (frame != options.firstFrame && !writer.newPage()) { return error(MediaIoCode::IoError, "cannot append PDF page"); }
             bool rasterizeFrame = false;
             for (const auto &layer : document.layers) {
+                if (layerRole(layer) == LayerRole::ControlNet) { continue; }
                 const auto &properties = layerProperties(layer);
                 if (sampleLayerAt(document, layer, FrameIndex(frame)).visible
                     && properties.blendMode != RasterBlendMode::SourceOver) { rasterizeFrame = true; }
@@ -274,6 +275,7 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
             }
             for (std::size_t index = 0; index < document.layers.size(); ++index) {
                 const auto &layer = document.layers[index];
+                if (layerRole(layer) == LayerRole::ControlNet) { continue; }
                 const auto properties = sampleLayerAt(document, layer, FrameIndex(frame));
                 if (!properties.visible || properties.opacity <= 0) { continue; }
                 const auto &t = properties.transform;

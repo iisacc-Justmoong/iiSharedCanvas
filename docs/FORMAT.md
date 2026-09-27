@@ -13,7 +13,7 @@ snapshots. Import explicitly into a new working file before editing it.
 
 - Extension: `.iisc`
 - Media type: `application/vnd.iisacc.ii-shared-canvas`
-- Current model version: major 1, minor 6
+- Current model version: major 1, minor 17
 - Integer byte order: little-endian
 - Floating-point representation: IEEE 754 binary64, stored as little-endian bits
 - Raster channel representation: 32-bit ARGB as defined by iiPaintEngine
@@ -548,7 +548,7 @@ from 0.2.x.
 File-bound editing adds the separate working-file owner in package 0.4.0 with
 SOVERSION 0.4; rebuild consumers against that package. It does not change these
 canonical snapshot bytes.
-Package ABI versioning is separate from this file format: `.iisc` is now 1.6,
+Package ABI versioning is separate from this file format: `.iisc` is now 1.17,
 while canonical 1.0, 1.1, 1.2, and 1.3 fixtures continue to re-encode
 byte-identically.
 
@@ -615,3 +615,157 @@ an optional `u32 sourceOutFrame` (exclusive), and `u8 endBehavior` (0 Transparen
 their previous order. Unknown tags and invalid references fail closed. Models
 1.0–1.5 may not contain video or motion fields and their encodings are unchanged.
 See [CANVAS_MEDIA.md](CANVAS_MEDIA.md) for sampling semantics.
+
+## Public layer classification (package 0.12.0)
+
+The four bitmap/vector `LayerKind` values are derived, not new wire tags. Bitmap/vector layers
+with a static source are StaticBitmap/StaticVector; keyframed sources are
+DynamicBitmap/DynamicVector even with one key. Video layers are DynamicBitmap
+because their owned pixel frames change with timeline time. Motion keys do not
+change content classification. Existing snapshot and SQLite fields fully preserve
+these semantics without changing their format versions.
+
+## ControlNet semantic layer extension (1.7)
+
+After the optional frame range and before motion keys, every layer adds one u8
+role tag: 0 is ordinary artwork, 1 is a semantic ControlNet layer. Unknown tags
+fail closed. Tag 1 is legal only for dense raster content and is followed by:
+
+1. Boolean enabled; model id/revision strings; f64 scale, guidance start/end.
+2. Taxonomy id/version/source URI strings; u32 void mask/control colors.
+3. u32 class count. Each class: u32 id; key/name/description/category/external-id
+   strings; optional-u32 parent; u32 control color; u32 alias count and strings.
+4. u32 region count. Each region: u32 id/class-id/mask-color;
+   name/description/generator/source-reference strings; optional-u32 instance id;
+   optional-f64 confidence; u8 origin (0 manual, 1 imported, 2 model);
+   u32 attribute count and key/value string pairs.
+
+Existing motion keys and video playback fields follow unchanged. All integer
+and optional/string encodings reuse the existing little-endian primitives.
+Collection totals and string bytes share encoder/decoder resource limits.
+The same extension is in working-file Layer records, so semantic-only updates
+retain unchanged raster records. The model is documented in SEMANTIC_SEGMENT.md.
+
+## Native Pose extension (1.8)
+
+Asset tag 4: id string, i32 viewport width/height, u32 person count. Per person:
+id/name/track-id strings, enabled boolean, exactly 590 anchors in PoseGroup V1
+order, then u32 expression count. Each anchor is f64 x/y, optional-f64 z, f64
+confidence, u8 visibility (0 missing, 1 visible, 2 occluded), boolean locked.
+Each expression is id/name strings, f64 weight, u32 delta count; each delta is
+u8 group, u32 anchor index, f64 dx/dy/dz. All existing endian/optional rules apply.
+V1 has 32 named groups; sizes and anatomical order are in POSE.md and Pose.h.
+
+Keyframed source content kind 2 denotes Pose; static kind is inferred from its
+asset. Layer role tag 2 is legal only for Pose content and version >=1.8. It stores
+enabled boolean, model id/revision strings and f64 scale/start/end before existing
+motion keys. Unknown tags/visibility/groups fail closed. Working asset/layer
+records use this same grammar, with no SQLite schema change.
+
+## Depth extension (1.9)
+
+Asset tag 5 stores id, i32 width/height, u64 count and count little-endian f64
+normalized proximity samples. Count equals width * height; finite values in
+[0,1] only. Zero means empty; one means camera contact. Keyframed content tag 3
+requires DepthAsset, layer role tag 3 requires Depth content and stores the
+same ControlNet fields as Pose before motion. Tags are illegal before 1.9.
+The global maximumDepthSamples budget and remaining byte count are enforced
+before allocation. See [DEPTH.md](DEPTH.md).
+
+## Line Art extension (1.10)
+
+Asset tag 6 stores id, i32 width/height, u64 count and row-major little-endian
+f64 ink coverage in [0,1]. Zero is white background; one is black ink. Count
+must equal width * height. Keyframed content tag 4 and layer role tag 4 require
+LineArt content. The role stores the shared ControlNet fields before motion.
+These tags are illegal before 1.10. Global maximumLineArtSamples and remaining
+bytes are checked before allocation; document validation rejects nonfinite or
+out-of-range samples. See [LINE_ART.md](LINE_ART.md).
+
+## Canny/Scribble extension (1.11)
+
+Asset tags 7/8 are Canny/Scribble. Each stores id, i32 width/height, u64 count
+and count u8 binary samples (0 or 1), not ARGB or f64. Count must equal
+width * height. Keyframed content and layer-role tags 5/6 require matching
+Canny/Scribble asset types. Roles store the common ControlNet fields before
+motion. These tags require 1.11. Per-kind global maximumCannySamples and
+maximumScribbleSamples budgets, address space and available bytes are checked
+before allocation. Nonbinary values fail document validation. See
+[BINARY_LINE_CONTROL.md](BINARY_LINE_CONTROL.md).
+
+## MLSD extension (1.12)
+
+Asset tag 9 stores id, i32 width/height, u32 segment count, then each segment:
+length-prefixed id, f64 x1/y1/x2/y2/confidence, u8 enabled. Endpoints are normalized
+[0,1] with distinct positions and confidence in [0,1]. IDs are unique/nonempty.
+Keyframed content and layer-role tag 7 require MLSD assets and store common
+ControlNet settings before motion. Tags require 1.12. maximumMlsdSegments caps
+all assets together; one asset allows at most 100000 segments. Remaining bytes
+are checked before allocation (45 minimum bytes per segment). See [MLSD.md](MLSD.md).
+
+## Normal-map extension (1.13)
+
+Asset tag 10 stores id, i32 width/height, u64 sample count, then row-major
+samples of f64 x, f64 y, f64 z, u8 valid (strictly 0 or 1): 25 bytes per sample.
+Count must equal positive width * height. Valid finite components lie in [-1,1]
+and vector length differs from one by at most 1e-6. Invalid/missing samples
+must have all-zero components. No normalization occurs on encode or decode.
+Keyframed content and layer-role tag 8 identify NormalMap. The role stores
+common ControlNet settings before motion. All new tags require model 1.13.
+`maximumNormalMapSamples` (default 16 Mi samples) caps the total across all
+assets before allocations, alongside total input byte and pixel dimension limits.
+Decoder checks remaining bytes and addressable vector capacity before reserve.
+Output channel order and Y flip are call-site options, not persisted native data.
+See [NORMAL_MAP.md](NORMAL_MAP.md).
+
+## Shuffle extension (1.14)
+
+Asset tag 11 stores id, i32 width/height, u64 count, then row-major u8 red, u8
+green, u8 blue (3 bytes per pixel). Positive dimensions must multiply to count.
+Keyframed content and role tag 9 require Shuffle assets and model version 1.14;
+common ControlNet settings precede motion. `maximumShuffleSamples` (16 Mi default)
+caps the total across assets. Decode verifies count, remaining bytes and addressable
+capacity before reserve. The canonical data is the prepared RGB image; source
+images, remapping fields and random generator state are not persisted. See SHUFFLE.md.
+
+## Tile extension (1.15)
+
+Asset tag 12 stores id, i32 width/height, u64 color count, then row-major u8 red,
+u8 green, u8 blue (3 bytes per pixel). Dimensions must be positive and their
+product must match count. Keyframed content and role tag 10 require Tile assets
+and model 1.15. The role stores common ControlNet settings before motion.
+`maximumTileSamples` (16 Mi by default) bounds all Tile colors across assets;
+remaining bytes and vector capacity are checked before allocation. No splitting
+plan, overlap, upscaling factor or inference state is serialized. Cropped outputs
+are owned copies derived from the spatial reference, not additional persisted assets.
+See [TILE.md](TILE.md).
+
+## Reference extension (1.16)
+
+Asset tag 13 stores id, i32 width/height, u64 count, then row-major RGB8 triples.
+Positive dimensions must multiply to count. Keyframed content and role tag 11
+require Reference assets and version 1.16. After common ControlNet settings,
+the role stores u8 mode (0 Attention, 1 AdaIN, 2 AttentionAdaIN) and f64 styleFidelity
+(finite [0,1]), before motion. Unknown modes fail closed. `maximumReferenceSamples`
+(default 16 Mi) limits total colors across all reference assets. Count, remaining
+bytes and vector capacity are checked before allocation. SQLite schema stays 1;
+no embeddings or model tensors are persisted. See [REFERENCE.md](REFERENCE.md).
+
+## IP-Adapter extension (1.17)
+
+Asset tag 14 stores id, u8 embedding stage (0 pooled encoder, 1 encoder hidden
+states, 2 projected image-prompt tokens), then six strings in order: encoderId,
+encoderRevision, adapterId, adapterRevision, baseModelId, preprocessingId. All are
+required. A tensor stores u32 tokenCount, u32 channelCount, u64 scalar count, then
+little-endian IEEE binary32 values. Counts must equal tokenCount*channelCount and
+both dimensions are positive; all values finite. Conditional tensor is followed
+by strict u8 unconditional-presence flag and its tensor when present. The branches
+share shape; pooled encoder embeddings have one token. Batch is implicitly one.
+
+Content tag 12 and role tag 12 identify IP-Adapter layers. After the role, ordinary
+ControlNet settings are stored, followed by motion. Adapter id/revision must match
+all referenced assets, and a dynamic layer's descriptor and shape remain fixed.
+`maximumIpAdapterValues` (default 16 Mi scalars) sums all assets and both branches;
+string limits cover all provenance fields. Counts, payload availability and address
+space are checked before allocation. Embeddings require 1.17; unknown tags/stages
+and older mislabeled files fail closed. SQLite schema remains 1.

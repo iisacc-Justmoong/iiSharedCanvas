@@ -7,6 +7,7 @@
 #include <optional>
 #include <type_traits>
 #include <utility>
+#include <unordered_set>
 
 namespace iiSharedCanvas {
 namespace {
@@ -557,6 +558,555 @@ DocumentEditResult DocumentEditor::insertRasterAsset(std::string id,
     return applied();
 }
 
+DocumentEditResult DocumentEditor::insertMlsdAsset(MlsdAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertMlsdAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceMlsdAsset(const std::string &id, MlsdAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceMlsdAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findMlsdAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "mlsd asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the mlsd asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->segments == asset.segments) { return unchanged(); }
+    MlsdAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertCannyAsset(CannyAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertCannyAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceCannyAsset(const std::string &id, CannyAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceCannyAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findCannyAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "canny asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the canny asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->mask == asset.mask) { return unchanged(); }
+    CannyAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertScribbleAsset(ScribbleAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertScribbleAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceScribbleAsset(const std::string &id, ScribbleAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceScribbleAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findScribbleAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "scribble asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the scribble asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->mask == asset.mask) { return unchanged(); }
+    ScribbleAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertLineArtAsset(LineArtAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertLineArtAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceLineArtAsset(const std::string &id, LineArtAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceLineArtAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findLineArtAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "lineArt asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the lineArt asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->coverage == asset.coverage) { return unchanged(); }
+    LineArtAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertNormalMapAsset(NormalMapAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertNormalMapAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceNormalMapAsset(const std::string &id, NormalMapAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceNormalMapAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findNormalMapAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "normalMap asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the normalMap asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->samples == asset.samples) { return unchanged(); }
+    NormalMapAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertShuffleAsset(ShuffleAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertShuffleAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceShuffleAsset(const std::string &id, ShuffleAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceShuffleAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findShuffleAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "shuffle asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the shuffle asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->colors == asset.colors) { return unchanged(); }
+    ShuffleAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertTileAsset(TileAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertTileAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceTileAsset(const std::string &id, TileAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceTileAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findTileAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "tile asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the tile asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->colors == asset.colors) { return unchanged(); }
+    TileAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertReferenceAsset(ReferenceAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertReferenceAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceReferenceAsset(const std::string &id, ReferenceAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceReferenceAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findReferenceAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "reference asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the reference asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->colors == asset.colors) { return unchanged(); }
+    ReferenceAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertIpAdapterAsset(IpAdapterAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertIpAdapterAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceIpAdapterAsset(const std::string &id, IpAdapterAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceIpAdapterAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findIpAdapterAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "ipAdapter asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the ipAdapter asset id");
+    }
+    if (*target == asset) { return unchanged(); }
+    IpAdapterAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertDepthAsset(DepthAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertDepthAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceDepthAsset(const std::string &id, DepthAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replaceDepthAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findDepthAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "depth asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the depth asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->values == asset.values) { return unchanged(); }
+    DepthAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertPoseAsset(PoseAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertPoseAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::replacePoseAsset(const std::string &id, PoseAsset asset)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.replacePoseAsset(id, std::move(asset)); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    auto *target = findPoseAsset(*m_document, id);
+    if (!target) {
+        return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                      "assets", "pose asset was not found");
+    }
+    if (asset.id != id) {
+        return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the pose asset id");
+    }
+    if (target->viewport.width == asset.viewport.width && target->viewport.height == asset.viewport.height
+        && target->people == asset.people) { return unchanged(); }
+    PoseAsset prior = std::move(*target);
+    *target = std::move(asset);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
 DocumentEditResult DocumentEditor::insertVideoAsset(VideoAsset asset, std::size_t index)
 {
     if (m_file) {
@@ -1095,6 +1645,473 @@ DocumentEditResult DocumentEditor::removeAudioClip(const std::string &id, const 
     return replaceAudioTrack(id, std::move(replacement));
 }
 
+DocumentEditResult DocumentEditor::insertMlsdLayer(MlsdLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static mlsd layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertCannyLayer(CannyLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static canny layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertScribbleLayer(ScribbleLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static scribble layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertLineArtLayer(LineArtLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static lineArt layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertNormalMapLayer(NormalMapLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static normalMap layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertShuffleLayer(ShuffleLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static shuffle layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertTileLayer(TileLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static tile layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertReferenceLayer(ReferenceLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static reference layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertIpAdapterLayer(IpAdapterLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static ipAdapter layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertDepthLayer(DepthLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static depth layers cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::insertPoseLayer(PoseLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) { return insertKeyframedLayer(std::move(layer), std::move(keyframes), index); }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument,"layer.source","static poses cannot own keyframes"); }
+    return insertLayer(std::move(layer),index);
+}
+
+DocumentEditResult DocumentEditor::setMlsdSegment(const std::string &id, const std::string &segmentId, MlsdSegment segment)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setMlsdSegment(id,segmentId,std::move(segment)); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findMlsdAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","MLSD asset was not found"); }
+    if (segment.id!=segmentId) { return reject(DocumentEditCode::InvalidArgument,"segment.id","replacement must preserve the segment id"); }
+    auto replacement=*asset;
+    for (auto &target:replacement.segments) {
+        if (target.id==segmentId) { target=std::move(segment); return replaceMlsdAsset(id,std::move(replacement)); }
+    }
+    return reject(DocumentEditCode::InvalidArgument,"segment.id","MLSD segment was not found");
+}
+
+DocumentEditResult DocumentEditor::setCannySample(const std::string &id, std::int32_t x, std::int32_t y, std::uint8_t value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setCannySample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findCannyAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","canny asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"canny.sample","sample is outside the canny viewport");
+    }
+    auto replacement=*asset;
+    replacement.mask[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceCannyAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setScribbleSample(const std::string &id, std::int32_t x, std::int32_t y, std::uint8_t value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setScribbleSample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findScribbleAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","scribble asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"scribble.sample","sample is outside the scribble viewport");
+    }
+    auto replacement=*asset;
+    replacement.mask[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceScribbleAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setLineArtSample(const std::string &id, std::int32_t x, std::int32_t y, double value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setLineArtSample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findLineArtAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","lineArt asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"lineArt.sample","sample is outside the lineArt viewport");
+    }
+    auto replacement=*asset;
+    replacement.coverage[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceLineArtAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setNormalMapSample(const std::string &id, std::int32_t x, std::int32_t y, NormalMapSample value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setNormalMapSample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findNormalMapAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","normalMap asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"normalMap.sample","sample is outside the normalMap viewport");
+    }
+    auto replacement=*asset;
+    replacement.samples[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceNormalMapAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setShuffleSample(const std::string &id, std::int32_t x, std::int32_t y, ShuffleColor value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setShuffleSample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findShuffleAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","shuffle asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"shuffle.sample","sample is outside the shuffle viewport");
+    }
+    auto replacement=*asset;
+    replacement.colors[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceShuffleAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setTileSample(const std::string &id, std::int32_t x, std::int32_t y, TileColor value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setTileSample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findTileAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","tile asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"tile.sample","sample is outside the tile viewport");
+    }
+    auto replacement=*asset;
+    replacement.colors[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceTileAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setReferenceSettings(const std::string &id, ReferenceSettings settings)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setReferenceSettings(id,settings); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *layer=findReferenceLayer(*m_document,id);
+    if (!layer) { return reject(DocumentEditCode::LayerNotFound,"layer","reference layer was not found"); }
+    if (layer->reference==settings) { return unchanged(); }
+    auto replacement=*layer; replacement.reference=settings;
+    return replaceLayer(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setReferenceSample(const std::string &id, std::int32_t x, std::int32_t y, ReferenceColor value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setReferenceSample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findReferenceAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","reference asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"reference.sample","sample is outside the reference viewport");
+    }
+    auto replacement=*asset;
+    replacement.colors[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceReferenceAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setIpAdapterValue(const std::string &id, IpAdapterBranch branch,
+    std::uint32_t token, std::uint32_t channel, float value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setIpAdapterValue(id,branch,token,channel,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findIpAdapterAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","IP-Adapter asset was not found"); }
+    if (branch!=IpAdapterBranch::Conditional && branch!=IpAdapterBranch::Unconditional)
+        return reject(DocumentEditCode::InvalidArgument,"branch","unknown IP-Adapter branch");
+    if (branch==IpAdapterBranch::Unconditional && !asset->unconditional)
+        return reject(DocumentEditCode::InvalidArgument,"branch","unconditional embedding is absent");
+    const auto &tensor=branch==IpAdapterBranch::Conditional ? asset->conditional : *asset->unconditional;
+    if (token>=tensor.tokenCount || channel>=tensor.channelCount)
+        return reject(DocumentEditCode::IndexOutOfRange,"tensor","embedding coordinate is out of range");
+    auto replacement=*asset;
+    auto &target=branch==IpAdapterBranch::Conditional ? replacement.conditional : *replacement.unconditional;
+    target.values[std::size_t(token)*target.channelCount+channel]=value;
+    return replaceIpAdapterAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setDepthSample(const std::string &id, std::int32_t x, std::int32_t y, double value)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setDepthSample(id,x,y,value); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset=findDepthAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"assets","depth asset was not found"); }
+    if (x<0 || y<0 || x>=asset->viewport.width || y>=asset->viewport.height) {
+        return reject(DocumentEditCode::IndexOutOfRange,"depth.sample","sample is outside the depth viewport");
+    }
+    auto replacement=*asset;
+    replacement.values[std::size_t(y)*asset->viewport.width+x]=value;
+    return replaceDepthAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setPoseAnchor(const std::string &id, const std::string &personId,
+    PoseGroup group, std::uint32_t index, PoseAnchor anchor)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setPoseAnchor(id,personId,group,index,anchor); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset = findPoseAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"asset","pose asset was not found"); }
+    auto replacement = *asset;
+    auto person = std::find_if(replacement.people.begin(),replacement.people.end(),[&](const auto &p) { return p.id == personId; });
+    if (person == replacement.people.end()) { return reject(DocumentEditCode::InvalidArgument,"person","pose person was not found"); }
+    auto anchors = poseAnchors(*person,group);
+    if (index >= anchors.size()) { return reject(DocumentEditCode::IndexOutOfRange,"anchor","pose anchor index is invalid"); }
+    const auto &prior = anchors[index];
+    if (prior.locked && (prior.x != anchor.x || prior.y != anchor.y || prior.z != anchor.z)) {
+        return reject(DocumentEditCode::InvalidArgument,"anchor.locked","unlock the anchor before moving it");
+    }
+    anchors[index] = anchor; return replacePoseAsset(id,std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::setPoseExpressionWeight(const std::string &id, const std::string &personId,
+    const std::string &expressionId, double weight)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setPoseExpressionWeight(id,personId,expressionId,weight); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *asset = findPoseAsset(*m_document,id);
+    if (!asset) { return reject(DocumentEditCode::AssetNotFound,"asset","pose asset was not found"); }
+    auto replacement = *asset;
+    for (auto &person : replacement.people) if (person.id == personId) {
+        for (auto &expression : person.expressions) if (expression.id == expressionId) {
+            expression.weight = weight; return replacePoseAsset(id,std::move(replacement));
+        }
+    }
+    return reject(DocumentEditCode::InvalidArgument,"expression","pose expression was not found");
+}
+
+DocumentEditResult DocumentEditor::insertSemanticSegmentLayer(
+    SemanticSegmentLayer layer, std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    if (std::holds_alternative<KeyframedSource>(layer.source)) {
+        return insertKeyframedLayer(std::move(layer), std::move(keyframes), index);
+    }
+    if (!keyframes.empty()) { return reject(DocumentEditCode::InvalidArgument, "layer.source", "static semantic layers cannot own frame placements"); }
+    return insertLayer(std::move(layer), index);
+}
+
+DocumentEditResult DocumentEditor::setSemanticSegmentation(const std::string &id, SemanticSegmentation segmentation)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setSemanticSegmentation(id, std::move(segmentation)); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    const auto *layer = findSemanticSegmentLayer(*m_document, id);
+    if (!layer) { return reject(DocumentEditCode::LayerNotFound, "layer", "semantic layer was not found"); }
+    if (layer->segmentation == segmentation) { return unchanged(); }
+    auto replacement = *layer; replacement.segmentation = std::move(segmentation);
+    return replaceLayer(id, std::move(replacement));
+}
+
+ControlNetParametersResult DocumentEditor::controlNetParameters(const std::string &id) const
+{
+    if (!isBound()) return {{},"no valid document is bound to the editor"};
+    return getControlNetParameters(*m_document,id);
+}
+
+DocumentEditResult DocumentEditor::patchControlNetSettings(const std::string &id, ControlNetSettingsPatch patch)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.patchControlNetSettings(id,std::move(patch)); });
+    if (!requireValidDocument()) return m_lastResult;
+    const auto *layer=findLayer(*m_document,id);
+    const auto *current=layer ? iiSharedCanvas::controlNetSettings(*layer) : nullptr;
+    if (!current) return reject(DocumentEditCode::LayerNotFound,"layer","ControlNet layer was not found");
+    auto settings=*current;
+    if (patch.enabled) settings.enabled=*patch.enabled;
+    if (patch.modelId) settings.modelId=std::move(*patch.modelId);
+    if (patch.modelRevision) settings.modelRevision=std::move(*patch.modelRevision);
+    if (patch.conditioningScale) settings.conditioningScale=*patch.conditioningScale;
+    if (patch.guidanceStart) settings.guidanceStart=*patch.guidanceStart;
+    if (patch.guidanceEnd) settings.guidanceEnd=*patch.guidanceEnd;
+    return setControlNetSettings(id,std::move(settings));
+}
+
+DocumentEditResult DocumentEditor::setControlNetParameters(const std::string &id, ControlNetParameters parameters)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.setControlNetParameters(id,std::move(parameters)); });
+    if (!requireValidDocument()) return m_lastResult;
+    auto *layer=findLayer(*m_document,id);
+    if (!layer || !iiSharedCanvas::controlNetSettings(*layer))
+        return reject(DocumentEditCode::LayerNotFound,"layer","ControlNet layer was not found");
+    if (parameters.layer.index()!=layer->index() || layerProperties(parameters.layer).id!=id)
+        return reject(DocumentEditCode::InvalidArgument,"layer","parameter edits must preserve layer type and id");
+    const auto &source=layerSource(*layer); const auto &replacement=layerSource(parameters.layer);
+    bool sameSource=source.index()==replacement.index();
+    if (sameSource) {
+        if (const auto *s=std::get_if<StaticSource>(&source))
+            sameSource=s->assetId==std::get<StaticSource>(replacement).assetId;
+        else sameSource=std::get<KeyframedSource>(source).frameIndices==std::get<KeyframedSource>(replacement).frameIndices;
+    }
+    if (!sameSource) return reject(DocumentEditCode::InvalidArgument,"layer.source","parameter edits must preserve source references");
+    std::unordered_set<std::string> required;
+    if (const auto *s=std::get_if<StaticSource>(&source)) required.insert(s->assetId);
+    else for (auto frame:std::get<KeyframedSource>(source).frameIndices) required.insert(findKeyframe(*m_document,id,frame)->assetId);
+    if (parameters.assets.size()!=required.size())
+        return reject(DocumentEditCode::InvalidArgument,"assets","provide every unique source asset exactly once");
+    std::vector<Asset *> targets; targets.reserve(parameters.assets.size());
+    for (const auto &asset:parameters.assets) {
+        if (!required.erase(assetId(asset)))
+            return reject(DocumentEditCode::InvalidArgument,"assets","unknown or duplicate source asset id");
+        auto *target=findAsset(*m_document,assetId(asset));
+        if (target->index()!=asset.index())
+            return reject(DocumentEditCode::AssetKindMismatch,"assets","parameter edits must preserve asset type");
+        targets.push_back(target);
+    }
+    // All allocations for rollback storage precede mutation. No document containers
+    // are resized, so layer/asset addresses stay stable until validation completes.
+    std::vector<Asset> priorAssets; priorAssets.reserve(targets.size());
+    Layer priorLayer=std::move(*layer);
+    *layer=std::move(parameters.layer);
+    for (std::size_t i=0;i<targets.size();++i) {
+        priorAssets.push_back(std::move(*targets[i]));
+        *targets[i]=std::move(parameters.assets[i]);
+    }
+    const auto restore=[&] {
+        *layer=std::move(priorLayer);
+        for (std::size_t i=0;i<targets.size();++i) *targets[i]=std::move(priorAssets[i]);
+    };
+    std::optional<ValidationIssue> issue;
+    try { issue=firstValidationIssue(*m_document); }
+    catch (...) { restore(); throw; }
+    if (issue) {
+        restore();
+        return reject(codeForValidationIssue(*issue),issue->path,issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::setControlNetSettings(const std::string &id, ControlNetSettings settings)
+{
+    if (m_file) { return editFile([&](DocumentEditor &editor) { return editor.setControlNetSettings(id, std::move(settings)); }); }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (const auto *mlsd = findMlsdLayer(*m_document,id)) {
+        if (mlsd->control == settings) { return unchanged(); }
+        auto replacement = *mlsd; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *canny = findCannyLayer(*m_document,id)) {
+        if (canny->control == settings) { return unchanged(); }
+        auto replacement = *canny; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *scribble = findScribbleLayer(*m_document,id)) {
+        if (scribble->control == settings) { return unchanged(); }
+        auto replacement = *scribble; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *lineArt = findLineArtLayer(*m_document,id)) {
+        if (lineArt->control == settings) { return unchanged(); }
+        auto replacement = *lineArt; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *normalMap = findNormalMapLayer(*m_document,id)) {
+        if (normalMap->control == settings) { return unchanged(); }
+        auto replacement = *normalMap; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *shuffle = findShuffleLayer(*m_document,id)) {
+        if (shuffle->control == settings) { return unchanged(); }
+        auto replacement = *shuffle; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *tile = findTileLayer(*m_document,id)) {
+        if (tile->control == settings) { return unchanged(); }
+        auto replacement = *tile; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *reference = findReferenceLayer(*m_document,id)) {
+        if (reference->control == settings) { return unchanged(); }
+        auto replacement = *reference; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *ipAdapter = findIpAdapterLayer(*m_document,id)) {
+        if (ipAdapter->control == settings) { return unchanged(); }
+        auto replacement = *ipAdapter; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *depth = findDepthLayer(*m_document,id)) {
+        if (depth->control == settings) { return unchanged(); }
+        auto replacement = *depth; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    if (const auto *pose = findPoseLayer(*m_document,id)) {
+        if (pose->control == settings) { return unchanged(); }
+        auto replacement = *pose; replacement.control = std::move(settings);
+        return replaceLayer(id,std::move(replacement));
+    }
+    const auto *layer = findSemanticSegmentLayer(*m_document, id);
+    if (!layer) { return reject(DocumentEditCode::LayerNotFound, "layer", "ControlNet layer was not found"); }
+    if (layer->control == settings) { return unchanged(); }
+    auto replacement = *layer; replacement.control = std::move(settings);
+    return replaceLayer(id, std::move(replacement));
+}
+
+DocumentEditResult DocumentEditor::insertStaticLayer(
+    LayerProperties properties, LayerRepresentation representation,
+    std::string assetIdValue, std::size_t index)
+{
+    switch (representation) {
+    case LayerRepresentation::Embedding:
+        return reject(DocumentEditCode::InvalidArgument,"representation","use insertIpAdapterLayer with an explicit adapter contract");
+    case LayerRepresentation::Bitmap:
+        return insertLayer(BitmapLayer{std::move(properties), StaticSource{std::move(assetIdValue)}}, index);
+    case LayerRepresentation::Vector:
+        return insertLayer(VectorLayer{std::move(properties), StaticSource{std::move(assetIdValue)}}, index);
+    }
+    return reject(DocumentEditCode::InvalidArgument, "layer.representation",
+                  "unknown layer representation");
+}
+
+DocumentEditResult DocumentEditor::insertDynamicLayer(
+    LayerProperties properties, LayerRepresentation representation,
+    std::vector<KeyframePlacement> keyframes, std::size_t index)
+{
+    switch (representation) {
+    case LayerRepresentation::Embedding:
+        return reject(DocumentEditCode::InvalidArgument,"representation","use insertIpAdapterLayer with an explicit adapter contract");
+    case LayerRepresentation::Bitmap:
+        return insertKeyframedLayer(BitmapLayer{std::move(properties), KeyframedSource{}},
+                                   std::move(keyframes), index);
+    case LayerRepresentation::Vector:
+        return insertKeyframedLayer(VectorLayer{std::move(properties), KeyframedSource{}},
+                                   std::move(keyframes), index);
+    }
+    return reject(DocumentEditCode::InvalidArgument, "layer.representation",
+                  "unknown layer representation");
+}
+
 DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)
 {
     if (m_file) {
@@ -1122,7 +2139,7 @@ DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)
 
     const FormatVersion priorVersion = m_document->formatVersion;
     if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
-        || std::holds_alternative<VideoLayer>(layer)) {
+        || std::holds_alternative<VideoLayer>(layer) || std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
     m_document->layers.insert(
@@ -1176,7 +2193,7 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
               });
     const FormatVersion priorVersion = m_document->formatVersion;
     if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
-        || std::holds_alternative<VideoLayer>(layer)) {
+        || std::holds_alternative<VideoLayer>(layer) || std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
     std::get<KeyframedSource>(layerSource(layer)).frameIndices.clear();
@@ -1227,7 +2244,7 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
 
     const FormatVersion priorVersion = m_document->formatVersion;
     if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
-        || std::holds_alternative<VideoLayer>(layer)) {
+        || std::holds_alternative<VideoLayer>(layer) || std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
     const std::string priorId = layerProperties(m_document->layers[*position]).id;

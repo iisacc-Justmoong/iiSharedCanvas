@@ -60,6 +60,8 @@ struct FrameLayerTileRenderResult {
     std::vector<FrameRenderTile> tiles;
     FrameRenderStatus status = FrameRenderStatus::Success;
     std::string message;
+    LayerRole role = LayerRole::Artwork;
+    bool spatial = true; // False for embedding data: no raster preview tiles exist.
 
     [[nodiscard]] bool ok() const noexcept
     {

@@ -606,6 +606,28 @@ FrameRenderResult renderLayerRegion(const Document &document,
         appendRasterLayer(*videoFrame, properties.transform);
     } else if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
         appendRasterLayer(raster->pixels, properties.transform);
+    } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
+        appendOutputPiece(rasterizeVector(mlsdVectorPreview(*mlsd), outputTransform(properties.transform),
+            outputExtent.width, outputExtent.height));
+    } else if (const auto *canny = std::get_if<CannyAsset>(&asset)) {
+        appendRasterLayer(cannyRasterPreview(*canny, canny->mask.size()), properties.transform);
+    } else if (const auto *scribble = std::get_if<ScribbleAsset>(&asset)) {
+        appendRasterLayer(scribbleRasterPreview(*scribble, scribble->mask.size()), properties.transform);
+    } else if (const auto *lineArt = std::get_if<LineArtAsset>(&asset)) {
+        appendRasterLayer(lineArtRasterPreview(*lineArt, lineArt->coverage.size()), properties.transform);
+    } else if (const auto *normalMap = std::get_if<NormalMapAsset>(&asset)) {
+        appendRasterLayer(normalMapRasterPreview(*normalMap, {NormalMapChannelOrder::Xyz, false, normalMap->samples.size()}), properties.transform);
+    } else if (const auto *shuffle = std::get_if<ShuffleAsset>(&asset)) {
+        appendRasterLayer(shuffleRasterPreview(*shuffle, shuffle->colors.size()), properties.transform);
+    } else if (const auto *tile = std::get_if<TileAsset>(&asset)) {
+        appendRasterLayer(tileRasterPreview(*tile, tile->colors.size()), properties.transform);
+    } else if (const auto *reference = std::get_if<ReferenceAsset>(&asset)) {
+        appendRasterLayer(referenceRasterPreview(*reference, reference->colors.size()), properties.transform);
+    } else if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
+        appendRasterLayer(depthRasterPreview(*depth, depth->values.size()), properties.transform);
+    } else if (const auto *pose = std::get_if<PoseAsset>(&asset)) {
+        appendOutputPiece(rasterizeVector(poseVectorPreview(*pose), outputTransform(properties.transform),
+            outputExtent.width, outputExtent.height));
     } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
         appendOutputPiece(rasterizeVector(*vector,
                                           outputTransform(properties.transform),
@@ -646,9 +668,14 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
     FrameLayerTileRenderResult result;
     result.layerIndex = layerIndex;
     result.layerId = properties.id;
+    result.role = layerRole(documentLayer);
     result.visible = sampled.visible;
     result.opacity = sampled.opacity;
     result.blendMode = properties.blendMode;
+    if (std::holds_alternative<IpAdapterLayer>(documentLayer)) {
+        result.spatial = false;
+        return result;
+    }
     if (!result.visible) {
         return result;
     }
@@ -852,7 +879,10 @@ FrameTileRenderResult composeFrameLayers(
             return {{}, FrameRenderStatus::InvalidDocument,
                     "layer render results must remain in bottom-to-top document order"};
         }
-        if (layer.visible && layer.tiles.size() != layers.requests.size()) {
+        if (!layer.spatial && layer.role != LayerRole::ControlNet) {
+            return {{}, FrameRenderStatus::InvalidDocument, "nonspatial layers must have a conditioning role"};
+        }
+        if (layer.visible && layer.spatial && layer.tiles.size() != layers.requests.size()) {
             return {{}, FrameRenderStatus::InvalidRegion,
                     "each visible layer must provide one tile per requested region"};
         }
@@ -872,7 +902,7 @@ FrameTileRenderResult composeFrameLayers(
         ::LayerStack engineLayers;
         engineLayers.layers.reserve(layers.layers.size());
         for (const FrameLayerTileRenderResult &layer : layers.layers) {
-            if (!layer.visible) {
+            if (!layer.visible || layer.role == LayerRole::ControlNet) {
                 continue;
             }
             const FrameRenderTile &tile = layer.tiles[requestIndex];

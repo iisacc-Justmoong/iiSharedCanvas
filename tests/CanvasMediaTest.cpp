@@ -47,7 +47,7 @@ int main()
     using namespace iiSharedCanvas;
     static_assert(std::is_aggregate_v<VideoAsset> && std::is_aggregate_v<VideoLayer>);
     static_assert(std::is_aggregate_v<MotionKeyframe> && std::is_aggregate_v<MotionValue>);
-    static_assert(std::variant_size_v<Asset> == 4 && std::variant_size_v<iiSharedCanvas::Layer> == 3);
+    static_assert(std::variant_size_v<Asset> == 15 && std::variant_size_v<iiSharedCanvas::Layer> == 15);
     auto document = mixedDocument();
     expect(validate(document).ok(), "mixed image/vector/video/motion document must validate");
     auto *video = findVideoLayer(document, "footage");

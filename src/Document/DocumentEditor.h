@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Document/Document.h"
+#include "ControlNet/ControlNetParameters.h"
 #include "iiSharedCanvas/Export.h"
 
 #include <cstddef>
@@ -116,6 +117,79 @@ public:
     DocumentEditResult replaceAudioClip(const std::string &trackId,
                                        const std::string &clipId, AudioClip clip);
     DocumentEditResult removeAudioClip(const std::string &trackId, const std::string &clipId);
+
+    // Dedicated ControlNet content uses validated identity masks and semantic definitions.
+    DocumentEditResult insertMlsdAsset(MlsdAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceMlsdAsset(const std::string &assetId, MlsdAsset asset);
+    DocumentEditResult insertMlsdLayer(MlsdLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setMlsdSegment(const std::string &assetId, const std::string &segmentId, MlsdSegment segment);
+    DocumentEditResult insertCannyAsset(CannyAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceCannyAsset(const std::string &assetId, CannyAsset asset);
+    DocumentEditResult insertCannyLayer(CannyLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setCannySample(const std::string &assetId, std::int32_t x, std::int32_t y, std::uint8_t value);
+    DocumentEditResult insertScribbleAsset(ScribbleAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceScribbleAsset(const std::string &assetId, ScribbleAsset asset);
+    DocumentEditResult insertScribbleLayer(ScribbleLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setScribbleSample(const std::string &assetId, std::int32_t x, std::int32_t y, std::uint8_t value);
+    DocumentEditResult insertLineArtAsset(LineArtAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceLineArtAsset(const std::string &assetId, LineArtAsset asset);
+    DocumentEditResult insertLineArtLayer(LineArtLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setLineArtSample(const std::string &assetId, std::int32_t x, std::int32_t y, double value);
+    DocumentEditResult insertNormalMapAsset(NormalMapAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceNormalMapAsset(const std::string &assetId, NormalMapAsset asset);
+    DocumentEditResult insertNormalMapLayer(NormalMapLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setNormalMapSample(const std::string &assetId, std::int32_t x, std::int32_t y, NormalMapSample sample);
+    DocumentEditResult insertShuffleAsset(ShuffleAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceShuffleAsset(const std::string &assetId, ShuffleAsset asset);
+    DocumentEditResult insertShuffleLayer(ShuffleLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setShuffleSample(const std::string &assetId, std::int32_t x, std::int32_t y, ShuffleColor sample);
+    DocumentEditResult insertTileAsset(TileAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceTileAsset(const std::string &assetId, TileAsset asset);
+    DocumentEditResult insertTileLayer(TileLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setTileSample(const std::string &assetId, std::int32_t x, std::int32_t y, TileColor sample);
+    DocumentEditResult setReferenceSettings(const std::string &layerId, ReferenceSettings settings);
+    DocumentEditResult insertReferenceAsset(ReferenceAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceReferenceAsset(const std::string &assetId, ReferenceAsset asset);
+    DocumentEditResult insertReferenceLayer(ReferenceLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setReferenceSample(const std::string &assetId, std::int32_t x, std::int32_t y, ReferenceColor sample);
+    DocumentEditResult insertIpAdapterAsset(IpAdapterAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceIpAdapterAsset(const std::string &assetId, IpAdapterAsset asset);
+    DocumentEditResult insertIpAdapterLayer(IpAdapterLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setIpAdapterValue(const std::string &assetId, IpAdapterBranch branch,
+        std::uint32_t token, std::uint32_t channel, float value);
+    DocumentEditResult insertDepthAsset(DepthAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceDepthAsset(const std::string &assetId, DepthAsset asset);
+    DocumentEditResult insertDepthLayer(DepthLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setDepthSample(const std::string &assetId, std::int32_t x, std::int32_t y, double value);
+    DocumentEditResult insertPoseAsset(PoseAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replacePoseAsset(const std::string &assetId, PoseAsset asset);
+    DocumentEditResult insertPoseLayer(PoseLayer layer, std::vector<KeyframePlacement> keyframes = {}, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setPoseAnchor(const std::string &assetId, const std::string &personId,
+        PoseGroup group, std::uint32_t index, PoseAnchor anchor);
+    DocumentEditResult setPoseExpressionWeight(const std::string &assetId, const std::string &personId,
+        const std::string &expressionId, double weight);
+
+    DocumentEditResult insertSemanticSegmentLayer(
+        SemanticSegmentLayer layer, std::vector<KeyframePlacement> keyframes = {},
+        std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setSemanticSegmentation(const std::string &layerId, SemanticSegmentation segmentation);
+    [[nodiscard]] ControlNetParametersResult controlNetParameters(const std::string &layerId) const;
+    // Atomically replace detailed parameters for the layer and every source state.
+    // Stable ids, concrete types and source references must remain unchanged.
+    // Full replacement: reacquire a fresh snapshot after other edits. Shared assets
+    // are changed for every owner; the complete document must remain valid.
+    DocumentEditResult setControlNetParameters(const std::string &layerId, ControlNetParameters parameters);
+    DocumentEditResult patchControlNetSettings(const std::string &layerId, ControlNetSettingsPatch patch);
+    DocumentEditResult setControlNetSettings(const std::string &layerId, ControlNetSettings settings);
+
+    // Static keeps one content asset; dynamic uses frame-zero-first hold sampling.
+    DocumentEditResult insertStaticLayer(
+        LayerProperties properties, LayerRepresentation representation,
+        std::string assetId, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult insertDynamicLayer(
+        LayerProperties properties, LayerRepresentation representation,
+        std::vector<KeyframePlacement> keyframes,
+        std::size_t index = AppendDocumentIndex);
 
     DocumentEditResult insertLayer(Layer layer,
                                    std::size_t index = AppendDocumentIndex);

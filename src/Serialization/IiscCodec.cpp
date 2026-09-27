@@ -217,6 +217,15 @@ private:
 
 struct LimitTotals {
     std::uint64_t rasterPixels = 0;
+    std::uint64_t depthSamples = 0;
+    std::uint64_t ipAdapterValues = 0;
+    std::uint64_t referenceSamples = 0;
+    std::uint64_t tileSamples = 0;
+    std::uint64_t shuffleSamples = 0;
+    std::uint64_t normalMapSamples = 0;
+    std::uint64_t lineArtSamples = 0;
+    std::uint64_t cannySamples = 0, scribbleSamples = 0;
+    std::uint64_t mlsdSegments = 0;
     std::uint64_t rasterChunks = 0;
     std::uint64_t vectorPaths = 0;
     std::uint64_t pathCommands = 0;
@@ -227,6 +236,8 @@ struct LimitTotals {
     std::uint64_t audioClips = 0;
     std::uint64_t videoFrames = 0;
     std::uint64_t motionKeyframes = 0;
+    std::uint64_t posePeople = 0, poseExpressions = 0, poseDeltas = 0;
+    std::uint64_t semanticClasses = 0, semanticRegions = 0, semanticEntries = 0;
 };
 
 IiscError makeError(IiscErrorCode code, std::uint64_t offset, std::string message)
@@ -449,6 +460,90 @@ IiscError checkDocumentLimits(const Document &document,
             continue;
         }
 
+        if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
+            if (!addWithin(totals.mlsdSegments, mlsd->segments.size(), limits.maximumMlsdSegments)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "mlsd sample budget exceeded");
+            }
+            for (const auto &line:mlsd->segments) {
+                if (auto error=trackString(line.id,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+            continue;
+        }
+        if (const auto *canny = std::get_if<CannyAsset>(&asset)) {
+            if (!addWithin(totals.cannySamples, canny->mask.size(), limits.maximumCannySamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "canny sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *scribble = std::get_if<ScribbleAsset>(&asset)) {
+            if (!addWithin(totals.scribbleSamples, scribble->mask.size(), limits.maximumScribbleSamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "scribble sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *lineArt = std::get_if<LineArtAsset>(&asset)) {
+            if (!addWithin(totals.lineArtSamples, lineArt->coverage.size(), limits.maximumLineArtSamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "lineArt sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *normalMap = std::get_if<NormalMapAsset>(&asset)) {
+            if (!addWithin(totals.normalMapSamples, normalMap->samples.size(), limits.maximumNormalMapSamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "normalMap sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *shuffle = std::get_if<ShuffleAsset>(&asset)) {
+            if (!addWithin(totals.shuffleSamples, shuffle->colors.size(), limits.maximumShuffleSamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "shuffle sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *tile = std::get_if<TileAsset>(&asset)) {
+            if (!addWithin(totals.tileSamples, tile->colors.size(), limits.maximumTileSamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "tile sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *reference = std::get_if<ReferenceAsset>(&asset)) {
+            if (!addWithin(totals.referenceSamples, reference->colors.size(), limits.maximumReferenceSamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "reference sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *ipAdapter = std::get_if<IpAdapterAsset>(&asset)) {
+            if (!addWithin(totals.ipAdapterValues,ipAdapter->conditional.values.size(),limits.maximumIpAdapterValues)
+                || (ipAdapter->unconditional && !addWithin(totals.ipAdapterValues,ipAdapter->unconditional->values.size(),limits.maximumIpAdapterValues)))
+                return makeError(IiscErrorCode::LimitExceeded,0,"IP-Adapter value budget exceeded");
+            const auto &d=ipAdapter->descriptor;
+            for (const auto *text:{&d.encoderId,&d.encoderRevision,&d.adapterId,&d.adapterRevision,&d.baseModelId,&d.preprocessingId})
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            continue;
+        }
+        if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
+            if (!addWithin(totals.depthSamples, depth->values.size(), limits.maximumDepthSamples)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "depth sample budget exceeded");
+            }
+            continue;
+        }
+        if (const auto *pose = std::get_if<PoseAsset>(&asset)) {
+            if (!addWithin(totals.posePeople, pose->people.size(), limits.maximumPosePeople)) {
+                return makeError(IiscErrorCode::LimitExceeded,0,"pose person budget exceeded");
+            }
+            for (const auto &person : pose->people) {
+                for (const auto *text : {&person.id,&person.name,&person.trackId}) {
+                    if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+                }
+                if (!addWithin(totals.poseExpressions,person.expressions.size(),limits.maximumPoseExpressions)) return makeError(IiscErrorCode::LimitExceeded,0,"pose expression budget exceeded");
+                for (const auto &expression:person.expressions) {
+                    for (const auto *text : {&expression.id,&expression.name}) {
+                        if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+                    }
+                    if (!addWithin(totals.poseDeltas,expression.deltas.size(),limits.maximumPoseDeltas)) return makeError(IiscErrorCode::LimitExceeded,0,"pose delta budget exceeded");
+                }
+            }
+            continue;
+        }
         const VectorAsset &vector = std::get<VectorAsset>(asset);
         std::uint64_t viewportPixels = 0;
         if (!pixelCountWithin(vector.viewport.width,
@@ -480,6 +575,86 @@ IiscError checkDocumentLimits(const Document &document,
     for (const Layer &layer : document.layers) {
         const LayerProperties &properties = layerProperties(layer);
         const LayerSource &sourceValue = layerSource(layer);
+        if (const auto *mlsd = std::get_if<MlsdLayer>(&layer)) {
+            for (const auto *text : {&mlsd->control.modelId,&mlsd->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *canny = std::get_if<CannyLayer>(&layer)) {
+            for (const auto *text : {&canny->control.modelId,&canny->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *scribble = std::get_if<ScribbleLayer>(&layer)) {
+            for (const auto *text : {&scribble->control.modelId,&scribble->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *lineArt = std::get_if<LineArtLayer>(&layer)) {
+            for (const auto *text : {&lineArt->control.modelId,&lineArt->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *normalMap = std::get_if<NormalMapLayer>(&layer)) {
+            for (const auto *text : {&normalMap->control.modelId,&normalMap->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *shuffle = std::get_if<ShuffleLayer>(&layer)) {
+            for (const auto *text : {&shuffle->control.modelId,&shuffle->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *tile = std::get_if<TileLayer>(&layer)) {
+            for (const auto *text : {&tile->control.modelId,&tile->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *reference = std::get_if<ReferenceLayer>(&layer)) {
+            for (const auto *text : {&reference->control.modelId,&reference->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *ipAdapter = std::get_if<IpAdapterLayer>(&layer)) {
+            for (const auto *text:{&ipAdapter->control.modelId,&ipAdapter->control.modelRevision})
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+        }
+        if (const auto *depth = std::get_if<DepthLayer>(&layer)) {
+            for (const auto *text : {&depth->control.modelId,&depth->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *pose = std::get_if<PoseLayer>(&layer)) {
+            for (const auto *text : {&pose->control.modelId,&pose->control.modelRevision}) {
+                if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
+            }
+        }
+        if (const auto *semantic = std::get_if<SemanticSegmentLayer>(&layer)) {
+            const auto &value = semantic->segmentation;
+            if (!addWithin(totals.semanticClasses, value.taxonomy.classes.size(), limits.maximumSemanticClasses)
+                || !addWithin(totals.semanticRegions, value.regions.size(), limits.maximumSemanticRegions)) {
+                return makeError(IiscErrorCode::LimitExceeded, 0, "semantic class or region count exceeds its limit");
+            }
+            std::vector<const std::string *> strings{&semantic->control.modelId, &semantic->control.modelRevision,
+                &value.taxonomy.id, &value.taxonomy.version, &value.taxonomy.sourceUri};
+            for (const auto &entry : value.taxonomy.classes) {
+                if (!addWithin(totals.semanticEntries, entry.aliases.size(), limits.maximumSemanticEntries)) {
+                    return makeError(IiscErrorCode::LimitExceeded, 0, "semantic alias count exceeds its limit");
+                }
+                for (const auto *text : {&entry.key, &entry.name, &entry.description, &entry.category, &entry.externalId}) { strings.push_back(text); }
+                for (const auto &alias : entry.aliases) { strings.push_back(&alias); }
+            }
+            for (const auto &region : value.regions) {
+                if (!addWithin(totals.semanticEntries, region.attributes.size(), limits.maximumSemanticEntries)) {
+                    return makeError(IiscErrorCode::LimitExceeded, 0, "semantic attribute count exceeds its limit");
+                }
+                for (const auto *text : {&region.name, &region.description, &region.generator, &region.sourceReference}) { strings.push_back(text); }
+                for (const auto &attribute : region.attributes) { strings.push_back(&attribute.key); strings.push_back(&attribute.value); }
+            }
+            for (const auto *text : strings) {
+                if (auto error = trackString(*text, limits, totals); error.code != IiscErrorCode::None) { return error; }
+            }
+        }
         if (properties.motion.size() > std::numeric_limits<std::uint32_t>::max()
             || !addWithin(totals.motionKeyframes, properties.motion.size(), limits.maximumTotalMotionKeyframes)) {
             return makeError(IiscErrorCode::LimitExceeded, 0, "motion key count exceeds the configured limit");
@@ -802,6 +977,53 @@ void writeOptionalDouble(ByteWriter &writer,
     }
 }
 
+void writePoseAsset(ByteWriter &writer, const PoseAsset &asset)
+{
+    writer.writeI32(asset.viewport.width); writer.writeI32(asset.viewport.height);
+    writer.writeU32(static_cast<std::uint32_t>(asset.people.size()));
+    for (const auto &person:asset.people) {
+        writer.writeString(person.id); writer.writeString(person.name); writer.writeString(person.trackId); writer.writeU8(person.enabled?1:0);
+        for (unsigned group=0;group<static_cast<unsigned>(PoseGroup::Count);++group) for (const auto &a:poseAnchors(person,static_cast<PoseGroup>(group))) {
+            writer.writeDouble(a.x); writer.writeDouble(a.y); writeOptionalDouble(writer,a.z); writer.writeDouble(a.confidence);
+            writer.writeU8(static_cast<std::uint8_t>(a.visibility)); writer.writeU8(a.locked?1:0);
+        }
+        writer.writeU32(static_cast<std::uint32_t>(person.expressions.size()));
+        for (const auto &e:person.expressions) {
+            writer.writeString(e.id); writer.writeString(e.name); writer.writeDouble(e.weight);
+            writer.writeU32(static_cast<std::uint32_t>(e.deltas.size()));
+            for (const auto &d:e.deltas) { writer.writeU8(static_cast<std::uint8_t>(d.group)); writer.writeU32(d.index); writer.writeDouble(d.dx); writer.writeDouble(d.dy); writer.writeDouble(d.dz); }
+        }
+    }
+}
+
+void writeSemanticSegment(ByteWriter &writer, const SemanticSegmentLayer &layer)
+{
+    const auto &control = layer.control;
+    const auto &value = layer.segmentation;
+    writer.writeU8(control.enabled ? 1 : 0);
+    writer.writeString(control.modelId); writer.writeString(control.modelRevision);
+    writer.writeDouble(control.conditioningScale); writer.writeDouble(control.guidanceStart); writer.writeDouble(control.guidanceEnd);
+    writer.writeString(value.taxonomy.id); writer.writeString(value.taxonomy.version); writer.writeString(value.taxonomy.sourceUri);
+    writer.writeU32(value.voidMaskColor); writer.writeU32(value.voidControlColor);
+    writer.writeU32(static_cast<std::uint32_t>(value.taxonomy.classes.size()));
+    for (const auto &entry : value.taxonomy.classes) {
+        writer.writeU32(entry.id);
+        for (const auto *text : {&entry.key, &entry.name, &entry.description, &entry.category, &entry.externalId}) { writer.writeString(*text); }
+        writeOptionalU32(writer, entry.parentId); writer.writeU32(entry.controlColor);
+        writer.writeU32(static_cast<std::uint32_t>(entry.aliases.size()));
+        for (const auto &alias : entry.aliases) { writer.writeString(alias); }
+    }
+    writer.writeU32(static_cast<std::uint32_t>(value.regions.size()));
+    for (const auto &region : value.regions) {
+        writer.writeU32(region.id); writer.writeU32(region.classId); writer.writeU32(region.maskColor);
+        for (const auto *text : {&region.name, &region.description, &region.generator, &region.sourceReference}) { writer.writeString(*text); }
+        writeOptionalU32(writer, region.instanceId); writeOptionalDouble(writer, region.confidence);
+        writer.writeU8(static_cast<std::uint8_t>(region.origin));
+        writer.writeU32(static_cast<std::uint32_t>(region.attributes.size()));
+        for (const auto &attribute : region.attributes) { writer.writeString(attribute.key); writer.writeString(attribute.value); }
+    }
+}
+
 void writeStableDiffusionMetadata(ByteWriter &writer,
                                   const StableDiffusionMetadata &metadata)
 {
@@ -873,11 +1095,54 @@ bool sameRasterPixels(const RasterLayer &left, const RasterLayer &right)
         && left.pixels == right.pixels;
 }
 
-bool unchangedRasterAsset(const Asset &asset, const Document *previous)
+bool unchangedAsset(const Asset &asset, const Document *previous)
 {
     const Asset *prior = previous ? findAsset(*previous, assetId(asset)) : nullptr;
     if (!prior || prior->index() != asset.index()) {
         return false;
+    }
+    if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
+        const auto &old = std::get<MlsdAsset>(*prior);
+        return mlsd->viewport.width==old.viewport.width && mlsd->viewport.height==old.viewport.height && mlsd->segments==old.segments;
+    }
+    if (const auto *canny = std::get_if<CannyAsset>(&asset)) {
+        const auto &old = std::get<CannyAsset>(*prior);
+        return canny->viewport.width==old.viewport.width && canny->viewport.height==old.viewport.height && canny->mask==old.mask;
+    }
+    if (const auto *scribble = std::get_if<ScribbleAsset>(&asset)) {
+        const auto &old = std::get<ScribbleAsset>(*prior);
+        return scribble->viewport.width==old.viewport.width && scribble->viewport.height==old.viewport.height && scribble->mask==old.mask;
+    }
+    if (const auto *lineArt = std::get_if<LineArtAsset>(&asset)) {
+        const auto &old = std::get<LineArtAsset>(*prior);
+        return lineArt->viewport.width==old.viewport.width && lineArt->viewport.height==old.viewport.height && lineArt->coverage==old.coverage;
+    }
+    if (const auto *normalMap = std::get_if<NormalMapAsset>(&asset)) {
+        const auto &old = std::get<NormalMapAsset>(*prior);
+        return normalMap->viewport.width==old.viewport.width && normalMap->viewport.height==old.viewport.height && normalMap->samples==old.samples;
+    }
+    if (const auto *shuffle = std::get_if<ShuffleAsset>(&asset)) {
+        const auto &old = std::get<ShuffleAsset>(*prior);
+        return shuffle->viewport.width==old.viewport.width && shuffle->viewport.height==old.viewport.height && shuffle->colors==old.colors;
+    }
+    if (const auto *tile = std::get_if<TileAsset>(&asset)) {
+        const auto &old = std::get<TileAsset>(*prior);
+        return tile->viewport.width==old.viewport.width && tile->viewport.height==old.viewport.height && tile->colors==old.colors;
+    }
+    if (const auto *reference = std::get_if<ReferenceAsset>(&asset)) {
+        const auto &old = std::get<ReferenceAsset>(*prior);
+        return reference->viewport.width==old.viewport.width && reference->viewport.height==old.viewport.height && reference->colors==old.colors;
+    }
+    if (const auto *ipAdapter = std::get_if<IpAdapterAsset>(&asset)) {
+        return *ipAdapter==std::get<IpAdapterAsset>(*prior);
+    }
+    if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
+        const auto &old = std::get<DepthAsset>(*prior);
+        return depth->viewport.width==old.viewport.width && depth->viewport.height==old.viewport.height && depth->values==old.values;
+    }
+    if (const auto *pose = std::get_if<PoseAsset>(&asset)) {
+        const auto &old = std::get<PoseAsset>(*prior);
+        return pose->viewport.width==old.viewport.width && pose->viewport.height==old.viewport.height && pose->people==old.people;
     }
     if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
         return sameRasterPixels(raster->pixels, std::get<RasterAsset>(*prior).pixels);
@@ -934,18 +1199,81 @@ void writePayload(ByteWriter &writer, const Document &document,
     record(detail::RecordKind::Header);
     std::uint32_t assetPosition = 0;
     for (const Asset &asset : document.assets) {
-        if (records && unchangedRasterAsset(asset, previous)) {
+        if (records && unchangedAsset(asset, previous)) {
             records->push_back({detail::RecordKind::Asset, assetId(asset), assetPosition++, std::nullopt});
             continue;
         }
         const std::uint8_t kind = std::holds_alternative<RasterAsset>(asset)
             ? 0U
             : (std::holds_alternative<VectorAsset>(asset) ? 1U
-                : (std::holds_alternative<ChunkedRasterAsset>(asset) ? 2U : 3U));
+                : (std::holds_alternative<ChunkedRasterAsset>(asset) ? 2U : (std::holds_alternative<VideoAsset>(asset) ? 3U : (std::holds_alternative<PoseAsset>(asset) ? 4U : (std::holds_alternative<DepthAsset>(asset) ? 5U : (std::holds_alternative<LineArtAsset>(asset) ? 6U : (std::holds_alternative<CannyAsset>(asset) ? 7U : (std::holds_alternative<ScribbleAsset>(asset) ? 8U : (std::holds_alternative<MlsdAsset>(asset) ? 9U : (std::holds_alternative<NormalMapAsset>(asset) ? 10U : (std::holds_alternative<ShuffleAsset>(asset) ? 11U : (std::holds_alternative<TileAsset>(asset) ? 12U : (std::holds_alternative<ReferenceAsset>(asset) ? 13U : 14U)))))))))))));
         writer.writeU8(kind);
         writer.writeString(assetId(asset));
         if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
             writeRaster(writer, raster->pixels, !records);
+        } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
+            writer.writeI32(mlsd->viewport.width); writer.writeI32(mlsd->viewport.height);
+            writer.writeU32(static_cast<std::uint32_t>(mlsd->segments.size()));
+            for (const auto &line:mlsd->segments) {
+                writer.writeString(line.id); writer.writeDouble(line.x1); writer.writeDouble(line.y1);
+                writer.writeDouble(line.x2); writer.writeDouble(line.y2); writer.writeDouble(line.confidence);
+                writer.writeU8(line.enabled?1:0);
+            }
+        } else if (const auto *canny = std::get_if<CannyAsset>(&asset)) {
+            writer.writeI32(canny->viewport.width); writer.writeI32(canny->viewport.height);
+            writer.writeU64(canny->mask.size());
+            for (std::uint8_t value : canny->mask) writer.writeU8(value);
+        } else if (const auto *scribble = std::get_if<ScribbleAsset>(&asset)) {
+            writer.writeI32(scribble->viewport.width); writer.writeI32(scribble->viewport.height);
+            writer.writeU64(scribble->mask.size());
+            for (std::uint8_t value : scribble->mask) writer.writeU8(value);
+        } else if (const auto *lineArt = std::get_if<LineArtAsset>(&asset)) {
+            writer.writeI32(lineArt->viewport.width); writer.writeI32(lineArt->viewport.height);
+            writer.writeU64(lineArt->coverage.size());
+            for (double value : lineArt->coverage) writer.writeDouble(value);
+        } else if (const auto *normalMap = std::get_if<NormalMapAsset>(&asset)) {
+            writer.writeI32(normalMap->viewport.width); writer.writeI32(normalMap->viewport.height);
+            writer.writeU64(normalMap->samples.size());
+            for (const auto &sample : normalMap->samples) {
+                writer.writeDouble(sample.x); writer.writeDouble(sample.y); writer.writeDouble(sample.z);
+                writer.writeU8(sample.valid ? 1 : 0);
+            }
+        } else if (const auto *shuffle = std::get_if<ShuffleAsset>(&asset)) {
+            writer.writeI32(shuffle->viewport.width); writer.writeI32(shuffle->viewport.height);
+            writer.writeU64(shuffle->colors.size());
+            for (const auto &sample : shuffle->colors) {
+                writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
+            }
+        } else if (const auto *tile = std::get_if<TileAsset>(&asset)) {
+            writer.writeI32(tile->viewport.width); writer.writeI32(tile->viewport.height);
+            writer.writeU64(tile->colors.size());
+            for (const auto &sample : tile->colors) {
+                writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
+            }
+        } else if (const auto *reference = std::get_if<ReferenceAsset>(&asset)) {
+            writer.writeI32(reference->viewport.width); writer.writeI32(reference->viewport.height);
+            writer.writeU64(reference->colors.size());
+            for (const auto &sample : reference->colors) {
+                writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
+            }
+        } else if (const auto *ipAdapter = std::get_if<IpAdapterAsset>(&asset)) {
+            const auto &d=ipAdapter->descriptor;
+            writer.writeU8(static_cast<std::uint8_t>(d.stage));
+            for (const auto *text:{&d.encoderId,&d.encoderRevision,&d.adapterId,&d.adapterRevision,&d.baseModelId,&d.preprocessingId}) writer.writeString(*text);
+            const auto writeTensor=[&](const IpAdapterTensor &tensor) {
+                writer.writeU32(tensor.tokenCount); writer.writeU32(tensor.channelCount);
+                writer.writeU64(tensor.values.size());
+                static_assert(sizeof(float)==4 && std::numeric_limits<float>::is_iec559);
+                for (float value:tensor.values) writer.writeU32(std::bit_cast<std::uint32_t>(value));
+            };
+            writeTensor(ipAdapter->conditional); writer.writeU8(ipAdapter->unconditional?1:0);
+            if (ipAdapter->unconditional) writeTensor(*ipAdapter->unconditional);
+        } else if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
+            writer.writeI32(depth->viewport.width); writer.writeI32(depth->viewport.height);
+            writer.writeU64(depth->values.size());
+            for (double value : depth->values) writer.writeDouble(value);
+        } else if (const auto *pose = std::get_if<PoseAsset>(&asset)) {
+            writePoseAsset(writer,*pose);
         } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
             writeVector(writer, *vector);
         } else if (const auto *video = std::get_if<VideoAsset>(&asset)) {
@@ -1005,7 +1333,7 @@ void writePayload(ByteWriter &writer, const Document &document,
         } else {
             const auto &keyframes = keyframesByLayer[layerIndex];
             writer.writeU8(1);
-            writer.writeU8(contentKind(layer) == ContentKind::Raster ? 0U : 1U);
+            writer.writeU8(contentKind(layer) == ContentKind::Raster ? 0U : (contentKind(layer) == ContentKind::Pose ? 2U : (contentKind(layer) == ContentKind::Depth ? 3U : (contentKind(layer) == ContentKind::LineArt ? 4U : (contentKind(layer) == ContentKind::Canny ? 5U : (contentKind(layer) == ContentKind::Scribble ? 6U : (contentKind(layer) == ContentKind::Mlsd ? 7U : (contentKind(layer) == ContentKind::NormalMap ? 8U : (contentKind(layer) == ContentKind::Shuffle ? 9U : (contentKind(layer) == ContentKind::Tile ? 10U : (contentKind(layer) == ContentKind::Reference ? 11U : (contentKind(layer) == ContentKind::IpAdapter ? 12U : 1U))))))))))));
             writer.writeU32(static_cast<std::uint32_t>(keyframes.size()));
             for (const auto &[frame, keyframe] : keyframes) {
                 writer.writeU32(frame);
@@ -1017,6 +1345,30 @@ void writePayload(ByteWriter &writer, const Document &document,
             if (properties.frameRange) {
                 writer.writeU32(properties.frameRange->firstFrame);
                 writer.writeU32(properties.frameRange->lastFrame);
+            }
+        }
+        if (document.formatVersion.minor >= 7) {
+            const auto *semantic = std::get_if<SemanticSegmentLayer>(&layer);
+            const auto *pose = std::get_if<PoseLayer>(&layer);
+            const auto *depth = std::get_if<DepthLayer>(&layer);
+            const auto *lineArt = std::get_if<LineArtLayer>(&layer);
+            const auto *canny = std::get_if<CannyLayer>(&layer);
+            const auto *scribble = std::get_if<ScribbleLayer>(&layer);
+            const auto *normalMap = std::get_if<NormalMapLayer>(&layer);
+            const auto *shuffle = std::get_if<ShuffleLayer>(&layer);
+            const auto *tile = std::get_if<TileLayer>(&layer);
+            const auto *ipAdapter = std::get_if<IpAdapterLayer>(&layer);
+            const auto *reference = std::get_if<ReferenceLayer>(&layer);
+            const auto *mlsd = std::get_if<MlsdLayer>(&layer);
+            writer.writeU8(semantic ? 1U : (pose ? 2U : (depth ? 3U : (lineArt ? 4U : (canny ? 5U : (scribble ? 6U : (mlsd ? 7U : (normalMap ? 8U : (shuffle ? 9U : (tile ? 10U : (reference ? 11U : (ipAdapter ? 12U : 0U))))))))))));
+            if (semantic) { writeSemanticSegment(writer, *semantic); }
+            if (pose || depth || lineArt || canny || scribble || mlsd || normalMap || shuffle || tile || reference || ipAdapter) {
+                const auto &c=pose ? pose->control : (depth ? depth->control : (lineArt ? lineArt->control : (canny ? canny->control : (scribble ? scribble->control : (mlsd ? mlsd->control : (normalMap ? normalMap->control : (shuffle ? shuffle->control : (tile ? tile->control : (reference ? reference->control : ipAdapter->control))))))))); writer.writeU8(c.enabled?1:0); writer.writeString(c.modelId); writer.writeString(c.modelRevision);
+                writer.writeDouble(c.conditioningScale); writer.writeDouble(c.guidanceStart); writer.writeDouble(c.guidanceEnd);
+            }
+            if (reference) {
+                writer.writeU8(static_cast<std::uint8_t>(reference->reference.mode));
+                writer.writeDouble(reference->reference.styleFidelity);
             }
         }
         if (document.formatVersion.minor >= 6) {
@@ -1150,6 +1502,28 @@ public:
                 document.assets.emplace_back(readVector(id));
             } else if (kind == 2 && version.minor >= 1) {
                 document.assets.emplace_back(readChunkedRaster(id));
+            } else if (kind == 10 && version.minor >= 13) {
+                document.assets.emplace_back(readNormalMapAsset(id));
+            } else if (kind == 11 && version.minor >= 14) {
+                document.assets.emplace_back(readShuffleAsset(id));
+            } else if (kind == 12 && version.minor >= 15) {
+                document.assets.emplace_back(readTileAsset(id));
+            } else if (kind == 14 && version.minor >= 17) {
+                document.assets.emplace_back(readIpAdapterAsset(id));
+            } else if (kind == 13 && version.minor >= 16) {
+                document.assets.emplace_back(readReferenceAsset(id));
+            } else if (kind == 9 && version.minor >= 12) {
+                document.assets.emplace_back(readMlsdAsset(id));
+            } else if (kind == 7 && version.minor >= 11) {
+                document.assets.emplace_back(readCannyAsset(id));
+            } else if (kind == 8 && version.minor >= 11) {
+                document.assets.emplace_back(readScribbleAsset(id));
+            } else if (kind == 6 && version.minor >= 10) {
+                document.assets.emplace_back(readLineArtAsset(id));
+            } else if (kind == 5 && version.minor >= 9) {
+                document.assets.emplace_back(readDepthAsset(id));
+            } else if (kind == 4 && version.minor >= 8) {
+                document.assets.emplace_back(readPoseAsset(id));
             } else if (kind == 3 && version.minor >= 6) {
                 VideoAsset video;
                 video.id = id;
@@ -1655,13 +2029,299 @@ private:
         }
     }
 
-    ContentKind readContentKind()
+    MlsdAsset readMlsdAsset(const std::string &id)
+    {
+        MlsdAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU32();
+        addTotal(m_totals.mlsdSegments,count,m_limits.maximumMlsdSegments,"MLSD segment");
+        if (count>100000) m_reader.fail(IiscErrorCode::LimitExceeded,"too many MLSD segments in one asset");
+        requireCollectionBytes(count,45);
+        asset.segments.reserve(count);
+        for (std::uint32_t i=0;i<count;++i) {
+            MlsdSegment line; line.id=readString(); line.x1=m_reader.readDouble(); line.y1=m_reader.readDouble();
+            line.x2=m_reader.readDouble(); line.y2=m_reader.readDouble(); line.confidence=m_reader.readDouble(); line.enabled=readBoolean();
+            asset.segments.push_back(std::move(line));
+        }
+        return asset;
+    }
+
+    CannyAsset readCannyAsset(const std::string &id)
+    {
+        CannyAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"canny dimensions do not match sample count");
+        }
+        addTotal(m_totals.cannySamples,count,m_limits.maximumCannySamples,"canny sample");
+        requireCollectionBytes(count,1);
+        if (count>asset.mask.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"canny exceeds address space");
+        asset.mask.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.mask.push_back(m_reader.readU8());
+        return asset;
+    }
+
+    ScribbleAsset readScribbleAsset(const std::string &id)
+    {
+        ScribbleAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"scribble dimensions do not match sample count");
+        }
+        addTotal(m_totals.scribbleSamples,count,m_limits.maximumScribbleSamples,"scribble sample");
+        requireCollectionBytes(count,1);
+        if (count>asset.mask.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"scribble exceeds address space");
+        asset.mask.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.mask.push_back(m_reader.readU8());
+        return asset;
+    }
+
+    LineArtAsset readLineArtAsset(const std::string &id)
+    {
+        LineArtAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"lineArt dimensions do not match sample count");
+        }
+        addTotal(m_totals.lineArtSamples,count,m_limits.maximumLineArtSamples,"lineArt sample");
+        requireCollectionBytes(count,8);
+        if (count>asset.coverage.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"lineArt exceeds address space");
+        asset.coverage.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.coverage.push_back(m_reader.readDouble());
+        return asset;
+    }
+
+    NormalMapAsset readNormalMapAsset(const std::string &id)
+    {
+        NormalMapAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"normalMap dimensions do not match sample count");
+        }
+        addTotal(m_totals.normalMapSamples,count,m_limits.maximumNormalMapSamples,"normalMap sample");
+        requireCollectionBytes(count,25);
+        if (count>asset.samples.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"normalMap exceeds address space");
+        asset.samples.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.samples.push_back({m_reader.readDouble(),m_reader.readDouble(),m_reader.readDouble(),readBoolean()});
+        return asset;
+    }
+
+    ShuffleAsset readShuffleAsset(const std::string &id)
+    {
+        ShuffleAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"shuffle dimensions do not match sample count");
+        }
+        addTotal(m_totals.shuffleSamples,count,m_limits.maximumShuffleSamples,"shuffle sample");
+        requireCollectionBytes(count,3);
+        if (count>asset.colors.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"shuffle exceeds address space");
+        asset.colors.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.colors.push_back({m_reader.readU8(),m_reader.readU8(),m_reader.readU8()});
+        return asset;
+    }
+
+    TileAsset readTileAsset(const std::string &id)
+    {
+        TileAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"tile dimensions do not match sample count");
+        }
+        addTotal(m_totals.tileSamples,count,m_limits.maximumTileSamples,"tile sample");
+        requireCollectionBytes(count,3);
+        if (count>asset.colors.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"tile exceeds address space");
+        asset.colors.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.colors.push_back({m_reader.readU8(),m_reader.readU8(),m_reader.readU8()});
+        return asset;
+    }
+
+    ReferenceAsset readReferenceAsset(const std::string &id)
+    {
+        ReferenceAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"reference dimensions do not match sample count");
+        }
+        addTotal(m_totals.referenceSamples,count,m_limits.maximumReferenceSamples,"reference sample");
+        requireCollectionBytes(count,3);
+        if (count>asset.colors.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"reference exceeds address space");
+        asset.colors.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.colors.push_back({m_reader.readU8(),m_reader.readU8(),m_reader.readU8()});
+        return asset;
+    }
+
+    IpAdapterTensor readIpAdapterTensor()
+    {
+        IpAdapterTensor tensor; tensor.tokenCount=m_reader.readU32(); tensor.channelCount=m_reader.readU32();
+        const auto count=m_reader.readU64();
+        if (!tensor.tokenCount || !tensor.channelCount || std::uint64_t(tensor.tokenCount)*tensor.channelCount!=count)
+            m_reader.fail(IiscErrorCode::InvalidData,"IP-Adapter tensor shape does not match value count");
+        addTotal(m_totals.ipAdapterValues,count,m_limits.maximumIpAdapterValues,"IP-Adapter value");
+        requireCollectionBytes(count,4);
+        if (count>tensor.values.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"IP-Adapter tensor exceeds address space");
+        tensor.values.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) tensor.values.push_back(std::bit_cast<float>(m_reader.readU32()));
+        return tensor;
+    }
+
+    IpAdapterAsset readIpAdapterAsset(const std::string &id)
+    {
+        IpAdapterAsset asset; asset.id=id; auto &d=asset.descriptor;
+        const auto stage=m_reader.readU8();
+        if (stage>static_cast<std::uint8_t>(IpAdapterEmbeddingStage::ProjectedTokens))
+            m_reader.fail(IiscErrorCode::InvalidData,"unknown IP-Adapter embedding stage");
+        d.stage=static_cast<IpAdapterEmbeddingStage>(stage);
+        for (auto *text:{&d.encoderId,&d.encoderRevision,&d.adapterId,&d.adapterRevision,&d.baseModelId,&d.preprocessingId}) *text=readString();
+        asset.conditional=readIpAdapterTensor();
+        if (readBoolean()) asset.unconditional=readIpAdapterTensor();
+        return asset;
+    }
+
+    DepthAsset readDepthAsset(const std::string &id)
+    {
+        DepthAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU64();
+        std::uint64_t expected=0;
+        if (!pixelCountWithin(asset.viewport.width,asset.viewport.height,
+                std::numeric_limits<std::uint64_t>::max(),expected) || count!=expected) {
+            m_reader.fail(IiscErrorCode::InvalidData,"depth dimensions do not match sample count");
+        }
+        addTotal(m_totals.depthSamples,count,m_limits.maximumDepthSamples,"depth sample");
+        requireCollectionBytes(count,8);
+        if (count>asset.values.max_size()) m_reader.fail(IiscErrorCode::LimitExceeded,"depth exceeds address space");
+        asset.values.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t i=0;i<count;++i) asset.values.push_back(m_reader.readDouble());
+        return asset;
+    }
+
+    PoseAsset readPoseAsset(const std::string &id)
+    {
+        PoseAsset asset; asset.id=id; asset.viewport={m_reader.readI32(),m_reader.readI32()};
+        const auto count=m_reader.readU32(); addTotal(m_totals.posePeople,count,m_limits.maximumPosePeople,"pose person");
+        if (count>64) m_reader.fail(IiscErrorCode::LimitExceeded,"pose asset exceeds 64 people");
+        requireCollectionBytes(count,17+PosePersonAnchorCount*27);
+        for (std::uint32_t i=0;i<count;++i) {
+            PosePerson person; person.id=readString(); person.name=readString(); person.trackId=readString(); person.enabled=readBoolean();
+            for (unsigned group=0;group<static_cast<unsigned>(PoseGroup::Count);++group) for (auto &a:poseAnchors(person,static_cast<PoseGroup>(group))) {
+                a.x=m_reader.readDouble(); a.y=m_reader.readDouble(); a.z=readOptionalDouble(); a.confidence=m_reader.readDouble();
+                const auto visibility=m_reader.readU8();
+                if (visibility>static_cast<std::uint8_t>(PoseVisibility::Occluded)) m_reader.fail(IiscErrorCode::InvalidData,"unknown pose visibility");
+                a.visibility=static_cast<PoseVisibility>(visibility); a.locked=readBoolean();
+            }
+            const auto expressions=m_reader.readU32(); addTotal(m_totals.poseExpressions,expressions,m_limits.maximumPoseExpressions,"pose expression");
+            if (expressions>128) m_reader.fail(IiscErrorCode::LimitExceeded,"too many person expressions");
+            requireCollectionBytes(expressions,20);
+            for (std::uint32_t j=0;j<expressions;++j) {
+                PoseExpression expression; expression.id=readString(); expression.name=readString(); expression.weight=m_reader.readDouble();
+                const auto deltas=m_reader.readU32(); addTotal(m_totals.poseDeltas,deltas,m_limits.maximumPoseDeltas,"pose delta");
+                if (deltas>PosePersonAnchorCount) m_reader.fail(IiscErrorCode::LimitExceeded,"too many expression deltas");
+                requireCollectionBytes(deltas,29);
+                for (std::uint32_t k=0;k<deltas;++k) {
+                    const auto group=m_reader.readU8(); if (group>=static_cast<std::uint8_t>(PoseGroup::Count)) m_reader.fail(IiscErrorCode::InvalidData,"unknown pose group");
+                    expression.deltas.push_back({static_cast<PoseGroup>(group),m_reader.readU32(),m_reader.readDouble(),m_reader.readDouble(),m_reader.readDouble()});
+                }
+                person.expressions.push_back(std::move(expression));
+            }
+            asset.people.push_back(std::move(person));
+        }
+        return asset;
+    }
+
+    SemanticSegmentLayer readSemanticSegment()
+    {
+        SemanticSegmentLayer layer;
+        auto &control = layer.control; auto &value = layer.segmentation;
+        control.enabled = readBoolean();
+        control.modelId = readString(); control.modelRevision = readString();
+        control.conditioningScale = m_reader.readDouble(); control.guidanceStart = m_reader.readDouble(); control.guidanceEnd = m_reader.readDouble();
+        value.taxonomy.id = readString(); value.taxonomy.version = readString(); value.taxonomy.sourceUri = readString();
+        value.voidMaskColor = m_reader.readU32(); value.voidControlColor = m_reader.readU32();
+        const auto classes = m_reader.readU32();
+        addTotal(m_totals.semanticClasses, classes, m_limits.maximumSemanticClasses, "semantic class");
+        requireCollectionBytes(classes, 33);
+        for (std::uint32_t i = 0; i < classes; ++i) {
+            SemanticClass entry; entry.id = m_reader.readU32();
+            entry.key = readString(); entry.name = readString(); entry.description = readString(); entry.category = readString(); entry.externalId = readString();
+            entry.parentId = readOptionalU32(); entry.controlColor = m_reader.readU32();
+            const auto aliases = m_reader.readU32();
+            addTotal(m_totals.semanticEntries, aliases, m_limits.maximumSemanticEntries, "semantic alias");
+            requireCollectionBytes(aliases, 4);
+            for (std::uint32_t j = 0; j < aliases; ++j) { entry.aliases.push_back(readString()); }
+            value.taxonomy.classes.push_back(std::move(entry));
+        }
+        const auto regions = m_reader.readU32();
+        addTotal(m_totals.semanticRegions, regions, m_limits.maximumSemanticRegions, "semantic region");
+        requireCollectionBytes(regions, 35);
+        for (std::uint32_t i = 0; i < regions; ++i) {
+            SemanticRegion region; region.id = m_reader.readU32(); region.classId = m_reader.readU32(); region.maskColor = m_reader.readU32();
+            region.name = readString(); region.description = readString(); region.generator = readString(); region.sourceReference = readString();
+            region.instanceId = readOptionalU32(); region.confidence = readOptionalDouble();
+            const auto origin = m_reader.readU8();
+            if (origin > static_cast<std::uint8_t>(SemanticOrigin::Model)) { m_reader.fail(IiscErrorCode::InvalidData, "unknown semantic origin"); }
+            region.origin = static_cast<SemanticOrigin>(origin);
+            const auto attributes = m_reader.readU32();
+            addTotal(m_totals.semanticEntries, attributes, m_limits.maximumSemanticEntries, "semantic attribute");
+            requireCollectionBytes(attributes, 8);
+            for (std::uint32_t j = 0; j < attributes; ++j) { region.attributes.push_back({readString(), readString()}); }
+            value.regions.push_back(std::move(region));
+        }
+        return layer;
+    }
+
+    ContentKind readContentKind(FormatVersion version)
     {
         switch (m_reader.readU8()) {
         case 0:
             return ContentKind::Raster;
         case 1:
             return ContentKind::Vector;
+        case 8:
+            if (version.minor >= 13) return ContentKind::NormalMap;
+            m_reader.fail(IiscErrorCode::InvalidData,"normal map content requires format 1.13");
+        case 9:
+            if (version.minor >= 14) return ContentKind::Shuffle;
+            m_reader.fail(IiscErrorCode::InvalidData,"shuffle content requires format 1.14");
+        case 10:
+            if (version.minor >= 15) return ContentKind::Tile;
+            m_reader.fail(IiscErrorCode::InvalidData,"tile content requires format 1.15");
+        case 12:
+            if (version.minor >= 17) return ContentKind::IpAdapter;
+            m_reader.fail(IiscErrorCode::InvalidData,"IP-Adapter content requires format 1.17");
+        case 11:
+            if (version.minor >= 16) return ContentKind::Reference;
+            m_reader.fail(IiscErrorCode::InvalidData,"reference content requires format 1.16");
+        case 7:
+            if (version.minor >= 12) return ContentKind::Mlsd;
+            m_reader.fail(IiscErrorCode::InvalidData,"MLSD content requires format 1.12");
+        case 5:
+            if (version.minor >= 11) return ContentKind::Canny;
+            m_reader.fail(IiscErrorCode::InvalidData,"canny content requires format 1.11");
+        case 6:
+            if (version.minor >= 11) return ContentKind::Scribble;
+            m_reader.fail(IiscErrorCode::InvalidData,"scribble content requires format 1.11");
+        case 4:
+            if (version.minor >= 10) return ContentKind::LineArt;
+            m_reader.fail(IiscErrorCode::InvalidData,"line art content requires format 1.10");
+        case 3:
+            if (version.minor >= 9) return ContentKind::Depth;
+            m_reader.fail(IiscErrorCode::InvalidData,"depth content requires format 1.9");
+        case 2:
+            if (version.minor >= 8) return ContentKind::Pose;
+            m_reader.fail(IiscErrorCode::InvalidData,"pose content requires format 1.8");
         default:
             m_reader.fail(IiscErrorCode::InvalidData, "unknown content kind tag");
         }
@@ -1698,7 +2358,7 @@ private:
             source = std::move(staticSource);
         } else if (sourceKind == 1) {
             KeyframedSource keyframed;
-            kind = readContentKind();
+            kind = readContentKind(version);
             const std::uint32_t keyframeCount = m_reader.readU32();
             addTotal(m_totals.keyframes,
                      keyframeCount,
@@ -1739,6 +2399,85 @@ private:
                 m_reader.readU32(),
             };
         }
+        std::optional<SemanticSegmentLayer> semantic;
+        std::optional<PoseLayer> pose;
+        std::optional<DepthLayer> depth;
+        std::optional<ReferenceLayer> reference;
+        std::optional<IpAdapterLayer> ipAdapter;
+        std::optional<TileLayer> tile;
+        std::optional<ShuffleLayer> shuffle;
+        std::optional<NormalMapLayer> normalMap;
+        std::optional<LineArtLayer> lineArt;
+        std::optional<CannyLayer> canny;
+        std::optional<MlsdLayer> mlsd;
+        std::optional<ScribbleLayer> scribble;
+        if (version.minor >= 7) {
+            const auto role = m_reader.readU8();
+            if (role > (version.minor >= 17 ? 12 : (version.minor >= 16 ? 11 : (version.minor >= 15 ? 10 : (version.minor >= 14 ? 9 : (version.minor >= 13 ? 8 : (version.minor >= 12 ? 7 : (version.minor >= 11 ? 6 : (version.minor >= 10 ? 4 : (version.minor >= 9 ? 3 : (version.minor >= 8 ? 2 : 1))))))))))) { m_reader.fail(IiscErrorCode::InvalidData, "unknown layer role tag"); }
+            if (role == 1) {
+                if (kind != ContentKind::Raster) { m_reader.fail(IiscErrorCode::InvalidData, "semantic layers require raster content"); }
+                semantic = readSemanticSegment();
+            }
+            if (role == 7) {
+                if (kind != ContentKind::Mlsd) m_reader.fail(IiscErrorCode::InvalidData,"mlsd layer requires mlsd asset");
+                mlsd.emplace(); auto &c=mlsd->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 5) {
+                if (kind != ContentKind::Canny) m_reader.fail(IiscErrorCode::InvalidData,"canny layer requires canny asset");
+                canny.emplace(); auto &c=canny->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 6) {
+                if (kind != ContentKind::Scribble) m_reader.fail(IiscErrorCode::InvalidData,"scribble layer requires scribble asset");
+                scribble.emplace(); auto &c=scribble->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 4) {
+                if (kind != ContentKind::LineArt) m_reader.fail(IiscErrorCode::InvalidData,"lineArt layer requires lineArt asset");
+                lineArt.emplace(); auto &c=lineArt->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 8) {
+                if (kind != ContentKind::NormalMap) m_reader.fail(IiscErrorCode::InvalidData,"normalMap layer requires normalMap asset");
+                normalMap.emplace(); auto &c=normalMap->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 9) {
+                if (kind != ContentKind::Shuffle) m_reader.fail(IiscErrorCode::InvalidData,"shuffle layer requires shuffle asset");
+                shuffle.emplace(); auto &c=shuffle->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 10) {
+                if (kind != ContentKind::Tile) m_reader.fail(IiscErrorCode::InvalidData,"tile layer requires tile asset");
+                tile.emplace(); auto &c=tile->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 12) {
+                if (kind != ContentKind::IpAdapter) m_reader.fail(IiscErrorCode::InvalidData,"IP-Adapter layer requires embedding asset");
+                ipAdapter.emplace(); auto &c=ipAdapter->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 11) {
+                if (kind != ContentKind::Reference) m_reader.fail(IiscErrorCode::InvalidData,"reference layer requires reference asset");
+                reference.emplace(); auto &c=reference->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+                const auto mode=m_reader.readU8();
+                if (mode>static_cast<std::uint8_t>(ReferenceMode::AttentionAdaIN)) m_reader.fail(IiscErrorCode::InvalidData,"unknown reference mode");
+                reference->reference.mode=static_cast<ReferenceMode>(mode);
+                reference->reference.styleFidelity=m_reader.readDouble();
+            }
+            if (role == 3) {
+                if (kind != ContentKind::Depth) m_reader.fail(IiscErrorCode::InvalidData,"depth layer requires depth asset");
+                depth.emplace(); auto &c=depth->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+            if (role == 2) {
+                if (kind != ContentKind::Pose) m_reader.fail(IiscErrorCode::InvalidData,"pose layer requires pose asset");
+                pose.emplace(); auto &c=pose->control; c.enabled=readBoolean(); c.modelId=readString(); c.modelRevision=readString();
+                c.conditioningScale=m_reader.readDouble(); c.guidanceStart=m_reader.readDouble(); c.guidanceEnd=m_reader.readDouble();
+            }
+        }
         if (version.minor >= 6) {
             const auto count = m_reader.readU32();
             addTotal(m_totals.motionKeyframes, count, m_limits.maximumTotalMotionKeyframes, "motion key");
@@ -1770,6 +2509,32 @@ private:
                 playback.endBehavior = static_cast<VideoEndBehavior>(behavior);
                 return VideoLayer{std::move(properties), std::move(source), playback};
             }
+        }
+        if (mlsd) { mlsd->properties=std::move(properties); mlsd->source=std::move(source); return std::move(*mlsd); }
+        if (kind==ContentKind::Mlsd) m_reader.fail(IiscErrorCode::InvalidData,"MLSD content requires an MLSD layer role");
+        if (canny) { canny->properties=std::move(properties); canny->source=std::move(source); return std::move(*canny); }
+        if (kind==ContentKind::Canny) m_reader.fail(IiscErrorCode::InvalidData,"line art content requires a line art layer role");
+        if (scribble) { scribble->properties=std::move(properties); scribble->source=std::move(source); return std::move(*scribble); }
+        if (kind==ContentKind::Scribble) m_reader.fail(IiscErrorCode::InvalidData,"line art content requires a line art layer role");
+        if (lineArt) { lineArt->properties=std::move(properties); lineArt->source=std::move(source); return std::move(*lineArt); }
+        if (kind==ContentKind::LineArt) m_reader.fail(IiscErrorCode::InvalidData,"line art content requires a line art layer role");
+        if (normalMap) { normalMap->properties=std::move(properties); normalMap->source=std::move(source); return std::move(*normalMap); }
+        if (kind==ContentKind::NormalMap) m_reader.fail(IiscErrorCode::InvalidData,"normalMap content requires a normalMap layer role");
+        if (shuffle) { shuffle->properties=std::move(properties); shuffle->source=std::move(source); return std::move(*shuffle); }
+        if (kind==ContentKind::Shuffle) m_reader.fail(IiscErrorCode::InvalidData,"shuffle content requires a shuffle layer role");
+        if (tile) { tile->properties=std::move(properties); tile->source=std::move(source); return std::move(*tile); }
+        if (kind==ContentKind::Tile) m_reader.fail(IiscErrorCode::InvalidData,"tile content requires a tile layer role");
+        if (ipAdapter) { ipAdapter->properties=std::move(properties); ipAdapter->source=std::move(source); return std::move(*ipAdapter); }
+        if (kind==ContentKind::IpAdapter) m_reader.fail(IiscErrorCode::InvalidData,"embedding content requires an IP-Adapter role");
+        if (reference) { reference->properties=std::move(properties); reference->source=std::move(source); return std::move(*reference); }
+        if (kind==ContentKind::Reference) m_reader.fail(IiscErrorCode::InvalidData,"reference content requires a reference layer role");
+        if (depth) { depth->properties=std::move(properties); depth->source=std::move(source); return std::move(*depth); }
+        if (kind==ContentKind::Depth) m_reader.fail(IiscErrorCode::InvalidData,"depth content requires a depth layer role");
+        if (pose) { pose->properties=std::move(properties); pose->source=std::move(source); return std::move(*pose); }
+        if (kind==ContentKind::Pose) m_reader.fail(IiscErrorCode::InvalidData,"pose content requires a pose layer role");
+        if (semantic) {
+            semantic->properties = std::move(properties); semantic->source = std::move(source);
+            return std::move(*semantic);
         }
         if (kind == ContentKind::Raster) {
             return BitmapLayer{std::move(properties), std::move(source)};
