@@ -28,7 +28,10 @@ private:
     std::uint64_t m_limit;
 };
 
-MediaIoResult error(MediaIoCode code, const QString &message);
+inline MediaIoResult error(MediaIoCode code, const QString &message)
+{
+    return {code, message.toStdString(), {}};
+}
 MediaIoResult checkExtent(CanvasExtent extent, const MediaLimits &limits);
 MediaIoResult checkRaster(const RasterLayer &pixels, const MediaLimits &limits);
 MediaIoResult checkInput(const std::string &path, const MediaLimits &limits, QString &absolute);

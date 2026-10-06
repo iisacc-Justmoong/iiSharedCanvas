@@ -1,4 +1,5 @@
 #include "Timeline/TimelineXmlWriter_p.hpp"
+#include "Media/MediaIo_p.hpp"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -379,6 +380,8 @@ void audioValidationCases()
 int main(int argc, char **argv)
 {
     QCoreApplication application(argc, argv);
+    const auto failure = media_detail::error(MediaIoCode::InvalidData, QString::fromUtf8("invalid \xC3\xA9"));
+    expect(!failure.ok() && failure.message == "invalid \xC3\xA9", "private error helper preserves UTF-8 across the test link boundary");
     const auto plan = fixture();
     const auto encoded = encodeTimelineXml(plan, outputDirectory(), 1024 * 1024);
     expect(encoded.result.ok(), "timeline XML encoding succeeds: " + encoded.result.message);

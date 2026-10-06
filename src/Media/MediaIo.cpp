@@ -14,11 +14,6 @@
 
 namespace iiSharedCanvas::media_detail {
 
-MediaIoResult error(MediaIoCode code, const QString &message)
-{
-    return {code, message.toStdString(), {}};
-}
-
 MediaIoResult checkExtent(CanvasExtent extent, const MediaLimits &limits)
 {
     if (extent.width <= 0 || extent.height <= 0) {

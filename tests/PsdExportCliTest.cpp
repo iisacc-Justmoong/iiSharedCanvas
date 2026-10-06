@@ -12,10 +12,25 @@
 
 #include <algorithm>
 #include <iostream>
+#ifdef Q_OS_WIN
+#include <qt_windows.h>
+#endif
 
 namespace {
 using namespace iiSharedCanvas;
 int failures = 0;
+
+bool createFileLink(const QString &target, const QString &link)
+{
+#ifdef Q_OS_WIN
+    const auto nativeTarget = QDir::toNativeSeparators(target);
+    const auto nativeLink = QDir::toNativeSeparators(link);
+    return CreateSymbolicLinkW(reinterpret_cast<LPCWSTR>(nativeLink.utf16()),
+        reinterpret_cast<LPCWSTR>(nativeTarget.utf16()), SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE) != FALSE;
+#else
+    return QFile::link(target, link);
+#endif
+}
 
 void expect(bool value, const std::string &message)
 {
@@ -75,7 +90,7 @@ Document document(std::uint32_t background = 0xff0000ffU, bool withVector = true
     result.layers.emplace_back(bitmap);
     if (withVector) {
         VectorPath path;
-        path.commands = {MoveTo{{0, 0}}, LineTo{{1, 0}}, LineTo{{1, 2}}, LineTo{{0, 2}}, ClosePath{}};
+        path.commands = {MoveTo{{0, 0}}, iiSharedCanvas::LineTo{{1, 0}}, iiSharedCanvas::LineTo{{1, 2}}, iiSharedCanvas::LineTo{{0, 2}}, ClosePath{}};
         path.fill = SolidPaint{0xffff0000U};
         result.assets.emplace_back(VectorAsset{"shape", {1, 2}, {path}});
         StaticVectorLayer vector;
@@ -316,7 +331,7 @@ void failure(const QString &directory)
     result = run({"--overwrite", same, same}, directory);
     expect(result.code == 1 && hash(same) == sameHash, "overwrite cannot target the source itself");
     const auto linked = QDir(directory).filePath("source-link.psd");
-    expect(QFile::link(same, linked), "create source alias fixture");
+    expect(createFileLink(same, linked), "create source alias fixture");
     result = run({"--overwrite", same, linked}, directory);
     expect(result.code == 1 && hash(same) == sameHash, "overwrite cannot follow a source alias");
     result = run({"https://example.com/input.iisc", "remote.psd"}, directory);
@@ -340,7 +355,7 @@ void failure(const QString &directory)
     const auto sidecarSource = QDir(directory).filePath("sidecar-source.iisc");
     workingFile(sidecarSource, document(0xff223344U, false));
     const auto sidecarHash = hash(sidecarSource);
-    expect(QFile::link(same, sidecarSource + "-wal"), "create rejected symbolic WAL fixture");
+    expect(createFileLink(same, sidecarSource + "-wal"), "create rejected symbolic WAL fixture");
     result = run({sidecarSource, "sidecar.psd"}, directory);
     expect(result.code == 1 && hash(sidecarSource) == sidecarHash
            && !QFile::exists(QDir(directory).filePath("sidecar.psd")),

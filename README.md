@@ -1,5 +1,11 @@
 # iiSharedCanvas
 
+The private media error constructor is inline so independently compiled timeline
+writer tests do not depend on an unexported DLL symbol on Windows. Its UTF-8
+message contract is covered by the timeline XML writer regression test.
+PSD CLI security tests create real Windows symbolic links, not `.lnk` shortcuts;
+Windows Developer Mode or the symbolic-link privilege is required for these fixtures.
+
 iiSharedCanvas is a C++23 document and authoring foundation for composing
 raster artwork, native vector paths, self-contained video, and interpolated
 motion graphics on one canvas. It also provides format-neutral decoded Camera RAW authoring
