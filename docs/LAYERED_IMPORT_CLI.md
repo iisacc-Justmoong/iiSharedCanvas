@@ -1,9 +1,8 @@
-# Layered document import command
+<a id="layered-document-import-command"></a>
 
-`iisc-import` is the library's installed command-line utility for converting a
-supported layered source into a new `.iisc` working file. It uses
-`importLayeredDocument()` followed by `DocumentFile::create()`; it is not a
-flattened-image importer or a separate document format implementation.
+# 계층형 문서 가져오기 명령
+
+`iisc-import` 는 지원되는 계층 구조 소스를 새로운  `.iisc` 작업 파일로 변환하기 위한 라이브러리의 설치된 명령줄 유틸리티입니다.  `importLayeredDocument()` 를 이어  `DocumentFile::create()` 를 사용합니다. 이는 평평한 이미지 가져오기나 별도의 문서 형식 구현이 아닙니다.
 
 ```sh
 iisc-import input.psd output.iisc
@@ -12,61 +11,33 @@ iisc-import --id-prefix=-artwork -- -source.psd -result.iisc
 iisc-import --help
 ```
 
-## Arguments and results
+<a id="arguments-and-results"></a>
 
-- Exactly two nonempty positional paths are required. The source is detected
-  from its contents, independently of its extension. The output must have the
-  `.iisc` extension, case-insensitively.
-- `--id-prefix PREFIX` or `--id-prefix=PREFIX` sets the deterministic layer and
-  asset ID prefix. The default is `import`; the public API's UTF-8, nonempty and
-  length limits also apply. Repeated prefix options are rejected. Use the equals
-  form for a prefix beginning with `-`.
-- `--` ends option parsing, allowing paths beginning with `-`. Unknown options,
-  missing values and extra paths fail. `--help` and `-h` are standalone commands.
-- A successful conversion returns exit status `0` and reports the detected
-  format, layer count and output path on stdout. Import warnings appear on
-  stderr as `iisc-import: warning: ...` even when conversion succeeds.
-- Invalid command-line arguments return `2`; import or working-file errors
-  return `1` with the API error name and message on stderr. Unsupported
-  semantics fail instead of silently replacing layers with a composite image.
+## 주장 및 결과
 
-The initial readers support documented subsets of PSD and OpenRaster. Consult
-[media interchange](MEDIA_IO.md) for supported layer kinds, metadata, blend
-modes, masks, groups, compression and resource limits. This utility does not
-broaden those readers' fidelity claims and adds no external runtime service.
+- 정확히 2 비어 있지 않은 위치 경로가 필요합니다. 소스는 그 내용으로부터 확장자와 무관하게 감지됩니다. 출력은 `.iisc` 확장자를 대소문자 구분하지 않도록 해야 합니다.
+- `--id-prefix PREFIX` 또는 `--id-prefix=PREFIX`는 결정적 레이어와 자산 ID 접두사를 설정합니다. 기본값은 `import`이며, 공개 API의 UTF-8는 비어 있지 않고 길이 제한도 적용됩니다. 중복된 접두사 옵션은 거부됩니다. `-`로 시작하는 접두사에는 equals 형태를 사용하십시오.
+- `--`는 옵션 파싱을 종료하고, `-`로 시작하는 경로를 허용합니다. 알 수 없는 옵션, 누락된 값 및 추가 경로가 실패합니다. `--help`와 `-h`는 독립 실행형 명령입니다.
+- 성공적인 변환은 종료 상태 `0`를 반환하고, stdout에서 감지된 포맷, 레이어 수 및 출력 경로를 보고합니다. Import 경고는 변환이 성공하더라도 stderr에서 `iisc-import: warning: ...`로 표시됩니다.
+- 무효한 명령줄 인수는 `2` 를 반환하며, 가져오기 또는 작업 파일 오류는 `1` 에 API 오류 이름과 메시지를 stderr 에 반환합니다. 지원되지 않는 의미론은 아무런 알림 없이 레이어를 합성 이미지로 대체하는 대신 실패합니다.
 
-## Persistence and non-destructive operation
+초기 리더는 PSD 및 OpenRaster의 문서화된 하위 집합을 지원합니다. 상의하다
+[미디어 교환](MEDIA_IO.md)는 지원되는 레이어 종류, 메타데이터, 블렌드 모드, 마스크, 그룹, 압축 및 리소스 제한에 대해 제공합니다. 이 유틸리티는 해당 독자들의 충성도 주장을 확대하지 않으며 외부 런타임 서비스를 추가하지 않습니다.
 
-The input is opened read-only and remains unchanged. Existing output files,
-directories and symbolic links are rejected, including an input reused as the
-output. `DocumentFile::create()` exclusively creates the destination, so a file
-appearing after the command's preliminary check is not overwritten either.
-Output parent directories must already exist.
+<a id="persistence-and-non-destructive-operation"></a>
 
-The result is a SQLite-backed, synchronously committed `.iisc` working file,
-not the legacy `encodeIisc()` snapshot container. Successful creation is durable
-before the command reports success; neither closing the file nor a later save
-is required to persist its layers. Import errors produce no destination file.
-Working-file creation uses the existing transactional failure handling.
+## 지속성 및 비파괴적 작동
 
-Qt's offscreen platform is selected only when `QT_QPA_PLATFORM` is unset or
-empty. A caller-supplied platform selection is preserved. Qt platform switches
-are not command options; use the environment variable when needed.
+입력이 열려 있으며 읽기 전용는 변함이 없습니다. 기존 출력 파일, 디렉터리 및 심볼릭 링크는 출력으로 재사용되는 입력을 포함하여 거부됩니다. `DocumentFile::create()`는 목적지를 독점적으로 생성하므로, 명령의 사전 검사 후에 나타나는 파일도 덮어쓰여지지 않습니다. 출력 상위 디렉터리는 이미 존재해야 합니다.
 
-The host install records its configured external Qt/framework search paths as
-well as the sibling library path, so the installed command runs outside the
-build directory. It does not bundle Qt, iiPaintEngine or libzip; shipping a
-standalone application still requires packaging the actual runtime dependencies.
-`install.sh` executes the installed command's help before building its separate
-installed-package consumer, detecting missing runtime libraries during validation.
+결과는 SQLite 백업된, 동기식 커밋된 `.iisc` 작업 파일이며, 레거시 `encodeIisc()` 스냅샷 컨테이너가 아닙니다. 성공적인 생성은 명령이 성공을 보고하기 전까지 지속됩니다; 파일을 닫거나 나중에 저장하는 것이 레이어를 지속하기 위해 필요하지 않습니다. 가져오기 오류가 발생하면 대상 파일이 생성되지 않습니다. 작업 파일 생성은 기존의 트랜잭션 실패 처리를 사용합니다.
 
-## Verification
+Qt의 화면 없는 플랫폼은 `QT_QPA_PLATFORM`가 설정되지 않았거나 비어 있을 때만 선택한다. 호출자가 지정한 플랫폼 선택은 보존한다. Qt 플랫폼 전환은 명령 옵션이 아니므로 필요하면 환경 변수를 사용한다.
 
-`LayeredImportCliTest.cpp` builds an independent two-layer raw PSD in the
-configured `build/` test-output directory, invokes the executable through
-`QProcess`, and reopens the result with `DocumentFile`. It checks exact names,
-bottom-to-top order, IDs, pixels, alpha and offsets, the SQLite working-file
-signature, visible metadata warnings, Unicode/spaced/dashed paths, help and
-argument errors, unsupported formats/semantics, collisions and source-byte
-preservation. The fixture's black composite differs from its layer pixels to
-prevent a flattened-composite fallback from passing.
+호스트 설치는 구성된 외부  Qt /프레임워크 검색 경로와 자매 라이브러리 경로를 기록하므로, 설치된 명령은 빌드 디렉토리 바깥에서 실행됩니다. 그것은  Qt ,  iiPaintEngine 또는  libzip 를 번들하지 않습니다; 독립형 애플리케이션을 배포하려면 실제  런타임 의존성을 패키징해야 합니다. `install.sh` 는 별도의 설치된 패키지 소비자를 빌드하기 전에 설치된 명령의 도움말을 실행하며, 유효성 검사 중에 누락된  런타임 라이브러리를 감지합니다.
+
+<a id="verification"></a>
+
+## 검증
+
+`LayeredImportCliTest.cpp` 는 구성된  `build/` 테스트 출력 디렉토리에 독립적인  2-계층 원시  PSD 를 빌드하고,  `QProcess` 를 통해 실행 가능한 파일을 호출한 후 결과를  `DocumentFile` 로 다시 엽니다. 그것은 정확한 이름, 아래에서 위로 순서, ID, 픽셀, 알파 및 오프셋,  SQLite 작업 파일 서명, 가시적 메타데이터 경고,  Unicode /간격/점선 경로, 도움말 및 인수 오류, 지원되지 않는 형식/의미, 충돌 및 소스 바이트 보존을 확인합니다. 픽스처 의 검은색 합성 는 평평해진 합성 대체 경로 가 통과하는 것을 막기 위해 레이어 픽셀과 다릅니다.

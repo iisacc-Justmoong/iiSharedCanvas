@@ -1,4 +1,5 @@
 #include "Bitmap/ChunkedBitmapEditor.h"
+#include "Bitmap/BrushEngineState_p.hpp"
 #include "File/DocumentFile.h"
 
 #include <Layer/RasterLayer.h>
@@ -140,6 +141,10 @@ const BitmapBrush &ChunkedBitmapEditor::brush() const noexcept
 
 bool ChunkedBitmapEditor::setBrush(const BitmapBrush &value)
 {
+    if (value.engineState) {
+        const auto errors = detail::validateEngineState(*value.engineState);
+        if (!errors.empty()) { setError(errors.front()); return false; }
+    }
     if (m_strokeActive) {
         setError("brush settings cannot change during an active stroke");
         return false;
@@ -463,7 +468,7 @@ bool ChunkedBitmapEditor::validPoint(DocumentPoint point, double pressure)
 
 BrushState ChunkedBitmapEditor::brushState() const
 {
-    Rasterizer rasterizer;
+    Rasterizer rasterizer = m_brush.engineState ? m_brush.engineState->rasterizer : Rasterizer{};
     rasterizer.radius = static_cast<Types::Pixel>(std::max(1.0, std::ceil(m_brush.size * 0.5)));
     rasterizer.brushSize = m_brush.size;
     rasterizer.argb = m_brush.eraser ? 0xff000000U : m_brush.argb;
@@ -478,13 +483,14 @@ BrushState ChunkedBitmapEditor::brushState() const
     rasterizer.hardnessEnabled = m_brush.hardnessEnabled;
     rasterizer.blendMode = m_brush.eraser
         ? RasterBlendMode::DestinationOut
-        : RasterBlendMode::SourceOver;
+        : m_brush.engineState ? m_brush.engineState->rasterizer.blendMode : RasterBlendMode::SourceOver;
     BrushDynamics dynamics;
     dynamics.pressureToSize = 1.0;
     dynamics.pressureToFlow = 1.0;
     dynamics.pressureToOpacity = 1.0;
     dynamics.pressureToOpacityEnabled = m_brush.pressureToOpacityEnabled;
-    return {std::move(rasterizer), std::move(dynamics), BrushMaterial{}, m_nextStrokeSeed};
+    return {std::move(rasterizer), m_brush.engineState ? m_brush.engineState->dynamics : std::move(dynamics),
+        m_brush.engineState ? m_brush.engineState->material : BrushMaterial{}, m_nextStrokeSeed};
 }
 
 bool ChunkedBitmapEditor::contains(std::int32_t x, std::int32_t y) const noexcept

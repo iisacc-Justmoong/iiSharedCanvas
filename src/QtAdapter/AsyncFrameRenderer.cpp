@@ -50,6 +50,7 @@ void finishParallelLayers(const std::shared_ptr<ParallelLayerState> &state)
     if (!state->promise->isCanceled()) {
         FrameLayerBatchRenderResult batch;
         batch.requests = state->requests;
+        batch.artboards = state->document->artboards;
         batch.layers.reserve(state->layers.size());
         for (std::optional<FrameLayerTileRenderResult> &layer : state->layers) {
             if (!layer) {

@@ -36,7 +36,7 @@ iiSharedCanvas::Document makeLargeDocument()
     chunk.pixels = makeRasterLayer(256, 256, 0x00000000U);
     chunk.pixels.pixels[static_cast<std::size_t>(18) * 256U + 22U] = 0xff22d3eeU;
     document.assets.emplace_back(ChunkedRasterAsset{"paint", {std::move(chunk)}});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"paint-layer", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"paint"},
     });
@@ -61,7 +61,7 @@ iiSharedCanvas::Document makeLargeVectorDocument()
     path.fill = SolidPaint{0xffffcc00U};
     document.assets.emplace_back(
         VectorAsset{"shape", {65536, 49152}, {std::move(path)}});
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(StaticVectorLayer{
         {"shape-layer", "Shape", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"shape"},
     });
@@ -89,12 +89,12 @@ iiSharedCanvas::Document makeTwoLayerDocument()
     path.fill = SolidPaint{0xffffcc00U};
     document.assets.emplace_back(
         VectorAsset{"shape", {128, 128}, {std::move(path)}});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"background-layer", "Background", true, 1.0, {},
          RasterBlendMode::SourceOver},
         StaticSource{"background"},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(StaticVectorLayer{
         {"shape-layer", "Shape", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"shape"},
     });
@@ -216,7 +216,7 @@ int main(int argc, char **argv)
            "one asynchronous preflight must preserve an out-of-range layer slot while omitting its tiles and composite contribution");
 
     Document invalidParallel = makeTwoLayerDocument();
-    std::get<StaticSource>(layerSource(invalidParallel.layers.front())).assetId =
+    staticLayerSource(invalidParallel.layers.front())->assetId =
         "missing-background";
     const FrameLayerBatchRenderResult synchronousInvalid = renderFrameLayers(
         invalidParallel, 0, {fullTwoLayerTile});

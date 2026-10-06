@@ -119,7 +119,12 @@ int main()
             for (unsigned i = 0; i < 4; ++i) { size |= std::uint32_t(corrupt.at(cursor+i)) << (8*i); }
             cursor += 4 + size;
         };
-        skipString(); skipString(); cursor += 1+8+48+1+1; skipString(); ++cursor;
+        skipString(); skipString(); cursor += 1+8+48+1;
+        if (doc.formatVersion.minor >= 18) {
+            if (corrupt.at(cursor++)) skipString(); // Optional artboard membership.
+        }
+        if (doc.formatVersion.minor >= 19) ++cursor; // Explicit visual type.
+        ++cursor; skipString(); ++cursor;
         expect(corrupt.at(cursor) == 1, "semantic role is serialized as tag one");
         corrupt.at(cursor) = 255;
         std::uint32_t crc = 0xffffffffU;

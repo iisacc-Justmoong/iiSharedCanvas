@@ -37,7 +37,11 @@ enum class DocumentEditCode {
     PersistenceFailed,
     DuplicateAudioClipId,
     AudioClipNotFound,
+    ArtboardNotFound,
+    DuplicateArtboardId,
 };
+
+enum class ArtboardRemoval { KeepLayers, DeleteLayers };
 
 struct DocumentEditResult {
     DocumentEditCode code = DocumentEditCode::None;
@@ -73,6 +77,19 @@ public:
 
     DocumentEditResult setFileAuthor(const iiFileProvider::FileAuthor &author);
     DocumentEditResult setCanvasExtent(CanvasExtent extent);
+    DocumentEditResult insertArtboard(Artboard artboard, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult setArtboardName(const std::string &id, std::string name);
+    DocumentEditResult setArtboardRegion(const std::string &id, CanvasRegion region);
+    DocumentEditResult setArtboardBackground(const std::string &id, std::uint32_t argb);
+    DocumentEditResult setArtboardVisible(const std::string &id, bool visible);
+    DocumentEditResult moveArtboard(const std::string &id, std::size_t destinationIndex);
+    DocumentEditResult duplicateArtboard(const std::string &id, std::string replacementId,
+                                         CanvasOrigin origin, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult removeArtboard(const std::string &id,
+                                      ArtboardRemoval removal = ArtboardRemoval::KeepLayers);
+    // Reparent without changing world placement; nullopt moves to the loose stack.
+    DocumentEditResult setLayerArtboard(const std::string &layerId,
+                                       std::optional<std::string> artboardId);
     DocumentEditResult ensureInfiniteCanvasRegion(CanvasRegion region);
     DocumentEditResult setFrameRate(FrameRate frameRate);
     DocumentEditResult setFrameCount(FrameIndex frameCount);
@@ -224,6 +241,13 @@ public:
     DocumentEditResult setKeyframeAsset(const std::string &layerId,
                                         FrameIndex frame,
                                         std::string assetId);
+    // Atomically append fresh content and insert/replace its exact-frame key.
+    // A fresh asset id prevents edits from overwriting other frames or layers.
+    // The layer must already have a keyframed source of the matching kind.
+    DocumentEditResult setDynamicFrameContent(const std::string &layerId,
+                                               FrameIndex frame, RasterAsset content);
+    DocumentEditResult setDynamicFrameContent(const std::string &layerId,
+                                               FrameIndex frame, VectorAsset content);
     DocumentEditResult moveKeyframe(const std::string &layerId,
                                     FrameIndex frame,
                                     FrameIndex destinationFrame);
@@ -243,6 +267,9 @@ public:
                                         std::size_t index);
 
 private:
+    DocumentEditResult setDynamicFrameContentImpl(const std::string &layerId,
+                                                   FrameIndex frame, Asset content);
+    DocumentEditResult editArtboards(const std::function<DocumentEditResult(Document &)> &edit);
     DocumentEditResult editFile(const std::function<DocumentEditResult(DocumentEditor &)> &edit);
     [[nodiscard]] DocumentEditResult reject(DocumentEditCode code,
                                             std::string path,

@@ -47,7 +47,7 @@ bool verifyTimelineInterchange()
     Document document; document.extent = {4, 4}; document.timeline = {{30000, 1001}, 10};
     document.assets.emplace_back(RasterAsset{"red", makeRasterLayer(4, 4, 0xffff0000U)});
     document.assets.emplace_back(RasterAsset{"blue", makeRasterLayer(4, 4, 0xff0000ffU)});
-    document.layers.emplace_back(BitmapLayer{{"layer", "Installed timeline"}, KeyframedSource{{0, 5}}});
+    document.layers.emplace_back(DynamicBitmapLayer{{"layer", "Installed timeline"}, KeyframedSource{{0, 5}}});
     document.frames = {{0, {{"layer", "red"}}}, {5, {{"layer", "blue"}}}};
     const auto original = encodeIisc(document);
     QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/timeline-XXXXXX"));
@@ -85,8 +85,8 @@ bool verifyPsdExport()
     later.paths.front().fill = SolidPaint{0xff0000ffU};
     document.assets.emplace_back(first);
     document.assets.emplace_back(later);
-    document.layers.emplace_back(BitmapLayer{{"base-layer", "Base"}, StaticSource{"base"}});
-    document.layers.emplace_back(VectorLayer{{"vector-layer", "Vector frame zero"}, KeyframedSource{{0, 1}}});
+    document.layers.emplace_back(StaticBitmapLayer{{"base-layer", "Base"}, StaticSource{"base"}});
+    document.layers.emplace_back(DynamicVectorLayer{{"vector-layer", "Vector frame zero"}, KeyframedSource{{0, 1}}});
     document.frames = {{0, {{"vector-layer", "first"}}}, {1, {{"vector-layer", "later"}}}};
     const auto original = encodeIisc(document);
     const auto encoded = encodePsd(document);
@@ -191,7 +191,7 @@ bool verifyMediaInterchange()
     Document document;
     document.extent = {8, 8};
     document.assets.emplace_back(imported.asset);
-    document.layers.emplace_back(VectorLayer{{"layer", "Imported SVGZ"}, StaticSource{imported.asset.id}});
+    document.layers.emplace_back(StaticVectorLayer{{"layer", "Imported SVGZ"}, StaticSource{imported.asset.id}});
     QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_CONSUMER_OUTPUT_DIR "/media-XXXXXX"));
     if (!directory.isValid()) { return false; }
     if (!exportPdf(document, directory.filePath("vector.pdf").toStdString()).ok()
@@ -253,7 +253,7 @@ int main(int argc, char **argv)
     document.timeline = {{24, 1}, 3};
     document.assets.emplace_back(
         RasterAsset{"installed-raster", makeRasterLayer(4, 4, 0xff112233U)});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"installed-layer", "Installed package", true, 1.0, {},
          RasterBlendMode::SourceOver},
         StaticSource{"installed-raster"},
@@ -273,7 +273,7 @@ int main(int argc, char **argv)
     AffineTransform shapeTransform;
     shapeTransform.translationX = 0.5;
     shapeTransform.translationY = 1.0;
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(DynamicVectorLayer{
         {"installed-shape-layer", "Detailed shape", false, 0.625, shapeTransform,
          RasterBlendMode::Multiply},
         KeyframedSource{{0}},
@@ -346,7 +346,7 @@ int main(int argc, char **argv)
         ? findLayer(decoded.document, "installed-layer")
         : nullptr;
     const KeyframedSource *decodedShapeSource = decodedShapeLayer
-        ? std::get_if<KeyframedSource>(&layerSource(*decodedShapeLayer))
+        ? keyframedLayerSource(*decodedShapeLayer)
         : nullptr;
     const Frame *decodedFrame = decoded.ok()
         ? findFrame(decoded.document, 0)
@@ -525,7 +525,7 @@ int main(int argc, char **argv)
         && decodedShape->paths.front().stroke
         && decodedShape->paths.front().stroke->width == 0.75
         && decodedShapeLayer
-        && std::holds_alternative<VectorLayer>(*decodedShapeLayer)
+        && std::holds_alternative<DynamicVectorLayer>(*decodedShapeLayer)
         && decodedShapeProperties
         && decodedShapeProperties->name == "Detailed shape"
         && !decodedShapeProperties->visible

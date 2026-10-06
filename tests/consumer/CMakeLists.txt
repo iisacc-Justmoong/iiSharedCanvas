@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.24.0 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.28.0 CONFIG REQUIRED)
+
+add_executable(iiSharedCanvasInstalledBitmapProcessing ../BitmapProcessingTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledBitmapProcessing PRIVATE iiSharedCanvas::iiSharedCanvas)
+add_test(NAME iiSharedCanvas.InstalledBitmapProcessing COMMAND iiSharedCanvasInstalledBitmapProcessing)
+
+add_executable(iiSharedCanvasInstalledRasterSampling ../RasterSamplingTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledRasterSampling PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledRasterSampling PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 
 add_executable(iiSharedCanvasConsumer main.cpp)
 target_compile_definitions(iiSharedCanvasConsumer PRIVATE
@@ -14,6 +22,19 @@ target_include_directories(iiSharedCanvasConsumer BEFORE PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../foreign-headers")
 
 enable_testing()
+add_executable(iiSharedCanvasInstalledFourLayerType ../FourLayerTypeTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledFourLayerType PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledFourLayerType PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledFourLayerType COMMAND iiSharedCanvasInstalledFourLayerType)
+add_executable(iiSharedCanvasInstalledDynamicFrameContent ../DynamicFrameContentTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledDynamicFrameContent PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledDynamicFrameContent PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledDynamicFrameContent COMMAND iiSharedCanvasInstalledDynamicFrameContent)
+add_executable(iiSharedCanvasInstalledArtboard ../ArtboardTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledArtboard PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledArtboard PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledArtboard COMMAND iiSharedCanvasInstalledArtboard)
+add_test(NAME iiSharedCanvas.InstalledRasterSampling COMMAND iiSharedCanvasInstalledRasterSampling)
 add_executable(iiSharedCanvasInstalledAuthorship ../AuthorshipTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledAuthorship PRIVATE iiSharedCanvas::iiSharedCanvas)
 add_test(NAME iiSharedCanvas.InstalledAuthorship COMMAND iiSharedCanvasInstalledAuthorship)
@@ -91,3 +112,17 @@ add_executable(iiSharedCanvasInstalledMlsd ../MlsdTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledMlsd PRIVATE iiSharedCanvas::iiSharedCanvas)
 target_compile_definitions(iiSharedCanvasInstalledMlsd PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 add_test(NAME iiSharedCanvas.InstalledMlsd COMMAND iiSharedCanvasInstalledMlsd)
+
+# Prove the selected stage/host package rather than an unrelated shell SDK path.
+if(APPLE OR UNIX)
+    get_property(_canvas_tests DIRECTORY PROPERTY TESTS)
+    if(APPLE)
+        set(_canvas_loader_path DYLD_LIBRARY_PATH)
+    else()
+        set(_canvas_loader_path LD_LIBRARY_PATH)
+    endif()
+    set_tests_properties(${_canvas_tests} PROPERTIES ENVIRONMENT_MODIFICATION
+        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvas::iiSharedCanvas>")
+    unset(_canvas_tests)
+    unset(_canvas_loader_path)
+endif()

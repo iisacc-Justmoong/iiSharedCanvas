@@ -83,10 +83,19 @@ LayerSample sampleLayerAt(const Document &document, const Layer &layer, FrameInd
     const auto &properties = layerProperties(layer);
     LayerSample sample{properties.visible && layerExistsAt(document, layer, frame),
                        properties.opacity, properties.transform};
+    const Artboard *artboard = properties.artboardId ? findArtboard(document, *properties.artboardId) : nullptr;
+    const auto placeInWorld = [&]() {
+        if (artboard) {
+            sample.transform.translationX += artboard->region.origin.x;
+            sample.transform.translationY += artboard->region.origin.y;
+            sample.visible = sample.visible && artboard->visible;
+        }
+        return sample;
+    };
     if (const auto *video = std::get_if<VideoLayer>(&layer)) {
         sample.visible = sample.visible && videoFrameIndexAt(document, *video, frame).has_value();
     }
-    if (properties.motion.empty()) { return sample; }
+    if (properties.motion.empty()) { return placeInWorld(); }
     const auto value = motionAt(properties.motion, frame);
     const double angle = std::remainder(value.rotationDegrees, 360.0) * std::numbers::pi / 180.0;
     const double sine = std::sin(angle), cosine = std::cos(angle);
@@ -102,6 +111,6 @@ LayerSample sampleLayerAt(const Document &document, const Layer &layer, FrameInd
     sample.transform.translationX = base.m11 * x + base.m21 * y + base.translationX;
     sample.transform.translationY = base.m12 * x + base.m22 * y + base.translationY;
     sample.opacity *= value.opacity;
-    return sample;
+    return placeInWorld();
 }
 } // namespace iiSharedCanvas

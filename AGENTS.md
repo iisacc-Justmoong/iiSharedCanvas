@@ -1,116 +1,78 @@
-# iiSharedCanvas engineering contract
+<a id="iisharedcanvas-engineering-contract"></a>
 
-## Product boundary
+# iiSharedCanvas 엔지니어링 계약
 
-iiSharedCanvas composes raster pixels, native vector paths, owned constant-rate
-video and interpolated transform/opacity motion in one document.
+<a id="product-boundary"></a>
 
-iiSharedCanvas is the authoritative canvas document, rendering, editing, and
-serialization standard for iisacc products. Consumer applications are
-downstream adopters. A consumer's existing model, QML property names, tool
-workflow, or release schedule must not define this library's public API.
+## 제품 경계
 
-When a consumer and iiSharedCanvas differ, adapt the consumer through its own
-bridge or wrapper first. Change iiSharedCanvas only when the missing behavior
-belongs to the reusable canvas domain and is specified and tested here without
-product-specific names or assumptions.
+iiSharedCanvas는 래스터 픽셀, 네이티브 벡터 경로, 자체 고정 속도 비디오 및 보간된 변환/불투명 모션을 하나의 문서로 구성합니다.
 
-iiPaintEngine remains bitmap-only. Brush input must become committed pixels
-before crossing into iiSharedCanvas. Never persist a brush trajectory, raw
-pointer sequence, curve, dab stream, or replay command.
+iiSharedCanvas 은 iisacc 제품들의 직렬화 표준인 공식 캔버스 문서입니다. 소비자 애플리케이션은 하위 소비 측 채택자입니다. 소비자의 기존 모델, QML 속성 이름, 도구 워크플로우 또는 릴리스 일정이 이 라이브러리의 공개 API 를 정의해서는 안 됩니다.
 
-## Dependency direction
+소비자와 iiSharedCanvas가 다른 경우 먼저 자체 브리지나 래퍼를 통해 소비자를 조정합니다. 누락된 동작이 재사용 가능한 캔버스 도메인에 속하고 제품별 이름이나 가정 없이 여기에서 지정 및 테스트되는 경우에만 iiSharedCanvas를 변경하십시오.
 
-Application -> iiSharedCanvas -> iiPaintEngine.
-Application/domain SDK -> iiFileProvider -> Qt Core / SQLite.
-File CRUD and SQLite execution belong to iiFileProvider. The provider must not
-reference iiSharedCanvas or any other higher-level iisacc SDK. Canvas schemas,
-validation, serialization and in-memory editing remain here.
+iiPaintEngine는 비트맵 전용으로 유지됩니다. 브러시 입력은 iiSharedCanvas로 넘어가기 전에 커밋된 픽셀이 되어야 합니다. 브러시 궤적, 원시 포인터 시퀀스, 곡선, Dab 스트림 또는 재생 명령을 유지하지 마십시오.
 
-iiPaintEngine must not depend on iiSharedCanvas. The only direct dependency in
-the initial milestone is iiPaintEngine. Any additional archive, serialization,
-vector, text, or codec library requires an explicit maintenance, license, and
-dependency-size review.
+<a id="dependency-direction"></a>
 
-SQLite is the reviewed storage engine, now owned privately by iiFileProvider;
-see docs/DEPENDENCIES.md. File-bound edits commit synchronously through
-DocumentFile, never a delayed autosave or whole-document dump. Read-only
-render snapshots must not retain a writable file binding.
+## 의존성 방향
 
-Media interchange uses the existing Qt codecs and the reviewed zlib dependency
-for SVGZ and PNG integrity checks. FFmpeg/ffprobe are optional application-selected runtime executables,
-never a hidden download or link dependency. See docs/MEDIA_IO.md and the media
-review in docs/DEPENDENCIES.md. Imports return detached values; inserting them
-into a working document must use its existing validated edit transaction.
+애플리케이션 -> iiSharedCanvas -> iiPaintEngine . 애플리케이션/도메인 SDK -> iiFileProvider -> Qt 코어 / SQLite . 파일 CRUD 와 SQLite 실행은 iiFileProvider 에 속합니다. 제공자는 iiSharedCanvas 나 다른 상위 레벨 iisacc SDK 를 참조해서는 안 됩니다. 캔버스 스키마, 검증, 직렬화 및 메모리 내 편집은 여기에 유지됩니다.
 
-Layer-preserving foreign-document import uses the reviewed libzip dependency
-for OpenRaster ZIP data and the existing Qt/zlib primitives. PSD import is a
-bounded, fail-closed pixel-layer subset. Do not silently substitute merged
-previews, discard unsupported compositing, extract archive paths, or mutate
-the source file. See docs/MEDIA_IO.md and docs/DEPENDENCIES.md.
+iiPaintEngine는 iiSharedCanvas에 종속되어서는 안 됩니다. 초기 마일스톤의 유일한 직접적인 종속성은 iiPaintEngine입니다. 추가 아카이브, 직렬화, 벡터, 텍스트 또는 코덱 라이브러리에는 명시적인 유지 관리, 라이센스 및 종속성 크기 검토가 필요합니다.
 
-PSD export snapshots native frame zero. Vectors must carry an embedded vector
-PDF Smart Object, not just a raster preview labeled as one. Preserve source
-documents, report animation/viewport losses, reuse existing Qt PDF primitives,
-and publish completed outputs atomically. Smart Object export does not imply
-Smart Object import or native timeline round-trip support.
+SQLite는 검토된 스토리지 엔진으로 현재 iiFileProvider가 개인 소유입니다. docs/DEPENDENCIES.md를 참조하세요. 파일 바인딩 편집은 DocumentFile를 통해 동기적으로 커밋되며, 지연된 자동 저장이나 문서 전체 덤프는 절대 사용되지 않습니다. 읽기 전용 렌더링 스냅샷은 쓰기 가능한 파일 바인딩을 유지해서는 안 됩니다.
 
-Timeline interchange exports the full persisted canvas timeline through paired
-legacy XML/FCPXML manifests and independent layer-state PNGs. Never substitute
-a flattened movie for editable tracks. Keep source.iisc in the package, report
-vector/transform projection losses, preserve exact frame intervals and publish
-only new directories atomically. Native editor plug-in support and the separate
-TimelineProject model are not implied by this interchange adapter.
+미디어 교환은 기존 Qt 코덱과 검토된 zlib 의존성을 사용하여 SVGZ 와 PNG 무결성 검사를 수행합니다. FFmpeg / ffprobe 는 숨겨진 다운로드 또는 링크 의존성이 아닌 선택적인 애플리케이션 선택 런타임 실행 파일입니다. docs/MEDIA_IO.md 와 docs/DEPENDENCIES.md 의 미디어 검토를 참조하세요. 가져온 값은 분리된 값을 반환하며, 작업 문서에 삽입하려면 기존 검증된 편집 트랜잭션을 사용해야 합니다.
 
-Consumer adoption is sequential, not a parallel compatibility exercise:
+레이어 보존형 외국 문서 가져오기는 검토된 libzip 의존성을 사용하여 OpenRaster ZIP 데이터와 기존 Qt / zlib 원시 요소를 사용합니다. PSD 가져오기는 한계가 설정된 안전하게 거부하는 픽셀 레이어 하위 집합입니다. 합성된 미리보기 아무런 알림 없이 대체하거나, 지원되지 않는 합성 를 삭제하거나, 아카이브 경로를 추출하거나, 소스 파일을 변형하지 마십시오. docs/MEDIA_IO.md 와 docs/DEPENDENCIES.md 를 참조하십시오.
 
-1. Specify, implement, validate, version, and install iiSharedCanvas on its own.
-2. Freeze that library contract for the adoption task.
-3. Update each consumer to conform through consumer-owned integration code.
+PSD 내보내기 스냅샷은 네이티브 프레임 0을 내보냅니다. 벡터는 스마트 오브젝트 PDF 를 내장해야 하며, 단순히 래스터 미리보기로 표시되는 것으로 충분하지 않습니다. 소스 문서를 보존하고, 애니메이션/ 뷰포트 손실을 보고하며, 기존 Qt PDF 원시체를 재사용하고, 완료된 출력을 원자적으로 게시하십시오. 스마트 오브젝트 내보명은 스마트 오브젝트 가져오기나 네이티브 타임라인 왕복 변환 지원이 함의되지 않습니다.
 
-Do not edit a consumer application in order to discover or shape an unfinished
-iiSharedCanvas API during the same implementation phase.
+타임라인 상호 변환은 짝지어진 레거시 XML / FCPXML 매니페스트와 독립적인 레이어 상태 PNG 를 통해 전체 지속된 캔버스 타임라인을 내보냅니다. 평평해진 영화로 편집 가능한 트랙을 대체하지 마십시오. 패키지 내에 source.iisc 를 유지하고, 벡터/변환 투영 손실을 보고하며, 정확한 프레임 간격을 보존하고, 새 디렉토리만 원자적으로 게시하십시오. 네이티브 편집기 플러그인 지원과 별도의 TimelineProject 모델은 이 상호 변환 어댑터에 의해 함의되지 않습니다.
 
-## Change rules
+소비자 채택은 병렬 호환성 실행이 아니라 순차적입니다.
 
-- Write or update tests before implementing behavior.
-- Every source change updates the relevant document and test.
-- Use only build/ for generated build output.
-- Keep each public header beside its implementation in a module directory
-  under src/. Never introduce a separate include/ source tree.
-- After source changes, run a fresh configure, full build, all CTest tests,
-  install staging, standalone installed-package consumption, and diff checks.
-- Do not claim file serialization or rendering until round-trip or golden
-  output tests prove it.
-- Unknown format versions and invalid references fail closed.
-- Prefer integer frames and rational rates over persisted floating timestamps.
-- Add abstraction only after repeated concrete changes show the need.
-- Keep source, tests, errors, QML types, and public documentation independent
-  of any named consumer product.
+1. iiSharedCanvas를 자체적으로 지정, 구현, 검증, 버전화 및 설치합니다.
+2. 채택 작업을 위해 해당 도서관 계약을 동결합니다.
+3. 소비자 소유 통합 코드를 통해 각 소비자를 업데이트합니다.
 
-## Stable Phase 0 semantics
+동일한 구현 단계에서 완료되지 않은 iiSharedCanvas API를 발견하거나 형성하기 위해 소비자 애플리케이션을 편집하지 마십시오.
 
-- RasterAsset owns iiPaintEngine RasterLayer pixels.
-- VectorAsset owns M/L/Q/C/Z paths with solid fill or stroke.
-- A layer has exactly one static or keyframed source; video uses a static video reference.
-- One keyframed source has one content kind and begins at frame zero.
-- Asset-reference keyframe sampling is hold-only; motion property keys use their explicit interpolation.
-- Layer order is bottom-to-top.
-- Rendering never mutates source assets.
-- Persisted model fields remain public aggregate data. Use `DocumentEditor` for
-  validated structural edits; a rejected edit must preserve both document
-  state and editor revision.
-- BitmapEditor mutates only the explicitly bound RasterAsset and persists no
-  pointer trajectory or replay command.
-- BitmapItem is a selected-raster display/input adapter, not evidence that the
-  mixed-layer frame renderer or serializer is complete.
-- Qt Quick is consumed through the Qt targets exported transitively by
-  iiPaintEngine; product QML continues to use LVRS. SQLite is private to iiFileProvider; direct SQLite use here is restricted to tests.
+<a id="change-rules"></a>
 
-## Native video and motion (0.11.0)
+## 규칙 변경
 
-VideoAsset owns bounded decoded frames; never require an external media path to
-render a persisted native document. CanvasSampling is the shared rational-time
-and motion evaluator. Keep media input warnings and resource limits explicit.
-Video/motion fields require .iisc 1.6. PSD/XML adapters currently reject these
-fields; do not silently discard animation or route video through a bitmap cast.
+- 동작을 구현하기 전에 테스트를 작성하거나 업데이트하세요.
+- 모든 소스 변경은 관련 문서를 업데이트하고 테스트합니다.
+- 생성된 빌드 출력에는 build/만 사용하세요.
+- 모듈 디렉토리 하위에 src/. 옆에 각 공개 헤더를 유지하세요. 별도의 include/ 소스 트리를 만들지 마세요.
+- 소스를 변경한 후, 새로운 구성, 전체 빌드, 모든 CTest 테스트, 설치 스테이징, 독립 실행형 설치 패키지 사용량 및 diff 검사를 실행하십시오.
+- 파일 직렬화 나 렌더링이 왕복 변환 나 기준 출력 테스트로 증명될 때까지 주장하지 마세요.
+- 알 수 없는 형식 버전 및 잘못된 참조 안전하게 거부한다.
+- 지속적인 부동 타임스탬프보다 정수 프레임과 유리수 속도를 선호합니다.
+- 반복되는 구체적인 변경이 필요하다고 나타난 후에만 추상화를 추가하십시오.
+- 소스, 테스트, 오류, QML 유형 및 공개 문서는 명시된 소비자 제품과 독립적으로 유지하십시오.
+
+<a id="stable-phase-0-semantics"></a>
+
+## 안정 단계 0 의미론
+
+- RasterAsset는 iiPaintEngine RasterLayer 픽셀을 소유합니다.
+- VectorAsset는 솔리드 채우기 또는 스트로크가 있는 M/L/Q/C/Z 경로를 소유합니다.
+- 기본 아트워크 레이어는 StaticBitmapLayer, StaticVectorLayer, DynamicBitmapLayer, DynamicVectorLayer의 네 가지 실제 타입이며 각각 이름에 대응하는 고유 콘텐츠 타입을 가진다. 정적 콘텐츠는 단일 자산, 동적 콘텐츠는 프레임별 자산 인덱스를 가진다. 비디오 및 조건부 전용 역할은 별도 계약을 유지한다.
+- 하나의 키프레임이 적용된 소스에는 하나의 콘텐츠 종류가 있으며 프레임 0에서 시작됩니다.
+- 자산 참조 키프레임 샘플링은 유지 방식만 사용하는입니다. 모션 속성 키는 명시적인 보간을 사용합니다.
+- 레이어 순서는 아래에서 위로입니다.
+- 렌더링은 소스 자산을 변경하지 않습니다.
+- 지속 모델 필드는 공개 집계 데이터로 유지됩니다. 검증된 구조 편집에는 `DocumentEditor`를 사용하십시오; 거부된 편집은 문서 상태와 편집기 리비전을 모두 유지해야 합니다.
+- BitmapEditor는 명시적으로 바인딩된 RasterAsset만 변환하고 포인터 궤적이나 리플레이 명령은 지속하지 않습니다.
+- BitmapItem 는 선택된 래스터 디스플레이/입력 어댑터이며, 혼합 레이어 프레임 렌더러나 직렬화기 가 완료되었다는 증거가 아닙니다.
+- Qt Quick은 iiPaintEngine에 의해 전이적으로 내보낸 Qt 목표를 통해 소비됩니다; 제품 QML는 계속해서 LVRS를 사용합니다. SQLite는 iiFileProvider에 대한 비공개이며, 여기에서 직접 SQLite 사용은 테스트에만 제한됩니다.
+
+<a id="native-video-and-motion-0110"></a>
+
+## 네이티브 비디오 및 모션(0.11.0)
+
+VideoAsset 는 한계가 설정된 디코딩된 프레임을 소유하며, 영속화된 네이티브 문서를 렌더링하기 위해 외부 미디어 경로를 필요로 하지 않습니다. CanvasSampling 는 공유된 합리적 시간과 운동 평가기입니다. 미디어 입력 경고와 리소스 한계를 명시적으로 유지하세요. 비디오/운동 필드는 .iisc 1.6를 필요로 합니다. PSD / XML 어댑터는 현재 이러한 필드를 거부하므로 아무런 알림 없이 애니메이션을 삭제하거나 비트맵 캐스트를 통해 비디오를 라우팅하지 마십시오.

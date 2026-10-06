@@ -123,10 +123,10 @@ Document bitmapDocument()
     document.assets.emplace_back(RasterAsset{"base", makeRasterLayer(4, 2, 0xff223344U)});
     RasterLayer pixels = makeRasterLayer(2, 1); pixels.pixels = {0xffee4422U, 0x00123456U};
     document.assets.emplace_back(RasterAsset{"top", std::move(pixels)});
-    BitmapLayer base; base.properties.id = "base-layer"; base.properties.name = "Background";
-    base.source = StaticSource{"base"}; document.layers.emplace_back(std::move(base));
-    BitmapLayer top; top.properties.id = "top-layer"; top.properties.name = "한글🌈";
-    top.properties.transform.translationX = 1; top.source = StaticSource{"top"};
+    StaticBitmapLayer base; base.properties.id = "base-layer"; base.properties.name = "Background";
+    base.content = StaticSource{"base"}; document.layers.emplace_back(std::move(base));
+    StaticBitmapLayer top; top.properties.id = "top-layer"; top.properties.name = "한글🌈";
+    top.properties.transform.translationX = 1; top.content = StaticSource{"top"};
     document.layers.emplace_back(std::move(top));
     return document;
 }
@@ -176,7 +176,7 @@ int main(int argc, char **argv)
     }
     auto animated = document; animated.timeline.frameCount = 2;
     animated.assets.emplace_back(RasterAsset{"later", makeRasterLayer(2, 1, 0xff00ff00U)});
-    layerSource(animated.layers[1]) = KeyframedSource{{0, 1}};
+    setLayerSource(animated.layers[1], KeyframedSource{{0, 1}});
     animated.frames = {{0, {{"top-layer", "top"}}}, {1, {{"top-layer", "later"}}}};
     auto animatedPsd = encodePsd(animated);
     auto animatedDecoded = decodeLayeredDocument(animatedPsd.bytes);
@@ -211,8 +211,8 @@ int main(int argc, char **argv)
     VectorPath vectorPath; vectorPath.commands = {MoveTo{{-1, -2}}, LineTo{{5, -2}}, LineTo{{5, 3}}, LineTo{{-1, 3}}, ClosePath{}};
     vectorPath.fill = SolidPaint{0xffcc6622}; vectorPath.stroke = StrokeStyle{SolidPaint{0xff2233cc}, 2}; vector.paths.push_back(vectorPath);
     vectorDocument.assets.emplace_back(vector);
-    VectorLayer vectorLayer; vectorLayer.properties.id = "native-vector-layer"; vectorLayer.properties.name = "Editable vector";
-    vectorLayer.properties.opacity = 128.0 / 255; vectorLayer.source = StaticSource{"vector"};
+    StaticVectorLayer vectorLayer; vectorLayer.properties.id = "native-vector-layer"; vectorLayer.properties.name = "Editable vector";
+    vectorLayer.properties.opacity = 128.0 / 255; vectorLayer.content = StaticSource{"vector"};
     vectorLayer.properties.transform = {1.5, 0.25, -0.5, 1, 3, 4}; vectorDocument.layers.emplace_back(vectorLayer);
     const auto vectorOriginal = encodeIisc(vectorDocument).bytes;
     const auto smartPsd = encodePsd(vectorDocument);
@@ -304,7 +304,7 @@ int main(int argc, char **argv)
     rejects(huge, {}, MediaIoCode::UnsupportedFeature, "PSD v1 canvas dimensions fail without creating PSB");
     Document manyLayers; manyLayers.extent = {1, 1}; manyLayers.assets.emplace_back(RasterAsset{"shared", makeRasterLayer(1, 1)});
     for (int index = 0; index < 1024; ++index) {
-        BitmapLayer layer; layer.properties.id = "layer-" + std::to_string(index); layer.source = StaticSource{"shared"};
+        StaticBitmapLayer layer; layer.properties.id = "layer-" + std::to_string(index); layer.content = StaticSource{"shared"};
         manyLayers.layers.emplace_back(std::move(layer));
     }
     limited = {}; limited.limits.maxDecodedBytes = 64;
@@ -314,8 +314,8 @@ int main(int argc, char **argv)
     for (int row = 0; row < 8; ++row) {
         for (int column = 0; column < 8; ++column) { chunks.chunks.push_back({column, row, makeRasterLayer(32, 32, 0xffff0000)}); }
     }
-    tiled.assets.emplace_back(std::move(chunks)); BitmapLayer tilesLayer;
-    tilesLayer.properties.id = "tile-layer"; tilesLayer.source = StaticSource{"chunks"}; tiled.layers.emplace_back(tilesLayer);
+    tiled.assets.emplace_back(std::move(chunks)); StaticBitmapLayer tilesLayer;
+    tilesLayer.properties.id = "tile-layer"; tilesLayer.content = StaticSource{"chunks"}; tiled.layers.emplace_back(tilesLayer);
     limited = {}; limited.limits.maxDecodedBytes = 3 * 1024 * 1024;
     rejects(tiled, limited, MediaIoCode::LimitExceeded, "native per-chunk full-canvas render pieces are included in the memory preflight");
 

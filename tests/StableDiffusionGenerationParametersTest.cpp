@@ -278,7 +278,7 @@ int main()
     document.timeline = {{24, 1}, 1};
     document.assets.emplace_back(
         RasterAsset{"raster", makeRasterLayer(1, 1, 0xff000000U)});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"layer", "Layer", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"raster"},
     });

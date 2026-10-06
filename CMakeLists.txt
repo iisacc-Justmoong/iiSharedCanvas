@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.24.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.28.0 LANGUAGES CXX)
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -19,6 +19,18 @@ include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 
 if(BUILD_TESTING)
+    add_executable(iiSharedCanvasFourLayerTypeTest tests/FourLayerTypeTest.cpp)
+    target_link_libraries(iiSharedCanvasFourLayerTypeTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasFourLayerTypeTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.FourLayerType COMMAND iiSharedCanvasFourLayerTypeTest)
+    add_executable(iiSharedCanvasDynamicFrameContentTest tests/DynamicFrameContentTest.cpp)
+    target_link_libraries(iiSharedCanvasDynamicFrameContentTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasDynamicFrameContentTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.DynamicFrameContent COMMAND iiSharedCanvasDynamicFrameContentTest)
+    add_executable(iiSharedCanvasArtboardTest tests/ArtboardTest.cpp)
+    target_link_libraries(iiSharedCanvasArtboardTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasArtboardTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.Artboard COMMAND iiSharedCanvasArtboardTest)
     add_executable(iiSharedCanvasMlsdTest tests/MlsdTest.cpp)
     target_link_libraries(iiSharedCanvasMlsdTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasMlsdTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
@@ -124,6 +136,8 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/ExtendedBitmapCodec_p.hpp
         src/Bitmap/BitmapEditor.cpp
         src/Bitmap/BitmapEditor.h
+        src/Bitmap/BitmapProcessing.h
+        src/Bitmap/BitmapProcessing.cpp
         src/Bitmap/ChunkedBitmapEditor.cpp
         src/Bitmap/ChunkedBitmapEditor.h
         src/Camera/CameraRaw.cpp
@@ -160,6 +174,8 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Document/CanvasSampling.cpp
         src/Document/CanvasSampling.h
         src/Document/DocumentEditor.cpp
+        src/Document/ArtboardEditor.cpp
+        src/Document/ArtboardEditor_p.hpp
         src/Document/DocumentEditor.h
         src/File/DocumentFile.cpp
         src/File/DocumentFile.h
@@ -306,8 +322,8 @@ install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
 install(FILES third_party/fast_float/LICENSE-MIT third_party/fast_float/UPSTREAM.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas/fast_float)
-install(FILES docs/CONTROLNET_PARAMETERS.md docs/IP_ADAPTER.md docs/REFERENCE.md docs/TILE.md docs/SHUFFLE.md docs/NORMAL_MAP.md docs/MLSD.md docs/BINARY_LINE_CONTROL.md docs/LINE_ART.md docs/DEPTH.md docs/POSE.md docs/SEMANTIC_SEGMENT.md docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
-        docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
+install(FILES docs/FOUR_LAYER_TYPES.md docs/DYNAMIC_FRAME_CONTENT.md docs/ARTBOARDS.md docs/CONTROLNET_PARAMETERS.md docs/IP_ADAPTER.md docs/REFERENCE.md docs/TILE.md docs/SHUFFLE.md docs/NORMAL_MAP.md docs/MLSD.md docs/BINARY_LINE_CONTROL.md docs/LINE_ART.md docs/DEPTH.md docs/POSE.md docs/SEMANTIC_SEGMENT.md docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
+        docs/RASTER_SAMPLING.md docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md
         docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/iiSharedCanvas)
@@ -479,6 +495,14 @@ if(BUILD_TESTING)
 
     add_executable(iiSharedCanvasFrameRendererTest
             tests/FrameRendererTest.cpp)
+    add_executable(iiSharedCanvasRasterSamplingTest tests/RasterSamplingTest.cpp)
+    target_link_libraries(iiSharedCanvasRasterSamplingTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasRasterSamplingTest PRIVATE
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.RasterSampling COMMAND iiSharedCanvasRasterSamplingTest)
+    add_executable(iiSharedCanvasBitmapProcessingTest tests/BitmapProcessingTest.cpp)
+    target_link_libraries(iiSharedCanvasBitmapProcessingTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.BitmapProcessing COMMAND iiSharedCanvasBitmapProcessingTest)
     target_link_libraries(iiSharedCanvasFrameRendererTest PRIVATE
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.FrameRenderer
@@ -528,4 +552,19 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasAuthorshipTest tests/AuthorshipTest.cpp)
     target_link_libraries(iiSharedCanvasAuthorshipTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.Authorship COMMAND iiSharedCanvasAuthorshipTest)
+endif()
+
+# A host shell may force an older SDK with the same ABI through its loader path.
+# Source tests must exercise this build, preserving all other dependency paths.
+if(BUILD_TESTING AND (APPLE OR UNIX))
+    get_property(_canvas_tests DIRECTORY PROPERTY TESTS)
+    if(APPLE)
+        set(_canvas_loader_path DYLD_LIBRARY_PATH)
+    else()
+        set(_canvas_loader_path LD_LIBRARY_PATH)
+    endif()
+    set_tests_properties(${_canvas_tests} PROPERTIES ENVIRONMENT_MODIFICATION
+        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvas>")
+    unset(_canvas_tests)
+    unset(_canvas_loader_path)
 endif()

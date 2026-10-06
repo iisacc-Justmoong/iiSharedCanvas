@@ -54,7 +54,7 @@ iiSharedCanvas::VectorAsset makeFilledRectangle(std::string id,
 
 iiSharedCanvas::Layer staticBitmapLayer(std::string id, std::string assetId)
 {
-    return iiSharedCanvas::BitmapLayer{
+    return iiSharedCanvas::StaticBitmapLayer{
         {std::move(id), "Layer", true, 1.0, {}, RasterBlendMode::SourceOver},
         iiSharedCanvas::StaticSource{std::move(assetId)},
     };
@@ -62,7 +62,7 @@ iiSharedCanvas::Layer staticBitmapLayer(std::string id, std::string assetId)
 
 iiSharedCanvas::Layer staticVectorLayer(std::string id, std::string assetId)
 {
-    return iiSharedCanvas::VectorLayer{
+    return iiSharedCanvas::StaticVectorLayer{
         {std::move(id), "Layer", true, 1.0, {}, RasterBlendMode::SourceOver},
         iiSharedCanvas::StaticSource{std::move(assetId)},
     };
@@ -205,7 +205,7 @@ int main()
             RasterAsset{"held-black", makeRasterLayer(1, 1, 0xff000000U)});
         document.assets.emplace_back(
             RasterAsset{"held-red", makeRasterLayer(1, 1, 0xffff0000U)});
-        document.layers.emplace_back(BitmapLayer{
+        document.layers.emplace_back(DynamicBitmapLayer{
             {"held-layer", "Held layer", true, 1.0, {},
              RasterBlendMode::SourceOver, LayerFrameRange{1, 3}},
             KeyframedSource{{0, 2}},
@@ -303,7 +303,7 @@ int main()
         Document document = makeDocument(1, 1, 3);
         document.assets.emplace_back(RasterAsset{"raster-0", makeRasterLayer(1, 1, 0xffff0000U)});
         document.assets.emplace_back(RasterAsset{"raster-1", makeRasterLayer(1, 1, 0xff00ff00U)});
-        document.layers.emplace_back(BitmapLayer{
+        document.layers.emplace_back(DynamicBitmapLayer{
             {"animated-raster", "Animated raster", true, 1.0, {},
              RasterBlendMode::SourceOver},
             KeyframedSource{{0, 2}},
@@ -319,8 +319,7 @@ int main()
                "sparse raster keyframes must hold and switch on their exact boundary");
 
         Document invalid = document;
-        std::get<KeyframedSource>(layerSource(invalid.layers.front()))
-            .frameIndices.pop_back();
+        keyframedLayerSource(invalid.layers.front())->frameIndices.pop_back();
         const FrameLayerTileRenderResult invalidLayer = renderFrameLayerTiles(
             invalid,
             2,
@@ -336,7 +335,7 @@ int main()
                                                          0xff0000ffU));
         document.assets.emplace_back(makeFilledRectangle("vector-1", 1, 1, 0.0, 0.0, 1.0, 1.0,
                                                          0xffffffffU));
-        document.layers.emplace_back(VectorLayer{
+        document.layers.emplace_back(DynamicVectorLayer{
             {"animated-vector", "Animated vector", true, 1.0, {},
              RasterBlendMode::SourceOver},
             KeyframedSource{{0, 1}},

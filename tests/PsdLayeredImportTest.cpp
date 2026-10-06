@@ -172,7 +172,7 @@ int main(int argc, char **argv)
                "PSD visibility, opacity and signed offsets remain layer properties");
         expect(first.id.starts_with("psd-test") && last.id != first.id,
                "generated stable IDs use caller prefix and remain unique");
-        const auto *asset = findRasterAsset(document, std::get<StaticSource>(layerSource(document.layers[1])).assetId);
+        const auto *asset = findRasterAsset(document, staticLayerSource(document.layers[1])->assetId);
         expect(asset && asset->pixels.pixels == top.pixels, "straight ARGB includes fully transparent RGB values");
         const auto stored = encodeIisc(document);
         const auto restored = decodeIisc(stored.bytes);

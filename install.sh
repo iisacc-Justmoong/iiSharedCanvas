@@ -39,6 +39,7 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/iiSharedCanvas.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Audio/AudioCodec.h"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/AUDIO_TIMELINE.md"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapEditor.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapProcessing.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Media/MediaIo.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Vector/VectorCodec.h"
@@ -90,6 +91,7 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Timeline/TimelineProject.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Validation/Validation.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Vector/VectorEditor.h"
 test -f "${INSTALL_PREFIX}/lib/cmake/iiSharedCanvas/iiSharedCanvasConfig.cmake"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/FOUR_LAYER_TYPES.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/API.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PERSISTENCE.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/DEPENDENCIES.md"
@@ -125,8 +127,8 @@ test -x "${export_timeline_executable}"
 "${export_timeline_executable}" --help
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.24.0.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.24.0' \
+    \( -name 'libiiSharedCanvas.0.28.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.28.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2

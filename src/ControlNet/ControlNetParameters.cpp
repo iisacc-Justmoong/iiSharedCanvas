@@ -25,8 +25,8 @@ ControlNetParametersResult getControlNetParameters(const Document &doc,const std
     const auto append=[&](const std::string &assetId) {
         if(seen.insert(assetId).second) result.assets.push_back(*findAsset(doc,assetId));
     };
-    if(const auto *source=std::get_if<StaticSource>(&layerSource(*layer))) append(source->assetId);
-    else for(auto frame:std::get<KeyframedSource>(layerSource(*layer)).frameIndices)
+    if(const auto *source=staticLayerSource(*layer)) append(source->assetId);
+    else for(auto frame:keyframedLayerSource(*layer)->frameIndices)
         append(findKeyframe(doc,id,frame)->assetId);
     return {std::move(result),{}};
 }

@@ -89,7 +89,7 @@ int main()
     expect(hasIssue(invalid, ValidationCode::DuplicateAssetId), "visual and audio assets share a unique id namespace");
     invalid = source;
     invalid.assets.emplace_back(RasterAsset{"image", makeRasterLayer(1, 1)});
-    invalid.layers.emplace_back(BitmapLayer{{"dialogue", "Image"}, StaticSource{"image"}});
+    invalid.layers.emplace_back(StaticBitmapLayer{{"dialogue", "Image"}, StaticSource{"image"}});
     expect(hasIssue(invalid, ValidationCode::DuplicateLayerId), "visual and audio tracks share a unique id namespace");
 
     Document document;

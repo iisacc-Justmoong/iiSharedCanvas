@@ -31,7 +31,7 @@ iiSharedCanvas::Document makeDocument()
         RasterAsset{"paint", makeRasterLayer(16, 16, 0x00000000U)});
     document.assets.emplace_back(
         VectorAsset{"vector", {16, 16}, {}});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"paint-layer", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"paint"},
     });

@@ -32,6 +32,8 @@ struct BitmapBrush {
     bool spacingEnabled = true;
     bool pressureToOpacityEnabled = true;
     bool eraser = false;
+    // Optional native engine dynamics/tip/material; scalar fields above remain authoritative.
+    std::optional<BrushState> engineState;
 };
 
 class IISHAREDCANVAS_EXPORT BitmapEditor final {

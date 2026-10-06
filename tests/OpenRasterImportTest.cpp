@@ -139,7 +139,7 @@ int main(int argc, char **argv)
         expect(bottom.id == "ora-layer-0" && bottom.name == "Bottom"
                && top.name == "Top 한글" && top.transform.translationX == 1,
                "OpenRaster top-first order becomes bottom-first with layer names and offsets");
-        expect(std::get<StaticSource>(layerSource(imported.document.layers[0])).assetId == "ora-asset-0",
+        expect(staticLayerSource(imported.document.layers[0])->assetId == "ora-asset-0",
                "layer source IDs match deterministic imported asset IDs");
         const auto rendered = renderFrame(imported.document, 0);
         expect(rendered.ok() && rendered.pixels.pixels

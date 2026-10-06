@@ -305,6 +305,8 @@ std::vector<ExportLayer> preflight(const Document &document, const PsdExportOpti
 {
     const auto validation = validate(document);
     if (!validation.ok()) { fail(MediaIoCode::InvalidArgument, validation.issues.front().message); }
+    if (!document.artboards.empty())
+        fail(MediaIoCode::UnsupportedFeature, "PSD artboard group export is unavailable; use .iisc or renderArtboard");
     if (std::any_of(document.layers.begin(), document.layers.end(), [](const Layer &layer) {
             return layerRole(layer) == LayerRole::ControlNet || std::holds_alternative<VideoLayer>(layer) || !layerProperties(layer).motion.empty();
         })) {
@@ -429,11 +431,11 @@ RasterLayer layerCache(const Document &document, const ExportLayer &layer)
     Document isolated; isolated.extent = document.extent; isolated.canvasMode = document.canvasMode;
     isolated.infiniteCanvas = document.infiniteCanvas;
     isolated.assets.push_back(*layer.asset);
-    isolated.layers.emplace_back(contentKind(*layer.layer) == ContentKind::Vector ? Layer(VectorLayer{}) : Layer(BitmapLayer{}));
+    isolated.layers.emplace_back(contentKind(*layer.layer) == ContentKind::Vector ? Layer(StaticVectorLayer{}) : Layer(StaticBitmapLayer{}));
     auto &properties = layerProperties(isolated.layers[0]);
     properties = layerProperties(*layer.layer);
     properties.visible = true; properties.opacity = 1; properties.blendMode = RasterBlendMode::SourceOver;
-    properties.frameRange.reset(); layerSource(isolated.layers[0]) = StaticSource{assetId(*layer.asset)};
+    properties.frameRange.reset(); setLayerSource(isolated.layers[0], StaticSource{assetId(*layer.asset)});
     auto rendered = renderFrameLayerTiles(isolated, 0, 0, {{canvasRegion(isolated), isolated.extent}});
     if (!rendered.ok() || rendered.tiles.size() != 1) { fail(MediaIoCode::InvalidData, "PSD layer raster cache could not be rendered: " + rendered.message); }
     return std::move(rendered.tiles[0].pixels);

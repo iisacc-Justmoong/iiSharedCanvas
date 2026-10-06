@@ -44,11 +44,11 @@ iiSharedCanvas::Document makeDocument()
         VectorAsset{"vector-a", {8, 8}, {rectangle(0xff00ff00U)}});
     document.assets.emplace_back(
         VectorAsset{"vector-b", {8, 8}, {rectangle(0xff0000ffU)}});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"paint", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"raster-a"},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(DynamicVectorLayer{
         {"motion", "Motion", true, 1.0, {}, RasterBlendMode::SourceOver},
         KeyframedSource{{0, 6}},
     });
@@ -195,7 +195,7 @@ int main()
     Document legacyRangedLayerDocument = makeDocument();
     legacyRangedLayerDocument.formatVersion = {1, 2};
     DocumentEditor legacyRangedLayerEditor(legacyRangedLayerDocument);
-    Layer rangedAnimation = VectorLayer{
+    Layer rangedAnimation = DynamicVectorLayer{
         {"ranged-animation", "Ranged animation", true, 1.0, {},
          RasterBlendMode::SourceOver, LayerFrameRange{3, 8}},
         KeyframedSource{},
@@ -215,7 +215,7 @@ int main()
     Document rejectedLegacyRangeDocument = makeDocument();
     rejectedLegacyRangeDocument.formatVersion = {1, 2};
     DocumentEditor rejectedLegacyRangeEditor(rejectedLegacyRangeDocument);
-    Layer invalidRangedLayer = VectorLayer{
+    Layer invalidRangedLayer = StaticVectorLayer{
         {"invalid-range", "Invalid range", true, 1.0, {},
          RasterBlendMode::SourceOver, LayerFrameRange{3, 12}},
         StaticSource{"vector-a"},
@@ -231,7 +231,7 @@ int main()
     Document rejectedRangedKeyedDocument = makeDocument();
     rejectedRangedKeyedDocument.formatVersion = {1, 2};
     DocumentEditor rejectedRangedKeyedEditor(rejectedRangedKeyedDocument);
-    Layer invalidRangedAnimation = VectorLayer{
+    Layer invalidRangedAnimation = DynamicVectorLayer{
         {"invalid-ranged-animation", "Invalid ranged animation", true, 1.0, {},
          RasterBlendMode::SourceOver, LayerFrameRange{2, 8}},
         KeyframedSource{},
@@ -254,7 +254,7 @@ int main()
     rejectedRangedReplacementDocument.formatVersion = {1, 2};
     DocumentEditor rejectedRangedReplacementEditor(
         rejectedRangedReplacementDocument);
-    Layer invalidRangedReplacement = VectorLayer{
+    Layer invalidRangedReplacement = StaticVectorLayer{
         {"motion", "Invalid replacement", true, 1.0, {},
          RasterBlendMode::SourceOver, LayerFrameRange{1, 8}},
         StaticSource{"raster-a"},
@@ -267,7 +267,7 @@ int main()
     expect(!rejectedRangedReplacement.ok()
                && rejectedRangedReplacementDocument.formatVersion.minor == 2
                && restoredMotion
-               && std::holds_alternative<VectorLayer>(*restoredMotion)
+               && std::holds_alternative<DynamicVectorLayer>(*restoredMotion)
                && !layerProperties(*restoredMotion).frameRange
                && std::holds_alternative<KeyframedSource>(
                    layerSource(*restoredMotion))
@@ -311,7 +311,7 @@ int main()
 
     expect(editor.renameAsset("raster-a", "paint-pixels").changed
                && findAsset(document, "raster-a") == nullptr
-               && std::get<StaticSource>(layerSource(*findLayer(document, "paint"))).assetId
+               && staticLayerSource(*findLayer(document, "paint"))->assetId
                     == "paint-pixels",
            "renaming an asset must atomically rewrite every layer reference");
     expect(editor.moveAsset("paint-pixels", document.assets.size() - 1).changed
@@ -322,7 +322,7 @@ int main()
                && referencedRemoval.code == DocumentEditCode::AssetReferenced,
            "referenced assets must not be silently removed");
 
-    Layer overlay = VectorLayer{
+    Layer overlay = StaticVectorLayer{
         {"overlay", "Overlay", true, 0.75, {}, RasterBlendMode::Screen},
         StaticSource{"vector-c"},
     };
@@ -371,12 +371,12 @@ int main()
     expect(!kindMismatch.ok()
                && kindMismatch.code == DocumentEditCode::AssetKindMismatch
                && editor.revision() == beforeKindMismatch
-               && std::holds_alternative<VectorLayer>(*findLayer(document, "highlights"))
-               && std::get<StaticSource>(layerSource(*findLayer(document, "highlights"))).assetId
+               && std::holds_alternative<StaticVectorLayer>(*findLayer(document, "highlights"))
+               && staticLayerSource(*findLayer(document, "highlights"))->assetId
                     == "vector-c",
            "a vector layer must reject a bitmap source without changing type, source, or revision");
     expect(editor.setStaticSource("highlights", "vector-b").changed
-               && std::get<StaticSource>(layerSource(*findLayer(document, "highlights"))).assetId
+               && staticLayerSource(*findLayer(document, "highlights"))->assetId
                     == "vector-b",
            "a layer source must be replaceable with a static asset reference");
     expect(editor.insertKeyframe("highlights", 4, "vector-c").code
@@ -389,8 +389,7 @@ int main()
     expect(findKeyframe(document, "highlights", 0)
                && findKeyframe(document, "highlights", 8)
                && findFrame(document, 0)->keyframes.size() == 2
-               && std::get<KeyframedSource>(
-                      layerSource(*findLayer(document, "highlights"))).frameIndices
+               && keyframedLayerSource(*findLayer(document, "highlights"))->frameIndices
                     == std::vector<FrameIndex>{0, 8},
            "setting a keyframed source must distribute its keys into shared frame owners");
     const std::uint64_t beforeReorderedNoOp = editor.revision();
@@ -431,8 +430,7 @@ int main()
     expect(editor.insertKeyframe("highlights", 4, "vector-c").changed
                && frameIndex(document, 4) == std::optional<std::size_t>{1}
                && findKeyframe(document, "highlights", 4)
-               && std::get<KeyframedSource>(
-                      layerSource(*findLayer(document, "highlights"))).frameIndices
+               && keyframedLayerSource(*findLayer(document, "highlights"))->frameIndices
                     == std::vector<FrameIndex>{0, 4, 8},
            "keyframes must create sparse frame owners in chronological order");
     expect(editor.insertKeyframe("highlights", 4, "vector-c").code
@@ -446,15 +444,13 @@ int main()
                && findKeyframe(document, "highlights", 4) == nullptr
                && findFrame(document, 4) == nullptr
                && findKeyframe(document, "highlights", 5)
-               && std::get<KeyframedSource>(
-                      layerSource(*findLayer(document, "highlights"))).frameIndices
+               && keyframedLayerSource(*findLayer(document, "highlights"))->frameIndices
                     == std::vector<FrameIndex>{0, 5, 8},
            "moving a keyframe must transfer ownership and remove an empty source frame");
     expect(editor.removeKeyframe("highlights", 5).changed
                && findKeyframe(document, "highlights", 5) == nullptr
                && findFrame(document, 5) == nullptr
-               && std::get<KeyframedSource>(
-                      layerSource(*findLayer(document, "highlights"))).frameIndices
+               && keyframedLayerSource(*findLayer(document, "highlights"))->frameIndices
                     == std::vector<FrameIndex>{0, 8},
            "removing a frame's last keyframe must remove the empty sparse frame");
     const DocumentEditResult initialKeyframeRemoval = editor.removeKeyframe("highlights", 0);
@@ -532,7 +528,7 @@ int main()
 
     Document atomicLayerInsert = makeDocument();
     DocumentEditor atomicLayerInsertEditor(atomicLayerInsert);
-    Layer insertedAnimation = VectorLayer{
+    Layer insertedAnimation = DynamicVectorLayer{
         {"inserted-animation", "Inserted animation", true, 1.0, {},
          RasterBlendMode::SourceOver},
         KeyframedSource{},
@@ -548,12 +544,12 @@ int main()
                     == std::optional<std::size_t>{1}
                && findKeyframe(atomicLayerInsert, "inserted-animation", 0)
                && findKeyframe(atomicLayerInsert, "inserted-animation", 3)
-               && std::get<KeyframedSource>(layerSource(
-                      *findLayer(atomicLayerInsert, "inserted-animation"))).frameIndices
+               && keyframedLayerSource(
+                      *findLayer(atomicLayerInsert, "inserted-animation"))->frameIndices
                     == std::vector<FrameIndex>{0, 3},
            "a keyframed layer and its frame-owned keys must be insertable in one commit");
     const std::uint64_t beforeRejectedLayerInsert = atomicLayerInsertEditor.revision();
-    Layer rejectedAnimation = VectorLayer{
+    Layer rejectedAnimation = DynamicVectorLayer{
         {"rejected-animation", "Rejected animation", true, 1.0, {},
          RasterBlendMode::SourceOver},
         KeyframedSource{},

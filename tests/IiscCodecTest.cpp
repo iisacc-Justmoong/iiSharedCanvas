@@ -96,7 +96,7 @@ iiSharedCanvas::Document legacyGoldenDocument(std::uint16_t minor)
     document.timeline = {{24, 1}, 2};
     document.assets.emplace_back(
         RasterAsset{"p", makeRasterLayer(1, 1, 0xff010203U)});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"l", "L", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"p"},
     });
@@ -135,8 +135,7 @@ const iiSharedCanvas::KeyframedSource *keyframedSource(
     const iiSharedCanvas::Layer *layer = iiSharedCanvas::findLayer(document,
                                                                    layerId);
     return layer
-        ? std::get_if<iiSharedCanvas::KeyframedSource>(
-              &iiSharedCanvas::layerSource(*layer))
+        ? iiSharedCanvas::keyframedLayerSource(*layer)
         : nullptr;
 }
 
@@ -163,21 +162,21 @@ iiSharedCanvas::Document completeDocument()
     transformed.m22 = 1.25;
     transformed.translationX = 1.5;
     transformed.translationY = -0.25;
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"static-raster", "Static raster / 한글", false, 0.375, transformed,
          RasterBlendMode::Screen},
         StaticSource{"raster/static"},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(StaticVectorLayer{
         {"static-vector", "Static vector", true, 0.875, {}, RasterBlendMode::Multiply},
         StaticSource{"vector-static"},
     });
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(DynamicBitmapLayer{
         {"z-animated-raster", "Animated raster", true, 1.0, {},
          RasterBlendMode::SourceOver},
         KeyframedSource{{0, 2}},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(DynamicVectorLayer{
         {"a-animated-vector", "Animated vector", true, 0.5, {}, RasterBlendMode::Overlay},
         KeyframedSource{{0, 1}},
     });
@@ -234,7 +233,7 @@ iiSharedCanvas::Document simpleRangeDocument()
     document.timeline = {{24, 1}, 4};
     document.assets.emplace_back(
         RasterAsset{"pixel", makeRasterLayer(1, 1, 0xffffffffU)});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"range", "Range", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"pixel"},
     });
@@ -387,7 +386,7 @@ int main()
         ? &layerProperties(*decodedLayer)
         : nullptr;
     expect(decodedLayer
-               && std::holds_alternative<BitmapLayer>(*decodedLayer)
+               && std::holds_alternative<StaticBitmapLayer>(*decodedLayer)
                && decodedProperties
                && decodedProperties->name == "Static raster / 한글"
                && !decodedProperties->visible
@@ -401,7 +400,7 @@ int main()
                && decodedProperties->blendMode == RasterBlendMode::Screen,
            "decoded layers must expose identity, visibility, opacity, transform, and blend mode");
     const StaticSource *decodedStaticSource = decodedLayer
-        ? std::get_if<StaticSource>(&layerSource(*decodedLayer))
+        ? staticLayerSource(*decodedLayer)
         : nullptr;
     expect(decodedStaticSource && decodedStaticSource->assetId == "raster/static",
            "decoded layers must expose their stable asset reference");
@@ -418,11 +417,11 @@ int main()
 
     const Layer *decodedAnimatedLayer = findLayer(decoded.document, "a-animated-vector");
     const KeyframedSource *decodedTrack = decodedAnimatedLayer
-        ? std::get_if<KeyframedSource>(&layerSource(*decodedAnimatedLayer))
+        ? keyframedLayerSource(*decodedAnimatedLayer)
         : nullptr;
     expect(decodedTrack
                && decodedAnimatedLayer
-               && std::holds_alternative<VectorLayer>(*decodedAnimatedLayer)
+               && std::holds_alternative<DynamicVectorLayer>(*decodedAnimatedLayer)
                && contentKind(*decodedAnimatedLayer) == ContentKind::Vector
                && decoded.document.frames.size() == 3
                && decoded.document.frames[0].index == 0
@@ -449,12 +448,12 @@ int main()
                    == "raster-frame-2",
            "the decoder must transpose non-lexicographic layer-major records into lexicographically ordered direct frame ownership");
     const auto *decodedVectorSource = decodedAnimatedLayer
-        ? std::get_if<KeyframedSource>(&layerSource(*decodedAnimatedLayer))
+        ? keyframedLayerSource(*decodedAnimatedLayer)
         : nullptr;
     const Layer *decodedRasterLayer = findLayer(decoded.document,
                                                  "z-animated-raster");
     const auto *decodedRasterSource = decodedRasterLayer
-        ? std::get_if<KeyframedSource>(&layerSource(*decodedRasterLayer))
+        ? keyframedLayerSource(*decodedRasterLayer)
         : nullptr;
     expect(decodedVectorSource
                && decodedVectorSource->frameIndices
@@ -739,7 +738,7 @@ int main()
     keyframeOwnershipDocument.assets.emplace_back(
         RasterAsset{"b", makeRasterLayer(1, 1, 0xffffffffU)});
     const std::string longLayerId(64, 'l');
-    keyframeOwnershipDocument.layers.emplace_back(BitmapLayer{
+    keyframeOwnershipDocument.layers.emplace_back(DynamicBitmapLayer{
         {longLayerId, "", true, 1.0, {}, RasterBlendMode::SourceOver},
         KeyframedSource{{0, 1}},
     });

@@ -240,7 +240,7 @@ int main(int argc, char **argv)
     expect(file.create(workingPath, document).ok(), "create live document for import");
     expect(file.edit([&](Document &draft) {
         draft.assets.emplace_back(decoded.asset);
-        draft.layers.emplace_back(BitmapLayer{{"bitmap", "Imported bitmap"}, StaticSource{"imported"}});
+        draft.layers.emplace_back(StaticBitmapLayer{{"bitmap", "Imported bitmap"}, StaticSource{"imported"}});
         return true;
     }).ok(), "import asset and layer through one durable edit");
     DocumentFile reopened;

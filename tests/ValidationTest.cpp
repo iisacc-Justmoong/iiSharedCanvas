@@ -37,11 +37,11 @@ iiSharedCanvas::Document validDocument()
     document.timeline = {{30, 1}, 30};
     document.assets.emplace_back(RasterAsset{"raster", makeRasterLayer(32, 32)});
     document.assets.emplace_back(VectorAsset{"vector", {32, 32}, {path}});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(DynamicBitmapLayer{
         {"animated", "Animated", true, 1.0, {}, RasterBlendMode::SourceOver},
         KeyframedSource{{0}},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(DynamicVectorLayer{
         {"animated-vector", "Animated vector", true, 1.0, {},
          RasterBlendMode::SourceOver},
         KeyframedSource{{0}},
@@ -66,20 +66,20 @@ int main()
 
     Document mixedKeyframes = validDocument();
     mixedKeyframes.frames.push_back({10, {{"animated", "vector"}}});
-    std::get<KeyframedSource>(layerSource(mixedKeyframes.layers[0])).frameIndices.push_back(10);
+    keyframedLayerSource(mixedKeyframes.layers[0])->frameIndices.push_back(10);
     expect(contains(validate(mixedKeyframes), ValidationCode::ContentKindMismatch),
            "one animated track must not mix raster and vector assets");
 
     Document unorderedFrames = validDocument();
     unorderedFrames.frames.push_back({10, {{"animated", "raster"}}});
-    std::get<KeyframedSource>(layerSource(unorderedFrames.layers[0])).frameIndices.push_back(10);
+    keyframedLayerSource(unorderedFrames.layers[0])->frameIndices.push_back(10);
     std::swap(unorderedFrames.frames.front(), unorderedFrames.frames.back());
     expect(contains(validate(unorderedFrames), ValidationCode::InvalidKeyframes),
            "frame records must remain in strictly increasing timeline order");
 
     Document duplicateFrames = validDocument();
     duplicateFrames.frames.push_back({0, {{"animated", "raster"}}});
-    std::get<KeyframedSource>(layerSource(duplicateFrames.layers[0])).frameIndices.push_back(0);
+    keyframedLayerSource(duplicateFrames.layers[0])->frameIndices.push_back(0);
     expect(contains(validate(duplicateFrames), ValidationCode::InvalidKeyframes),
            "two sparse frame records must not own the same timeline position");
 
@@ -100,20 +100,17 @@ int main()
            "one frame's keyframes must use canonical layer-id order");
 
     Document missingDerivedIndex = validDocument();
-    std::get<KeyframedSource>(
-        layerSource(missingDerivedIndex.layers.front())).frameIndices.clear();
+    keyframedLayerSource(missingDerivedIndex.layers.front())->frameIndices.clear();
     expect(contains(validate(missingDerivedIndex), ValidationCode::InvalidKeyframes),
            "a keyframed layer index must contain every frame that owns one of its keys");
 
     Document extraDerivedIndex = validDocument();
-    std::get<KeyframedSource>(
-        layerSource(extraDerivedIndex.layers.front())).frameIndices.push_back(10);
+    keyframedLayerSource(extraDerivedIndex.layers.front())->frameIndices.push_back(10);
     expect(contains(validate(extraDerivedIndex), ValidationCode::InvalidKeyframes),
            "a keyframed layer index must not name a frame that owns no matching key");
 
     Document duplicateDerivedIndex = validDocument();
-    std::get<KeyframedSource>(
-        layerSource(duplicateDerivedIndex.layers.front())).frameIndices.push_back(0);
+    keyframedLayerSource(duplicateDerivedIndex.layers.front())->frameIndices.push_back(0);
     expect(contains(validate(duplicateDerivedIndex), ValidationCode::InvalidKeyframes),
            "a keyframed layer index must be strictly increasing and duplicate-free");
 
@@ -128,12 +125,12 @@ int main()
            "a frame keyframe must resolve its stable owning layer id");
 
     Document staticLayerKeyframe = validDocument();
-    layerSource(staticLayerKeyframe.layers.front()) = StaticSource{"raster"};
+    setLayerSource(staticLayerKeyframe.layers.front(), StaticSource{"raster"});
     expect(contains(validate(staticLayerKeyframe), ValidationCode::InvalidKeyframes),
            "a frame must not retain a keyframe that names a static layer");
 
     Document bitmapLayerWithVector = validDocument();
-    layerSource(bitmapLayerWithVector.layers[0]) = StaticSource{"vector"};
+    setLayerSource(bitmapLayerWithVector.layers[0], StaticSource{"vector"});
     expect(contains(validate(bitmapLayerWithVector), ValidationCode::ContentKindMismatch),
            "a bitmap layer must reject a vector asset even for a static source");
 
@@ -247,7 +244,7 @@ int main()
     Document outOfRangeKeyframe = validDocument();
     outOfRangeKeyframe.frames.front().index = outOfRangeKeyframe.timeline.frameCount;
     for (Layer &layer : outOfRangeKeyframe.layers) {
-        std::get<KeyframedSource>(layerSource(layer)).frameIndices.front() =
+        keyframedLayerSource(layer)->frameIndices.front() =
             outOfRangeKeyframe.timeline.frameCount;
     }
     expect(contains(validate(outOfRangeKeyframe), ValidationCode::InvalidKeyframes),
@@ -256,7 +253,7 @@ int main()
     Document missingFrameZero = validDocument();
     missingFrameZero.frames.front().index = 1;
     for (Layer &layer : missingFrameZero.layers) {
-        std::get<KeyframedSource>(layerSource(layer)).frameIndices.front() = 1;
+        keyframedLayerSource(layer)->frameIndices.front() = 1;
     }
     expect(contains(validate(missingFrameZero), ValidationCode::InvalidKeyframes),
            "every keyframed layer must still begin with a keyframe at frame zero");

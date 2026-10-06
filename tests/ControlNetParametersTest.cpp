@@ -10,7 +10,7 @@ int failures=0;
 void expect(bool ok,const char *message) { if(!ok) { std::cerr<<message<<'\n'; ++failures; } }
 Document fixture() {
     Document d; d.extent={2,2}; d.timeline.frameCount=3;
-    auto add=[&](Asset a,Layer l) { const auto id=assetId(a); layerProperties(l)={id,id}; layerSource(l)=StaticSource{id}; d.assets.push_back(std::move(a)); d.layers.push_back(std::move(l)); };
+    auto add=[&](Asset a,Layer l) { const auto id=assetId(a); layerProperties(l)={id,id}; setLayerSource(l, StaticSource{id}); d.assets.push_back(std::move(a)); d.layers.push_back(std::move(l)); };
     SemanticSegmentLayer semantic; semantic.segmentation.taxonomy.id="classes";
     SemanticClass c; c.id=1; c.key="person"; c.name="Person"; c.controlColor=0xff123456;
     semantic.segmentation.taxonomy.classes={c}; SemanticRegion region; region.id=1; region.classId=1; region.maskColor=0xffff0000; semantic.segmentation.regions={region};
@@ -93,7 +93,7 @@ int main() {
     verifyDetails(d);
     auto saved=encodeIisc(d); auto loaded=decodeIisc(saved.bytes); expect(saved.ok() && loaded.ok() && encodeIisc(loaded.document).bytes==saved.bytes,"all detailed fields snapshot roundtrip");
     expect(renderSemanticControlMap(fixture(),"semantic",0).ok(),"original semantic fixture remains usable");
-    Layer artwork=BitmapLayer{}; expect(controlNetSettings(artwork)==nullptr && controlNetSettings(std::as_const(artwork))==nullptr,"artwork has no conditioning settings");
+    Layer artwork=StaticBitmapLayer{}; expect(controlNetSettings(artwork)==nullptr && controlNetSettings(std::as_const(artwork))==nullptr,"artwork has no conditioning settings");
     expect(!getControlNetParameters(d,"missing").ok(),"missing layer rejected");
     DocumentEditor detached; expect(!detached.controlNetParameters("depth").ok() && !detached.patchControlNetSettings("depth",{}).ok(),"unbound API rejects");
     auto structural=*e.controlNetParameters("depth").parameters; const auto stable=encodeIisc(d).bytes;
@@ -103,8 +103,8 @@ int main() {
     bad=structural; std::get<DepthAsset>(bad.assets[0]).id="foreign"; reject(bad);
     bad=structural; bad.assets[0]=LineArtAsset{"depth",{2,2},{0,0,0,0}}; reject(bad);
     bad=structural; layerProperties(bad.layer).id="renamed"; reject(bad);
-    bad=structural; layerSource(bad.layer)=StaticSource{"other"}; reject(bad);
-    bad=structural; bad.layer=BitmapLayer{{"depth"},StaticSource{"depth"}}; reject(bad);
+    bad=structural; setLayerSource(bad.layer, StaticSource{"other"}); reject(bad);
+    bad=structural; bad.layer=StaticBitmapLayer{{"depth"},StaticSource{"depth"}}; reject(bad);
     bad=structural; std::get<DepthAsset>(bad.assets[0]).values[0]=2; reject(bad);
     // Dynamic edits cover every unique referenced state, even disabled/outside display range.
     auto next=*findIpAdapterAsset(d,"ip"); next.id="ip-next"; expect(e.insertIpAdapterAsset(next).changed,"second IP state");

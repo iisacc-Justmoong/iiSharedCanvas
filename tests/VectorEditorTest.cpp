@@ -41,7 +41,7 @@ iiSharedCanvas::Document makeDocument()
         RasterAsset{"pixels", makeRasterLayer(4, 4, 0x00000000U)});
     document.assets.emplace_back(
         VectorAsset{"shape", {64, 48}, {initialPath()}});
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(StaticVectorLayer{
         {"shape-layer", "Shape", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"shape"},
     });

@@ -1,11 +1,8 @@
-# Native canvas to layered PSD command line
+<a id="native-canvas-to-layered-psd-command-line"></a>
 
-The installed `iisc-export-psd` utility exports frame zero of a native canvas as
-independent PSD layers using `exportPsd`. It accepts both canonical binary `.iisc`
-snapshots and SQLite `.iisc` working files, detected from content rather than the
-source filename. Raster and vector layers use the PSD writer's documented
-bounded conversion rules; vector/timeline conversion warnings are printed to
-standard error rather than hidden.
+# 네이티브 캔버스를 레이어드된 PSD 명령줄로 변환
+
+설치된 `iisc-export-psd` 유틸리티는 네이티브 캔버스의 프레임 0를 `exportPsd`를 사용하여 독립적인 PSD 레이어로 내보냅니다. 이 파일은 원본 파일명이 아닌 콘텐츠에서 감지된 정규 바이너리 `.iisc` 스냅샷과 SQLite `.iisc` 작업 파일을 모두 받아들입니다. 래스터와 벡터 레이어는 PSD 작성자가 문서화한 한계가 설정된 변환 규칙을 사용합니다; 벡터/타임라인 변환 경고는 숨김 오류가 아니라 표준 오류로 출력됩니다.
 
 ```sh
 iisc-export-psd drawing.iisc drawing.psd
@@ -14,61 +11,28 @@ iisc-export-psd -- -input.iisc -output.psd
 iisc-export-psd --help
 ```
 
-Only `--overwrite` and the option terminator `--` are supported. `--help` and
-`-h` are accepted on their own. Duplicate options, unknown switches, extra or
-missing paths, and non-`.psd` output extensions are usage errors. Unicode and
-space-containing local paths are supported. URLs, shell commands, and Qt-specific
-command-line switches are not interpreted. In the absence of an explicitly
-configured Qt platform the utility uses the offscreen platform.
+지원되는 것은 `--overwrite` 와 옵션 종료자 `--` 만입니다. `--help` 와 `-h` 는 단독으로 허용됩니다. 중복된 옵션, 알 수 없는 스위치, 추가되거나 누락된 경로, 그리고 비-`.psd` 출력 확장자는 사용 오류입니다. Unicode 와 공백을 포함하는 로컬 경로는 지원됩니다. URL, 쉘 명령, 및 Qt 전용 명령줄 스위치는 해석되지 않습니다. 명시적으로 구성된 Qt 플랫폼이 없는 경우 유틸리티는 오프스크린 플랫폼을 사용합니다.
 
-Exit status is `0` for successful export/help, `1` for input/conversion/I/O errors,
-and `2` for usage errors. Successful export reports the destination on standard
-output. Failures and conversion warnings use standard error.
+출력 상태는 성공적인 내보내기/도움말인 `0`, 입력/변환/I/O 오류인 `1`, 및 사용 오류인 `2` 입니다. 성공적인 내보내기는 표준 출력을 통해 목적지를 보고합니다. 실패와 변환 경고는 표준 오류를 사용합니다.
 
-## Source and destination protection
+<a id="source-and-destination-protection"></a>
 
-PSD and timeline export share the private `tools/IiscInput` loader, whose
-input contract uses media limits and a maximum layer count without coupling to
-either export format. The original source is never passed to `DocumentFile::open`: that API is an
-authoring owner and configures a read/write SQLite connection. Snapshot bytes are
-read and validated with `decodeIisc`. Working files instead use SQLite's existing
-online backup API through a `SQLITE_OPEN_READONLY` source connection, with no URI
-or immutable mode. A read transaction fixes the snapshot, including committed WAL
-content. Raw filesystem copying of a live SQLite database is not used.
+## 소스 및 목적지 보호
 
-The backup lives in a private `.iisc-input-XXXXXX` temporary directory beside
-the output. Only this consistent copy is opened with `DocumentFile` to validate
-the canonical schema, record hashes, and document model. The copy and directory
-are removed on both success and failure. The source database and WAL payload are
-not rewritten; SQLite may update its normal shared-memory reader bookkeeping when
-the source uses WAL. Export does not change the source's journal mode or force a
-checkpoint. A locked source that cannot supply a read snapshot fails explicitly.
+PSD 와 타임라인 내보내기는 비공개 `tools/IiscInput` 로더를 공유하며, 이 로더의 입력 계약은 미디어 제한과 최대 레이어 수를 사용하여 두 내보내기 형식 중 하나와도 결합되지 않습니다. 원본 소스는 `DocumentFile::open` 에 절대 전달되지 않습니다: 그 API 는 저작자 소유자이며 읽기/쓰기 SQLite 연결을 구성합니다. 스냅샷 바이트는 `decodeIisc` 로 읽히고 검증됩니다. 작업 파일은 대신 SQLite 의 기존 온라인 백업 API 를 `SQLITE_OPEN_READONLY` 소스 연결을 통해 사용하며, URI 또는 불변 모드가 없습니다. 읽기 트랜잭션은 커밋된 WAL 콘텐츠를 포함하여 스냅샷을 고정합니다. 실시간 SQLite 데이터베이스의 원본 파일 시스템 복사는 사용되지 않습니다.
 
-The source file plus any WAL/journal/shared-memory sidecars and the logical backup
-size are bounded by the configured default media input/decoded budgets. Sidecars
-must be regular local files, not symbolic links. The backup checks
-`page_count * page_size` before
-copying, uses bounded page batches, a 250 ms SQLite busy timeout, and a 30-second
-overall copy deadline. Binary snapshots use bounded reads and serialization
-limits. No source path is written and no network resource is requested.
+백업은 출력과 나란한 비공개 `.iisc-input-XXXXXX` 임시 디렉토리에 존재합니다. 이 일관된 복사본만 `DocumentFile` 로 열어서 표준 스키마, 기록 해시, 및 모델을 검증합니다. 복사본과 디렉토리는 성공과 실패 모두에서 제거됩니다. 원본 데이터베이스와 WAL 페이로드는 다시 작성되지 않으며, SQLite 는 원본이 WAL 를 사용할 때 정상적인 공유 메모리 리더 서부 관리 정보를 업데이트할 수 있습니다. 내보내기는 소스의 저널 모드를 변경하거나 체크포인트를 강제로 수행하지 않습니다. 읽기 스냅샷을 제공할 수 없는 잠금된 소스는 명시적으로 실패합니다.
 
-Existing outputs are preserved by default. `--overwrite` authorizes replacing
-only the destination PSD using the PSD writer's atomic publication. The source
-itself, symlink destinations, and non-regular outputs remain protected. Failed
-encoding never publishes a partial PSD or replaces an existing output. The
-library's native-file/database replacement protection continues to apply.
+원본 파일 및 WAL /journal/shared-memory 사이드카와 논리적 백업 크기는 구성된 기본 미디어 입력/해독 예산에 의해 한계가 설정된 됩니다. 사이드카는 정규 로컬 파일이어야 하며, 심볼릭 링크가 아닙니다. 백업은 복사 전에 `page_count * page_size` 를 확인하고, 한계가 설정된 페이지 배치, 250 ms SQLite 바쁜 타임아웃, 및 30초 전체 복사 마감 시간 를 사용합니다. 바이너리 스냅샷은 한계가 설정된 판독과 직렬화 제한을 사용합니다. 어떤 소스 경로도 쓰이지 않으며, 어떤 네트워크 리소스도 요청되지 않습니다.
 
-## Verification
+기존 출력은 기본적으로 보존됩니다. `--overwrite`는 PSD 라이터의 원자 출판물을 사용하여 대상 PSD만 교체하도록 허가합니다. 소스 자체, 심볼릭 링크 목적지 및 비정규 출력은 보호됩니다. 실패한 인코딩은 부분적인 PSD를 절대 게시하지 않으며 기존 출력을 대체하지 않습니다. 도서관의 네이티브 -파일/데이터베이스 교체 보호가 계속 적용됩니다.
 
-`PsdExportCliTest` launches the real executable and verifies working-file and
-binary-snapshot input, read-only source permissions, Unicode/spaced/dashed paths,
-separate bitmap/vector layers, explicit frame-zero sampling, default collision
-handling, overwrite and failed-export atomicity, source SHA-256 preservation,
-and temporary-directory cleanup. A live WAL fixture commits changed raster
-records without checkpointing; exported pixels must reflect that commit while
-the original database and WAL hashes remain unchanged.
+<a id="verification"></a>
 
-This utility adds no dependency: it reuses the existing reviewed private SQLite
-dependency and the public native document and PSD APIs.
+## 검증
 
-Reference: [SQLite online backup API](https://sqlite.org/backup.html).
+`PsdExportCliTest` 는 실제 실행 파일을 시작하고 작업 파일 및 바이너리 스냅샷 입력을 확인하며, 읽기 전용 소스 권한, Unicode /spaced/dashed 경로, 별도의 비트맵 /vector 레이어, 명시적 프레임-0 샘플링, 기본 충돌 처리, 덮어쓰기와 실패한 내보내기 원자성, 소스 SHA-256 보존, 및 임시 디렉터리 정리. 체크포인트 없이 라이브 WAL 픽스처 커밋이 래스터 레코드를 변경했으며, 내보낸 픽셀은 해당 커밋을 반영해야 하며 원래 데이터베이스와 WAL 해시는 그대로 유지되어야 합니다.
+
+이 유틸리티는 의존성을 추가하지 않습니다: 기존에 검토된 비공개 SQLite 의존성 및 공개 네이티브 문서와 PSD API를 재사용합니다.
+
+참조: [SQLite 온라인 백업 API](https://sqlite.org/backup.html).

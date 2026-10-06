@@ -20,17 +20,20 @@
 #include <Layer/RasterLayer.h>
 #include <Transform/Transform.h>
 
+#include <concepts>
+#include <type_traits>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <variant>
 #include <vector>
+#include <utility>
 
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 17;
+inline constexpr std::uint16_t CurrentFormatMinor = 19;
 
 using FrameIndex = std::uint32_t;
 
@@ -42,16 +45,29 @@ struct FormatVersion {
 struct CanvasExtent {
     std::int32_t width = 0;
     std::int32_t height = 0;
+    bool operator==(const CanvasExtent &) const = default;
 };
 
 struct CanvasOrigin {
     std::int32_t x = 0;
     std::int32_t y = 0;
+    bool operator==(const CanvasOrigin &) const = default;
 };
 
 struct CanvasRegion {
     CanvasOrigin origin;
     CanvasExtent extent;
+    bool operator==(const CanvasRegion &) const = default;
+};
+
+// Independent, non-nesting canvas group. Owned layer transforms are local to origin.
+struct Artboard {
+    std::string id;
+    std::string name;
+    CanvasRegion region;
+    std::uint32_t backgroundArgb = 0xffffffffU; // Zero alpha is transparent.
+    bool visible = true;
+    bool operator==(const Artboard &) const = default;
 };
 
 enum class CanvasMode : std::uint8_t {
@@ -218,8 +234,7 @@ enum class ContentKind {
     IpAdapter,
 };
 
-// Content identity has two independent axes. Motion/visibility do not change
-// content timing; a video is always dynamic bitmap content.
+// Four visual content identities. Nonspatial conditioning is a separate role.
 enum class LayerTiming : std::uint8_t { Static, Dynamic };
 enum class LayerRepresentation : std::uint8_t { Bitmap, Vector, Embedding };
 enum class LayerKind : std::uint8_t {
@@ -227,8 +242,6 @@ enum class LayerKind : std::uint8_t {
     StaticVector,
     DynamicBitmap,
     DynamicVector,
-    StaticEmbedding,
-    DynamicEmbedding,
 };
 
 struct StaticSource {
@@ -250,6 +263,29 @@ struct KeyframedSource {
 };
 
 using LayerSource = std::variant<StaticSource, KeyframedSource>;
+
+// Distinct content types; their common source bases only expose reference/index
+// storage. A static content cannot be constructed from a dynamic source.
+struct StaticBitmapContent : StaticSource {
+    StaticBitmapContent(std::string id = {}) : StaticSource{std::move(id)} {}
+    template<class Source> requires std::same_as<std::remove_cvref_t<Source>, StaticSource>
+    StaticBitmapContent(Source &&value) : StaticSource{std::forward<Source>(value)} {}
+};
+struct StaticVectorContent : StaticSource {
+    StaticVectorContent(std::string id = {}) : StaticSource{std::move(id)} {}
+    template<class Source> requires std::same_as<std::remove_cvref_t<Source>, StaticSource>
+    StaticVectorContent(Source &&value) : StaticSource{std::forward<Source>(value)} {}
+};
+struct DynamicBitmapContent : KeyframedSource {
+    DynamicBitmapContent() = default;
+    template<class Source> requires std::same_as<std::remove_cvref_t<Source>, KeyframedSource>
+    DynamicBitmapContent(Source &&value) : KeyframedSource{std::forward<Source>(value)} {}
+};
+struct DynamicVectorContent : KeyframedSource {
+    DynamicVectorContent() = default;
+    template<class Source> requires std::same_as<std::remove_cvref_t<Source>, KeyframedSource>
+    DynamicVectorContent(Source &&value) : KeyframedSource{std::forward<Source>(value)} {}
+};
 
 struct LayerFrameRange {
     FrameIndex firstFrame = 0;
@@ -286,16 +322,27 @@ struct LayerProperties {
     RasterBlendMode blendMode = RasterBlendMode::SourceOver;
     std::optional<LayerFrameRange> frameRange;
     std::vector<MotionKeyframe> motion; // Empty preserves the static layer properties.
+    std::optional<std::string> artboardId; // Absence means unclipped world-space artwork.
 };
 
-struct BitmapLayer {
+struct StaticBitmapLayer {
     LayerProperties properties;
-    LayerSource source;
+    StaticBitmapContent content;
 };
 
-struct VectorLayer {
+struct StaticVectorLayer {
     LayerProperties properties;
-    LayerSource source;
+    StaticVectorContent content;
+};
+
+struct DynamicBitmapLayer {
+    LayerProperties properties;
+    DynamicBitmapContent content;
+};
+
+struct DynamicVectorLayer {
+    LayerProperties properties;
+    DynamicVectorContent content;
 };
 
 enum class VideoEndBehavior : std::uint8_t { Transparent, Hold };
@@ -392,7 +439,7 @@ struct IpAdapterLayer {
     ControlNetSettings control; // Adapter identity must match every referenced asset.
 };
 
-using Layer = std::variant<BitmapLayer, VectorLayer, VideoLayer, SemanticSegmentLayer, PoseLayer, DepthLayer, LineArtLayer, CannyLayer, ScribbleLayer, MlsdLayer, NormalMapLayer, ShuffleLayer, TileLayer, ReferenceLayer, IpAdapterLayer>;
+using Layer = std::variant<StaticBitmapLayer, StaticVectorLayer, DynamicBitmapLayer, DynamicVectorLayer, VideoLayer, SemanticSegmentLayer, PoseLayer, DepthLayer, LineArtLayer, CannyLayer, ScribbleLayer, MlsdLayer, NormalMapLayer, ShuffleLayer, TileLayer, ReferenceLayer, IpAdapterLayer>;
 
 // Owned interleaved signed PCM16. A sample frame contains channelCount samples.
 struct AudioAsset {
@@ -440,6 +487,7 @@ struct Document {
     std::vector<AudioAsset> audioAssets;
     std::vector<AudioTrackLayer> audioTracks;
     iiFileProvider::Authorship authorship;
+    std::vector<Artboard> artboards; // Bottom-to-top group order; no nesting.
 };
 
 struct AssetReference {
@@ -469,23 +517,35 @@ IISHAREDCANVAS_EXPORT AudioClip *findAudioClip(AudioTrackLayer &track,
 IISHAREDCANVAS_EXPORT const AudioClip *findAudioClip(const AudioTrackLayer &track,
                                                     const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT ContentKind contentKind(const Layer &layer) noexcept;
-// Derived from the source, never separately persisted or cached.
+// Core artwork identity comes from its concrete layer/content alternative.
 IISHAREDCANVAS_EXPORT LayerTiming layerTiming(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT LayerRepresentation layerRepresentation(const Layer &layer) noexcept;
-IISHAREDCANVAS_EXPORT LayerKind layerKind(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT std::optional<LayerKind> layerKind(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT bool isLineControlNetLayer(const Layer &) noexcept;
 IISHAREDCANVAS_EXPORT LayerRole layerRole(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT std::optional<ControlNetKind> controlNetKind(const Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const std::string &assetId(const Asset &asset) noexcept;
 IISHAREDCANVAS_EXPORT LayerProperties &layerProperties(Layer &layer) noexcept;
 IISHAREDCANVAS_EXPORT const LayerProperties &layerProperties(const Layer &layer) noexcept;
-IISHAREDCANVAS_EXPORT LayerSource &layerSource(Layer &layer) noexcept;
-IISHAREDCANVAS_EXPORT const LayerSource &layerSource(const Layer &layer) noexcept;
+// Detached compatibility/serialization view, never a writable source variant.
+IISHAREDCANVAS_EXPORT LayerSource layerSource(const Layer &layer);
+IISHAREDCANVAS_EXPORT StaticSource *staticLayerSource(Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT const StaticSource *staticLayerSource(const Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT KeyframedSource *keyframedLayerSource(Layer &layer) noexcept;
+IISHAREDCANVAS_EXPORT const KeyframedSource *keyframedLayerSource(const Layer &layer) noexcept;
+// Aggregate conversion; call validate afterwards, or use DocumentEditor setters.
+IISHAREDCANVAS_EXPORT void setLayerSource(Layer &layer, LayerSource source);
+IISHAREDCANVAS_EXPORT Layer makeBitmapLayer(LayerProperties properties, LayerSource source);
+IISHAREDCANVAS_EXPORT Layer makeVectorLayer(LayerProperties properties, LayerSource source);
 IISHAREDCANVAS_EXPORT bool layerExistsAt(const Document &document,
                                          const Layer &layer,
                                          FrameIndex frame) noexcept;
 IISHAREDCANVAS_EXPORT CanvasOrigin canvasOrigin(const Document &document) noexcept;
 IISHAREDCANVAS_EXPORT CanvasRegion canvasRegion(const Document &document) noexcept;
+// Allocated canvas plus all artboards, including hidden ones. Invalid bounds yield {}.
+IISHAREDCANVAS_EXPORT CanvasRegion documentViewRegion(const Document &document) noexcept;
+IISHAREDCANVAS_EXPORT Artboard *findArtboard(Document &, const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT const Artboard *findArtboard(const Document &, const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT Asset *findAsset(Document &document,
                                        const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const Asset *findAsset(const Document &document,
@@ -518,14 +578,14 @@ IISHAREDCANVAS_EXPORT Layer *findLayer(Document &document,
                                       const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const Layer *findLayer(const Document &document,
                                              const std::string &id) noexcept;
-IISHAREDCANVAS_EXPORT BitmapLayer *findBitmapLayer(Document &document,
-                                                   const std::string &id) noexcept;
-IISHAREDCANVAS_EXPORT const BitmapLayer *findBitmapLayer(const Document &document,
-                                                         const std::string &id) noexcept;
-IISHAREDCANVAS_EXPORT VectorLayer *findVectorLayer(Document &document,
-                                                   const std::string &id) noexcept;
-IISHAREDCANVAS_EXPORT const VectorLayer *findVectorLayer(const Document &document,
-                                                         const std::string &id) noexcept;
+IISHAREDCANVAS_EXPORT StaticBitmapLayer *findStaticBitmapLayer(Document &, const std::string &) noexcept;
+IISHAREDCANVAS_EXPORT const StaticBitmapLayer *findStaticBitmapLayer(const Document &, const std::string &) noexcept;
+IISHAREDCANVAS_EXPORT StaticVectorLayer *findStaticVectorLayer(Document &, const std::string &) noexcept;
+IISHAREDCANVAS_EXPORT const StaticVectorLayer *findStaticVectorLayer(const Document &, const std::string &) noexcept;
+IISHAREDCANVAS_EXPORT DynamicBitmapLayer *findDynamicBitmapLayer(Document &, const std::string &) noexcept;
+IISHAREDCANVAS_EXPORT const DynamicBitmapLayer *findDynamicBitmapLayer(const Document &, const std::string &) noexcept;
+IISHAREDCANVAS_EXPORT DynamicVectorLayer *findDynamicVectorLayer(Document &, const std::string &) noexcept;
+IISHAREDCANVAS_EXPORT const DynamicVectorLayer *findDynamicVectorLayer(const Document &, const std::string &) noexcept;
 IISHAREDCANVAS_EXPORT VideoLayer *findVideoLayer(Document &document, const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT const VideoLayer *findVideoLayer(const Document &document, const std::string &id) noexcept;
 IISHAREDCANVAS_EXPORT std::optional<std::size_t> layerIndex(const Document &document,

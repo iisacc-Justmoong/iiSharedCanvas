@@ -344,6 +344,9 @@ IiscError trackString(const std::string &value,
 IiscError checkDocumentLimits(const Document &document,
                               const SerializationLimits &limits)
 {
+    if (document.artboards.size() > limits.maximumArtboards
+        || document.artboards.size() > std::numeric_limits<std::uint32_t>::max())
+        return makeError(IiscErrorCode::LimitExceeded, 0, "artboard count exceeds the configured limit");
     if (document.assets.size() > limits.maximumAssets
         || document.assets.size() > std::numeric_limits<std::uint32_t>::max()) {
         return makeError(IiscErrorCode::LimitExceeded, 0,
@@ -374,6 +377,21 @@ IiscError checkDocumentLimits(const Document &document,
     }
 
     LimitTotals totals;
+    for (const auto &a : document.artboards) {
+        std::uint64_t pixels = 0;
+        if (!pixelCountWithin(a.region.extent.width, a.region.extent.height, limits.maximumCanvasPixels, pixels))
+            return makeError(IiscErrorCode::LimitExceeded, 0, "artboard pixel count exceeds the configured limit");
+        for (const auto *value : {&a.id, &a.name}) {
+            auto error = trackString(*value, limits, totals);
+            if (error.code != IiscErrorCode::None) return error;
+        }
+    }
+    for (const auto &layer : document.layers) {
+        if (const auto &id = layerProperties(layer).artboardId; id) {
+            auto error = trackString(*id, limits, totals);
+            if (error.code != IiscErrorCode::None) return error;
+        }
+    }
     if (document.formatVersion.minor >= 5) {
         if (auto error = trackString(document.authorship.dump().toStdString(), limits, totals,
                 iiFileProvider::Authorship::MaximumBytes); error.code != IiscErrorCode::None) {
@@ -574,7 +592,6 @@ IiscError checkDocumentLimits(const Document &document,
     keyframeCountsByLayer.reserve(document.layers.size());
     for (const Layer &layer : document.layers) {
         const LayerProperties &properties = layerProperties(layer);
-        const LayerSource &sourceValue = layerSource(layer);
         if (const auto *mlsd = std::get_if<MlsdLayer>(&layer)) {
             for (const auto *text : {&mlsd->control.modelId,&mlsd->control.modelRevision}) {
                 if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
@@ -665,7 +682,7 @@ IiscError checkDocumentLimits(const Document &document,
                 return error;
             }
         }
-        if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
+        if (const auto *source = staticLayerSource(layer)) {
             if (IiscError error = trackString(source->assetId, limits, totals);
                 error.code != IiscErrorCode::None) {
                 return error;
@@ -1293,8 +1310,7 @@ void writePayload(ByteWriter &writer, const Document &document,
     std::unordered_map<std::string_view, std::size_t> layerIndices;
     layerIndices.reserve(document.layers.size());
     for (std::size_t index = 0; index < document.layers.size(); ++index) {
-        if (std::holds_alternative<KeyframedSource>(
-                layerSource(document.layers[index]))) {
+        if ((keyframedLayerSource(document.layers[index]) != nullptr)) {
             layerIndices.emplace(layerProperties(document.layers[index]).id, index);
         }
     }
@@ -1315,7 +1331,6 @@ void writePayload(ByteWriter &writer, const Document &document,
          ++layerIndex) {
         const Layer &layer = document.layers[layerIndex];
         const LayerProperties &properties = layerProperties(layer);
-        const LayerSource &sourceValue = layerSource(layer);
         writer.writeString(properties.id);
         writer.writeString(properties.name);
         writer.writeU8(properties.visible ? 1U : 0U);
@@ -1327,7 +1342,15 @@ void writePayload(ByteWriter &writer, const Document &document,
         writer.writeDouble(properties.transform.translationX);
         writer.writeDouble(properties.transform.translationY);
         writer.writeU8(encodedBlendMode(properties.blendMode));
-        if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
+        if (document.formatVersion.minor >= 18) {
+            writer.writeU8(properties.artboardId ? 1U : 0U);
+            if (properties.artboardId) writer.writeString(*properties.artboardId);
+        }
+        if (document.formatVersion.minor >= 19) {
+            const auto kind = layerKind(layer);
+            writer.writeU8(kind ? static_cast<std::uint8_t>(*kind) : 255U);
+        }
+        if (const auto *source = staticLayerSource(layer)) {
             writer.writeU8(0);
             writer.writeString(source->assetId);
         } else {
@@ -1445,6 +1468,18 @@ void writePayload(ByteWriter &writer, const Document &document,
     if (document.formatVersion.minor >= 5) {
         writer.writeString(document.authorship.dump().toStdString());
         record(detail::RecordKind::Authorship);
+    }
+    if (document.formatVersion.minor >= 18) {
+        writer.writeU32(static_cast<std::uint32_t>(document.artboards.size()));
+        record(detail::RecordKind::ArtboardCount);
+        for (std::size_t index = 0; index < document.artboards.size(); ++index) {
+            const auto &a = document.artboards[index];
+            writer.writeString(a.id); writer.writeString(a.name);
+            writer.writeI32(a.region.origin.x); writer.writeI32(a.region.origin.y);
+            writer.writeI32(a.region.extent.width); writer.writeI32(a.region.extent.height);
+            writer.writeU32(a.backgroundArgb); writer.writeU8(a.visible ? 1U : 0U);
+            record(detail::RecordKind::Artboard, a.id, static_cast<std::uint32_t>(index));
+        }
     }
 }
 
@@ -1588,6 +1623,22 @@ public:
             auto authorship = iiFileProvider::Authorship::fromDump(QByteArray::fromStdString(dump));
             if (!authorship) m_reader.fail(IiscErrorCode::InvalidData, "invalid authorship metadata");
             document.authorship = std::move(*authorship);
+        }
+        if (version.minor >= 18) {
+            const auto count = limitedCount(m_limits.maximumArtboards, "artboard");
+            requireCollectionBytes(count, 29);
+            document.artboards.reserve(count);
+            for (std::uint32_t i = 0; i < count; ++i) {
+                Artboard a;
+                a.id = readString(); a.name = readString();
+                a.region.origin = {m_reader.readI32(), m_reader.readI32()};
+                a.region.extent = {m_reader.readI32(), m_reader.readI32()};
+                std::uint64_t pixels = 0;
+                if (!pixelCountWithin(a.region.extent.width, a.region.extent.height, m_limits.maximumCanvasPixels, pixels))
+                    m_reader.fail(IiscErrorCode::LimitExceeded, "artboard extent exceeds the pixel limit");
+                a.backgroundArgb = m_reader.readU32(); a.visible = readBoolean();
+                document.artboards.push_back(std::move(a));
+            }
         }
         return document;
     }
@@ -2343,7 +2394,21 @@ private:
         properties.transform.translationX = m_reader.readDouble();
         properties.transform.translationY = m_reader.readDouble();
         properties.blendMode = readBlendMode();
+        if (version.minor >= 18 && readBoolean()) properties.artboardId = readString();
 
+        std::optional<LayerKind> declaredKind;
+        if (version.minor >= 19) {
+            const auto tag = m_reader.readU8();
+            if (tag <= static_cast<std::uint8_t>(LayerKind::DynamicVector))
+                declaredKind = static_cast<LayerKind>(tag);
+            else if (tag != 255U)
+                m_reader.fail(IiscErrorCode::InvalidData, "unknown visual layer type tag");
+        }
+        const auto finish = [&](Layer layer) {
+            if (version.minor >= 19 && layerKind(layer) != declaredKind)
+                m_reader.fail(IiscErrorCode::InvalidData, "layer type does not match its content");
+            return layer;
+        };
         LayerSource source;
         ContentKind kind = ContentKind::Raster;
         const std::uint8_t sourceKind = m_reader.readU8();
@@ -2507,39 +2572,39 @@ private:
                     m_reader.fail(IiscErrorCode::InvalidData, "unknown video end behavior tag");
                 }
                 playback.endBehavior = static_cast<VideoEndBehavior>(behavior);
-                return VideoLayer{std::move(properties), std::move(source), playback};
+                return finish(VideoLayer{std::move(properties), std::move(source), playback});
             }
         }
-        if (mlsd) { mlsd->properties=std::move(properties); mlsd->source=std::move(source); return std::move(*mlsd); }
+        if (mlsd) { mlsd->properties=std::move(properties); mlsd->source=std::move(source); return finish(std::move(*mlsd)); }
         if (kind==ContentKind::Mlsd) m_reader.fail(IiscErrorCode::InvalidData,"MLSD content requires an MLSD layer role");
-        if (canny) { canny->properties=std::move(properties); canny->source=std::move(source); return std::move(*canny); }
+        if (canny) { canny->properties=std::move(properties); canny->source=std::move(source); return finish(std::move(*canny)); }
         if (kind==ContentKind::Canny) m_reader.fail(IiscErrorCode::InvalidData,"line art content requires a line art layer role");
-        if (scribble) { scribble->properties=std::move(properties); scribble->source=std::move(source); return std::move(*scribble); }
+        if (scribble) { scribble->properties=std::move(properties); scribble->source=std::move(source); return finish(std::move(*scribble)); }
         if (kind==ContentKind::Scribble) m_reader.fail(IiscErrorCode::InvalidData,"line art content requires a line art layer role");
-        if (lineArt) { lineArt->properties=std::move(properties); lineArt->source=std::move(source); return std::move(*lineArt); }
+        if (lineArt) { lineArt->properties=std::move(properties); lineArt->source=std::move(source); return finish(std::move(*lineArt)); }
         if (kind==ContentKind::LineArt) m_reader.fail(IiscErrorCode::InvalidData,"line art content requires a line art layer role");
-        if (normalMap) { normalMap->properties=std::move(properties); normalMap->source=std::move(source); return std::move(*normalMap); }
+        if (normalMap) { normalMap->properties=std::move(properties); normalMap->source=std::move(source); return finish(std::move(*normalMap)); }
         if (kind==ContentKind::NormalMap) m_reader.fail(IiscErrorCode::InvalidData,"normalMap content requires a normalMap layer role");
-        if (shuffle) { shuffle->properties=std::move(properties); shuffle->source=std::move(source); return std::move(*shuffle); }
+        if (shuffle) { shuffle->properties=std::move(properties); shuffle->source=std::move(source); return finish(std::move(*shuffle)); }
         if (kind==ContentKind::Shuffle) m_reader.fail(IiscErrorCode::InvalidData,"shuffle content requires a shuffle layer role");
-        if (tile) { tile->properties=std::move(properties); tile->source=std::move(source); return std::move(*tile); }
+        if (tile) { tile->properties=std::move(properties); tile->source=std::move(source); return finish(std::move(*tile)); }
         if (kind==ContentKind::Tile) m_reader.fail(IiscErrorCode::InvalidData,"tile content requires a tile layer role");
-        if (ipAdapter) { ipAdapter->properties=std::move(properties); ipAdapter->source=std::move(source); return std::move(*ipAdapter); }
+        if (ipAdapter) { ipAdapter->properties=std::move(properties); ipAdapter->source=std::move(source); return finish(std::move(*ipAdapter)); }
         if (kind==ContentKind::IpAdapter) m_reader.fail(IiscErrorCode::InvalidData,"embedding content requires an IP-Adapter role");
-        if (reference) { reference->properties=std::move(properties); reference->source=std::move(source); return std::move(*reference); }
+        if (reference) { reference->properties=std::move(properties); reference->source=std::move(source); return finish(std::move(*reference)); }
         if (kind==ContentKind::Reference) m_reader.fail(IiscErrorCode::InvalidData,"reference content requires a reference layer role");
-        if (depth) { depth->properties=std::move(properties); depth->source=std::move(source); return std::move(*depth); }
+        if (depth) { depth->properties=std::move(properties); depth->source=std::move(source); return finish(std::move(*depth)); }
         if (kind==ContentKind::Depth) m_reader.fail(IiscErrorCode::InvalidData,"depth content requires a depth layer role");
-        if (pose) { pose->properties=std::move(properties); pose->source=std::move(source); return std::move(*pose); }
+        if (pose) { pose->properties=std::move(properties); pose->source=std::move(source); return finish(std::move(*pose)); }
         if (kind==ContentKind::Pose) m_reader.fail(IiscErrorCode::InvalidData,"pose content requires a pose layer role");
         if (semantic) {
             semantic->properties = std::move(properties); semantic->source = std::move(source);
-            return std::move(*semantic);
+            return finish(std::move(*semantic));
         }
         if (kind == ContentKind::Raster) {
-            return BitmapLayer{std::move(properties), std::move(source)};
+            return finish(makeBitmapLayer(std::move(properties), std::move(source)));
         }
-        return VectorLayer{std::move(properties), std::move(source)};
+        return finish(makeVectorLayer(std::move(properties), std::move(source)));
     }
 
     ByteReader &m_reader;
@@ -2583,7 +2648,7 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if (records.size() < 3
             || records.size() > static_cast<std::uint64_t>(limits.maximumAssets)
                                   + limits.maximumLayers + limits.maximumAudioAssets
-                                  + limits.maximumAudioTracks + 6) {
+                                  + limits.maximumAudioTracks + limits.maximumArtboards + 7) {
             invalid("working-file record count is invalid");
         }
         std::size_t assetCount = 0;
@@ -2595,6 +2660,8 @@ IiscDecodeResult detail::decodeDocumentRecords(
         bool sawAudioAssetCount = false;
         bool sawAudioTrackCount = false;
         bool sawAuthorship = false;
+        bool sawArtboardCount = false;
+        std::size_t artboardCount = 0;
         ByteWriter writer;
         std::uint64_t total = IiscHeaderSize - 4;
         for (std::size_t index = 0; index < records.size(); ++index) {
@@ -2644,6 +2711,13 @@ IiscDecodeResult detail::decodeDocumentRecords(
                 valid = sawAudioTrackCount && !sawAuthorship && record.id.empty() && record.position == 0;
                 sawAuthorship = true;
                 break;
+            case RecordKind::ArtboardCount:
+                valid = sawAuthorship && !sawArtboardCount && record.id.empty() && record.position == 0;
+                sawArtboardCount = true;
+                break;
+            case RecordKind::Artboard:
+                valid = sawArtboardCount && record.position == artboardCount++;
+                break;
             }
             if (!valid || !record.data) {
                 invalid("working-file record layout is invalid");
@@ -2671,6 +2745,8 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if ((version.minor >= 5) != sawAuthorship) {
             invalid("working-file authorship record does not match the document version");
         }
+        if ((version.minor >= 18) != sawArtboardCount)
+            invalid("working-file artboard records do not match the document version");
         const auto storedChunkSize = bytes.readI32();
         DocumentReader reader(bytes, limits, true);
         Document document = reader.read(version);
@@ -2685,7 +2761,11 @@ IiscDecodeResult detail::decodeDocumentRecords(
             || document.audioTracks.size() != audioTrackCount) {
             invalid("working-file records do not match the document counts");
         }
+        if (document.artboards.size() != artboardCount)
+            invalid("working-file artboard count does not match the payload");
         for (const DocumentRecord &record : records) {
+            if (record.kind == RecordKind::Artboard && record.id != document.artboards[record.position].id)
+                invalid("working-file artboard identity does not match its payload");
             if (record.kind == RecordKind::Asset
                 && record.id != assetId(document.assets[record.position])) {
                 invalid("working-file asset identity does not match its payload");

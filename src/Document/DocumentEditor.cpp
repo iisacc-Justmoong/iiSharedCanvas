@@ -69,8 +69,7 @@ void replaceAssetReferences(Document &document,
                             const std::string &to)
 {
     for (Layer &layer : document.layers) {
-        LayerSource &sourceValue = layerSource(layer);
-        if (auto *source = std::get_if<StaticSource>(&sourceValue)) {
+        if (auto *source = staticLayerSource(layer)) {
             if (source->assetId == from) {
                 source->assetId = to;
             }
@@ -145,7 +144,7 @@ void rebuildLayerFrameIndex(Document &document, const std::string &layerId)
     if (!layer) {
         return;
     }
-    auto *source = std::get_if<KeyframedSource>(&layerSource(*layer));
+    auto *source = keyframedLayerSource(*layer);
     if (!source) {
         return;
     }
@@ -2086,9 +2085,9 @@ DocumentEditResult DocumentEditor::insertStaticLayer(
     case LayerRepresentation::Embedding:
         return reject(DocumentEditCode::InvalidArgument,"representation","use insertIpAdapterLayer with an explicit adapter contract");
     case LayerRepresentation::Bitmap:
-        return insertLayer(BitmapLayer{std::move(properties), StaticSource{std::move(assetIdValue)}}, index);
+        return insertLayer(StaticBitmapLayer{std::move(properties), StaticSource{std::move(assetIdValue)}}, index);
     case LayerRepresentation::Vector:
-        return insertLayer(VectorLayer{std::move(properties), StaticSource{std::move(assetIdValue)}}, index);
+        return insertLayer(StaticVectorLayer{std::move(properties), StaticSource{std::move(assetIdValue)}}, index);
     }
     return reject(DocumentEditCode::InvalidArgument, "layer.representation",
                   "unknown layer representation");
@@ -2102,10 +2101,10 @@ DocumentEditResult DocumentEditor::insertDynamicLayer(
     case LayerRepresentation::Embedding:
         return reject(DocumentEditCode::InvalidArgument,"representation","use insertIpAdapterLayer with an explicit adapter contract");
     case LayerRepresentation::Bitmap:
-        return insertKeyframedLayer(BitmapLayer{std::move(properties), KeyframedSource{}},
+        return insertKeyframedLayer(DynamicBitmapLayer{std::move(properties), KeyframedSource{}},
                                    std::move(keyframes), index);
     case LayerRepresentation::Vector:
-        return insertKeyframedLayer(VectorLayer{std::move(properties), KeyframedSource{}},
+        return insertKeyframedLayer(DynamicVectorLayer{std::move(properties), KeyframedSource{}},
                                    std::move(keyframes), index);
     }
     return reject(DocumentEditCode::InvalidArgument, "layer.representation",
@@ -2167,7 +2166,7 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
     if (!requireValidDocument()) {
         return m_lastResult;
     }
-    if (!std::holds_alternative<KeyframedSource>(layerSource(layer))) {
+    if (!(keyframedLayerSource(layer) != nullptr)) {
         return reject(DocumentEditCode::InvalidArgument, "layer.source",
                       "atomic keyframed-layer insertion requires a keyframed source marker");
     }
@@ -2196,7 +2195,7 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
         || std::holds_alternative<VideoLayer>(layer) || std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
-    std::get<KeyframedSource>(layerSource(layer)).frameIndices.clear();
+    keyframedLayerSource(layer)->frameIndices.clear();
     std::vector<Frame> priorFrames = m_document->frames;
     m_document->layers.insert(
         m_document->layers.begin() + static_cast<std::ptrdiff_t>(position),
@@ -2248,8 +2247,7 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
     const std::string priorId = layerProperties(m_document->layers[*position]).id;
-    const bool replacementIsKeyframed = std::holds_alternative<KeyframedSource>(
-        layerSource(layer));
+    const bool replacementIsKeyframed = (keyframedLayerSource(layer) != nullptr);
     Layer prior = std::move(m_document->layers[*position]);
     std::vector<Frame> priorFrames = m_document->frames;
     m_document->layers[*position] = std::move(layer);
@@ -2488,17 +2486,17 @@ DocumentEditResult DocumentEditor::setStaticSource(const std::string &id,
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    LayerSource &sourceValue = layerSource(*layer);
-    if (const auto *source = std::get_if<StaticSource>(&sourceValue);
+    if (const auto *source = staticLayerSource(*layer);
         source && source->assetId == assetIdValue) {
         return unchanged();
     }
-    LayerSource prior = std::move(sourceValue);
+    Layer prior = *layer;
+    const std::string layerId = id;
     std::vector<Frame> priorFrames = m_document->frames;
-    sourceValue = StaticSource{std::move(assetIdValue)};
-    removeLayerKeyframes(*m_document, id);
+    setLayerSource(*layer, StaticSource{std::move(assetIdValue)});
+    removeLayerKeyframes(*m_document, layerId);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
-        sourceValue = std::move(prior);
+        *layer = std::move(prior);
         m_document->frames = std::move(priorFrames);
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
@@ -2526,23 +2524,23 @@ DocumentEditResult DocumentEditor::setKeyframedSource(const std::string &id,
                  const KeyframePlacement &right) {
                   return left.frame < right.frame;
               });
-    LayerSource &sourceValue = layerSource(*layer);
-    if (const auto *source = std::get_if<KeyframedSource>(&sourceValue);
+    if (const auto *source = keyframedLayerSource(*layer);
         source && sameKeyframes(keyframePlacements(*m_document, id), keyframes)) {
         return unchanged();
     }
-    LayerSource prior = std::move(sourceValue);
+    Layer prior = *layer;
+    const std::string layerId = id;
     std::vector<Frame> priorFrames = m_document->frames;
-    sourceValue = KeyframedSource{};
-    removeLayerKeyframes(*m_document, id);
+    setLayerSource(*layer, KeyframedSource{});
+    removeLayerKeyframes(*m_document, layerId);
     for (KeyframePlacement &placement : keyframes) {
         insertFrameKeyframe(*m_document,
                             placement.frame,
-                            Keyframe{id, std::move(placement.assetId)});
+                            Keyframe{layerId, std::move(placement.assetId)});
     }
-    rebuildLayerFrameIndex(*m_document, id);
+    rebuildLayerFrameIndex(*m_document, layerId);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
-        sourceValue = std::move(prior);
+        *layer = std::move(prior);
         m_document->frames = std::move(priorFrames);
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
@@ -2614,7 +2612,7 @@ DocumentEditResult DocumentEditor::insertKeyframe(const std::string &id,
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    auto *source = std::get_if<KeyframedSource>(&layerSource(*layer));
+    auto *source = keyframedLayerSource(*layer);
     if (!source) {
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");
@@ -2654,7 +2652,7 @@ DocumentEditResult DocumentEditor::setKeyframeAsset(const std::string &id,
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    if (!std::holds_alternative<KeyframedSource>(layerSource(*layer))) {
+    if (!(keyframedLayerSource(*layer) != nullptr)) {
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");
     }
@@ -2670,6 +2668,60 @@ DocumentEditResult DocumentEditor::setKeyframeAsset(const std::string &id,
     keyframe->assetId = std::move(assetIdValue);
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         keyframe->assetId = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::setDynamicFrameContent(const std::string &id,
+                                                          FrameIndex frame,
+                                                          RasterAsset content)
+{
+    return setDynamicFrameContentImpl(id, frame, std::move(content));
+}
+
+DocumentEditResult DocumentEditor::setDynamicFrameContent(const std::string &id,
+                                                          FrameIndex frame,
+                                                          VectorAsset content)
+{
+    return setDynamicFrameContentImpl(id, frame, std::move(content));
+}
+
+DocumentEditResult DocumentEditor::setDynamicFrameContentImpl(const std::string &id,
+                                                              FrameIndex frame,
+                                                              Asset content)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) {
+            return editor.setDynamicFrameContentImpl(id, frame, std::move(content));
+        });
+    }
+    if (!requireValidDocument()) return m_lastResult;
+    Layer *layer = findLayer(*m_document, id);
+    if (!layer) return reject(DocumentEditCode::LayerNotFound, "layers", "layer was not found");
+    auto *source = keyframedLayerSource(*layer);
+    if (!source) return reject(DocumentEditCode::SourceNotKeyframed, "layer.source", "layer source is not keyframed");
+    if (contentKind(*layer) != contentKind(content))
+        return reject(DocumentEditCode::AssetKindMismatch, "content", "frame content must match the layer kind");
+    if (frame >= m_document->timeline.frameCount)
+        return reject(DocumentEditCode::IndexOutOfRange, "frame", "frame is outside the document timeline");
+    const std::string newId = assetId(content);
+    if (newId.empty()) return reject(DocumentEditCode::InvalidArgument, "content.id", "asset id must not be empty");
+    if (findAsset(*m_document, newId))
+        return reject(DocumentEditCode::DuplicateAssetId, "content.id", "frame content requires a fresh asset id");
+
+    // Only the new payload and the frame references change. Existing assets are
+    // never copied or overwritten; the complete edit is one authorship/revision.
+    auto priorFrames = m_document->frames;
+    auto priorIndices = source->frameIndices;
+    m_document->assets.push_back(std::move(content));
+    if (auto *key = findKeyframe(*m_document, id, frame)) key->assetId = newId;
+    else insertFrameKeyframe(*m_document, frame, {id, newId});
+    rebuildLayerFrameIndex(*m_document, id);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.pop_back();
+        m_document->frames = std::move(priorFrames);
+        source->frameIndices = std::move(priorIndices);
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
@@ -2692,7 +2744,7 @@ DocumentEditResult DocumentEditor::moveKeyframe(const std::string &id,
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    auto *source = std::get_if<KeyframedSource>(&layerSource(*layer));
+    auto *source = keyframedLayerSource(*layer);
     if (!source) {
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");
@@ -2741,7 +2793,7 @@ DocumentEditResult DocumentEditor::removeKeyframe(const std::string &id,
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    auto *source = std::get_if<KeyframedSource>(&layerSource(*layer));
+    auto *source = keyframedLayerSource(*layer);
     if (!source) {
         return reject(DocumentEditCode::SourceNotKeyframed, "layer.source",
                       "layer source is not keyframed");

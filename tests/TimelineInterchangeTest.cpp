@@ -31,14 +31,14 @@ Document fixture()
     document.assets.emplace_back(RasterAsset{"base", makeRasterLayer(4, 4, 0xffff0000U)});
     document.assets.emplace_back(RasterAsset{"green", makeRasterLayer(2, 2, 0xff00ff00U)});
     document.assets.emplace_back(RasterAsset{"blue", makeRasterLayer(2, 2, 0xff0000ffU)});
-    BitmapLayer base; base.properties.id = "base"; base.properties.name = "바탕 & <red>";
-    base.source = StaticSource{"base"}; document.layers.push_back(base);
-    BitmapLayer animated; animated.properties.id = "animated"; animated.properties.name = "Keyed layer";
+    StaticBitmapLayer base; base.properties.id = "base"; base.properties.name = "바탕 & <red>";
+    base.content = StaticSource{"base"}; document.layers.push_back(base);
+    DynamicBitmapLayer animated; animated.properties.id = "animated"; animated.properties.name = "Keyed layer";
     animated.properties.transform.translationX = 1; animated.properties.transform.translationY = 1;
     animated.properties.opacity = 0.5; animated.properties.frameRange = LayerFrameRange{2, 9};
-    animated.source = KeyframedSource{{0, 5, 8}}; document.layers.push_back(animated);
-    BitmapLayer hidden; hidden.properties.id = "hidden"; hidden.properties.name = "Hidden";
-    hidden.properties.visible = false; hidden.source = StaticSource{"blue"}; document.layers.push_back(hidden);
+    animated.content = KeyframedSource{{0, 5, 8}}; document.layers.push_back(animated);
+    StaticBitmapLayer hidden; hidden.properties.id = "hidden"; hidden.properties.name = "Hidden";
+    hidden.properties.visible = false; hidden.content = StaticSource{"blue"}; document.layers.push_back(hidden);
     document.frames = {{0, {{"animated", "green"}}}, {5, {{"animated", "blue"}}}, {8, {{"animated", "green"}}}};
     return document;
 }
@@ -79,9 +79,9 @@ void verifyPackage(const QString &directory, const Document &document)
                 auto imported = importBitmap((directory + '/' + clip["media"].toString()).toStdString(), options);
                 expect(imported.ok(), "each timeline media reference resolves to a valid PNG");
                 restored.assets.emplace_back(std::move(imported.asset));
-                BitmapLayer layer; layer.properties.id = std::to_string(trackIndex);
+                StaticBitmapLayer layer; layer.properties.id = std::to_string(trackIndex);
                 layer.properties.visible = track["visible"].toBool(); layer.properties.opacity = track["opacity"].toDouble();
-                layer.source = StaticSource{options.assetId}; restored.layers.emplace_back(layer);
+                layer.content = StaticSource{options.assetId}; restored.layers.emplace_back(layer);
             }
         }
         const auto expected = renderFrame(document, frame), actual = renderFrame(restored, 0);
@@ -126,7 +126,7 @@ int main(int argc, char **argv)
     auto invalid = document; layerProperties(invalid.layers[0]).name = std::string("bad\x01", 4);
     rejects(invalid, {}, MediaIoCode::InvalidArgument, "invalid-xml-character");
     invalid = document; invalid.timeline.frameRate = {123, 7}; rejects(invalid, {}, MediaIoCode::UnsupportedFeature, "inexact-rate");
-    invalid = document; layerSource(invalid.layers[0]) = StaticSource{"absent"}; rejects(invalid, {}, MediaIoCode::InvalidArgument, "invalid-reference");
+    invalid = document; setLayerSource(invalid.layers[0], StaticSource{"absent"}); rejects(invalid, {}, MediaIoCode::InvalidArgument, "invalid-reference");
     // source.iisc contains even assets and metadata that no rendered clip uses.
     // Reject them before the native encoder materializes its complete payload.
     const auto snapshotBudgetRejects = [&](Document input, const char *name) {
@@ -166,7 +166,7 @@ int main(int argc, char **argv)
     expect(TimelineInterchangeOptions{}.limits.maxFrames == 1000000, "timeline export defaults allow long hold timelines");
     Document longHold; longHold.extent = {4, 4}; longHold.timeline.frameCount = 86400;
     longHold.assets.emplace_back(RasterAsset{"still", makeRasterLayer(4, 4, 0xffff0000U)});
-    BitmapLayer still; still.properties.id = "still"; still.source = StaticSource{"still"};
+    StaticBitmapLayer still; still.properties.id = "still"; still.content = StaticSource{"still"};
     longHold.layers.emplace_back(std::move(still));
     const auto longDirectory = temp.filePath("one-hour-hold");
     const auto longResult = exportTimelineInterchange(longHold, longDirectory.toStdString());
@@ -182,7 +182,7 @@ int main(int argc, char **argv)
     }
     auto vector = document; VectorAsset asset; asset.id = "vector"; asset.viewport = {4, 4};
     VectorPath path; path.commands = {MoveTo{{0, 0}}, LineTo{{2, 0}}, LineTo{{2, 2}}, ClosePath{}}; path.fill = SolidPaint{0xffffff00U};
-    asset.paths.push_back(path); vector.assets.emplace_back(asset); VectorLayer layer; layer.properties.id = "vector-layer"; layer.source = StaticSource{"vector"}; vector.layers.emplace_back(layer);
+    asset.paths.push_back(path); vector.assets.emplace_back(asset); StaticVectorLayer layer; layer.properties.id = "vector-layer"; layer.content = StaticSource{"vector"}; vector.layers.emplace_back(layer);
     const auto vectorResult = exportTimelineInterchange(vector, temp.filePath("vector").toStdString());
     expect(vectorResult.ok() && std::any_of(vectorResult.warnings.begin(), vectorResult.warnings.end(), [](const auto &w) { return w.find("vector") != std::string::npos; }), "vector tracks are separate rendered media with an explicit editability warning");
     // Persistent, disposable fixture for actual editor import and independent schema validation.
@@ -196,7 +196,7 @@ int main(int argc, char **argv)
     layerProperties(appDocument.layers[1]).transform.translationX = 480;
     layerProperties(appDocument.layers[1]).transform.translationY = 270;
     layerProperties(appDocument.layers[1]).frameRange = LayerFrameRange{24, 95};
-    layerSource(appDocument.layers[1]) = KeyframedSource{{0, 48, 72}};
+    setLayerSource(appDocument.layers[1], KeyframedSource{{0, 48, 72}});
     appDocument.frames = {{0, {{"animated", "green"}}}, {48, {{"animated", "blue"}}}, {72, {{"animated", "green"}}}};
     const auto appPackage = applicationFixture.filePath("package");
     expect(exportTimelineInterchange(appDocument, appPackage.toStdString()).ok(), "actual editor fixture");

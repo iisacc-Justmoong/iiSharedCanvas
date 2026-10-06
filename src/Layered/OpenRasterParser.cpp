@@ -550,7 +550,7 @@ LayeredDocumentImportResult decodeOpenRaster(std::span<const std::uint8_t> bytes
             result.result.warnings.emplace_back("OpenRaster layer PNG text metadata is not retained in the canvas document");
         }
         it->properties.id = options.idPrefix + "-layer-" + index;
-        result.document.layers.emplace_back(BitmapLayer{std::move(it->properties), StaticSource{decoded.asset.id}});
+        result.document.layers.emplace_back(StaticBitmapLayer{std::move(it->properties), StaticSource{decoded.asset.id}});
         result.document.assets.emplace_back(std::move(decoded.asset));
     }
     const auto validation = validate(result.document);

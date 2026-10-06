@@ -253,7 +253,7 @@ MediaDocumentResult importVideo(const std::string &path, const VideoImportOption
         return result;
     }
     draft.timeline.frameCount = FrameIndex(draft.assets.size());
-    draft.layers.emplace_back(BitmapLayer{{options.layerId, "Imported video"}, std::move(keys)});
+    draft.layers.emplace_back(DynamicBitmapLayer{{options.layerId, "Imported video"}, std::move(keys)});
     const auto validation = validate(draft);
     if (!validation.ok()) {
         result.result = {MediaIoCode::InvalidData, validation.issues.front().message, {}};
@@ -291,7 +291,8 @@ MediaIoResult exportVideo(const Document &document, const std::string &path, con
     QString absolute;
     auto result = checkDestination(path, options.overwrite, absolute);
     if (!result.ok()) { return result; }
-    result = checkExtent(document.extent, options.limits);
+    const auto view = documentViewRegion(document);
+    result = checkExtent(view.extent, options.limits);
     if (!result.ok()) { return result; }
     const auto validation = validate(document);
     if (!validation.ok()) { return {MediaIoCode::InvalidArgument, validation.issues.front().message, {}}; }
@@ -322,7 +323,7 @@ MediaIoResult exportVideo(const Document &document, const std::string &path, con
     const auto rate = rateText(document.timeline.frameRate);
     QStringList arguments{"-v", "error", "-nostdin", "-y", "-filter_threads", "1",
                           "-f", "rawvideo", "-pixel_format", "rgba", "-video_size",
-                          QString::number(document.extent.width) + 'x' + QString::number(document.extent.height),
+                          QString::number(view.extent.width) + 'x' + QString::number(view.extent.height),
                           "-framerate", rate, "-i", "pipe:0", "-an", "-sn", "-dn", "-map", "0:v:0",
                           "-vf", "scale=iw:ih,format=" + pixelFormat, "-c:v", QString::fromStdString(options.codec),
                           "-pix_fmt", '+' + pixelFormat, "-threads", "1", "-fps_mode", "passthrough",

@@ -72,7 +72,8 @@ int lodForZoom(qreal zoom) noexcept
 {
     int lod = 1;
     const double desired = 1.0 / std::max(zoom, qreal{0.000001});
-    while (lod < desired && lod <= (1 << 20)) {
+    // Never allocate fewer samples than the physical display needs.
+    while (lod <= (1 << 20) && lod * 2 <= desired) {
         lod *= 2;
     }
     return lod;
@@ -112,7 +113,25 @@ CanvasItem::CanvasItem(QQuickItem *parent)
     connect(&m_asyncRenderer, &AsyncFrameRenderer::finished,
             this, &CanvasItem::applyAsyncRender);
     connect(this, &QQuickItem::windowChanged,
-            this, [this](QQuickWindow *) { emit graphicsBackendChanged(); });
+            this, [this](QQuickWindow *target) {
+                if (m_renderWindow) m_renderWindow->removeEventFilter(this);
+                m_renderWindow = target;
+                if (target) target->installEventFilter(this);
+                emit graphicsBackendChanged();
+                scheduleVisibleRender(false);
+            });
+    if (window()) {
+        m_renderWindow = window();
+        window()->installEventFilter(this);
+    }
+}
+
+CanvasItem::~CanvasItem()
+{
+    // QQuickItem detaches from its window after derived members are destroyed.
+    // Its windowChanged signal must not access the renderer or weak window then.
+    disconnect(this, nullptr, this, nullptr);
+    if (m_renderWindow) m_renderWindow->removeEventFilter(this);
 }
 
 bool CanvasItem::bind(Document &value)
@@ -145,7 +164,7 @@ bool CanvasItem::createFile(const QString &path, int width, int height, quint32 
     document.extent = {width, height};
     document.timeline.frameCount = frameCount;
     document.assets.emplace_back(RasterAsset{"canvas.raster.0", makeRasterLayer(width, height)});
-    document.layers.emplace_back(BitmapLayer{{"canvas.layer.0", "Canvas"}, StaticSource{"canvas.raster.0"}});
+    document.layers.emplace_back(StaticBitmapLayer{{"canvas.layer.0", "Canvas"}, StaticSource{"canvas.raster.0"}});
     auto file = std::make_unique<DocumentFile>();
     const auto result = file->create(path.toUtf8().toStdString(), document);
     if (!result.ok()) {
@@ -330,8 +349,8 @@ DocumentEditResult CanvasItem::editDocument(
 const RasterLayer *CanvasItem::framePixels() const noexcept
 {
     return documentReady()
-            && m_framePixels.width == m_document->extent.width
-            && m_framePixels.height == m_document->extent.height
+            && m_framePixels.width == canvasWidth()
+            && m_framePixels.height == canvasHeight()
         ? &m_framePixels
         : nullptr;
 }
@@ -373,7 +392,7 @@ bool CanvasItem::createRasterDocument(int width, int height, quint32 count)
     m_ownedDocument.timeline = {{24, 1}, count};
     m_ownedDocument.assets.emplace_back(
         RasterAsset{"canvas.raster.0", makeRasterLayer(width, height, 0x00000000U)});
-    m_ownedDocument.layers.emplace_back(BitmapLayer{
+    m_ownedDocument.layers.emplace_back(StaticBitmapLayer{
         {"canvas.layer.0", "Raster", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"canvas.raster.0"},
     });
@@ -396,7 +415,7 @@ bool CanvasItem::createInfiniteRasterDocument(int width,
     m_ownedDocument.extent = {width, height};
     m_ownedDocument.timeline = {{24, 1}, count};
     m_ownedDocument.assets.emplace_back(ChunkedRasterAsset{"canvas.raster.0", {}});
-    m_ownedDocument.layers.emplace_back(BitmapLayer{
+    m_ownedDocument.layers.emplace_back(StaticBitmapLayer{
         {"canvas.layer.0", "Raster", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"canvas.raster.0"},
     });
@@ -410,12 +429,12 @@ bool CanvasItem::documentReady() const noexcept
 
 int CanvasItem::canvasWidth() const noexcept
 {
-    return m_document ? m_document->extent.width : 0;
+    return m_document ? documentViewRegion(*m_document).extent.width : 0;
 }
 
 int CanvasItem::canvasHeight() const noexcept
 {
-    return m_document ? m_document->extent.height : 0;
+    return m_document ? documentViewRegion(*m_document).extent.height : 0;
 }
 
 bool CanvasItem::infiniteCanvas() const noexcept
@@ -425,12 +444,12 @@ bool CanvasItem::infiniteCanvas() const noexcept
 
 int CanvasItem::canvasOriginX() const noexcept
 {
-    return m_document ? canvasOrigin(*m_document).x : 0;
+    return m_document ? documentViewRegion(*m_document).origin.x : 0;
 }
 
 int CanvasItem::canvasOriginY() const noexcept
 {
-    return m_document ? canvasOrigin(*m_document).y : 0;
+    return m_document ? documentViewRegion(*m_document).origin.y : 0;
 }
 
 int CanvasItem::canvasChunkSize() const noexcept
@@ -546,7 +565,7 @@ bool CanvasItem::selectLayer(const QString &layerId)
         return false;
     }
     const Asset *asset = resolveAssetAt(*m_document, *match, m_frame);
-    if (!std::holds_alternative<BitmapLayer>(*match)
+    if (!(std::holds_alternative<StaticBitmapLayer>(*match) || std::holds_alternative<DynamicBitmapLayer>(*match))
         || !asset
         || contentKind(*asset) != ContentKind::Raster) {
         setLastError(QStringLiteral("selected layer does not resolve to raster content"));
@@ -1421,10 +1440,10 @@ void CanvasItem::paint(QPainter *painter)
     painter->setCompositionMode(QPainter::CompositionMode_SourceOver);
 
     if (documentReady()) {
-        painter->setRenderHint(QPainter::SmoothPixmapTransform, false);
+        painter->setRenderHint(QPainter::SmoothPixmapTransform, m_smoothRendering);
         painter->translate(m_panX, m_panY);
         painter->scale(m_zoom, m_zoom);
-        const CanvasOrigin origin = canvasOrigin(*m_document);
+        const CanvasOrigin origin = documentViewRegion(*m_document).origin;
         for (const CachedTile &tile : m_tileCache) {
             if (tile.pixels.width <= 0 || tile.pixels.height <= 0
                 || tile.pixels.width > std::numeric_limits<int>::max() / 4) {
@@ -1446,6 +1465,39 @@ void CanvasItem::paint(QPainter *painter)
         }
     }
     painter->restore();
+}
+
+bool CanvasItem::smoothRendering() const noexcept { return m_smoothRendering; }
+
+void CanvasItem::setSmoothRendering(bool smooth)
+{
+    if (m_smoothRendering == smooth) return;
+    m_smoothRendering = smooth;
+    ++m_contentGeneration; // Discard in-flight presentation, without a document edit/revision.
+    clearTileCache();
+    scheduleVisibleRender(false);
+    update();
+    emit smoothRenderingChanged();
+}
+
+qreal CanvasItem::renderDevicePixelRatio() const noexcept
+{
+    const qreal ratio = window() ? window()->effectiveDevicePixelRatio() : qreal{1.0};
+    return std::isfinite(ratio) && ratio > 0.0 ? ratio : qreal{1.0};
+}
+
+int CanvasItem::renderLevelOfDetail() const noexcept
+{
+    return lodForZoom(m_zoom * renderDevicePixelRatio());
+}
+
+bool CanvasItem::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == window() && event && event->type() == QEvent::DevicePixelRatioChange) {
+        scheduleVisibleRender(false);
+        emit viewportChanged();
+    }
+    return QQuickItem::eventFilter(watched, event);
 }
 
 bool CanvasItem::event(QEvent *event)
@@ -1624,7 +1676,7 @@ QSGNode *CanvasItem::updatePaintNode(QSGNode *oldNode,
         return root;
     }
 
-    const CanvasOrigin origin = canvasOrigin(*m_document);
+    const CanvasOrigin origin = documentViewRegion(*m_document).origin;
     const auto appendTextureNode = [&](QSGNode *parent,
                                        const CanvasRegion &region,
                                        const RasterLayer &pixels) {
@@ -1649,7 +1701,7 @@ QSGNode *CanvasItem::updatePaintNode(QSGNode *oldNode,
         auto *textureNode = new QSGSimpleTextureNode;
         textureNode->setTexture(texture);
         textureNode->setOwnsTexture(true);
-        textureNode->setFiltering(QSGTexture::Nearest);
+        textureNode->setFiltering(m_smoothRendering ? QSGTexture::Linear : QSGTexture::Nearest);
         textureNode->setRect(
             static_cast<qreal>(region.origin.x - origin.x),
             static_cast<qreal>(region.origin.y - origin.y),
@@ -1841,7 +1893,7 @@ void CanvasItem::applyAsyncRender(qulonglong requestId)
     }
     trimTileCache();
 
-    const CanvasRegion completeRegion = canvasRegion(*m_document);
+    const CanvasRegion completeRegion = documentViewRegion(*m_document);
     const auto complete = std::find_if(
         m_tileCache.begin(), m_tileCache.end(),
         [&](const CachedTile &tile) {
@@ -1873,8 +1925,8 @@ std::vector<FrameRenderTileRequest> CanvasItem::visibleTileRequests() const
         return result;
     }
 
-    const CanvasRegion available = canvasRegion(*m_document);
-    const int lod = lodForZoom(m_zoom);
+    const CanvasRegion available = documentViewRegion(*m_document);
+    const int lod = renderLevelOfDetail();
     const std::int64_t tileSpan = static_cast<std::int64_t>(RenderTilePixelSize) * lod;
 
     double visibleLeft = available.origin.x;
@@ -1958,7 +2010,7 @@ std::vector<FrameRenderTileRequest> CanvasItem::visibleTileRequests() const
             const double tileCenterY = clippedTop + region.extent.height * 0.5;
             const double dx = tileCenterX - centerX;
             const double dy = tileCenterY - centerY;
-            candidates.push_back({{region, output}, dx * dx + dy * dy});
+            candidates.push_back({{region, output, m_smoothRendering ? RasterSampling::Smooth : RasterSampling::Nearest}, dx * dx + dy * dy});
         }
     }
 
@@ -2015,7 +2067,7 @@ void CanvasItem::trimTileCache()
 
 bool CanvasItem::canPresentLayerTiles() const noexcept
 {
-    if (!m_document || m_tileCache.empty() || m_layerTileCache.empty()) {
+    if (!m_document || !m_document->artboards.empty() || m_tileCache.empty() || m_layerTileCache.empty()) {
         return false;
     }
 
@@ -2131,7 +2183,7 @@ bool CanvasItem::syncSelectedLayer()
     Layer *layer = selectedLayer();
     const Asset *asset = layer ? resolveAssetAt(*m_document, *layer, m_frame) : nullptr;
     if (!layer
-        || !std::holds_alternative<BitmapLayer>(*layer)
+        || !(std::holds_alternative<StaticBitmapLayer>(*layer) || std::holds_alternative<DynamicBitmapLayer>(*layer))
         || !asset
         || contentKind(*asset) != ContentKind::Raster) {
         clearSelection();
@@ -2195,7 +2247,7 @@ bool CanvasItem::mapDocumentToSelectedAsset(const QPointF &documentPosition,
 
 QPointF CanvasItem::mapItemToDocument(const QPointF &itemPosition) const noexcept
 {
-    const CanvasOrigin origin = m_document ? canvasOrigin(*m_document) : CanvasOrigin{};
+    const CanvasOrigin origin = m_document ? documentViewRegion(*m_document).origin : CanvasOrigin{};
     return {(itemPosition.x() - m_panX) / m_zoom + origin.x,
             (itemPosition.y() - m_panY) / m_zoom + origin.y};
 }
@@ -2271,6 +2323,20 @@ void CanvasItem::recordCountHistory(int priorStrokeCount)
     m_redoStrokeCounts.clear();
 }
 
+bool CanvasItem::setBrushEngineState(const BrushState &state)
+{
+    if (liveStrokeActive()) return false;
+    BitmapBrush value = m_editor.brush();
+    value.engineState = state;
+    applyBrush(value);
+    return lastError().isEmpty();
+}
+void CanvasItem::clearBrushEngineState()
+{
+    BitmapBrush value = m_editor.brush();
+    value.engineState.reset();
+    applyBrush(value);
+}
 void CanvasItem::applyBrush(const BitmapBrush &brush)
 {
     const bool regularApplied = m_editor.setBrush(brush);

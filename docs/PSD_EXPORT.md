@@ -1,161 +1,64 @@
-# PSD export with editable vector sources
+<a id="psd-export-with-editable-vector-sources"></a>
 
-`encodePsd(document, options)` returns PSD bytes; `exportPsd(document, path,
-options)` writes them atomically through the existing media file adapter.
-`PsdExportOptions` contains `overwrite`, `limits`, and `maxLayers`. PSD output
-is version 1, 8-bit RGB with a merged transparency channel. Files are bounded
-below 2 GiB; dimensions larger than 30,000 pixels require PSB, which this
-writer does not produce. The PSD explicitly carries the sRGB ICC profile and
-72-dpi resolution rather than relying on another application's working profile.
+# PSD 편집 가능한 벡터 소스를 포함한 내보내기
 
-The complete native document is validated before conversion. Source assets,
-layers, timeline and file bindings are never modified. Public model fields
-remain native canvas data; Photoshop descriptors exist only in the output
-adapter and do not become another document model.
+`encodePsd(document, options)` 는 PSD 바이트를 반환하며, `exportPsd(document, path, options)` 는 기존 미디어 파일 어댑터를 통해 원자적으로 그들을 씁니다. `PsdExportOptions` 는 `overwrite` , `limits` , 및 `maxLayers` 를 포함합니다. PSD 출력은 버전 1, 8비트 RGB 와 병합된 투명성 채널을 가집니다. 파일은 한계가 설정된 미만 2 GiB 입니다; 30,000 픽셀보다 큰 차원은 PSB 를 필요로 하며, 이 작성기는 이를 생성하지 않습니다. PSD 는 명시적으로 sRGB ICC 프로필과 72dpi 해상도를 운반하며, 다른 애플리케이션의 작업 프로필에 의존하지 않습니다.
 
-## First-frame and layer contract
+전체 네이티브 문서는 변환 전에 검증됩니다. 소스 자산, 레이어, 타임라인 및 파일 바인딩은 절대 수정되지 않습니다. 공개 모델 필드는 네이티브 캔버스 데이터로 유지되며, Photoshop 디스크립터는 출력 어댑터에만 존재하고 다른 문서 모델이 되지 않습니다.
 
-The writer samples exactly frame zero. Later frames, timing, frame-rate
-information and timeline structure are not encoded into Photoshop animation;
-their omission is returned as a warning. A layer whose inclusive frame range
-excludes zero is absent from the output, with a warning. If frame zero has no
-eligible layers, the PSD receives one transparent `(Empty frame 0)` placeholder
-layer, disclosed by a warning. The native document is unchanged, and the
-placeholder counts against `maxLayers`.
+<a id="first-frame-and-layer-contract"></a>
 
-Binary layer order remains bottom-to-top. Unicode layer names, visibility,
-normal/multiply/screen/overlay blending and layer opacity are retained.
-Opacity is quantized to one byte; a warning reports any quantization, and
-the merged preview uses that same quantized value. Hidden layers still
-contain their source pixels or vector source and their raster caches.
-Invalid UTF-8 or embedded-null layer names fail before output publication.
-Native Stable Diffusion metadata is not preserved and its omission is warned.
+## 첫 번째 프레임 및 레이어 계약
 
-A bitmap with an identity linear transform and an exactly representable
-integer translation keeps its original pixel dimensions, straight ARGB,
-fully-transparent RGB values and signed position. Its pixels outside the
-canvas are retained. Other bitmap transforms and chunked raster storage use
-the native renderer to make a canvasRegion-sized cache with the transform
-baked in. This clipping and loss of a separately editable bitmap transform
-are disclosed. Infinite canvases export their fixed `canvasRegion` viewport,
-also with a warning.
+작업자는 정확히 0프레임만큼 샘플링합니다. 나중에 프레임, 타이밍, 프레임 속도 정보 및 타임라인 구조는 Photoshop 애니메이션에 인코딩되지 않으며, 누락은 경고로 반환됩니다. 0 를 포함하는 프레임 범위를 가진 레이어는 출력에서 누락되며, 경고가 표시됩니다. 프레임 0 에 적합한 레이어가 없으면 PSD 에 투명 `(Empty frame 0)` 플레이스홀더 레이어 하나가 할당되며, 경고가 표시됩니다. 원본 문서에는 변경이 없으며, 플레이스홀더는 `maxLayers` 에 포함됩니다.
 
-## Vector layers are embedded PDF Smart Objects
+이진 레이어 순서는 아래에서 위로 유지됩니다. Unicode 레이어 이름, 가시성, 일반/곱하기/스크린/오버레이 블렌딩 및 레이어 불투명도는 유지됩니다. 불투명도는 1 바이트로 양자화되며, 양자화는 경고로 보고되고, 병합된 미리보기는 동일한 양자화 값을 사용합니다. 숨겨진 레이어는 여전히 소스 픽셀 또는 벡터 소스와 래스터 캐시를 포함합니다. 무효한 UTF-8 또는 임베드된 널 레이어 이름은 출력 발행 전에 실패합니다. 네이티브 Stable Diffusion 메타데이터는 보존되지 않으며, 누락은 경고로 표시됩니다.
 
-A native `VectorLayer` does not become only a flattened bitmap. Its selected
-frame-zero `VectorAsset` is painted into a one-page vector PDF using existing
-Qt `QPdfWriter` and the existing native-path-to-`QPainterPath` conversion.
-Solid fills, strokes, curves, their individual paint alpha, even-odd fills,
-and round caps/joins are retained as PDF drawing operations. No raster image
-is wrapped in the PDF. An initialized `QGuiApplication` is required for this
-PDF feature; absence is reported as an argument error.
+선형 변환이 항등이고 정수 평행 이동이 정확히 표현 가능한 비트맵은 원래 픽셀 크기·straight ARGB·완전 투명 픽셀의 RGB 값·부호 있는 위치를 유지한다. 캔버스 밖의 픽셀도 유지한다. 다른 비트맵 변환과 청크형 래스터 저장소는 네이티브 렌더러로 변환을 구운 canvasRegion 크기의 캐시를 만든다. 이 클리핑과 별도 편집 가능한 비트맵 변환의 손실은 고지한다. 무한 캔버스는 고정된 `canvasRegion` 뷰포트를 내보내며 이 경우도 경고한다.
 
-Each vector record contains a `PlLd` placed-object record and a `SoLd`
-Smart Object descriptor. The global `lnk2` block contains an embedded `liFD`
-version-2 PDF payload. UUID references connect the descriptors to their actual
-embedded payload, not to a path on the exporting machine. PDF sources are
-not external linked files and require no sidecar files. The embedded Unicode
-filename includes its terminating UTF-16 null code unit in the stored count,
-matching Adobe-authored linked records; Photoshop otherwise truncates the
-last character of the `.pdf` suffix.
+<a id="vector-layers-are-embedded-pdf-smart-objects"></a>
 
-The untransformed PDF page includes the native vector viewport and the bounds
-of every path, expanded for stroke width. Bounds are conservatively rounded
-outward to integer points. Thus paths outside `VectorAsset::viewport` are not
-silently cropped. PDF pages use exactly matched 72-dpi point geometry; the
-placed quad applies the original native affine transform to the four source
-page corners and subtracts the canvas origin. The Smart Object selects PDF
-MediaBox cropping (`Crop = 3`) so reopening its source does not trim the
-page to a smaller painted-content bounding box. Layer opacity is not baked
-into the PDF or raster cache; it remains PSD layer metadata. A source page
-larger than 14,400 points per axis, non-finite bounds or a degenerate Smart
-Object transform is rejected explicitly.
+## 벡터 레이어는 PDF 스마트 오브젝트가 내장되어 있습니다.
 
-Raster cached pixels are generated by the native renderer over the fixed
-canvas viewport, including for hidden vector layers. They provide immediate
-appearance for PSD readers, while the embedded PDF preserves the full
-editable vector source and placement. Future editing remains Smart Object
-editing; this is not a conversion into Photoshop native shape layers or a
-claim that PDF paths retain the iisc object model. Antialiasing after another
-application re-rasterizes the embedded PDF can differ from the stored native
-renderer cache.
+네이티브 `StaticVectorLayer` 또는 `DynamicVectorLayer` 는 평평해진 비트맵 로만 되지 않습니다. 선택된 프레임-0   `VectorAsset` 은 기존 Qt   `QPdfWriter` 와 기존 네이티브 경로- `QPainterPath` 변환을 사용하여 한 페이지 벡터 PDF 에 페인팅됩니다. 고정 채우기, 선, 곡선, 개별 페인트 알파, 짝-홀 채우기, 그리고 둥근 캡/결합은 PDF 그리기 작업으로 유지됩니다. 래스터 이미지는 PDF 에 감싸지지 않습니다. 이 PDF 기능에는 초기화된 `QGuiApplication` 이 필요합니다; 부재는 인수 오류로 보고됩니다.
 
-The strict initial PSD importer intentionally rejects Smart Objects. Therefore
-plain bitmap PSDs round-trip through `decodeLayeredDocument`, but an exported
-vector PSD is for downstream Smart Object-aware applications, not a native
-vector-import round-trip. Keep `.iisc` as the authoritative editable source.
+각 벡터 기록에는 `PlLd` 배치 객체 기록과 `SoLd` 스마트 객체 설명자가 포함됩니다. 전역 `lnk2` 블록에는 내장된 `liFD` 버전-2 PDF 페이로드가 포함되어 있습니다. UUID 참조는 설명자를 내보내기 기계의 경로에 연결하는 것이 아니라 실제 내장된 페이로드에 연결합니다. PDF 소스는 외부 링크된 파일이 아니며 사이드카 파일이 필요 없습니다. 임베딩된 Unicode 파일명은 저장된 카운트에 종료 UTF-16 널 코드 단위를 포함하며, Adobe 작성된 링크된 기록과 일치합니다; Photoshop 아니면 `.pdf` 접미사의 마지막 문자를 잘라냅니다.
 
-## Bounds and failure behavior
+변환되지 않은 PDF 페이지는 네이티브 벡터 뷰포트 와 모든 경로의 범위를 포함하며, 스트로크 너비를 위해 확장됩니다. 범위는 보수적으로 바깥쪽으로 정수 점으로 반올림됩니다. 따라서 `VectorAsset::viewport` 밖의 경로는 아무런 알림 없이 잘라지지 않습니다. PDF 페이지는 정확히 매칭된 72dpi 점 기하학을 사용하며, 배치된 사각형은 원래 네이티브 아핀 변환을 4 소스 페이지 모서리에 적용하고 캔버스 기원을 뺍니다. 스마트 오브젝트는 PDF MediaBox 자르기 ( `Crop = 3` )를 선택하므로 소스를 다시 열면 페이지를 더 작은 페인팅된 콘텐츠 경계 상자로 잘라내지 않습니다. 레이어 불투명도는 PDF 또는 래스터 캐시에 버닝되지 않으며, PSD 레이어 메타데이터로 유지됩니다. 14,400 축당 점보다 큰 소스 페이지, 비유한 범위 또는 퇴화된 스마트 오브젝트 변환은 명시적으로 거부됩니다.
 
-Layer count is bounded by `maxLayers` and PSD's signed 16-bit layer-count
-field. Pixel dimensions, source rasters, command counts, Unicode names and
-the raw-channel output lower bound are checked before rendering. Rendering
-uses a temporary document containing only the selected asset and one static
-layer; hidden-layer support does not copy later or unrelated assets.
+래스터 캐시 픽셀은 숨겨진 벡터 레이어를 포함하여 고정된 캔버스 뷰포트 전체를 네이티브 렌더러로 렌더링하여 생성한다. 이는 PSD 리더에서 즉시 표시할 외형을 제공하며 내장 PDF는 편집 가능한 전체 벡터 소스와 배치를 보존한다. 이후 편집도 Smart Object 편집으로 유지된다. Photoshop 네이티브 도형 레이어로 변환하는 것도 아니며 PDF 경로가 iisc 객체 모델을 유지한다는 주장도 아니다. 다른 애플리케이션이 내장 PDF를 다시 래스터화한 뒤의 안티앨리어싱은 저장된 네이티브 렌더러 캐시와 다를 수 있다.
 
-The decoded working-memory estimate reserves eight full-canvas ARGB buffers,
-the largest selected-asset copy, conservative vector-flattening scratch,
-layer-record growth, copied/hashed IDs and name conversion storage. Chunked
-raster estimates additionally charge two full-canvas pieces per source chunk,
-including nonintersecting chunks conservatively. All simultaneously retained embedded PDFs must fit
-the remaining `maxDecodedBytes` budget. PDF output itself uses the existing
-bounded `QBuffer`; total PSD bytes use the lesser of `maxOutputBytes` and
-the PSD file-size ceiling. These are content and adapter-buffer limits, not
-a guarantee about allocator overhead or peak process RSS inside Qt/zlib.
+엄격한 초기 PSD 임포트러는 스마트 오브젝트를 의도적으로 거부합니다. 따라서 평범한 비트맵 PSDs 는 왕복 변환 를 통해 `decodeLayeredDocument` 하지만, 내보낸 벡터 PSD 는 하위 소비 측 스마트 오브젝트 인식 애플리케이션을 위한 것이며, 네이티브 벡터 임포트 왕복 변환 가 아닙니다. `.iisc` 를 편집 가능한 원본으로 유지하세요.
 
-An error returns empty encoded bytes. Allocation and container-size failures
-become `LimitExceeded`. File exports use the existing destination validation,
-atomic publication and default no-overwrite contract, including protection
-against replacing `.iisc`/database working files. The API never launches an
-external converter, accesses a linked source path or downloads a dependency.
+<a id="bounds-and-failure-behavior"></a>
 
-`PsdExportTest` independently reads the generated binary envelope, records,
-channel lengths, placed quads and linked PDF payload. It covers plain bitmap
-round-trips, exact renderer output, hidden pixels, Unicode names, first-frame
-sampling, frame-range omissions, empty-frame placeholders, affine bitmap
-caches, editable vector payloads, off-viewport vector/stroke bounds, resource
-limits, source immutability and atomic file replacement. It also writes
-`build/test-output/export-smartobject.psd` for independent reader validation.
+## 경계와 실패 행동
 
-## Source-format review
+레이어 카운트는 `maxLayers`와 PSD의 서명된 16-비트 레이어 카운트 필드에 의해 한계가 설정된입니다. 픽셀 치수, 소스 래스터, 명령 카운트, Unicode 이름 및 원시 채널 출력 하한은 렌더링 전에 확인됩니다. 렌더링은 선택된 자산과 하나의 정적 레이어만 포함하는 임시 문서를 사용합니다; 숨김 레이어 지원은 이후 또는 관련 없는 자산을 복사하지 않습니다.
 
-This adapter follows the [Adobe Photoshop file-format specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/).
-Smart-object field interoperability was checked against the primary
-[psd-tools placed/smart descriptor reader](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/tagged_blocks.py),
-[embedded linked-data reader](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/linked_layer.py),
-and [ag-psd linked-data writer](https://github.com/Agamnentzar/ag-psd/blob/master/src/additionalInfo.ts).
-Their source is not copied into the library. The writer reuses reviewed Qt
-PDF and existing native rendering dependencies; no PSD/PDF runtime library is
-added. Actual Adobe application acceptance is a separate validation step
-from binary parsing and is not implied by these format tests alone.
-The MediaBox crop value was cross-checked against a developer's recorded
-[Adobe UXP PDF-import action](https://forums.creativeclouddeveloper.com/t/crop-pdf-import/9146);
-the binary format specification does not enumerate these crop values.
+해독된 작업 메모리 추정치는 8 전체 캔버스 ARGB 버퍼, 가장 큰 선택된 자산 복사, 보수적인 벡터 평탄화 임시 파일, 레이어 기록 성장, 복사/해시된 ID 와 이름 변환 저장 공간을 예약합니다. 분할된 래스터 추정치는 또한 소스 청크당 2 전체 캔버스 조각을 추가로 청구하며, 교차하지 않는 청크를 보수적으로 포함합니다. 동시에 유지된 모든 내장 PDF 는 남은 `maxDecodedBytes` 예산에 맞아야 합니다. PDF 출력 자체는 기존 한계가 설정된 `QBuffer` 를 사용하며, 총 PSD 바이트는 `maxOutputBytes` 와 PSD 파일 크기 상한 중 작은 값을 사용합니다. 이는 콘텐츠 및 어댑터 버퍼 한계이며, 할로케이터 오버헤드나 Qt / zlib 내부의 피크 프로세스 RSS 에 대한 보장은 아닙니다.
 
-An optional independent development oracle uses `psd-tools` and `pypdf` (not
-runtime dependencies): after installing them into `build/psd-oracle-packages`,
-run `PYTHONPATH=build/psd-oracle-packages python3 -B tests/verify_psd_export.py
-build/consumer/installed-frame-zero.psd`. That fixture is generated by the
-installed-package consumer and checks Smart Object links, descriptors, PDF
-vector paints, cached pixels and merged first-frame output independently.
+오류가 빈 인코딩 바이트를 반환합니다. 할당 및 컨테이너 크기 실패는 `LimitExceeded`가 됩니다. 파일 내보내기는 기존 목적지 검증, 원자적 게시 및 기본 무오버라이트 계약을 사용하며, 여기에는 `.iisc` /database 작업 파일을 교체하는 것을 방지하는 보호가 포함됩니다. API는 외부 변환기를 절대 실행하지 않으며, 연결된 소스 경로에 접근하거나 종속성을 다운로드하지 않습니다.
 
-## Verified application check (2026-09-03)
+`PsdExportTest` 는 생성된 이진 엔벨로프, 기록, 채널 길이, 배치된 쿼드 및 연결된 PDF 페이로드를 독립적으로 읽습니다. 이는 평범한 비트맵 왕복 변환, 정확한 렌더러 출력, 숨겨진 픽셀, Unicode 이름, 첫 프레임 샘플링, 프레임 범위 누락, 빈 프레임 플레이스홀더, 아핀 비트맵 캐시, 편집 가능한 벡터 페이로드, 뷰포트 뷰포트 벡터/스트로크 범위, 리소스 한계, 소스 불변성 및 원자적 파일 대체를 포함합니다. 독립적인 리더 검증을 위해 `build/test-output/export-smartobject.psd` 도 작성합니다.
 
-On the validation host, Photoshop 2026 opened both the generated pixel-layer
-PSD and `build/test-output/export-smartobject.psd`. The vector layer appeared
-as an Embedded Smart Object with the complete `vector-0.pdf` filename.
-Edit Contents opened its embedded one-page PDF in the configured PDF
-application (Preview). The test documents were closed without saving.
-This checks application acceptance and embedded-source resolution, not a
-Photoshop edit/save round-trip or identical re-rasterization after editing.
+<a id="source-format-review"></a>
 
-The final Release build passed all 28 CTest tests, staged installation and
-standalone installed-package consumption. The installed consumer's
-`installed-frame-zero.psd` also passed the independent `psd-tools`/`pypdf`
-oracle, including native PDF vector operators and exact first-frame pixels.
+## 소스 형식 검토
 
-Native `VideoLayer` or `LayerProperties::motion` (package 0.11.0) currently returns
-`UnsupportedFeature`. This avoids misrepresenting video or interpolated motion
-as a supported PSD snapshot. Use `.iisc` to retain editable content or
-`exportVideo` for rendered output. Existing asset-switch key snapshots remain
-supported.
+이 어댑터는 [Adobe Photoshop 파일 형식 사양](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)를 따릅니다. 스마트 객체 필드 상호 운용성은 기본과 비교하여 확인되었습니다.
+[psd-tools 배치/스마트 디스크립터 리더](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/tagged_blocks.py),
+[임베디드 링크드 데이터 리더](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/linked_layer.py), 그리고 [ag-psd 링크드 데이터 작성기](https://github.com/Agamnentzar/ag-psd/blob/master/src/additionalInfo.ts). 그들의 소스는 라이브러리에 복사되지 않습니다. 작성기는 검토된 Qt PDF 와 기존 네이티브 렌더링 의존성을 재사용하며, PSD / PDF 런타임 라이브러리는 추가되지 않습니다. 실제 Adobe 애플리케이션 수인은 바이너스 파싱과 별개의 검증 단계이며, 이 형식 테스트들만으로는 암시되지 않습니다. MediaBox 컷 값은 개발자가 기록한 값과 교차 확인되었습니다.
+[Adobe UXP PDF -import action](https://forums.creativeclouddeveloper.com/t/crop-pdf-import/9146); 바이너리 형식 사양은 이러한 크롭 값을 열거하지 않습니다.
+
+선택형 독립 개발 오라클은 `psd-tools` 과 `pypdf` ( 런타임 의존성이 아님) 을 사용하며, `build/psd-oracle-packages` 에 설치한 후 `PYTHONPATH=build/psd-oracle-packages python3 -B tests/verify_psd_export.py build/consumer/installed-frame-zero.psd` 를 실행합니다. 그 픽스처 는 설치된 패키지 소비자가 생성하며, 스마트 오브젝트 링크, 설명자, PDF 벡터 페인팅, 캐시된 픽셀 및 병합된 첫 프레임 출력을 독립적으로 확인합니다.
+
+<a id="verified-application-check-2026-09-03"></a>
+
+## 인증된 애플리케이션 확인 ( 2026-09-03 )
+
+검증 호스트에서 Photoshop 2026 는 생성된 픽셀 레이어 PSD 와 `build/test-output/export-smartobject.psd` 를 모두 열었습니다. 벡터 레이어는 전체 `vector-0.pdf` 파일 이름을 가진 임베디드 스마트 오브젝트로 나타났습니다. 편집 내용은 구성된 PDF 애플리케이션 (미리보기) 에 내장된 한 페이지 PDF 를 열었습니다. 문서들은 저장하지 않고 닫혔습니다. 이는 애플리케이션 수인과 내장 소스 해결을 확인하며, Photoshop 편집/저장 왕복 변환 또는 편집 후 동일한 래스터화를 확인하지 않습니다.
+
+최종 릴리스 빌드가 모든 28 CTest 테스트와 단계적 설치 및 독립 실행형 설치 패키지 사용량을 모두 통과했습니다. 설치된 소비자용 `installed-frame-zero.psd`는 또한 독립적인 `psd-tools` / `pypdf` 오라클을 통과했으며, 여기에는 네이티브 PDF 벡터 연산자와 정확한 1프레임 픽셀이 포함됩니다.
+
+네이티브 `VideoLayer` 또는 `LayerProperties::motion`(패키지 0.11.0)는 현재 `UnsupportedFeature`를 반환합니다. 이렇게 하면 지원되는 PSD 스냅샷으로 비디오나 보간된 움직임을 잘못 표현하는 것을 방지합니다. 편집 가능한 콘텐츠를 유지하려면 `.iisc`를 사용하고, 렌더링된 출력에는 `exportVideo`를 사용하십시오. 기존 자산 전환 키 스냅샷은 계속 지원됩니다.

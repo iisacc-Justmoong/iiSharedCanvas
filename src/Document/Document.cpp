@@ -4,6 +4,7 @@
 #include <iterator>
 #include <limits>
 #include <unordered_map>
+#include <type_traits>
 
 namespace iiSharedCanvas {
 
@@ -107,7 +108,7 @@ ContentKind contentKind(const Layer &layer) noexcept
     if (std::holds_alternative<DepthLayer>(layer)) { return ContentKind::Depth; }
     if (std::holds_alternative<PoseLayer>(layer)) { return ContentKind::Pose; }
     if (std::holds_alternative<VideoLayer>(layer)) { return ContentKind::Video; }
-    return std::holds_alternative<VectorLayer>(layer)
+    return (std::holds_alternative<StaticVectorLayer>(layer) || std::holds_alternative<DynamicVectorLayer>(layer))
         ? ContentKind::Vector
         : ContentKind::Raster;
 }
@@ -143,21 +144,21 @@ std::optional<ControlNetKind> controlNetKind(const Layer &layer) noexcept
 LayerTiming layerTiming(const Layer &layer) noexcept
 {
     return std::holds_alternative<VideoLayer>(layer)
-        || std::holds_alternative<KeyframedSource>(layerSource(layer))
+        || keyframedLayerSource(layer) != nullptr
         ? LayerTiming::Dynamic : LayerTiming::Static;
 }
 
 LayerRepresentation layerRepresentation(const Layer &layer) noexcept
 {
     if (std::holds_alternative<IpAdapterLayer>(layer)) return LayerRepresentation::Embedding;
-    return (std::holds_alternative<VectorLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<MlsdLayer>(layer))
+    return ((std::holds_alternative<StaticVectorLayer>(layer) || std::holds_alternative<DynamicVectorLayer>(layer)) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<MlsdLayer>(layer))
         ? LayerRepresentation::Vector : LayerRepresentation::Bitmap;
 }
 
-LayerKind layerKind(const Layer &layer) noexcept
+std::optional<LayerKind> layerKind(const Layer &layer) noexcept
 {
     if (layerRepresentation(layer)==LayerRepresentation::Embedding)
-        return layerTiming(layer)==LayerTiming::Static ? LayerKind::StaticEmbedding : LayerKind::DynamicEmbedding;
+        return std::nullopt;
     const bool vector = layerRepresentation(layer) == LayerRepresentation::Vector;
     return layerTiming(layer) == LayerTiming::Static
         ? (vector ? LayerKind::StaticVector : LayerKind::StaticBitmap)
@@ -207,18 +208,81 @@ const LayerProperties &layerProperties(const Layer &layer) noexcept
     }, layer);
 }
 
-LayerSource &layerSource(Layer &layer) noexcept
+StaticSource *staticLayerSource(Layer &layer) noexcept
 {
-    return std::visit([](auto &value) -> LayerSource & {
-        return value.source;
+    return std::visit([](auto &value) -> StaticSource * {
+        if constexpr (requires { value.content; }) {
+            if constexpr (std::is_base_of_v<StaticSource, std::decay_t<decltype(value.content)>>)
+                return &value.content;
+            else return nullptr;
+        } else return std::get_if<StaticSource>(&value.source);
     }, layer);
 }
 
-const LayerSource &layerSource(const Layer &layer) noexcept
+const StaticSource *staticLayerSource(const Layer &layer) noexcept
 {
-    return std::visit([](const auto &value) -> const LayerSource & {
-        return value.source;
+    return std::visit([](const auto &value) -> const StaticSource * {
+        if constexpr (requires { value.content; }) {
+            if constexpr (std::is_base_of_v<StaticSource, std::decay_t<decltype(value.content)>>)
+                return &value.content;
+            else return nullptr;
+        } else return std::get_if<StaticSource>(&value.source);
     }, layer);
+}
+
+KeyframedSource *keyframedLayerSource(Layer &layer) noexcept
+{
+    return std::visit([](auto &value) -> KeyframedSource * {
+        if constexpr (requires { value.content; }) {
+            if constexpr (std::is_base_of_v<KeyframedSource, std::decay_t<decltype(value.content)>>)
+                return &value.content;
+            else return nullptr;
+        } else return std::get_if<KeyframedSource>(&value.source);
+    }, layer);
+}
+
+const KeyframedSource *keyframedLayerSource(const Layer &layer) noexcept
+{
+    return std::visit([](const auto &value) -> const KeyframedSource * {
+        if constexpr (requires { value.content; }) {
+            if constexpr (std::is_base_of_v<KeyframedSource, std::decay_t<decltype(value.content)>>)
+                return &value.content;
+            else return nullptr;
+        } else return std::get_if<KeyframedSource>(&value.source);
+    }, layer);
+}
+
+LayerSource layerSource(const Layer &layer)
+{
+    if (const auto *source = staticLayerSource(layer)) return *source;
+    return *keyframedLayerSource(layer);
+}
+
+Layer makeBitmapLayer(LayerProperties properties, LayerSource source)
+{
+    if (auto *value = std::get_if<StaticSource>(&source))
+        return StaticBitmapLayer{std::move(properties), StaticBitmapContent{std::move(*value)}};
+    return DynamicBitmapLayer{std::move(properties), DynamicBitmapContent{std::move(std::get<KeyframedSource>(source))}};
+}
+
+Layer makeVectorLayer(LayerProperties properties, LayerSource source)
+{
+    if (auto *value = std::get_if<StaticSource>(&source))
+        return StaticVectorLayer{std::move(properties), StaticVectorContent{std::move(*value)}};
+    return DynamicVectorLayer{std::move(properties), DynamicVectorContent{std::move(std::get<KeyframedSource>(source))}};
+}
+
+void setLayerSource(Layer &layer, LayerSource source)
+{
+    if (std::holds_alternative<StaticBitmapLayer>(layer) || std::holds_alternative<DynamicBitmapLayer>(layer)) {
+        layer = makeBitmapLayer(layerProperties(layer), std::move(source));
+    } else if (std::holds_alternative<StaticVectorLayer>(layer) || std::holds_alternative<DynamicVectorLayer>(layer)) {
+        layer = makeVectorLayer(layerProperties(layer), std::move(source));
+    } else {
+        std::visit([&](auto &value) {
+            if constexpr (requires { value.source; }) value.source = std::move(source);
+        }, layer);
+    }
 }
 
 bool layerExistsAt(const Document &document,
@@ -240,6 +304,40 @@ CanvasOrigin canvasOrigin(const Document &document) noexcept
 CanvasRegion canvasRegion(const Document &document) noexcept
 {
     return {canvasOrigin(document), document.extent};
+}
+
+CanvasRegion documentViewRegion(const Document &document) noexcept
+{
+    const auto base = canvasRegion(document);
+    std::int64_t left = base.origin.x, top = base.origin.y;
+    std::int64_t right = left + base.extent.width, bottom = top + base.extent.height;
+    for (const auto &artboard : document.artboards) {
+        left = std::min(left, std::int64_t(artboard.region.origin.x));
+        top = std::min(top, std::int64_t(artboard.region.origin.y));
+        right = std::max(right, std::int64_t(artboard.region.origin.x) + artboard.region.extent.width);
+        bottom = std::max(bottom, std::int64_t(artboard.region.origin.y) + artboard.region.extent.height);
+    }
+    if (right > std::numeric_limits<std::int32_t>::max()
+        || bottom > std::numeric_limits<std::int32_t>::max()
+        || right - left > std::numeric_limits<std::int32_t>::max()
+        || bottom - top > std::numeric_limits<std::int32_t>::max()
+        || right <= left || bottom <= top) return {};
+    return {{std::int32_t(left), std::int32_t(top)},
+            {std::int32_t(right - left), std::int32_t(bottom - top)}};
+}
+
+Artboard *findArtboard(Document &document, const std::string &id) noexcept
+{
+    const auto found = std::find_if(document.artboards.begin(), document.artboards.end(),
+                                  [&](const Artboard &value) { return value.id == id; });
+    return found == document.artboards.end() ? nullptr : &*found;
+}
+
+const Artboard *findArtboard(const Document &document, const std::string &id) noexcept
+{
+    const auto found = std::find_if(document.artboards.begin(), document.artboards.end(),
+                                  [&](const Artboard &value) { return value.id == id; });
+    return found == document.artboards.end() ? nullptr : &*found;
 }
 
 Asset *findAsset(Document &document, const std::string &id) noexcept
@@ -353,30 +451,52 @@ const Layer *findLayer(const Document &document, const std::string &id) noexcept
     return match == document.layers.end() ? nullptr : &*match;
 }
 
-BitmapLayer *findBitmapLayer(Document &document, const std::string &id) noexcept
+StaticBitmapLayer *findStaticBitmapLayer(Document &document, const std::string &id) noexcept
 {
     Layer *layer = findLayer(document, id);
-    return layer ? std::get_if<BitmapLayer>(layer) : nullptr;
+    return layer ? std::get_if<StaticBitmapLayer>(layer) : nullptr;
 }
 
-const BitmapLayer *findBitmapLayer(const Document &document,
-                                   const std::string &id) noexcept
+const StaticBitmapLayer *findStaticBitmapLayer(const Document &document, const std::string &id) noexcept
 {
     const Layer *layer = findLayer(document, id);
-    return layer ? std::get_if<BitmapLayer>(layer) : nullptr;
+    return layer ? std::get_if<StaticBitmapLayer>(layer) : nullptr;
 }
 
-VectorLayer *findVectorLayer(Document &document, const std::string &id) noexcept
+StaticVectorLayer *findStaticVectorLayer(Document &document, const std::string &id) noexcept
 {
     Layer *layer = findLayer(document, id);
-    return layer ? std::get_if<VectorLayer>(layer) : nullptr;
+    return layer ? std::get_if<StaticVectorLayer>(layer) : nullptr;
 }
 
-const VectorLayer *findVectorLayer(const Document &document,
-                                   const std::string &id) noexcept
+const StaticVectorLayer *findStaticVectorLayer(const Document &document, const std::string &id) noexcept
 {
     const Layer *layer = findLayer(document, id);
-    return layer ? std::get_if<VectorLayer>(layer) : nullptr;
+    return layer ? std::get_if<StaticVectorLayer>(layer) : nullptr;
+}
+
+DynamicBitmapLayer *findDynamicBitmapLayer(Document &document, const std::string &id) noexcept
+{
+    Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<DynamicBitmapLayer>(layer) : nullptr;
+}
+
+const DynamicBitmapLayer *findDynamicBitmapLayer(const Document &document, const std::string &id) noexcept
+{
+    const Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<DynamicBitmapLayer>(layer) : nullptr;
+}
+
+DynamicVectorLayer *findDynamicVectorLayer(Document &document, const std::string &id) noexcept
+{
+    Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<DynamicVectorLayer>(layer) : nullptr;
+}
+
+const DynamicVectorLayer *findDynamicVectorLayer(const Document &document, const std::string &id) noexcept
+{
+    const Layer *layer = findLayer(document, id);
+    return layer ? std::get_if<DynamicVectorLayer>(layer) : nullptr;
 }
 
 std::optional<std::size_t> layerIndex(const Document &document,
@@ -493,8 +613,7 @@ std::vector<AssetReference> assetReferences(const Document &document,
         layerIndices.emplace(
             layerProperties(document.layers[layerPosition]).id,
             layerPosition);
-        const LayerSource &source = layerSource(document.layers[layerPosition]);
-        if (const auto *staticSource = std::get_if<StaticSource>(&source)) {
+        if (const auto *staticSource = staticLayerSource(document.layers[layerPosition])) {
             if (staticSource->assetId == referencedAssetId) {
                 references.push_back({layerPosition, std::nullopt, std::nullopt});
             }
@@ -532,13 +651,12 @@ const Asset *resolveAssetAt(const Document &document,
     }
 
     const ContentKind requiredKind = contentKind(layer);
-    const LayerSource &sourceValue = layerSource(layer);
-    if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
+    if (const auto *source = staticLayerSource(layer)) {
         const Asset *asset = findAsset(document, source->assetId);
         return asset && contentKind(*asset) == requiredKind ? asset : nullptr;
     }
 
-    const auto *source = std::get_if<KeyframedSource>(&sourceValue);
+    const auto *source = keyframedLayerSource(layer);
     if (!source) {
         return nullptr;
     }

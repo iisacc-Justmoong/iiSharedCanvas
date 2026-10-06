@@ -44,6 +44,9 @@ enum class ValidationCode {
     InvalidCanny,
     InvalidMlsd,
     InvalidScribble,
+    InvalidArtboard,
+    DuplicateArtboardId,
+    MissingArtboard,
 };
 
 struct ValidationIssue {

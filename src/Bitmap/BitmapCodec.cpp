@@ -337,7 +337,7 @@ MediaIoResult exportBitmap(const RasterLayer &pixels, const std::string &path, c
 MediaIoResult exportBitmapFrame(const Document &document, FrameIndex frame, const std::string &path,
                                 const BitmapExportOptions &options)
 {
-    auto result = checkExtent(document.extent, options.limits);
+    auto result = checkExtent(documentViewRegion(document).extent, options.limits);
     if (!result.ok()) { return result; }
     auto rendered = renderFrame(document, frame);
     if (!rendered.ok()) { return {MediaIoCode::InvalidArgument, rendered.message, {}}; }

@@ -41,7 +41,7 @@ void repairCrc(std::vector<std::uint8_t> &bytes) {
 }
 int main() {
     auto d=fixture(); verify(d); DocumentEditor e(d);
-    expect(layerKind(d.layers[0])==LayerKind::StaticEmbedding,"static embedding kind");
+    expect(!layerKind(d.layers[0]) && layerTiming(d.layers[0])==LayerTiming::Static,"static embedding kind");
     const auto original=encodeIisc(d); expect(original.ok(),"encode embeddings");
     auto decoded=decodeIisc(original.bytes); expect(decoded.ok(),"decode embeddings"); if(decoded.ok()) verify(decoded.document);
     const auto revision=e.revision();
@@ -112,13 +112,13 @@ int main() {
     auto next=embedding("next"); next.conditional.values[0]=9.0F;
     expect(e.insertIpAdapterAsset(next).changed,"next embedding state");
     expect(e.setKeyframedSource("layer",{{0,"embedding"},{2,"next"}}).changed,"dynamic source");
-    expect(layerKind(d.layers[0])==LayerKind::DynamicEmbedding && exportIpAdapterEmbeddings(d,"layer",1).conditional.values[0]==-2.5F && exportIpAdapterEmbeddings(d,"layer",2).conditional.values[0]==9,"hold-only timeline sampling");
+    expect(!layerKind(d.layers[0]) && layerTiming(d.layers[0])==LayerTiming::Dynamic && exportIpAdapterEmbeddings(d,"layer",1).conditional.values[0]==-2.5F && exportIpAdapterEmbeddings(d,"layer",2).conditional.values[0]==9,"hold-only timeline sampling");
     auto incompatible=next; incompatible.descriptor.encoderId="other"; expect(!e.replaceIpAdapterAsset("next",incompatible).ok(),"dynamic frames cannot mix embedding contracts");
     limits={}; limits.maximumIpAdapterValues=23; const auto multi=encodeIisc(d); expect(!encodeIisc(d,limits).ok() && !decodeIisc(multi.bytes,limits).ok(),"aggregate asset budget");
     expect(!exportIpAdapterEmbeddings(d,"layer",3).ok(),"timeline bounds");
     auto c=findIpAdapterLayer(d,"layer")->control; c.enabled=false; expect(e.setControlNetSettings("layer",c).changed && !exportIpAdapterEmbeddings(d,"layer",0).ok(),"disabled conditioning");
     c.enabled=true; expect(e.setControlNetSettings("layer",c).changed,"reenable"); c.guidanceEnd=0; expect(!e.setControlNetSettings("layer",c).ok(),"invalid schedule");
-    Document legacy; legacy.extent={1,1}; legacy.formatVersion.minor=16; DocumentEditor le(legacy); expect(le.insertIpAdapterAsset(embedding()).changed && legacy.formatVersion.minor==17,"legacy upgrade");
+    Document legacy; legacy.extent={1,1}; legacy.formatVersion.minor=16; DocumentEditor le(legacy); expect(le.insertIpAdapterAsset(embedding()).changed && legacy.formatVersion.minor==CurrentFormatMinor,"legacy upgrade");
     QTemporaryDir dir(QStringLiteral(IISHAREDCANVAS_TEST_OUTPUT_DIR "/ip-adapter-XXXXXX")); expect(dir.isValid(),"test directory");
     if(dir.isValid()) {
         auto path=dir.filePath("embedding.iisc").toStdString(); DocumentFile file; expect(file.create(path,d).ok(),"working file create"); DocumentEditor bound(file);

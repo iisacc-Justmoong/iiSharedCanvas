@@ -160,7 +160,7 @@ int main()
         legacy.extent = {1, 1};
         legacy.formatVersion.minor = minor;
         legacy.assets.emplace_back(RasterAsset{"image", makeRasterLayer(1, 1, 0xffabcdef)});
-        legacy.layers.emplace_back(BitmapLayer{{"image", "Legacy"}, StaticSource{"image"}});
+        legacy.layers.emplace_back(StaticBitmapLayer{{"image", "Legacy"}, StaticSource{"image"}});
         const auto bytes = encodeIisc(legacy);
         const auto restoredLegacy = decodeIisc(bytes.bytes);
         expect(bytes.ok() && restoredLegacy.ok() && restoredLegacy.document.formatVersion.minor == minor

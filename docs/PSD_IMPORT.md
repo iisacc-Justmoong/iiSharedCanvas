@@ -1,117 +1,49 @@
-# Layer-preserving PSD import
+<a id="layer-preserving-psd-import"></a>
 
-`decodeLayeredDocument(bytes, options)` and `importLayeredDocument(path, options)`
-identify PSD by its `8BPS` signature and return a detached `Document`. File
-extensions do not determine the parser. This path is independent of the
-flattened PSD support in `decodeBitmap`: the merged image is never substituted
-for editable layers, and a PSD without supported layer records is rejected.
+# 레이어 보존 PSD 가져오기
 
-## Supported contract
+`decodeLayeredDocument(bytes, options)`와 `importLayeredDocument(path, options)`는 PSD를 `8BPS` 서명으로 식별하고 분리된 `Document`를 반환합니다. 파일 확장자는 파서를 결정하지 않습니다. 이 경로는 `decodeBitmap`의 평탄화된 PSD 지원과 무관합니다: 병합된 이미지가 편집 가능한 레이어로 대체되지 않으며, 지원되는 레이어 레코드가 없는 PSD는 거부됩니다.
 
-The initial reader accepts PSD version 1, 8-bit RGB, positive-size raster
-layers, three RGB channels and an optional transparency channel. Header
-dimensions must be within the PSD v1 range. Channel data may use raw bytes,
-PackBits RLE, ZIP, or ZIP with the 8-bit horizontal predictor. ZIP is decoded
-by the existing zlib dependency. Predictor state restarts on every scanline.
+<a id="supported-contract"></a>
 
-Each record becomes one `RasterAsset` and one static `BitmapLayer`. Asset
-storage is straight ARGB, including the RGB components of fully transparent
-pixels. Layer opacity is not baked into pixels. Names, visibility, opacity,
-signed integer placement, and normal/multiply/screen/overlay blend modes map
-to existing canvas properties. PSD binary record order is already native
-bottom-to-top order and is retained. IDs are `<idPrefix>-asset-<index>` and
-`<idPrefix>-layer-<index>`, with index zero at the bottom.
+## 지원되는 계약
 
-Unicode `luni` names are decoded from UTF-16, including surrogate pairs; a
-single terminal null is permitted. Malformed surrogate pairs and embedded
-nulls are rejected. In the absence of `luni`, only ASCII legacy names are
-accepted: choosing an undocumented legacy code page could silently rename a
-layer. Empty names remain empty. Original editor IDs and lock state are not
-preserved; callers receive a warning when those supported metadata blocks
-are encountered.
+초기 리더는 PSD 버전 1, 8비트 RGB, 양의 크기 래스터 레이어, 3 RGB 채널 및 선택적 투명성 채널을 받습니다. 헤더 차원은 PSD v1 범위 내에 있어야 합니다. 채널 데이터는 원시 바이트, PackBits RLE, ZIP 또는 ZIP 와 8비트 수평 예측기를 사용할 수 있습니다. ZIP 는 기존 zlib 의존성에 의해 디코딩됩니다. 예측기 상태는 각 스캔라인마다 재시작됩니다.
 
-The default color interpretation is sRGB. A valid explicitly embedded sRGB
-profile is accepted without altering channel bytes. Other profiles, invalid
-profiles, intentionally untagged color data (image resource 1041 set to 1),
-and non-square pixel aspect ratios are rejected. The untagged-profile flag
-must contain exactly one canonical Boolean byte; setting it to 0 permits
-the default sRGB interpretation, while 1 is rejected even beside an explicit
-sRGB profile. Image resources
-such as DPI and thumbnails are not retained and are disclosed as warnings.
+각 레코드는 하나의 `RasterAsset` 와 하나의 정적 `StaticBitmapLayer` 가 됩니다. 자산 저장은 ARGB 방식으로 이루어지며, 완전히 투명한 픽셀의 RGB 구성 요소도 포함됩니다. 레이어 불투명도는 픽셀에 내장되지 않습니다. 이름, 가시성, 불투명성, 부호화된 정수 배치, 그리고 노멀/곱하기/스크린/오버레이 블렌드 모드는 기존 캔버스 속성에 맵핑됩니다. PSD 바이너리 레코드 순서는 이미 네이티브 하단에서 상단 순서이며 유지됩니다. ID 는 `<idPrefix>-asset-<index>` 와 `<idPrefix>-layer-<index>` 이며, 인덱스 0 는 하단에 있습니다.
 
-## Explicitly unsupported
+Unicode `luni` 이름은 UTF-16에서 디코딩되며, 대리쌍을 포함합니다; 단일 터미널 null이 허용됩니다. 형식이 형성된 대리쌍과 내재된 널은 거부됩니다. `luni`가 없을 경우, ASCII 레거시 이름만 허용됩니다: 문서화되지 않은 레거시 코드 페이지를 선택하면 아무런 알림 없이가 레이어 이름을 변경할 수 있습니다. 빈 이름은 계속 비어 있습니다. 원본 편집기 ID와 잠금 상태는 보존되지 않으며, 해당 지원되는 메타데이터 블록이 발견될 경우 호출자는 경고를 받게 됩니다.
 
-PSB, 16/32-bit channels, grayscale/CMYK/Lab/indexed color, document auxiliary
-channels, empty/non-pixel layers, groups, clipping layers, masks, non-default
-blend ranges, fill opacity below 255, adjustment/text/vector/smart-object
-layers, effects, layer comps, animation metadata, global masks, and global
-additional layer-information blocks do not pass this reader. A layer's
-unknown additional-information key also fails closed with its four-character
-key in the error message. No cached raster is used to pretend that an
-unsupported editable object was converted faithfully.
+기본 색상 해석은 sRGB 입니다. 명시적으로 내장된 유효한 sRGB 프로필은 채널 바이트를 변경하지 않고 허용됩니다. 다른 프로필, 유효하지 않은 프로필, 의도적으로 태그가 없는 색상 데이터 (이미지 리소스 1041 를 1 로 설정), 그리고 정사각형이 아닌 픽셀 비율은 거부됩니다. 태그가 없는 프로필 플래그는 정확히 하나의 정통 부호자 바이트를 포함해야 하며, 이를 0 로 설정하면 기본 sRGB 해석이 허용되지만, 명시적인 sRGB 프로필 옆에서도 1 는 거부됩니다. 이미지 리소스인 DPI 와 썸네일은 유지되지 않으며 경고로 표시됩니다.
 
-Besides `luni`, the small layer-tag allowlist consists of editor-only
-`lyid`, `lspf`, `lyvr`, `lclr`, and `fxrp`, plus default `iOpa`.
-Consequently some otherwise simple files from specific PSD producers can be
-rejected until their extra records are explicitly reviewed and tested. This
-is a bounded compatibility subset, not a claim of full Photoshop fidelity.
+<a id="explicitly-unsupported"></a>
 
-## Validation and resource boundaries
+## 명시적으로 지원되지 않음
 
-Every parser reads a length-bounded span. Channel IDs, signatures, counts,
-dimensions, record lengths and name encoding are validated before pixel
-allocation. All declared channel spans are checked before constructing any
-asset. A negative signed layer count requires four document channels: RGB
-plus merged transparency. A fourth channel with a positive layer count is
-an unsupported auxiliary alpha channel and is not silently discarded.
-Encoded bytes use `maxInputBytes`; canvas and layer sizes use
-`maxPixelsPerFrame`; count uses `maxLayers`. The aggregate retained ARGB
-storage, largest one-channel scratch plane and UTF-8 names must fit
-`maxDecodedBytes`. Names transfer into native layers without retaining a
-second decoded copy. The limit is a decoded-content budget, not a process RSS
-ceiling: allocator overhead, small record objects and zlib state are separate.
+PSB , 16/32비트 채널, 회색/ CMYK /Lab/색상 인덱싱/문서 보조 채널, 빈/픽셀이 아닌 레이어, 그룹, 클리핑 레이어, 마스크, 기본이 아닌 블렌드 범위, 255보다 낮은 채우기 불투명도, 조정/텍스트/벡터/스마트 오브젝트 레이어, 효과, 레이어 컴포지션, 애니메이션 메타데이터, 전역 마스크, 그리고 전역 추가 레이어 정보 블록은 이 리더를 통과하지 않습니다. 레이어의 알 수 없는 추가 정보 키는 오류 메시지에서 안전하게 거부한다 4자 키와 함께 안전하게 거부합니다. 캐시된 래스터 를 사용하여 지원되지 않는 편집 가능한 객체가 충실히 변환되었다고 속인 것은 사용되지 않습니다.
 
-RLE runs cannot cross a row boundary, and each row must produce exactly its
-width. ZIP must end normally, consume its entire declared channel span, and
-produce exactly the declared plane size. The optional merged preview is not
-decoded into an asset; when present, raw/RLE/ZIP framing and decoded length
-are validated with constant scratch storage. A producer may omit the merged
-preview entirely when maximize compatibility is disabled.
+`luni` 외에도, 작은 레이어 태그 허용 목록은 편집기 전용 `lyid`, `lspf`, `lyvr`, `lclr` 및 `fxrp`와 기본 `iOpa`로 구성됩니다. 그 결과, 특정 PSD 프로듀서의 다소 단순한 파일들은 해당 추가 기록이 명시적으로 검토되고 테스트될 때까지 거부될 수 있습니다. 이는 한계가 설정된 호환성 하위 집합이며, 전체 Photoshop 충실도에 대한 주장이 아닙니다.
 
-Failure returns no assets or layers. Successful values must pass the same
-public document validation as native canvas documents. Import never writes
-the input file, extracts resources, starts an external decoder, or mutates a
-working document. Persist through the normal native serializer or validated
-`DocumentFile` workflow after import.
+<a id="validation-and-resource-boundaries"></a>
 
-`PsdLayeredImportTest` constructs independent binary fixtures before calling
-the reader. Coverage includes all four compression modes, transparent RGB,
-surrogate-pair names, layer order and properties, negative offsets, supported
-blend modes, native `.iisc` round-trip, a rendered golden frame that differs
-from the embedded preview, fail-closed unsupported semantics, truncated
-records, resource bounds, merged-versus-auxiliary alpha semantics,
-intentionally untagged color rejection and content-based file-path imports.
+## 검증 및 자원 경계
 
-## Dependency review (2026-09-03)
+각 파서는 길이 한계가 설정된 범위를 읽습니다. 픽셀 할당 전에 채널 ID, 서명, 개수, 차원, 기록 길이 및 이름 인코딩이 검증됩니다. 선언된 모든 채널 범위는 어떤 자산도 생성하기 전에 확인됩니다. 음수 부호 레이어 개수는 4 문서 채널을 필요로 합니다: RGB 플러스 병합된 투명도입니다. 아무런 알림 없이 삭제되지 않은 `maxInputBytes` 를 사용하고, 캔버스 및 레이어 크기는 `maxPixelsPerFrame` 를 사용하며, 개수는 `maxLayers` 를 사용합니다. 총 유지된 ARGB 저장 공간, 가장 큰 단일 채널 임시 평면 및 UTF-8 이름은 `maxDecodedBytes` 에 맞아야 합니다. 이름은 두 번째 디코딩된 사본을 유지하지 않고 네이티브 레이어로 전달됩니다. 한도는 프로세스 RSS 한도가 아닌 디코딩된 콘텐츠 예산입니다: 할당기 오버헤드, 작은 기록 객체 및 zlib 상태는 별개입니다.
 
-The [Molecular Matters PSD SDK](https://github.com/MolecularMatters/psd_sdk)
-was considered first. Its [BSD-2-Clause license](https://github.com/MolecularMatters/psd_sdk/blob/master/LICENSE)
-is suitable for redistribution, and its focused C++ implementation is much
-smaller than a full image-editing stack. However, the current upstream
-[`MemoryFile::DoRead`](https://github.com/MolecularMatters/psd_sdk/blob/master/src/Psd/PsdMemoryFile.cpp)
-uses an assertion followed by `memcpy`, with no recoverable bounds-error
-return path and unchecked addition in its bounds expression. These observed
-checks do not establish the required untrusted-input, limit-aware contract.
-Adoption would require a maintained hardening fork and a broader parser audit.
+RLE는 행 경계를 넘을 수 없으며, 각 행은 정확히 너비를 생성해야 합니다. ZIP는 정상적으로 종료되어야 하며, 선언된 채널 스팬 전체를 소비하고, 선언된 평면 크기를 정확히 생성해야 합니다. 선택적 병합된 미리보기는 자산으로 디코딩되지 않으며, 존재하는 경우 raw/ RLE / ZIP 프레이밍 및 디코딩 길이가 일정한 스크래치 스토리지로 검증됩니다. 제작자는 호환성 최대화가 비활성화된 경우 병합된 미리보기를 완전히 생략할 수 있습니다.
 
-No SDK source is copied or vendored. The small strict mapping implemented
-here follows the [Adobe PSD format specification](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)
-and reuses the already-reviewed zlib for ZIP plus Qt for ICC recognition.
-There is no new PSD runtime dependency, no executable download, and no
-change to public document or raster model ownership.
+실패하면 자산이나 레이어가 반환되지 않습니다. 성공적인 값은 네이티브 캔버스 문서와 동일한 공개 문서 검증을 통과해야 합니다. Import는 입력 파일을 쓰거나, 리소스를 추출하거나, 외부 디코더를 시작하거나, 작업 문서를 변형하지 않습니다. 가져오기 후 일반 네이티브 직렬화기 또는 검증된 `DocumentFile` 워크플로우를 지속하십시오.
 
-Binary layer ordering was also cross-checked against the primary
-[psd-tools record reader](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/layer_and_mask.py)
-and [tree reconstruction](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/api/psd_image.py):
-the sequential file records become the API's bottom-to-top sequence without
-reversal. The order differs from OpenRaster's XML stack order.
+`PsdLayeredImportTest` 는 리더를 호출하기 전에 독립적인 이진 픽스처 를 생성합니다. 범위는 모든 4 압축 모드, 투명 RGB , 대리자 쌍 이름, 레이어 순서 및 속성, 음수 오프셋, 지원되는 블렌드 모드, 네이티브 `.iisc` 왕복 변환 , 내장된 미리보기와 다른 렌더링된 골든 프레임, 안전하게 거부하는 지원되지 않는 의미론, 잘린 기록, 리소스 한계, 병합 대 보조 알파 의미론, 의도적으로 태그되지 않은 색상 거부 및 콘텐츠 기반 파일 경로 가져오기를 포함합니다.
+
+<a id="dependency-review-2026-09-03"></a>
+
+## 의존성 검토 ( 2026-09-03 )
+
+[Molecular Matters PSD SDK](https://github.com/MolecularMatters/psd_sdk)가 먼저 고려되었습니다. 해당 [BSD-2 -Clause 라이선스](https://github.com/MolecularMatters/psd_sdk/blob/master/LICENSE)는 재배포에 적합하며, 집중된 C++ 구현은 전체 이미지 편집 스택보다 훨씬 작습니다. 하지만 현재 상위 공급 측
+[`MemoryFile::DoRead`](https://github.com/MolecularMatters/psd_sdk/blob/master/src/Psd/PsdMemoryFile.cpp)는 어설션 뒤에 `memcpy` 를 따르며, 복구 가능한 bounds-error 반환 경로가 없고 경계 표현식에 체크되지 않은 덧셈이 없습니다. 이러한 관찰된 검사는 필요한 신뢰할 수 없는 입력 및 제한 인식 계약을 성립하지 않습니다. 채택에는 유지된 하드닝 포크와 보다 광범위한 파서 감사가 필요합니다.
+
+SDK 소스가 복사되거나 벤더되지 않았습니다. 여기서 구현된 소규모 엄격 매핑은 [Adobe PSD 형식 사양](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)를 따르며, 이미 검토된 zlib를 ZIP에 적용하고 Qt를 사용하여 ICC 인식을 위해 사용합니다. 새로운 PSD 런타임 의존성이 없으며, 실행 파일 다운로드도 없고, 공개 문서나 래스터 모델 소유권에 대한 변경도 없습니다.
+
+이진 계층 순서도 기본 레이어와 교차 검증되었습니다.
+[psd-tools 레코드 리더](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/layer_and_mask.py) 및 [트리 재구성](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/api/psd_image.py): 순차 파일 레코드가 API의 바운트‐위 순서가 되돌림 없이 변환됩니다. 주문이 OpenRaster의 XML 스택 주문과 다릅니다.

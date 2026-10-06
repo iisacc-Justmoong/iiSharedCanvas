@@ -230,6 +230,8 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
     if (!result.ok()) { return result; }
     const auto validation = validate(document);
     if (!validation.ok()) { return {MediaIoCode::InvalidArgument, validation.issues.front().message, {}}; }
+    if (!document.artboards.empty())
+        return {MediaIoCode::UnsupportedFeature, "PDF artboard export is unavailable; use renderArtboard for explicit output", {}};
     const auto last = options.lastFrame.value_or(options.firstFrame);
     if (options.firstFrame > last || last >= document.timeline.frameCount
         || std::uint64_t(last) + 1 - options.firstFrame > options.limits.maxFrames) {

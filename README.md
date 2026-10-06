@@ -253,8 +253,9 @@ types in `Document/Document.h`. Stable-id lookup helpers expose typed raster and
 vector/video assets, sparse frames, exact keyframes, collection indices, and every
 static or keyframed reference to an asset.
 
-The ordered layer stack is a `BitmapLayer | VectorLayer | VideoLayer` variant. All concrete
-types share the `LayerProperties + LayerSource` structure, while validation
+The ordered artwork stack holds `StaticBitmapLayer | StaticVectorLayer | DynamicBitmapLayer | DynamicVectorLayer` alternatives.
+Each shares `LayerProperties` and owns its distinct named `content` type. Video
+and conditioning retain specialized adapters, while validation
 and `DocumentEditor` reject every cross-type asset reference. Bitmap layers may
 hold only finite or chunked raster assets; vector layers may hold only native
 vector assets; video layers reference one native video asset and add playback trim.
@@ -333,7 +334,7 @@ the isolated layer tiles as well as their deterministic bottom-to-top composite.
 Qt Quick scene graph textures perform presentation: they present source-over
 layers independently and use the composed tile fallback for blend modes that
 require iiPaintEngine. They
-also perform nearest-neighbor scaling, pan, and zoom on the active graphics
+also perform smooth scaling, pan, and zoom on the active graphics
 backend instead of repainting a canvas-sized `QQuickPaintedItem` surface. A host can select a raster document layer and
 paint or erase it in document coordinates while every surrounding raster and
 vector layer remains visible. The item inverts the selected layer transform
@@ -388,8 +389,11 @@ overlay use iiPaintEngine composition semantics. Destination-out remains a
 brush/eraser operation and is rejected as a document layer blend mode.
 
 The CPU vector path uses deterministic 4x4 coverage sampling, even-odd fills,
-and round stroke footprints. Transformed raster and vector assets use
-nearest-neighbor sampling. A singular transform has an empty footprint. The
+and round stroke footprints. Raster requests retain nearest sampling by default;
+`RasterSampling::Smooth` enables alpha-correct bilinear enlargement and antialiased
+reduction. `CanvasItem` defaults to smooth presentation with physical-display-aware
+LOD; `smoothRendering = false` restores pixel inspection. See
+[raster sampling](docs/RASTER_SAMPLING.md). A singular transform has an empty footprint. The
 renderer returns a transparent frame for a valid document with no layers and
 fails closed for invalid documents or out-of-range frames.
 
@@ -435,7 +439,7 @@ without affecting layer rendering.
 
 Decoding exposes the complete public `Document` aggregate rather than an opaque
 file handle. Consumers can enumerate bottom-to-top `Layer` variants, distinguish
-`BitmapLayer` from `VectorLayer`, and inspect identity, name, visibility,
+the four concrete bitmap/vector layer types, and inspect identity, name, visibility,
 opacity, transform, blend mode, static references, and sparse frames that
 directly own animated layer references.
 Image/pixel assets expose `RasterLayer` dimensions
@@ -529,9 +533,9 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.24.0 with SOVERSION 0.24 and exact-version
+The current C++ package version is 0.28.0 with SOVERSION 0.28 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the atomic detailed-parameter APIs for all conditioning layers and their source assets. The canonical snapshot model is version 1.17;
+package to adopt the four distinct layer/content types. The canonical snapshot model is version 1.19;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 
@@ -541,19 +545,21 @@ For a tested host install, including an installed-package consumer check:
 ./install.sh
 ~~~
 
-## Four layer kinds (0.12.0)
+## Four layer/content types (0.28.0)
 
-Bitmap/vector artwork has four public kinds: `StaticBitmap`, `StaticVector`,
-`DynamicBitmap`, and `DynamicVector`. Query `layerKind(layer)` or the independent
-`layerTiming(layer)` and `layerRepresentation(layer)` axes. Create content through
-`DocumentEditor::insertStaticLayer` and `insertDynamicLayer`; see `docs/API.md`.
-Static content holds one asset across the timeline. Dynamic content selects the
-asset for the current frame, holding the last content key until the next key.
-Native video is dynamic bitmap content. This classification concerns content;
-transform/opacity motion does not turn a single static drawing into frame content.
-The existing native source fields persist the distinction without a format change.
-Package 0.23.0 additionally distinguishes nonspatial IP-Adapter conditioning with
-`StaticEmbedding` and `DynamicEmbedding`; these are not artwork image formats.
+Artwork has four concrete layer types: `StaticBitmapLayer`, `StaticVectorLayer`,
+`DynamicBitmapLayer`, and `DynamicVectorLayer`. Each owns its corresponding
+`StaticBitmapContent`, `StaticVectorContent`, `DynamicBitmapContent`, or
+`DynamicVectorContent`. Static content references one asset; dynamic content
+indexes frame-selected assets, including a different complete bitmap or vector
+payload on every frame. Timing conversions replace the actual variant
+alternative atomically. See [FOUR_LAYER_TYPES.md](docs/FOUR_LAYER_TYPES.md).
+
+`layerKind(layer)` returns an optional containing one of exactly four artwork
+kinds. Native video reports dynamic bitmap identity. Specialized spatial
+conditioning keeps its role; nonspatial IP-Adapter tensors report no visual kind.
+Native 1.19 persists explicit type tags and rejects mismatched content. Existing
+1.0–1.18 documents load into the four types and retain canonical legacy bytes.
 
 ## Source layout
 
@@ -616,9 +622,9 @@ document.extent = {1920, 1080};
 document.timeline = {{24, 1}, 48};
 document.assets.emplace_back(
     RasterAsset{"frame-0", makeRasterLayer(1920, 1080)});
-document.layers.emplace_back(BitmapLayer{
+document.layers.emplace_back(DynamicBitmapLayer{
     {"paint", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
-    KeyframedSource{{0}},
+    DynamicBitmapContent{KeyframedSource{{0}}},
 });
 document.frames.push_back({0, {{"paint", "frame-0"}}});
 
@@ -724,13 +730,10 @@ Premiere Pro, Final Cut Pro and DaVinci Resolve. Details and examples are in
 
 SPDX-License-Identifier: AGPL-3.0-only
 
-iiSharedCanvas의 자체 작성 코드와 문서는 GNU Affero General Public License version 3 only
-(`AGPL-3.0-only`)로 배포된다. 전체 조건은 [LICENSE](LICENSE)를 따른다.
-이 선택은 공개 의존성인 iiPaintEngine의 `AGPL-3.0-only` 라이선스와 일치한다.
+The code and documentation written by iiSharedCanvas are distributed under the GNU Affero General Public License version 3 only ( `AGPL-3.0-only` ). The full terms follow [LICENSE](LICENSE). This choice matches the `AGPL-3.0-only` license of the iiPaintEngine public dependency.
 
-서드파티 코드·라이브러리·도구·모델은 각각의 라이선스와 저작권 고지를 유지하며,
-이 저장소의 라이선스가 이를 대체하지 않는다. 기존 의존성과 배포 관련 고지는
-[NOTICE.md](NOTICE.md)와 [의존성 검토](docs/DEPENDENCIES.md)를 따른다.
+Third-party code, libraries, tools, and models retain their respective licenses and copyright notices, and this repository's license does not replace them. Existing dependency and distribution-related notices are
+Follows [NOTICE.md](NOTICE.md)and the [dependency review](docs/DEPENDENCIES.md).
 
 ### SDK installation layout
 
@@ -768,7 +771,7 @@ commits the changed content and an independent authorship record in the same
 SQLite transaction before returning, including raw `edit` callbacks. There is no
 autosave timer or whole-document snapshot dump in the working-file path.
 
-Native snapshots use `.iisc` 1.17. Legacy 1.0–1.16 files remain readable and are
+Native snapshots use `.iisc` 1.19. Legacy 1.0–1.18 files remain readable and are
 upgraded on the first accepted change. Undo/cancel of already committed pixels
 is itself a recorded change. Detached public aggregates have no observers; use
 editors or `recordDocumentChange` after a direct detached mutation. File-bound
@@ -779,9 +782,11 @@ metadata; the ledger is attribution data, not proof of ownership or login.
 The installer accepts `QT_PREFIX_PATH` (the external Qt 6.8.3 macOS prefix by
 default) so clean builds and installed consumers do not rely on an old Qt cache.
 
-## 파일 저장 소유권
+<a id="파일-저장-소유권"></a>
 
-0.10.1부터 실제 파일 CRUD, SQLite 연결·트랜잭션·부분 BLOB 기록·백업은 iiFileProvider 0.5에 위임한다. DocumentFile은 캔버스 스키마, 형식 검증, 편집 상태, 충돌 판정을 소유한다. `.iisc` 기존 파일 형식과 즉시 반영 동작은 유지한다. 의존성은 iiSharedCanvas → iiFileProvider이며 역참조는 없다.
+## File storage ownership
+
+Since 0.10.1, actual file CRUD, SQLite connections, transactions, partial BLOB writes, and backups are delegated to iiFileProvider 0.5. DocumentFile owns the canvas schema, format validation, editing state, and conflict decisions. The existing `.iisc` file format and immediate-application behavior are retained. The dependency is iiSharedCanvas → iiFileProvider, with no reverse reference.
 
 ## ControlNet semantic segments (0.13.0)
 
@@ -854,8 +859,8 @@ and settings to a consuming inference adapter. See [REFERENCE.md](docs/REFERENCE
 `IpAdapterAsset` owns actual float32 conditional/unconditional image embeddings,
 with encoder/adapter provenance and explicit pooled, hidden-state or projected-token
 stage. `IpAdapterLayer` selects static or dynamic states. The four bitmap/vector
-artwork kinds remain unchanged; nonspatial conditioning adds `StaticEmbedding` and
-`DynamicEmbedding`. Export passes typed tensors to an inference consumer without
+artwork kinds remain the four bitmap/vector kinds; nonspatial conditioning has
+no visual `LayerKind`. Export passes typed tensors to an inference consumer without
 encoding or projection. See [IP_ADAPTER.md](docs/IP_ADAPTER.md).
 
 ## Detailed ControlNet parameters (0.24.0)
@@ -865,4 +870,30 @@ All 12 conditioning types expose typed layer/object snapshots through
 `setControlNetParameters` applies one layer and all unique source states atomically;
 `patchControlNetSettings` edits selected common fields without replacing the others.
 Detailed fields, output options, ownership and rollback rules are documented in
-[CONTROLNET_PARAMETERS.md](docs/CONTROLNET_PARAMETERS.md). Native model remains 1.17.
+[CONTROLNET_PARAMETERS.md](docs/CONTROLNET_PARAMETERS.md). Native model is now 1.19 (explicit layer types).
+
+Bitmap processing and native brush settings are documented in [BITMAP_PROCESSING.md](docs/BITMAP_PROCESSING.md).
+
+## Per-frame dynamic content (0.27.1)
+
+Dynamic bitmap and vector layers can hold different native pixels and paths at
+every integer frame. `DocumentEditor::setDynamicFrameContent` atomically appends
+a fresh raster/vector asset and inserts or replaces its exact-frame key. A fresh
+asset id prevents other frames or layers from being overwritten. Supply a key
+at each frame for frame-by-frame content; sparse keys retain hold sampling.
+Snapshot and working-file persistence keep all states in native format 1.19.
+See [DYNAMIC_FRAME_CONTENT.md](docs/DYNAMIC_FRAME_CONTENT.md) for authoring,
+independent editing, persistence and verification.
+
+## Artboards (0.27.0)
+
+One `.iisc` document can hold multiple independent artboards with different sizes,
+positions, backgrounds and owned layer stacks. `DocumentEditor` supports creation,
+rename, move/resize, reorder, independent duplication, deletion and layer reparenting.
+Owned artwork uses local coordinates and clips to its board. `renderFrame` displays
+the complete workspace; `renderArtboard` renders one board. Snapshots and working
+files preserve all artboards in native format 1.19. See [ARTBOARDS.md](docs/ARTBOARDS.md)
+for coordinate, composition, persistence and export contracts.
+
+The four-type model is installed as package 0.28.0; migration details and typed
+content examples are in [FOUR_LAYER_TYPES.md](docs/FOUR_LAYER_TYPES.md).

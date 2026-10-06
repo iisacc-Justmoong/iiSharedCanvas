@@ -24,7 +24,7 @@ iiSharedCanvas::Document documentFor(const iiSharedCanvas::VectorAsset &asset)
     Document document;
     document.extent = asset.viewport;
     document.assets.emplace_back(asset);
-    document.layers.emplace_back(VectorLayer{{"vector", "Vector"}, StaticSource{asset.id}});
+    document.layers.emplace_back(StaticVectorLayer{{"vector", "Vector"}, StaticSource{asset.id}});
     return document;
 }
 }

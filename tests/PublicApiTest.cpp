@@ -113,14 +113,14 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerFrameRange::lastFrame
                              iiSharedCanvas::FrameIndex>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerProperties::frameRange),
                              std::optional<iiSharedCanvas::LayerFrameRange>>);
-static_assert(std::is_same_v<decltype(iiSharedCanvas::BitmapLayer::properties),
+static_assert(std::is_same_v<decltype(iiSharedCanvas::StaticBitmapLayer::properties),
                              iiSharedCanvas::LayerProperties>);
-static_assert(std::is_same_v<decltype(iiSharedCanvas::BitmapLayer::source),
-                             iiSharedCanvas::LayerSource>);
-static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorLayer::properties),
+static_assert(std::is_same_v<decltype(iiSharedCanvas::StaticBitmapLayer::content),
+                             iiSharedCanvas::StaticBitmapContent>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::StaticVectorLayer::properties),
                              iiSharedCanvas::LayerProperties>);
-static_assert(std::is_same_v<decltype(iiSharedCanvas::VectorLayer::source),
-                             iiSharedCanvas::LayerSource>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::StaticVectorLayer::content),
+                             iiSharedCanvas::StaticVectorContent>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::KeyframedSource::frameIndices),
                              std::vector<iiSharedCanvas::FrameIndex>>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Keyframe::layerId),
@@ -154,12 +154,12 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::canvasMode),
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::infiniteCanvas),
                              iiSharedCanvas::InfiniteCanvas>);
 static_assert(std::variant_size_v<iiSharedCanvas::Asset> == 15);
-static_assert(std::variant_size_v<iiSharedCanvas::Layer> == 15);
+static_assert(std::variant_size_v<iiSharedCanvas::Layer> == 17);
 static_assert(std::is_same_v<std::variant_alternative_t<0, iiSharedCanvas::Layer>,
-                             iiSharedCanvas::BitmapLayer>);
+                             iiSharedCanvas::StaticBitmapLayer>);
 static_assert(std::is_same_v<std::variant_alternative_t<1, iiSharedCanvas::Layer>,
-                             iiSharedCanvas::VectorLayer>);
-static_assert(std::is_same_v<std::variant_alternative_t<2, iiSharedCanvas::Layer>, iiSharedCanvas::VideoLayer>);
+                             iiSharedCanvas::StaticVectorLayer>);
+static_assert(std::is_same_v<std::variant_alternative_t<2, iiSharedCanvas::Layer>, iiSharedCanvas::DynamicBitmapLayer>);
 static_assert(std::is_same_v<std::variant_alternative_t<3, iiSharedCanvas::Asset>, iiSharedCanvas::VideoAsset>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::VideoAsset::frames), std::vector<RasterLayer>>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::LayerProperties::motion), std::vector<iiSharedCanvas::MotionKeyframe>>);
@@ -230,7 +230,7 @@ static_assert(!std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::CanvasItem>)
 int main()
 {
     return iiSharedCanvas::CurrentFormatMajor == 1
-        && iiSharedCanvas::CurrentFormatMinor == 17
+        && iiSharedCanvas::CurrentFormatMinor == 19
         ? 0
         : 1;
 }

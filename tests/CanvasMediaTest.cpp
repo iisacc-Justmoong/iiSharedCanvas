@@ -26,8 +26,8 @@ iiSharedCanvas::Document mixedDocument()
     document.assets.emplace_back(VectorAsset{"shape", {1, 1}, {path}});
     document.assets.emplace_back(VideoAsset{"movie", {12, 1},
         {makeRasterLayer(1, 1, 0xffff0000), makeRasterLayer(1, 1, 0xff0000ff)}});
-    document.layers.emplace_back(BitmapLayer{{"background", "Background"}, StaticSource{"background"}});
-    VectorLayer vector{{"graphics", "Motion graphics"}, StaticSource{"shape"}};
+    document.layers.emplace_back(StaticBitmapLayer{{"background", "Background"}, StaticSource{"background"}});
+    StaticVectorLayer vector{{"graphics", "Motion graphics"}, StaticSource{"shape"}};
     MotionKeyframe first;
     first.value.position = {0, 2};
     MotionKeyframe last = first;
@@ -47,7 +47,7 @@ int main()
     using namespace iiSharedCanvas;
     static_assert(std::is_aggregate_v<VideoAsset> && std::is_aggregate_v<VideoLayer>);
     static_assert(std::is_aggregate_v<MotionKeyframe> && std::is_aggregate_v<MotionValue>);
-    static_assert(std::variant_size_v<Asset> == 15 && std::variant_size_v<iiSharedCanvas::Layer> == 15);
+    static_assert(std::variant_size_v<Asset> == 15 && std::variant_size_v<iiSharedCanvas::Layer> == 17);
     auto document = mixedDocument();
     expect(validate(document).ok(), "mixed image/vector/video/motion document must validate");
     auto *video = findVideoLayer(document, "footage");
@@ -107,7 +107,7 @@ int main()
     findVideoLayer(invalid, "footage")->playback.sourceOutFrame = 0;
     expect(!validate(invalid).ok(), "empty video trim ranges must fail");
     invalid = document;
-    layerSource(invalid.layers[0]) = StaticSource{"movie"};
+    setLayerSource(invalid.layers[0], StaticSource{"movie"});
     expect(!validate(invalid).ok(), "bitmap layers must not silently accept video assets");
     invalid = document;
     layerProperties(invalid.layers[1]).motion[1].frame = 0;

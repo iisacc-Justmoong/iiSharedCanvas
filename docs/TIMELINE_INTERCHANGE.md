@@ -1,165 +1,79 @@
-# Editable timeline interchange
+<a id="editable-timeline-interchange"></a>
 
-`exportTimelineInterchange(document, directory, options)` creates a new local
-package for importing a native canvas timeline into video editors. It exports
-the complete `Document::timeline`, not the PSD frame-zero projection. It does
-not install native `.iisc` importer plug-ins into other applications.
+# 편집 가능한 타임라인 교환
 
-| File | Purpose |
+`exportTimelineInterchange(document, directory, options)` 는 네이티브 캔버스 타임라인을 비디오 편집기에 가져오기 위해 새로운 로컬 패키지를 생성합니다. 그것은 전체 `Document::timeline` 를 내보내며, PSD 프레임-0 프로젝션이 아닙니다. 그것은 다른 애플리케이션에 네이티브 `.iisc` 가져오기 플러그인을 설치하지 않습니다.
+
+|파일|목적|
 | --- | --- |
-| `timeline.xml` | Legacy Final Cut Pro XML timeline for Premiere and Resolve |
-| `timeline.fcpxml` | FCPXML timeline for Final Cut Pro and compatible editors |
-| `media/*.png` | Independently rendered, straight-alpha layer states |
-| `media/*.wav` | PCM16 source audio, independent editable audio tracks |
-| `manifest.json` | Version 1 for visual-only packages; version 2 adds audio mapping |
-| `source.iisc` | Canonical native snapshot retaining original editable data |
+| `timeline.xml` |레거시 파이널 컷 프로 XML 프리미어 및 리졸브 타임라인|
+| `timeline.fcpxml` |Final Cut Pro 및 호환 편집기용 FCPXML 타임라인|
+| `media/*.png` |독립적으로 렌더링된 직선 알파 레이어 상태|
+| `media/*.wav` |PCM16 소스 오디오, 독립적으로 편집 가능한 오디오 트랙|
+| `manifest.json` |시각 전용 패키지용 버전 1; 버전 2는 오디오 매핑을 추가합니다.|
+| `source.iisc` |Canonical 네이티브 스냅샷이 원본 편집 가능한 데이터를 유지합니다|
 
-Import the appropriate XML, not `source.iisc` or the PNG files individually.
-The package never flattens all layers into a single movie or image sequence.
-XML references use percent-encoded absolute local file URLs pointing to the
-completed destination directory, never a temporary path. Keep the package at
-that location; after moving it, relink media in the editor or regenerate it at
-the new location. No network references or external codecs are used.
+적절한 XML 를 가져오되, `source.iisc` 나 PNG 파일을 개별적으로 가져오지 마십시오. 패키지는 모든 레이어를 단일 영화 또는 이미지 시퀀스로 평탄화하지 않습니다. XML 참조는 완료된 대상 디렉터리를 가리키는 퍼센트 인코딩된 절대 로컬 파일 URL 을 사용하며, 임시 경로를 사용하지 않습니다. 패키지를 해당 위치에 유지하고, 이동한 후 편집기에서 미디어를 다시 연결하거나 새 위치에서 다시 생성하십시오. 네트워크 참조나 외부 코덱은 사용되지 않습니다.
 
-## Preserved editing structure
+<a id="preserved-editing-structure"></a>
 
-Every native layer becomes one bottom-to-top track or connected lane, including
-hidden layers. Every hold-key interval becomes a separately trimmable clip.
-Inclusive native `LayerFrameRange` endpoints become exclusive clip ends without
-off-by-one changes. Repeated references reuse PNG media but retain all key cuts.
-Sequence duration, rational frame rate, layer names, visibility, opacity and
-supported compositing are represented in XML. PNGs contain neither layer opacity
-nor layer blend application; the target editor applies those attributes.
+## 보존된 편집 구조
 
-SourceOver, Multiply, Screen and Overlay are the supported blend modes. Editor
-color management, blend implementations and version-specific XML translation
-can affect appearance; schema validity alone is not application acceptance.
-See [XML details](TIMELINE_XML.md) and the validation record below.
+각 네이티브 레이어는 하단에서 상단으로의 트랙 하나 또는 연결된 레인으로 변환되며, 숨겨진 레이어도 포함됩니다. 각 유지 키 간격은 별도로 잘라낼 수 있는 클립으로 변환됩니다. 포함된 네이티브 `LayerFrameRange` 엔드포인트는 오차 하나 차이 변경 없이 배제된 클립 끝으로 변환됩니다. 반복된 참조는 PNG 미디어를 재사용하지만 모든 키 컷을 유지합니다. 시퀀스 지속 시간, 유리한 프레임 속도, 레이어 이름, 가시성, 불투도 및 지원되는 합성 는 XML 에 표시됩니다. PNG 는 레이어 불투도나 레이어 블렌드 적용을 포함하지 않으며, 대상 편집기가 해당 속성을 적용합니다.
 
-Legacy XML represents integer rates and supported nominal rates multiplied by
-1000/1001. Both outputs must represent the rate exactly; unsupported rates fail
-without publishing a partial package. Rates are reduced before conversion.
-This adapter defaults `limits.maxFrames` to 1,000,000 (rather than the movie
-adapter's 4096); hold clips avoid per-frame media generation. All other media
-limits retain their common defaults. Callers may adjust the limits explicitly.
+SourceOver, Multiply, Screen 및 Overlay는 지원되는 블렌드 모드입니다. 편집기 색상 관리, 블렌드 구현 및 버전별 XML 변환은 외관에 영향을 줄 수 있으며, 스키마 유효성만으로는 애플리케이션 수락을 보장하지 않습니다. 아래의 [XML 세부 정보와](TIMELINE_XML.md) 및 검증 기록을 확인하십시오.
 
-## Deliberate boundaries
+레거시 XML는 정수 프레임 레이트와 1000/1001를 곱한 지원 명목 프레임 레이트를 나타낸다. 두 출력 모두 프레임 레이트를 정확히 표현해야 하며 지원하지 않는 프레임 레이트는 부분 패키지를 발행하지 않고 실패한다. 프레임 레이트는 변환 전에 약분한다. 이 어댑터는 동영상 어댑터의 4096와 달리 `limits.maxFrames`의 기본값으로 1,000,000를 사용하며, 유지 클립은 프레임마다 미디어를 생성하지 않는다. 다른 미디어 제한은 공통 기본값을 유지한다. 호출자는 제한을 명시적으로 조정할 수 있다.
 
-Vector layers remain independent clips but are rendered to transparent PNG for
-NLE playback. Their editable vector paths remain in `source.iisc`; they do not
-become native NLE vector objects or PSD Smart Objects. Spatial transforms are
-baked into full-canvas PNGs, while timing and compositing remain separate. The
-source canvas region defines the output frame; infinite-canvas content outside
-that region is not included in clip pixels. These conversions return warnings.
+<a id="deliberate-boundaries"></a>
 
-The separate in-memory `TimelineProject` remains independent of the persisted
-canvas document. This adapter exports the canvas audio track subset described in
-[AUDIO_TIMELINE.md](AUDIO_TIMELINE.md). It does not map arbitrary `TimelineProject`
-movie clips, transitions, automation or effects. Native format 1.4 persists `Document::audioAssets` and `Document::audioTracks`;
-working-file schema 1 is retained and the package API is version 0.9.0.
+## 경계 설정
 
-## Limits and publishing
+벡터 레이어는 독립적인 클립으로 유지되지만, NLE 재생을 위해 투명 PNG 로 렌더링됩니다. 수정 가능한 벡터 경로는 `source.iisc` 에 유지되며, 네이티브 NLE 벡터 객체나 PSD 스마트 객체로 변환되지 않습니다. 공간 변환은 전체 캔버스 PNG 에 버닝되며, 타이밍과 합성 는 별도로 유지됩니다. 원본 캔버스 영역이 출력 프레임을 정의하며, 해당 영역 바깥의 무한 캔버스 콘텐츠는 클립 픽셀에 포함되지 않습니다. 이 변환은 경고 메시지를 반환합니다.
 
-`TimelineInterchangeOptions` contains a neutral sequence name (`iisc Timeline`),
-`MediaLimits`, `maxLayers` (4096) and `maxClips` (65536). Dimensions are limited to
-16384 pixels per axis as well as the configured pixel budget. Output bytes are
-charged across every package file, including the source snapshot. Source copy,
-XML/manifest and PNG conversion, vector tessellation, and native chunked render
-pieces have conservative decoded-memory preflights. Sequence names and output
-paths are budget-checked before text conversion; even unused native assets and
-nested metadata are checked before snapshot serialization. This is a bounded adapter,
-not a guarantee that arbitrary host allocations equal a fixed peak RSS.
+별도의 메모리 내 `TimelineProject`는 영구 캔버스 문서와 독립적으로 유지됩니다. 이 어댑터는 설명된 캔버스 오디오 트랙 하위 집합을 내보냅니다.
+[AUDIO_TIMELINE .md](AUDIO_TIMELINE.md). 임의의 `TimelineProject` 영화 클립, 전환, 자동화 또는 효과를 매핑하지 않습니다. 네이티브 형식 1.4는 `Document::audioAssets`와 `Document::audioTracks`를 유지합니다; 작업 파일 스키마 1는 유지되며, 패키지 API는 0.9.0버전입니다.
 
-Existing paths, directories and destination symlinks are always refused; there
-is intentionally no overwrite option. The destination parent must already
-exist. A private sibling staging directory holds complete outputs before one
-exclusive directory rename publishes them. Failure cleans only that private
-directory and leaves both existing destinations and the input document intact.
-Exclusive publishing currently supports macOS, Linux with `renameat2`, and
-Windows; other platforms fail closed. This ensures atomic visibility, not a
-power-loss durability guarantee. Names must be valid UTF-8/XML text.
+<a id="limits-and-publishing"></a>
 
-The CLI accepts native canonical snapshots and live SQLite working files using
-a shared read-only backup loader; see [CLI usage](TIMELINE_INTERCHANGE_CLI.md).
+## 제한 및 출판
 
-## Verification
+`TimelineInterchangeOptions` 에 중립적인 시퀀스 이름 ( `iisc Timeline` ),  `MediaLimits` ,  `maxLayers` ( 4096 ) 및  `maxClips` ( 65536 ) 이 포함되어 있습니다. 차원은 축당  16384 픽셀 및 구성된 픽셀 예산으로 제한됩니다. 출력 바이트는 소스 스냅샷을 포함한 모든 패키지 파일에 걸쳐 청구됩니다. 소스 복사,  XML /manifest 및  PNG 변환, 벡터 테셀레이션, 그리고 네이티브 섹션별 렌더링 조각은 보수적인 디코딩 메모리 프리플라이트를 가집니다. 시퀀스 이름과 출력 경로는 텍스트 변환 전에 예산이 확인되며; 사용하지 않는 네이티브 자산과 중첩된 메타데이터도 스냅샷  직렬화 전에 확인됩니다. 이는  한계가 설정된 어댑터이며, 임의의 호스트 할당이 고정된 피크  RSS 와 같다는 보장이 아닙니다.
 
-Tests independently parse both XML structures, map every clip to a real PNG,
-reconstruct every frame of an animated fixture, and compare pixels with native
-rendering. They cover hidden layers, Unicode names, repeated states, frame
-ranges, rational rates, source preservation, resource limits, failure cleanup
-and collisions. An installed-package consumer exercises the same public API.
-The read-only `tests/verify_timeline_interchange.py` development oracle uses only
-Python's standard library. It independently compares both XML files to the
-manifest, resolves and hashes PNG references, and optionally checks a receiving
-Final Cut application's re-export with `--fcpxml-roundtrip FILE`. No Python
-dependency is added to the library or installed tools.
+기존 경로, 디렉터리 및 대상 심볼릭 링크는 항상 거부됩니다; 의도적으로 덮어쓰기 옵션이 없습니다. 대상 부모 디렉터리는 이미 존재해야 합니다. 프라이빗 형제 임시 디렉터리는 하나의 독점 디렉터리 이름 변경이 이를 게시하기 전에 완전한 출력을 보유합니다. 실패 시 해당 프라이빗 디렉터리만 정리되며, 기존 대상과 입력 문서는 그대로 유지됩니다. 독점 게시는 현재  macOS ,  Linux 와  `renameat2` 를 지원하며, 다른 플랫폼은  Windows ; 다른 플랫폼은  안전하게 거부한다 합니다. 이는 원자적 가시성을 보장하며, 전원 손실 내구성 보장이 아닙니다. 이름은 유효한 UTF-8/XML 텍스트여야 합니다.
 
-### Application check (2026-09-03)
+The CLI 는 공유 읽기 전용 백업 로더를 사용하여 네이티브 표준 스냅샷과 라이브 SQLite 작업 파일을 수락합니다; [CLI 사용](TIMELINE_INTERCHANGE_CLI.md)을 참조하세요.
 
-Final Cut Pro imported the generated 1280x720, 24 fps, five-second package into
-a separate test library under `build/`. Its timeline retained three layers:
-the five-second background, three separate one-second clips at 1s/2s/3s on
-the keyed layer, and the five-second disabled hidden layer. The inspector
-showed editable opacity of 50% on a keyed clip. Final Cut then exported the
-project as FCPXML 1.14; the independent oracle confirmed identical layer lanes,
-clip timing, names, visibility, opacity, media identity and frame rate. The
-test library was closed; user projects were not opened or modified.
+<a id="verification"></a>
 
-Both generated XML dialects also passed their Apple DTDs. Premiere and Resolve
-were not available for application-level validation on this host. Their import
-path is implemented against published XML support and independently checked
-syntax/structure, not claimed as a live application pass. Single-frame exposures,
-all compositing modes, every editor/version and pixel-exact target color output
-still require an application-specific acceptance matrix. This verification does
-not constitute importing changed editor projects back into `.iisc`.
+## 검증
 
-## Persisted audio tracks (0.9.0)
+테스트는 독립적으로 두 XML 구조를 파싱하며, 모든 클립을 실제 PNG 로 매핑하고, 애니메이션된 픽스처 의 모든 프레임을 재구성하며, 네이티브 렌더링과 픽셀을 비교합니다. 그들은 숨겨진 레이어, Unicode 이름, 반복된 상태, 프레임 범위, 유리 비율, 소스 보존, 리소스 한계, 실패 정리 및 충돌을 다룹니다. 설치된 패키지 소비자는 동일한 공개 API 를 실행합니다. The 읽기 전용 `tests/verify_timeline_interchange.py` 개발 오라클은 Python 의 표준 라이브러리만 사용합니다. 그것은 독립적으로 두 XML 파일을 매니페스트와 비교하고, PNG 참조를 해결하고 해시하며, `--fcpxml-roundtrip FILE` 로 최종 컷 애플리케이션의 재수출을 선택적으로 확인합니다. Python 의존성이 라이브러리나 설치된 도구에 추가되지 않습니다.
 
-`Document::audioTracks` contains independent `AudioTrackLayer` values with ordered,
-nonoverlapping clips; different tracks may overlap. Both XML outputs retain gaps,
-clip positions/durations, mute/enabled state, source handles and combined track +
-clip gain. PCM16 mono/stereo WAV media is written without lossy compression or
-resampling. Legacy XML uses linked per-channel audio tracks for stereo; FCPXML
-uses one audio asset clip per negative lane. Track and clip gain sum into the
-receiving editor's editable clip gain; their separate values remain in the source.
+<a id="application-check-2026-09-03"></a>
 
-The version 2 manifest adds `audioTracks`. Each clip records `sourceOffsetSamples`
-(native), `mediaOffsetSamples` (XML), `mediaTrimSamples` (WAV origin shift), and
-`sampleFrameCount` as decimal strings to avoid JSON double precision loss.
-Sample offsets refer to per-channel sample frames. When legacy XML cannot exactly
-represent a source offset at the editing frame rate, the WAV omits only the
-minimal leading samples needed for exact frame alignment. It retains all trailing
-source handles, and the entire original is always stored in `source.iisc`.
-The offset mapping is exact: native = mediaTrimSamples + mediaOffsetSamples.
-Repeated references to the same asset and origin reuse one WAV. No channel mix,
-normalization, gain baking, playback engine or audio DSP is introduced.
+### 응용 프로그램 확인 ( 2026-09-03 )
 
-Audio assets, tracks, clip metadata, WAV data and the native PCM snapshot all count
-against the package limits. `maxLayers` counts visual and audio tracks together;
-`maxClips` counts both kinds. Failure never publishes a partial package.
+최종 컷 프로는 생성된 1280x720, 24 프레임 속도, 5초 패키지를 `build/` 하에 있는 별도의 테스트 라이브러리에 가져왔습니다. 타임라인은 3 개의 레이어를 유지했습니다: 5초의 배경, 3 개의 1 초짜리 별도 클립이 1s/2s/3s 에 있는 키드 레이어, 그리고 5초의 비활성화 숨김 레이어입니다. 인스펙터는 키드 클립의 편집 가능한 불투명도 50% 를 보여주었습니다. 최종 컷은 프로젝트를 FCPXML 1.14 로 내보냈고, 독립적인 오라클은 동일한 레이어 레인, 클립 타이밍, 이름, 가시성, 불투명도, 미디어 식별 및 프레임 속도를 확인했습니다. 테스트 라이브러리가 닫혔으며, 사용자 프로젝트는 삭제되지 않았거나 수정되지 않았습니다.
 
-### Audio application check (2026-09-05)
+생성한 두 XML 방언은 Apple DTD 검사도 통과했다. 이 호스트에는 애플리케이션 수준 검증을 위한 Premiere와 Resolve가 없었다. 해당 가져오기 경로는 공개된 XML 지원을 기준으로 구현하고 구문/구조를 독립적으로 검사했으며, 실제 애플리케이션 통과를 주장하지 않는다. 단일 프레임 노출·모든 합성 모드·모든 편집기/버전·목표 색상의 픽셀 단위로 정확한 출력은 여전히 애플리케이션별 수락 행렬이 필요하다. 이 검증은 변경된 편집기 프로젝트를 `.iisc`로 다시 가져오는 것을 의미하지 않는다.
 
-A dedicated Final Cut Pro test library under `build/audio-finalcut-validation/`
-imported the 1280x720, 24 fps, five-second audio package. Three stereo clips on
-native two-track lanes appeared at 0s, 1s and 3s. The audio inspector showed the
-opening clip's editable -9 dB combined gain and stereo channel configuration.
-Final Cut re-exported FCPXML 1.14; the independent oracle confirmed both lanes,
-all clip and source timing, mute/enabled state, gain, channel counts and identical
-WAV bytes after Final Cut copied the media into its library. The test library was
-closed after verification. Final Cut normalized custom metadata and role names;
-separate native labels and edit values remain authoritative in `source.iisc` and
-the manifest. Empty audio tracks have no FCPXML lane object until they have clips.
+<a id="persisted-audio-tracks-090"></a>
 
-Both generated XML formats passed their published DTDs. A mixed PNG/audio fixture
-at 30000/1001 fps also passed the independent oracle, including an exact one-sample
-WAV origin shift; this fixture was not imported in Final Cut. Premiere Pro and
-DaVinci Resolve are not installed on this host, so audio application acceptance
-for those editors remains unverified. The fresh Release build, all 36 CTest
-checks, staging installation and standalone 0.9.0 package consumer passed.
+## 지속 오디오 트랙 ( 0.9.0 )
 
-Native video assets or property motion keys introduced in 0.11.0 currently
-return `UnsupportedFeature` before package publication. Their editable timing
-and interpolation remain in `.iisc` 1.6; `exportVideo` renders them. Existing
-bitmap/vector hold-key and audio-track interchange is unchanged.
+`Document::audioTracks` 은 독립적인 `AudioTrackLayer` 값을 포함하며, 정렬된 겹치지 않는 클립을 가지며, 다른 트랙은 서로 겹칠 수 있습니다. XML 출력 모두 간격, 클립 위치/지속 시간, 음소거/활성화 상태, 소스 핸들 및 결합된 트랙 + 클립 게인을 유지합니다. PCM16  mono/stereo  WAV  미디어는 손실 압축 또는 리샘플링 없이 기록됩니다. 레거시 XML 는 스테레오를 위해 채널별 연결된 오디오 트랙을 사용하며, FCPXML 는 음의 레인을 위해 오디오 자산 클립 하나를 사용합니다. 수신 편집자의 편집 가능한 클립 게인으로 트랙 및 클립 게인 합계를 추적하고 클립; 그들의 개별 값은 소스에 유지됩니다.
+
+2 버전의 `audioTracks` 만이 추가됩니다. 각 클립은 `sourceOffsetSamples` (네이티브), `mediaOffsetSamples` (XML), `mediaTrimSamples` (WAV) 원시 이동, 및 `sampleFrameCount` 를 소수 문자열로 기록하여 JSON 이중 정밀도 손실을 피합니다. 샘플 오프셋은 채널별 샘플 프레임을 의미합니다. 레거시 XML 가 편집 프레임 레이트에서 소스 오프셋을 정확히 표현할 수 없을 때, WAV 는 정확한 프레임 정렬을 위해 필요한 최소한의 앞쪽 샘플만 생략합니다. 그것은 모든 뒤쪽 소스 핸들을 유지하며, 전체 원본은 항상 `source.iisc` 에 저장됩니다. 오프셋 매핑은 정확합니다: 네이티브 = mediaTrimSamples + mediaOffsetSamples 입니다. 동일한 자산과 원점에 대한 반복 참조는 하나의 WAV 를 재사용합니다. 채널 믹스, 정규화, 게인 베이킹, 재생 엔진 또는 오디오 DSP 가 도입되지 않습니다.
+
+오디오 자산, 트랙, 클립 메타데이터, WAV 데이터 및 네이티브 PCM 스냅샷은 모두 패키지 제한에 포함됩니다. `maxLayers`는 시각 트랙과 오디오 트랙을 함께 계산합니다; `maxClips`는 두 종류를 모두 계산합니다. 실패는 부분 패키지를 절대 게시하지 않습니다.
+
+<a id="audio-application-check-2026-09-05"></a>
+
+### 오디오 애플리케이션 확인 ( 2026-09-05 )
+
+`build/audio-finalcut-validation/` 하에 있는 전용 파이널 컷 프로 테스트 라이브러리는 1280x720, 24 프레임 속도, 5초 오디오 패키지를 가져왔습니다. 3 스테레오 클립은 네이티브 2트랙 레일에 0s, 1s, 3s에 나타났습니다. 오디오 인스펙터는 처음 클립의 편집 가능한 -9 dB 조합 게인과 스테레오 채널 구성을 표시했습니다. 파이널 컷은 FCPXML 1.14 를 다시 내보냈으며, 독립적인 오라클은 파이널 컷이 미디어를 라이브러리에 복사한 후 두 레일, 모든 클립과 소스 타이밍, 뮤트/활성화 상태, 게인, 채널 수 및 동일한 WAV 바이트를 모두 확인했습니다. 테스트 라이브러리는 검증 후 닫혔습니다. 최종 컷 정규화된 사용자 정의 메타데이터와 역할 이름을 분리했으며, 원본 레이블과 편집 값은 `source.iisc` 및 매니페스트에서 여전히 권위 있는 것으로 유지됩니다. 빈 오디오 트랙은 클립이 있을 때까지 FCPXML 레인 객체가 없습니다.
+
+생성된 XML 포맷은 모두 게시된 DTD를 통과했습니다. PNG /audio 픽스처 혼합물이 30000/1001 프레임률에서도 독립적인 오라클을 통과했으며, 정확한 단일 샘플 WAV 원점 이동이 포함되었습니다; 이 픽스처 는 최종 컷에서 가져오지 않았습니다. 프리미어 프로와 DaVinci 리졸브가 이 호스트에 설치되어 있지 않으므로 해당 편집자에 대한 오디오 애플리케이션 수락은 확인되지 않았습니다. 신규 릴리스 빌드, 모든 36 CTest 체크, 스테이지 설치 및 독립형 0.9.0 패키지 소비자가 통과했습니다.
+
+원본 비디오 자산이나 0.11.0 에서 도입된 속성 운동 키는 패키지 게시 전에 `UnsupportedFeature` 를 반환하며, 편집 가능한 타이밍과 보간은 `.iisc` 1.6 에 있으며, `exportVideo` 가 이를 렌더링합니다. 기존 비트맵 /vector hold-key 및 오디오 트랙 교환은 변경되지 않았습니다.

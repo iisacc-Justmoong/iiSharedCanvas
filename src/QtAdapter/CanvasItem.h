@@ -9,6 +9,7 @@
 
 #include <QColor>
 #include <QPointF>
+#include <QPointer>
 #include <QQuickItem>
 #include <QString>
 #include <QVariantMap>
@@ -69,6 +70,7 @@ class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickItem {
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY undoRedoChanged)
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY undoRedoChanged)
     Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY viewportChanged)
+    Q_PROPERTY(bool smoothRendering READ smoothRendering WRITE setSmoothRendering NOTIFY smoothRenderingChanged)
     Q_PROPERTY(qreal panX READ panX WRITE setPanX NOTIFY viewportChanged)
     Q_PROPERTY(qreal panY READ panY WRITE setPanY NOTIFY viewportChanged)
     Q_PROPERTY(bool rendering READ rendering NOTIFY renderingChanged)
@@ -83,6 +85,7 @@ class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickItem {
 
 public:
     explicit CanvasItem(QQuickItem *parent = nullptr);
+    ~CanvasItem() override;
 
     bool bind(Document &document);
     bool bind(DocumentFile &file);
@@ -151,6 +154,8 @@ public:
     void setBrushSpacingRatio(qreal spacingRatio);
     [[nodiscard]] bool brushSpacingEnabled() const noexcept;
     void setBrushSpacingEnabled(bool enabled);
+    bool setBrushEngineState(const BrushState &state);
+    void clearBrushEngineState();
     [[nodiscard]] qreal pressureCurveMinimum() const noexcept;
     void setPressureCurveMinimum(qreal value);
     [[nodiscard]] qreal pressureCurveCenter() const noexcept;
@@ -183,6 +188,10 @@ public:
     Q_INVOKABLE bool redo();
 
     [[nodiscard]] qreal zoom() const noexcept;
+    [[nodiscard]] bool smoothRendering() const noexcept;
+    void setSmoothRendering(bool smooth);
+    [[nodiscard]] qreal renderDevicePixelRatio() const noexcept;
+    [[nodiscard]] int renderLevelOfDetail() const noexcept;
     void setZoom(qreal zoom);
     [[nodiscard]] qreal panX() const noexcept;
     void setPanX(qreal panX);
@@ -220,6 +229,7 @@ signals:
     void inputStateChanged();
     void undoRedoChanged();
     void viewportChanged();
+    void smoothRenderingChanged();
     void renderingChanged();
     void renderCompleted(qulonglong requestId);
     void residentTileCountChanged();
@@ -230,6 +240,7 @@ signals:
 
 protected:
     bool event(QEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
@@ -315,6 +326,8 @@ private:
     std::uint64_t m_strokeStartRevision = 0;
     qulonglong m_latestAsyncRequest = 0;
     qreal m_zoom = 1.0;
+    bool m_smoothRendering = true;
+    QPointer<QQuickWindow> m_renderWindow;
     qreal m_panX = 0.0;
     qreal m_panY = 0.0;
     QPointF m_lastPanPosition;

@@ -43,7 +43,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Layered/LayeredDocumentCodec.h" "
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md" "encodePsd")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PSD_EXPORT.md" "Smart Object")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PSD_EXPORT_CLI.md" "iisc-export-psd")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md" "PSD export")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md" "PSD 내보내기")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_executable(iisc-export-psd tools/iisc-export-psd.cpp)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "\"\${export_psd_executable}\" --help")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp" "verifyPsdExport")
@@ -64,21 +64,30 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
              "There is no save method")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
-             "public domain")
+             "sqlite.org/copyright.html")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.24.0 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.28.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.24.0 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.28.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Document/Document.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Document/DocumentEditor.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "src/Document/ArtboardEditor.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/ARTBOARDS.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledArtboard")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledDynamicFrameContent")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/DYNAMIC_FRAME_CONTENT.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/DocumentEditor.h" "setDynamicFrameContent")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "CurrentFormatMinor = 19")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Bitmap/BitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -132,13 +141,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`VectorEditor` binds to a vector asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "`BitmapLayer | VectorLayer | VideoLayer` variant")
+             "`StaticBitmapLayer | StaticVectorLayer | DynamicBitmapLayer | DynamicVectorLayer` alternatives")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "every `Frame` directly owns its")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.24.0")
+             "The current C++ package version is 0.28.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -158,9 +167,9 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "Container and codec identifiers are open strings")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`Layer` | `BitmapLayer \\| VectorLayer \\| VideoLayer`")
+             "`Layer` | `StaticBitmapLayer \\| StaticVectorLayer \\| DynamicBitmapLayer \\| DynamicVectorLayer`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`validateCameraRaw` validates the Camera RAW aggregate independently")
+             "`validateCameraRaw` 는 RAW 카메라 집합을 `validate(Document)` 에서 독립적으로")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "renderFrameLayerTiles")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
@@ -168,7 +177,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "findStableDiffusionGenerationParameter")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "A rejected edit never advances `revision()`")
+             "거절된 편집은 `revision()` 를 절대 진행시키지")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "renameAsset")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
@@ -176,53 +185,53 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "`LayerFrameRange` | `firstFrame`, `lastFrame`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`setLayerFrameRange` | Set or clear the optional inclusive existence range")
+             "`setLayerFrameRange` |선택적 포함 존재 범위를 설정하거나 초기화")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`layerExistsAt` reports whether a layer exists")
+             "`layerExistsAt`는 선택적 포함 범위를 적용한 후")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "canonical ascending `layerId` order")
+             "표준 오름차순 `layerId` 순서")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "Possibly empty collection; every stored frame is non-empty")
+             "저장된 모든 프레임은 비어 있지 않으며")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "ensureInfiniteCanvasRegion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "appendQuadraticBezierTo")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`TimelineTrack` is a variant")
+             "`TimelineTrack` 는 `TimelineVideoTrack`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "setRenderVideoCodec")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "No pointer trajectory, curve, dab stream, replay command")
+             "포인터 궤적, 곡선, Dab 스트림, 재생 명령")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "`BitmapItem` is the Qt Quick display boundary")
+             "`BitmapItem` 는 선택된 래스터 자산의 하나에 대한 Qt 퀵 디스플레이 경계")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "Camera RAW file decoding, demosaicing, and tone")
+             "카메라 RAW 파일 디코딩, 디모자이크, 및 톤")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "generation-metadata carrier extraction")
+             "생성 메타데이터 캐리어 추출")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "Layers render concurrently from one immutable document snapshot")
+             "하나의 불변 문서 스냅샷")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "`TimelineProject` is independent from the canvas `Document`")
+             "`TimelineProject`는 캔버스 `Document`와 독립적")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Version 1 asset-reference keys use hold sampling only")
+             "버전 1 자산 참조 키는 홀드 샘플링만 사용")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "`Document::frames` owns strictly increasing")
+             "`Document::frames` 는 엄격히 증가하는 희소")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Sparse frames that own keys")
+             "희소 `Frame` 레코드와 모든 실제 `Keyframe` 를 소유")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Version 1.1 adds infinite-canvas metadata")
+             "버전 1.1 은 영역과 타임라인 사이에 무한 캔버스 메타데이터")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Brush input is not a persisted content kind")
+             "브러시 입력은 영속화된 콘텐츠 종류가 아닙니다")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "`CameraRawData` is not encoded by `.iisc` version 1.1")
+             "`CameraRawData` 는 `.iisc` 버전 1.1 에 의해 인코딩되지")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Layer-parallel rendering does not change the persisted layer order")
+             "레이어 병렬 렌더링은 지속된 레이어 순서를 변경하지")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Version 1.2 appends optional Stable Diffusion generation metadata")
+             "버전 1.2는 레이어 컬렉션 뒤에 옵션인 Stable Diffusion 생성 메타데이터")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "Generation-parameters text remains byte-exact")
+             "generationParametersText")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md"
-             "`TimelineProject` is not encoded by `.iisc` version 1.4")
+             "`TimelineProject`는 `.iisc` 버전 1.4에 의해 인코딩되지")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "ctest --test-dir")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
@@ -244,7 +253,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.24.0.dylib")
+             "libiiSharedCanvas.0.28.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
@@ -272,11 +281,11 @@ endforeach()
 
 # The repository contract keeps iiSharedCanvas upstream and product-neutral.
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
-             "iiSharedCanvas is the authoritative canvas document")
+             "직렬화 표준인 공식 캔버스 문서")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
-             "Consumer adoption is sequential, not a parallel compatibility exercise")
+             "소비자 채택은 병렬 호환성 실행이 아니라 순차적")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
-             "iiSharedCanvas is the canonical canvas standard for iisacc")
+             "iiSharedCanvas는 iisacc의 표준 캔버스 표준")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "Consumer applications do not shape this public contract in parallel")
 if(NOT IS_DIRECTORY "${IISHAREDCANVAS_SOURCE_DIR}/src")
@@ -372,5 +381,12 @@ endif()
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/iiSharedCanvas.h" "Document/CanvasSampling.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/CANVAS_MEDIA.md" "VideoAsset")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md" "Native video and motion extension (1.6)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md" "native-video-and-motion-extension-16")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "CanvasMediaTest.cpp")
+
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/FOUR_LAYER_TYPES.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledFourLayerType")
+foreach(_type StaticBitmap StaticVector DynamicBitmap DynamicVector)
+    require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "struct ${_type}Layer")
+    require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "struct ${_type}Content")
+endforeach()

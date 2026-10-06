@@ -171,7 +171,10 @@ int main()
     expect(decodeIisc(truncated).error.code == IiscErrorCode::TruncatedData,
            "short PCM payloads must fail before allocating the declared buffer");
     auto invalidBoolean = encoded.bytes;
-    invalidBoolean.back() = 2;
+    // The last audio enabled flag precedes authorship and the empty 1.18 board tail.
+    const auto followingBytes = 4 + static_cast<std::size_t>(original.authorship.dump().size())
+        + (original.formatVersion.minor >= 18 ? 4 : 0);
+    invalidBoolean.at(invalidBoolean.size() - followingBytes - 1) = 2;
     checksum(invalidBoolean);
     expect(decodeIisc(invalidBoolean).error.code == IiscErrorCode::InvalidData,
            "audio booleans must reject noncanonical encodings");

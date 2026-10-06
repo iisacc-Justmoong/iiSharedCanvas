@@ -86,8 +86,8 @@ std::uint64_t sourceSnapshotUpperBound(const Document &document, std::uint64_t l
     for (const auto &layer : document.layers) {
         const auto &properties = layerProperties(layer);
         strings({&properties.id, &properties.name});
-        if (const auto *source = std::get_if<StaticSource>(&layerSource(layer))) { strings({&source->assetId}); }
-        else { items(std::get<KeyframedSource>(layerSource(layer)).frameIndices.size(), 8); }
+        if (const auto *source = staticLayerSource(layer)) { strings({&source->assetId}); }
+        else { items(keyframedLayerSource(layer)->frameIndices.size(), 8); }
     }
     items(document.audioAssets.size(), 64);
     for (const auto &asset : document.audioAssets) {
@@ -178,6 +178,8 @@ Prepared prepare(const Document &document, const TimelineInterchangeOptions &opt
     }
     const auto valid = validate(document);
     if (!valid.ok()) { fail(MediaIoCode::InvalidArgument, "invalid source document: " + valid.issues.front().message); }
+    if (!document.artboards.empty())
+        fail(MediaIoCode::UnsupportedFeature, "timeline interchange cannot preserve artboard groups; select an artboard explicitly");
     checked(media_detail::checkExtent(document.extent, options.limits));
     if (document.extent.width > 16384 || document.extent.height > 16384) {
         fail(MediaIoCode::UnsupportedFeature, "timeline interchange supports canvas dimensions up to 16384 pixels");
@@ -199,7 +201,7 @@ Prepared prepare(const Document &document, const TimelineInterchangeOptions &opt
         const FrameIndex first = properties.frameRange ? properties.frameRange->firstFrame : 0;
         const FrameIndex end = properties.frameRange ? properties.frameRange->lastFrame + 1 : document.timeline.frameCount;
         std::vector<FrameIndex> boundaries{first};
-        if (const auto *keys = std::get_if<KeyframedSource>(&layerSource(layer))) {
+        if (const auto *keys = keyframedLayerSource(layer)) {
             for (const auto frame : keys->frameIndices) {
                 if (frame > first && frame < end) {
                     charge(prepared.metadataBytes, sizeof(FrameIndex) * 2, options.limits.maxDecodedBytes);
@@ -306,10 +308,10 @@ RasterLayer renderMedia(const Document &document, const MediaTask &task)
     Document isolated; isolated.extent = document.extent; isolated.canvasMode = document.canvasMode;
     isolated.infiniteCanvas = document.infiniteCanvas; isolated.assets.push_back(*task.asset);
     const auto &source = document.layers[task.layerIndex];
-    isolated.layers.emplace_back(contentKind(source) == ContentKind::Vector ? Layer(VectorLayer{}) : Layer(BitmapLayer{}));
+    isolated.layers.emplace_back(contentKind(source) == ContentKind::Vector ? Layer(StaticVectorLayer{}) : Layer(StaticBitmapLayer{}));
     auto &properties = layerProperties(isolated.layers[0]); properties = layerProperties(source);
     properties.visible = true; properties.opacity = 1; properties.blendMode = RasterBlendMode::SourceOver;
-    properties.frameRange.reset(); layerSource(isolated.layers[0]) = StaticSource{assetId(*task.asset)};
+    properties.frameRange.reset(); setLayerSource(isolated.layers[0], StaticSource{assetId(*task.asset)});
     auto rendered = renderFrameLayerTiles(isolated, 0, 0, {{canvasRegion(isolated), isolated.extent}});
     if (!rendered.ok() || rendered.tiles.size() != 1) { fail(MediaIoCode::InvalidData, "cannot render timeline media: " + rendered.message); }
     return std::move(rendered.tiles[0].pixels);

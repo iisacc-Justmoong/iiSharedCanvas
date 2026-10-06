@@ -44,20 +44,20 @@ iiSharedCanvas::Document makeDocument()
     document.assets.emplace_back(makeVectorAsset("vector-frame-0", 0xff00ff00U));
     document.assets.emplace_back(makeVectorAsset("vector-frame-12", 0xff0000ffU));
 
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"layer-raster", "Raster", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"raster-static"},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(StaticVectorLayer{
         {"layer-vector", "Vector", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"vector-static"},
     });
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(DynamicBitmapLayer{
         {"layer-animated-raster", "Animated raster", true, 1.0, {},
          RasterBlendMode::SourceOver},
         KeyframedSource{{0, 24}},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(DynamicVectorLayer{
         {"layer-animated-vector", "Animated vector", true, 1.0, {},
          RasterBlendMode::SourceOver},
         KeyframedSource{{0, 12}},
@@ -80,14 +80,14 @@ int main()
     const Document document = makeDocument();
     expect(validate(document).ok(),
            "a document must accept static raster, static vector, and keyframed raster/vector layers together");
-    expect(std::holds_alternative<BitmapLayer>(document.layers[0])
-               && std::holds_alternative<VectorLayer>(document.layers[1])
+    expect(std::holds_alternative<StaticBitmapLayer>(document.layers[0])
+               && std::holds_alternative<StaticVectorLayer>(document.layers[1])
                && contentKind(document.layers[0]) == ContentKind::Raster
                && contentKind(document.layers[1]) == ContentKind::Vector,
            "the layer variant must expose bitmap and vector identity directly");
-    expect(findBitmapLayer(document, "layer-raster") != nullptr
-               && findVectorLayer(document, "layer-vector") != nullptr
-               && findVectorLayer(document, "layer-raster") == nullptr,
+    expect(findStaticBitmapLayer(document, "layer-raster") != nullptr
+               && findStaticVectorLayer(document, "layer-vector") != nullptr
+               && findStaticVectorLayer(document, "layer-raster") == nullptr,
            "typed layer lookup must never return a layer of the other content kind");
     const Frame *frameZero = findFrame(document, 0);
     const Frame *frameTwelve = findFrame(document, 12);
@@ -172,7 +172,7 @@ int main()
         RasterAsset{"background", makeRasterLayer(1, 1, 0xff010203U)});
     sparseLookup.assets.emplace_back(
         RasterAsset{"busy", makeRasterLayer(1, 1, 0xff040506U)});
-    sparseLookup.layers.emplace_back(BitmapLayer{
+    sparseLookup.layers.emplace_back(DynamicBitmapLayer{
         {"background-layer", "Background", true, 1.0, {},
          RasterBlendMode::SourceOver},
         KeyframedSource{{0}},
@@ -190,7 +190,7 @@ int main()
                 : std::vector<Keyframe>{{"busy-layer", "busy"}},
         });
     }
-    sparseLookup.layers.emplace_back(BitmapLayer{
+    sparseLookup.layers.emplace_back(DynamicBitmapLayer{
         {"busy-layer", "Busy", true, 1.0, {}, RasterBlendMode::SourceOver},
         KeyframedSource{std::move(busyFrames)},
     });

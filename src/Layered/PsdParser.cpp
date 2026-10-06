@@ -420,11 +420,11 @@ Document parse(std::span<const std::uint8_t> bytes, const LayeredDocumentImportO
                     | (std::uint32_t(plane[pixel]) << shift);
             }
         }
-        BitmapLayer layer; layer.properties.id = options.idPrefix + "-layer-" + suffix;
+        StaticBitmapLayer layer; layer.properties.id = options.idPrefix + "-layer-" + suffix;
         layer.properties.name = std::move(record.name); layer.properties.visible = record.visible;
         layer.properties.opacity = double(record.opacity) / 255.0; layer.properties.blendMode = record.blend;
         layer.properties.transform.translationX = record.x; layer.properties.transform.translationY = record.y;
-        layer.source = StaticSource{asset.id};
+        layer.content = StaticSource{asset.id};
         document.layers[destination] = std::move(layer); document.assets[destination] = std::move(asset);
     }
     return document;

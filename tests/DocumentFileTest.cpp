@@ -37,9 +37,9 @@ Document makeDocument()
     document.timeline.frameCount = 48;
     document.assets.emplace_back(RasterAsset{"paint", makeRasterLayer(64, 64)});
     document.assets.emplace_back(VectorAsset{"vector", {64, 64}, {}});
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(StaticBitmapLayer{
         {"paint-layer", "Paint"}, StaticSource{"paint"}});
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(StaticVectorLayer{
         {"vector-layer", "Vector"}, StaticSource{"vector"}});
     return document;
 }
@@ -250,7 +250,7 @@ void testChunkedAndAdapters(const std::string &path)
     document.canvasMode = CanvasMode::Infinite;
     document.infiniteCanvas = {{-32, -32}, 32};
     document.assets.emplace_back(ChunkedRasterAsset{"chunks", {}});
-    document.layers.emplace_back(BitmapLayer{{"chunk-layer", "Chunks"}, StaticSource{"chunks"}});
+    document.layers.emplace_back(StaticBitmapLayer{{"chunk-layer", "Chunks"}, StaticSource{"chunks"}});
     DocumentFile file;
     const auto created = file.create(path, document);
     expect(created.ok(), "an infinite-canvas file must be creatable: " + created.message);

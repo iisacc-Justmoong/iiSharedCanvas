@@ -70,11 +70,11 @@ iiSharedCanvas::Document mixedDocument()
     document.assets.emplace_back(RasterAsset{"background-0", makeRasterLayer(4, 4, 0xff102030U)});
     document.assets.emplace_back(RasterAsset{"background-1", makeRasterLayer(4, 4, 0xff304050U)});
     document.assets.emplace_back(filledRectangle("vector", 4, 4, 0xffffcc00U));
-    document.layers.emplace_back(BitmapLayer{
+    document.layers.emplace_back(DynamicBitmapLayer{
         {"background", "Background", true, 1.0, {}, RasterBlendMode::SourceOver},
         KeyframedSource{{0, 1}},
     });
-    document.layers.emplace_back(VectorLayer{
+    document.layers.emplace_back(StaticVectorLayer{
         {"vector", "Vector", true, 1.0, {}, RasterBlendMode::SourceOver,
          LayerFrameRange{0, 0}},
         StaticSource{"vector"},
@@ -94,8 +94,50 @@ int main(int argc, char **argv)
         qputenv("QT_QPA_PLATFORM", "offscreen");
     }
     QGuiApplication application(argc, argv);
+    {
+        QQuickWindow host;
+        auto *retiring = new iiSharedCanvas::CanvasItem(host.contentItem());
+        int backendChanges = 0;
+        QObject::connect(retiring, &iiSharedCanvas::CanvasItem::graphicsBackendChanged,
+                         &host, [&] { ++backendChanges; });
+        delete retiring;
+        expect(backendChanges == 0,
+               "base-item teardown must not call the destroyed canvas window tracker");
+    }
 
     using namespace iiSharedCanvas;
+
+    {
+        Document frames;
+        frames.extent = {8, 4}; frames.timeline.frameCount = 3;
+        DocumentEditor editor(frames);
+        expect(editor.insertRasterAsset("frame-bitmap-0", makeRasterLayer(4, 4, 0xff102030U)).ok(), "dynamic adapter bitmap seed");
+        auto seed = filledRectangle("frame-vector-0", 4, 4, 0xff00ff00U);
+        expect(editor.insertVectorAsset(seed.id, seed.viewport, seed.paths).ok(), "dynamic adapter vector seed");
+        expect(editor.insertDynamicLayer({"bitmap"}, LayerRepresentation::Bitmap, {{0,"frame-bitmap-0"}}).ok(), "dynamic adapter bitmap layer");
+        LayerProperties p; p.id = "vector"; p.transform.translationX = 4;
+        expect(editor.insertDynamicLayer(p, LayerRepresentation::Vector, {{0,"frame-vector-0"}}).ok(), "dynamic adapter vector layer");
+        const std::uint32_t bitmapColors[] = {0xff102030U, 0xff304050U, 0xff506070U};
+        const std::uint32_t vectorColors[] = {0xff00ff00U, 0xffff0000U, 0xff0000ffU};
+        for (FrameIndex frame = 1; frame < 3; ++frame) {
+            expect(editor.setDynamicFrameContent("bitmap", frame,
+                RasterAsset{"frame-bitmap-" + std::to_string(frame), makeRasterLayer(4,4,bitmapColors[frame])}).changed,
+                "author independent adapter bitmap frames");
+            auto geometry = filledRectangle("frame-vector-" + std::to_string(frame),4,4,vectorColors[frame]);
+            expect(editor.setDynamicFrameContent("vector",frame,std::move(geometry)).changed,
+                "author independent adapter vector frames");
+        }
+        CanvasItem view;
+        expect(view.bind(frames), "CanvasItem binds independently authored dynamic content");
+        for (const FrameIndex frame : {0U, 2U, 1U, 0U, 2U}) {
+            view.setFrame(frame);
+            const auto image = render(view,8,4);
+            expect(image.pixel(0,0) == bitmapColors[frame] && image.pixel(5,1) == vectorColors[frame],
+                "CanvasItem refreshes both bitmap and vector content when scrubbing in either direction");
+            expect(view.framePixels() && view.framePixels()->pixels == renderFrame(frames,frame).pixels.pixels,
+                "CanvasItem's complete cached frame agrees with native per-frame content");
+        }
+    }
 
     expect(registerIiSharedCanvasQmlTypes() >= 0,
            "iiSharedCanvas QML types must register once");
@@ -124,6 +166,33 @@ int main(int argc, char **argv)
     }
 
     Document document = mixedDocument();
+    {
+        Document artboards;
+        artboards.extent = {2, 2};
+        artboards.artboards = {{"left", "Left", {{-2,0},{2,2}},0xffff0000U},
+                               {"right", "Right", {{3,0},{3,2}},0xff0000ffU}};
+        artboards.assets.emplace_back(RasterAsset{"paint", makeRasterLayer(1,1,0xff00ff00U)});
+        LayerProperties p; p.id = "paint-layer"; p.artboardId = "right";
+        artboards.layers.emplace_back(StaticBitmapLayer{p, StaticSource{"paint"}});
+        CanvasItem view;
+        expect(view.bind(artboards) && view.canvasWidth() == 8 && view.canvasOriginX() == -2,
+               "CanvasItem must expose the complete artboard workspace");
+        auto image = render(view,8,2);
+        expect(view.framePixels() && view.framePixels()->width == 8,
+               "complete cached frame access must use artboard workspace dimensions");
+        expect(image.pixel(0,0) == 0xffff0000U && image.pixel(2,0) == 0
+            && image.pixel(5,0) == 0xff00ff00U && image.pixel(6,0) == 0xff0000ffU,
+            "CanvasItem must display grouped artboard backgrounds and local layers");
+        view.setBrushColor(QColor::fromRgba(0xffff00ffU));
+        view.setBrushSize(1.0); view.setBrushHardness(1.0);
+        expect(view.selectLayer(QStringLiteral("paint-layer"))
+            && view.beginStrokeAt({3,0}) && view.endStrokeAt({3,0}),
+            "CanvasItem editing must map workspace positions into artboard-local asset pixels");
+        image = render(view,8,2);
+        expect(image.pixel(5,0) == 0xffff00ffU,
+               "artboard-local pixel edits must refresh composed presentation");
+        image.save(QString::fromUtf8(IISHAREDCANVAS_TEST_OUTPUT_DIR) + QStringLiteral("/artboard-adapter.png"));
+    }
     CanvasItem item;
     expect(item.bind(document), "CanvasItem must bind a valid caller-owned document");
     expect(item.documentReady() && item.canvasWidth() == 4 && item.canvasHeight() == 4,
@@ -200,12 +269,45 @@ int main(int argc, char **argv)
     expect(item.frame() == 1 && !item.lastError().isEmpty(),
            "an out-of-range QML frame assignment must fail closed without changing frame");
 
+    expect(item.smoothRendering(), "canvas presentation defaults to smooth sampling");
+    const auto revisionBeforeSampling = item.revision();
+    item.setSmoothRendering(false);
+    expect(item.revision() == revisionBeforeSampling, "sampling policy must not dirty the document");
     item.setZoom(2.0);
     item.setPanX(0.0);
     item.setPanY(0.0);
     output = render(item, 8, 8);
     expect(output.pixel(0, 0) == output.pixel(1, 1),
            "mixed document zoom must preserve nearest-neighbor pixel presentation");
+
+    {
+        Document detail;
+        detail.extent = {64, 64};
+        auto checker = makeRasterLayer(64, 64);
+        for (int y = 0; y < 64; ++y) for (int x = 0; x < 64; ++x)
+            checker.pixels[y * 64 + x] = (x + y) % 2 ? 0xffffffffU : 0xff000000U;
+        detail.assets.emplace_back(RasterAsset{"detail", checker});
+        detail.layers.emplace_back(StaticBitmapLayer{{"detail-layer", "Detail"}, StaticSource{"detail"}});
+        CanvasItem preview;
+        expect(preview.bind(detail), "detailed raster must bind");
+        preview.setZoom(0.25);
+        const auto reduced = render(preview, 16, 16);
+        expect(reduced.pixel(8, 8) == 0xff808080U, "canvas paint must display the area-filtered raster emission");
+        preview.setZoom(0.45);
+        expect(preview.renderLevelOfDetail() == 2, "LOD must not round down physical texture resolution");
+        preview.setZoom(0.8);
+        expect(preview.renderLevelOfDetail() == 1, "non-integer fit zoom retains sufficient detail");
+        QQuickWindow target;
+        preview.setParentItem(target.contentItem());
+        expect(preview.renderDevicePixelRatio() == target.effectiveDevicePixelRatio(), "mounted canvas must use the window's physical pixel ratio");
+        preview.setZoom(0.45);
+        expect(preview.renderLevelOfDetail() * preview.zoom() * preview.renderDevicePixelRatio()
+                   <= std::max(qreal{1.0}, preview.zoom() * preview.renderDevicePixelRatio()),
+               "display tile samples must meet physical display resolution");
+        preview.setParentItem(nullptr);
+        expect(std::get<RasterAsset>(detail.assets.front()).pixels.pixels == checker.pixels,
+               "display filtering never resamples stored raster pixels");
+    }
 
     CanvasItem owned;
     expect(owned.createDocument(3, 2, 3),
@@ -299,7 +401,7 @@ int main(int argc, char **argv)
     transformedDocument.timeline = {{24, 1}, 1};
     transformedDocument.assets.emplace_back(
         RasterAsset{"paint", makeRasterLayer(1, 1, 0x00000000U)});
-    Layer transformedLayer = BitmapLayer{
+    Layer transformedLayer = StaticBitmapLayer{
         {"paint-layer", "Paint", true, 1.0, {}, RasterBlendMode::SourceOver},
         StaticSource{"paint"},
     };

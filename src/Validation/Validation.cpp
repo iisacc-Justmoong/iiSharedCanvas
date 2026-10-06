@@ -287,6 +287,21 @@ ValidationResult validate(const Document &document)
         addIssue(result, ValidationCode::InvalidTimeline, "timeline",
                  "frame rate and frame count must be non-zero");
     }
+    std::unordered_set<std::string> artboardIds;
+    for (std::size_t index = 0; index < document.artboards.size(); ++index) {
+        const auto &a = document.artboards[index];
+        const auto path = "artboards[" + std::to_string(index) + "]";
+        if (document.formatVersion.minor < 18)
+            addIssue(result, ValidationCode::UnsupportedFormatVersion, path, "artboards require format 1.18");
+        if (a.id.empty() || a.region.extent.width <= 0 || a.region.extent.height <= 0
+            || std::int64_t(a.region.origin.x) + a.region.extent.width > std::numeric_limits<std::int32_t>::max()
+            || std::int64_t(a.region.origin.y) + a.region.extent.height > std::numeric_limits<std::int32_t>::max())
+            addIssue(result, ValidationCode::InvalidArtboard, path, "artboards require a stable id and positive bounded geometry");
+        if (!artboardIds.insert(a.id).second)
+            addIssue(result, ValidationCode::DuplicateArtboardId, path + ".id", "artboard ids must be unique");
+    }
+    if (!document.artboards.empty() && documentViewRegion(document).extent.width <= 0)
+        addIssue(result, ValidationCode::InvalidArtboard, "artboards", "combined canvas view exceeds signed 32-bit geometry");
     if (document.stableDiffusionMetadata) {
         if (document.formatVersion.minor < 2) {
             addIssue(result,
@@ -436,9 +451,14 @@ ValidationResult validate(const Document &document)
     for (std::size_t index = 0; index < document.layers.size(); ++index) {
         const Layer &layer = document.layers[index];
         const LayerProperties &properties = layerProperties(layer);
-        const LayerSource &sourceValue = layerSource(layer);
         const ContentKind requiredKind = contentKind(layer);
         const std::string layerPath = "layers[" + std::to_string(index) + "]";
+        if (properties.artboardId) {
+            if (document.formatVersion.minor < 18)
+                addIssue(result, ValidationCode::UnsupportedFormatVersion, layerPath + ".artboardId", "artboard membership requires format 1.18");
+            if (!artboardIds.contains(*properties.artboardId))
+                addIssue(result, ValidationCode::MissingArtboard, layerPath + ".artboardId", "layer must reference an existing artboard");
+        }
         bool hasUniqueLayerId = false;
         if (properties.id.empty()) {
             addIssue(result, ValidationCode::InvalidLayer, layerPath + ".id",
@@ -570,7 +590,7 @@ ValidationResult validate(const Document &document)
         }
         validateMotion(document, properties, layerPath + ".properties", result);
         if (const auto *video = std::get_if<VideoLayer>(&layer)) {
-            const auto *source = std::get_if<StaticSource>(&sourceValue);
+            const auto *source = staticLayerSource(layer);
             const auto *asset = source ? findVideoAsset(document, source->assetId) : nullptr;
             const auto &playback = video->playback;
             if (document.formatVersion.minor < 6 || !source
@@ -582,15 +602,15 @@ ValidationResult validate(const Document &document)
             }
         }
 
-        if (const auto *source = std::get_if<StaticSource>(&sourceValue)) {
+        if (const auto *source = staticLayerSource(layer)) {
             validateAssetReference(assetsById, source->assetId,
                                    layerPath + ".source.assetId", result, &requiredKind);
             continue;
         }
 
-        const auto &source = std::get<KeyframedSource>(sourceValue);
+        const auto &source = *keyframedLayerSource(layer);
         if (hasUniqueLayerId) {
-            keyframedSources.emplace(properties.id, &source);
+            keyframedSources.emplace(properties.id, keyframedLayerSource(layer));
         }
         if (source.frameIndices.empty()) {
             addIssue(result, ValidationCode::InvalidKeyframes,
@@ -724,8 +744,7 @@ ValidationResult validate(const Document &document)
                          "a frame-owned keyframe must reference an existing layer");
                 continue;
             }
-            if (!std::holds_alternative<KeyframedSource>(
-                    layerSource(*owner->second))) {
+            if (!(keyframedLayerSource(*owner->second) != nullptr)) {
                 addIssue(result, ValidationCode::InvalidKeyframes,
                          keyframePath + ".layerId",
                          "a frame-owned keyframe may reference only a keyframed layer");

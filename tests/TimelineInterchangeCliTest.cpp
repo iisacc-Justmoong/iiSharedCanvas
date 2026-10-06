@@ -72,10 +72,10 @@ Document document(std::uint32_t color = 0xff112233U, bool withVector = true)
     result.timeline.frameCount = 6;
     result.assets.emplace_back(RasterAsset{"first", makeRasterLayer(3, 2, color)});
     result.assets.emplace_back(RasterAsset{"later", makeRasterLayer(3, 2, 0xff445566U)});
-    BitmapLayer bitmap;
+    DynamicBitmapLayer bitmap;
     bitmap.properties.id = "bitmap";
     bitmap.properties.name = "Bitmap <one> & two";
-    bitmap.source = KeyframedSource{{0, 3}};
+    bitmap.content = KeyframedSource{{0, 3}};
     result.layers.emplace_back(bitmap);
     result.frames = {{0, {{"bitmap", "first"}}}, {3, {{"bitmap", "later"}}}};
     if (withVector) {
@@ -83,11 +83,11 @@ Document document(std::uint32_t color = 0xff112233U, bool withVector = true)
         path.commands = {MoveTo{{0, 0}}, LineTo{{1, 0}}, LineTo{{1, 2}}, LineTo{{0, 2}}, ClosePath{}};
         path.fill = SolidPaint{0xffff0000U};
         result.assets.emplace_back(VectorAsset{"shape", {1, 2}, {path}});
-        VectorLayer vector;
+        StaticVectorLayer vector;
         vector.properties.id = "vector";
         vector.properties.name = "Vector 한글";
         vector.properties.transform.translationX = 1;
-        vector.source = StaticSource{"shape"};
+        vector.content = StaticSource{"shape"};
         result.layers.emplace_back(vector);
     }
     result.audioAssets.push_back({"audio", 48000, 1, std::vector<std::int16_t>(12000, 200)});

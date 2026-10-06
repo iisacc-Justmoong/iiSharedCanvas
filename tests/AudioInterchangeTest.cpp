@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     auto &shiftedClip = document.audioTracks[0].clips[0];
     shiftedClip.sourceOffsetSamples = 8009;
     document.assets.emplace_back(RasterAsset{"picture", makeRasterLayer(1280, 720, 0xff203040)});
-    document.layers.emplace_back(BitmapLayer{{"picture", "Picture"}, StaticSource{"picture"}});
+    document.layers.emplace_back(StaticBitmapLayer{{"picture", "Picture"}, StaticSource{"picture"}});
     const auto shiftedDirectory = temp.filePath("shifted");
     const auto shifted = exportTimelineInterchange(document, shiftedDirectory.toStdString());
     check(shifted.ok(), "mixed NTSC timeline with subframe source trim: " + shifted.message);

@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     document.timeline = {{30000, 1001}, 4};
     document.assets.emplace_back(RasterAsset{"red", makeRasterLayer(32, 24, 0xffff0000U)});
     document.assets.emplace_back(RasterAsset{"blue", makeRasterLayer(32, 24, 0xff0000ffU)});
-    document.layers.emplace_back(BitmapLayer{{"video", "Video"}, KeyframedSource{{0, 2}}});
+    document.layers.emplace_back(DynamicBitmapLayer{{"video", "Video"}, KeyframedSource{{0, 2}}});
     document.frames = {{0, {{"video", "red"}}}, {2, {{"video", "blue"}}}};
     const auto losslessPath = directory.filePath("lossless with spaces 한글.mkv").toStdString();
     expect(exportVideo(document, losslessPath).ok(), "lossless video export");
@@ -82,6 +82,23 @@ int main(int argc, char **argv)
         for (FrameIndex frame = 0; frame < 4; ++frame) {
             expect(renderFrame(decoded.document, frame).pixels.pixels == renderFrame(document, frame).pixels.pixels,
                    "lossless video frame ordering, hold sampling and pixels");
+        }
+    }
+    auto boards = document;
+    boards.artboards = {{"left", "Left", {{-32, 0}, {32, 24}}, 0xffffffffU},
+                       {"right", "Right", {{8, 0}, {40, 24}}, 0xff00ff00U}};
+    layerProperties(boards.layers[0]).artboardId = "left";
+    const auto boardsPath = directory.filePath("artboards.mkv").toStdString();
+    expect(exportVideo(boards, boardsPath).ok(), "export multi-artboard workspace through the real encoder");
+    const auto boardsProbe = probeVideo(boardsPath);
+    expect(boardsProbe.ok() && boardsProbe.info.extent == CanvasExtent{80, 24},
+           "video dimensions use the complete artboard workspace, including negative origins");
+    const auto boardsDecoded = importVideo(boardsPath);
+    expect(boardsDecoded.ok(), "decode multi-artboard workspace video");
+    if (boardsDecoded.ok()) {
+        for (FrameIndex frame = 0; frame < boards.timeline.frameCount; ++frame) {
+            expect(renderFrame(boardsDecoded.document, frame).pixels.pixels == renderFrame(boards, frame).pixels.pixels,
+                   "lossless artboard video preserves backgrounds, transparent gaps and animated owned artwork");
         }
     }
     const auto audioPath = directory.filePath("with-audio.mkv");

@@ -182,8 +182,8 @@ void testSuccessfulConversion(const QString &directory)
         expect(layerProperties(document->layers[0]).id == prefix + "-layer-0"
                    && layerProperties(document->layers[1]).id == prefix + "-layer-1",
                "CLI forwards the exact Unicode ID prefix");
-        const auto *bottom = findRasterAsset(*document, std::get<StaticSource>(layerSource(document->layers[0])).assetId);
-        const auto *top = findRasterAsset(*document, std::get<StaticSource>(layerSource(document->layers[1])).assetId);
+        const auto *bottom = findRasterAsset(*document, staticLayerSource(document->layers[0])->assetId);
+        const auto *top = findRasterAsset(*document, staticLayerSource(document->layers[1])->assetId);
         expect(bottom && top && bottom->pixels.pixels == std::vector<std::uint32_t>{0xff112233U}
                    && top->pixels.pixels == std::vector<std::uint32_t>{0x80aabbccU}
                    && layerProperties(document->layers[1]).transform.translationX == 1,

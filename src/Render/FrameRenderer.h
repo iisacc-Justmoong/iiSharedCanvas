@@ -16,6 +16,7 @@ enum class FrameRenderStatus {
     InvalidRegion,
     AssetResolutionFailed,
     LayerOutOfRange,
+    ArtboardNotFound,
 };
 
 struct FrameRenderResult {
@@ -30,9 +31,13 @@ struct FrameRenderResult {
     }
 };
 
+// Presentation policy, never persisted in the document or applied to source assets.
+enum class RasterSampling { Nearest, Smooth };
+
 struct FrameRenderTileRequest {
     CanvasRegion region;
     CanvasExtent outputExtent;
+    RasterSampling sampling = RasterSampling::Nearest;
 };
 
 struct FrameRenderTile {
@@ -62,6 +67,7 @@ struct FrameLayerTileRenderResult {
     std::string message;
     LayerRole role = LayerRole::Artwork;
     bool spatial = true; // False for embedding data: no raster preview tiles exist.
+    std::optional<std::string> artboardId;
 
     [[nodiscard]] bool ok() const noexcept
     {
@@ -74,6 +80,7 @@ struct FrameLayerBatchRenderResult {
     std::vector<FrameLayerTileRenderResult> layers;
     FrameRenderStatus status = FrameRenderStatus::Success;
     std::string message;
+    std::vector<Artboard> artboards; // Detached composition metadata, in document order.
 
     [[nodiscard]] bool ok() const noexcept
     {
@@ -83,11 +90,23 @@ struct FrameLayerBatchRenderResult {
 
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrame(const Document &document,
                                                      FrameIndex frame);
+// Only this artboard's background and owned artwork; loose/other artwork is excluded.
+IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboard(
+    const Document &document, FrameIndex frame, const std::string &artboardId);
+IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboard(
+    const Document &document, FrameIndex frame, const std::string &artboardId,
+    CanvasExtent outputExtent, RasterSampling sampling = RasterSampling::Nearest);
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
     const Document &document,
     FrameIndex frame,
     CanvasRegion region,
     CanvasExtent outputExtent);
+IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
+    const Document &document,
+    FrameIndex frame,
+    CanvasRegion region,
+    CanvasExtent outputExtent,
+    RasterSampling sampling);
 IISHAREDCANVAS_EXPORT FrameTileRenderResult renderFrameTiles(
     const Document &document,
     FrameIndex frame,

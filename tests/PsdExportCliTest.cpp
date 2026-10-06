@@ -68,21 +68,21 @@ Document document(std::uint32_t background = 0xff0000ffU, bool withVector = true
     Document result;
     result.extent = {3, 2};
     result.assets.emplace_back(RasterAsset{"background", makeRasterLayer(3, 2, background)});
-    BitmapLayer bitmap;
+    StaticBitmapLayer bitmap;
     bitmap.properties.id = "background-layer";
     bitmap.properties.name = "Background";
-    bitmap.source = StaticSource{"background"};
+    bitmap.content = StaticSource{"background"};
     result.layers.emplace_back(bitmap);
     if (withVector) {
         VectorPath path;
         path.commands = {MoveTo{{0, 0}}, LineTo{{1, 0}}, LineTo{{1, 2}}, LineTo{{0, 2}}, ClosePath{}};
         path.fill = SolidPaint{0xffff0000U};
         result.assets.emplace_back(VectorAsset{"shape", {1, 2}, {path}});
-        VectorLayer vector;
+        StaticVectorLayer vector;
         vector.properties.id = "shape-layer";
         vector.properties.name = "Vector 한글";
         vector.properties.transform.translationX = 1;
-        vector.source = StaticSource{"shape"};
+        vector.content = StaticSource{"shape"};
         result.layers.emplace_back(vector);
     }
     return result;
@@ -142,7 +142,7 @@ void expectPsd(const QString &path, const Document &source)
     }
     expect(merged == expected.pixels, "independent PSD merged preview matches native frame-zero pixels");
     const bool hasVector = std::any_of(source.layers.begin(), source.layers.end(), [](const Layer &layer) {
-        return std::holds_alternative<VectorLayer>(layer);
+        return std::holds_alternative<StaticVectorLayer>(layer);
     });
     if (hasVector) {
         expect(bytes.contains("%PDF-") && (bytes.contains("8BIMSoLd") || bytes.contains("8BIMSoLE")),
@@ -213,7 +213,7 @@ void success(const QString &directory)
     auto animated = document(0xff112233U, false);
     animated.timeline.frameCount = 2;
     animated.assets.emplace_back(RasterAsset{"later", makeRasterLayer(3, 2, 0xff445566U)});
-    layerSource(animated.layers[0]) = KeyframedSource{{0, 1}};
+    setLayerSource(animated.layers[0], KeyframedSource{{0, 1}});
     animated.frames = {{0, {{"background-layer", "background"}}}, {1, {{"background-layer", "later"}}}};
     snapshot(QDir(directory).filePath("animated.iisc"), animated);
     result = run({"animated.iisc", "frame-zero.psd"}, directory);

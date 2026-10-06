@@ -1,13 +1,12 @@
-# Write-through document files
+<a id="write-through-document-files"></a>
 
-## Authoring contract
+# 쓰기 문서 파일
 
-`File/DocumentFile.h` owns a canvas's working file and committed `Document`.
-Create or open the file once, then bind any of `DocumentEditor`, `VectorEditor`,
-`BitmapEditor`, `ChunkedBitmapEditor`, `BitmapItem`, or `CanvasItem` to that
-`DocumentFile`. Every accepted content mutation commits to the file before the
-editing call returns. There is no save method, debounce timer, dirty-document
-queue, full-document file replacement, or close-time dump.
+<a id="authoring-contract"></a>
+
+## 작성 계약
+
+`File/DocumentFile.h`는 캔버스 작업 파일을 소유하고 `Document`를 커밋합니다. 파일을 한 번 생성하거나 연 다음, `DocumentEditor`, `VectorEditor`, `BitmapEditor`, `ChunkedBitmapEditor`, `BitmapItem` 또는 `CanvasItem` 중 어느 것이든 해당 `DocumentFile`에 바인딩하십시오. 모든 허용된 콘텐츠 변이는 편집 호출이 반환되기 전에 파일에 커밋됩니다. 저장 방법, 디바운스 타이머, 더티 문서 대기열, 전체 문서 파일 교체, 혹은 종료 시간 덤프가 없습니다.
 
 ```cpp
 iiSharedCanvas::DocumentFile file;
@@ -20,249 +19,125 @@ iiSharedCanvas::DocumentEditor structure(file);
 auto renamed = structure.setLayerName("paint-layer", "Foreground");
 iiSharedCanvas::BitmapEditor bitmap(file, "paint");
 if (!renamed.ok() || !bitmap.setPixel(10, 20, 0xff336699U)) {
-    // Report the operation's error; the previous committed state is retained.
+    // 작업 오류를 보고한다. 이전에 커밋된 상태는 유지된다.
     return;
 }
-// A second process can now open the file and observe both edits.
-// No save(), flush(), close(), or destructor is necessary to commit them.
+// 이제 두 번째 프로세스가 파일을 열어 두 편집을 모두 확인할 수 있다.
+// 이를 커밋하기 위해 save(), flush(), close() 또는 소멸자가 필요하지 않다.
 ```
 
-Brush begin/continue/end calls persist the pixels produced by that call,
-including while the gesture is still active. A gesture remains one in-memory
-undo step. Cancellation, undo, redo, patches, clears, raster replacements,
-vector changes, metadata edits, layer ranges, frame-owned keys, and audio
-assets/tracks/clips all use the
-same transaction boundary. Only pixels and native model fields are stored,
-never brush input, transient dab streams, or undo/redo history.
+브러시 시작/계속/종결 호출은 해당 호출이 생성한 픽셀을 지속하며, 제스처가 아직 활성 상태일 때도 포함합니다. 제스처는 하나의 메모리 내 실행 취소 단계만 남습니다. 취소, 실행 취소, 재시도, 패치, 초기화, 래스터 교체, 벡터 변경, 메타데이터 편집, 레이어 범위, 프레임 소유 키 및 오디오 자산/트랙/클립은 모두 동일한 트랜잭션 경계를 사용합니다. 픽셀 및 네이티브 모델 필드만 저장되며, 브러시 입력, 일시적인 dab 스트림, 또는 실행 취소/재시도 기록은 절대 저장되지 않습니다.
 
-For application-defined operations, `file.edit([](Document &draft) { ...;
-return true; })` validates and commits the complete edit atomically. This is an
-editing operation, not a later request to save accumulated changes. A false
-return, exception, validation error, stale writer, or failed disk transaction
-rejects the draft. Nested file edits are rejected; `close()` during a callback
-does not invalidate the active transaction. The draft and references into it
-must not escape the callback. Local editors may be used inside the callback.
+사용자 정의 작업에 대해 `file.edit([](Document &draft) { ...; return true; })` 는 전체 편집을 원자적으로 유효성 검사하고 커밋합니다. 이는 편집 작업이며, 누적된 변경 사항에 대한 후속 저장 요청이 아닙니다. 거짓 반환, 예외, 유효성 검사 오류, 오래된 작성자, 또는 실패한 디스크 트랜잭션은 초안을 거부합니다. 중첩 파일 편집은 거부되며, 콜백 중 `close()` 는 활성 트랜잭션을 무효화하지 않습니다. 초안과 그 안의 참조는 콜백에서 벗어날 수 없습니다. 로컬 편집기는 콜백 내부에서 사용될 수 있습니다.
 
-`document()` exposes only a const committed view. An editor or canvas bound to
-a file returns null from its legacy **mutable** `document()` overload; use its
-const overload or `file.document()` for inspection. This prevents supported
-application code from mutating the live aggregate outside the write-through
-boundary. Standalone `Document` aggregates and `bind(Document &)` remain
-explicitly in-memory APIs for import, tests, temporary canvases, and detached
-render snapshots; raw C++ field assignments cannot be intercepted. They must
-not be used as the application's persistent authoring owner.
-References into the committed document may be invalidated by any successful
-content edit; retain stable ids, not pointers into asset/layer collections.
+`document()` 는 const 커밋된 뷰만 노출합니다. 파일과 연결된 편집기 또는 캔버스는 기존 **mutable** `document()` 오버로드로 null 을 반환하며, 검사에는 const 오버로더 또는 `file.document()` 를 사용해야 합니다. 이는 지원되는 애플리케이션 코드가 쓰기 통과 경계를 바깥에서 라이브 집합을 변경하는 것을 방지합니다. 독립형 `Document` 집합과 `bind(Document &)` 는 명시적으로 메모리 내 API 로 남아 있으며, 가져오기, 테스트, 임시 캔버스, 및 분리된 렌더링 스냅샷에 사용됩니다; 원시 C++ 필드 할당은 가로챌 수 없습니다. 그들은 애플리케이션의 영구 저작자 소유자로서 사용되어서는 안 됩니다. 커밋된 문서로의 참조는 성공적인 콘텐츠 편집에 의해 무효화될 수 있으므로, 포인터 대신 안정적인 id 를 유지해야 합니다.
 
-## Qt Quick adoption
+<a id="qt-quick-adoption"></a>
 
-`CanvasItem::createFile(path, width, height, frameCount)` creates and selects one
-transparent raster layer in a working file. `openFile(path)` opens an existing
-working file; selection is explicit after opening. `filePath` identifies the
-active working file. `bind(DocumentFile &)` supports caller-owned files with
-arbitrary valid raster/vector/infinite-canvas documents. `BitmapItem` accepts
-the same binding plus a raster asset id. Existing pathless `createDocument`,
-`createRasterDocument`, `createInfiniteRasterDocument`, and `createBitmap`
-construct transient in-memory content, not unnamed persistent documents.
+## Qt 빠른 채택
 
-The application chooses the working path before authoring (for example, its
-document catalog allocates one for a new canvas). No file picker or manual
-save is required by the library. An externally edited file owner may need a
-canvas `refresh()` for display invalidation; persistence has already completed
-and never depends on refresh, render completion, or pointer release.
+`CanvasItem::createFile(path, width, height, frameCount)` 는 작업 파일에서 하나의 투명 래스터 레이어를 생성하고 선택합니다. `openFile(path)` 는 기존 작업 파일을 엽니다; 열기 후 선택은 명시적입니다. `filePath` 는 활성 작업 파일을 식별합니다. `bind(DocumentFile &)` 는 임의의 유효한 래스터 /vector/infinite-canvas 문서를 호출자 소유 파일로 지원합니다. `BitmapItem` 는 동일한 바인딩과 래스터 자산 id 를 받습니다. 경로가 없는 `createDocument`, `createRasterDocument`, `createInfiniteRasterDocument`, 및 `createBitmap` 는 이름이 없는 영구 문서가 아닌 일시적인 메모리 내 콘텐츠를 구성합니다.
 
-The file must outlive its bound editors/items. Close/reopen invalidates prior
-editor bindings even if the new document has identical asset ids. All editing
-is on one owning thread; Qt items stay on the GUI thread. Worker renderers use
-detached immutable snapshots, never a writable file connection.
+애플리케이션은 저작하기 전에 작업 경로를 선택합니다(예를 들어, 문서 카탈로그는 새로운 캔버스에 하나를 할당합니다). 라이브러리에서는 파일 선택기나 수동 저장이 필요하지 않습니다. 외부에서 편집한 파일 소유자는 디스플레이 무효화를 위해 캔버스 `refresh()`가 필요할 수 있습니다; 영속성은 이미 완료되었으며 새로 고침, 렌더링 완료 또는 포인터 릴리스에 의존하지 않습니다.
 
-## Transactions and failure
+파일은 바인딩된 편집기/항목을 초과하여 오래 지속되어야 합니다. 새 문서가 동일한 자산 ID를 가지고 있더라도 닫거나 다시 열면 이전 편집자 바인딩이 무효화됩니다. 모든 편집은 하나의 소유 스레드에 있으며, Qt 항목은 GUI 스레드에 그대로 유지됩니다. 워커 렌더러는 분리된 불변 스냅샷을 사용하며, 쓰기 가능한 파일 연결은 절대 사용하지 않습니다.
 
-Working files use SQLite with `journal_mode=DELETE`, `synchronous=EXTRA`, and
-`fullfsync=ON`; the reviewed dependency is documented in `DEPENDENCIES.md`.
-Accepted mutations are in the main file when the call returns, not in a WAL
-awaiting a later checkpoint. SQLite's transient rollback journal may exist
-during a transaction or after an interrupted transaction; do not delete or
-separate it from its file during recovery. Close does not write pending edits.
+<a id="transactions-and-failure"></a>
 
-The persistent file revision advances only after a changed transaction commits.
-No-op operations write no records and do not advance it. Structural editors
-return `DocumentEditCode::PersistenceFailed` on storage failure. Bitmap editors
-return false and provide `lastError()`; their void `cancelStroke()` preserves
-the active gesture and reports `lastError()` if cancellation cannot commit.
-Failed writes preserve document state, editor revisions, dirty bounds, and undo
-history. If a failed commit's disk outcome cannot be established, the file
-detaches and must be reopened instead of exposing memory as confirmed storage.
+## 거래 및 실패
 
-An immediate transaction plus persistent revision and SQLite `data_version`
-checks prevents another open session from overwriting a newer commit. A stale
-session must reopen and rebind. Busy/read-lock failures return promptly and may
-be retried after the lock is released. Filesystem/permission/disk errors are
-never converted to memory-only success. File creation refuses existing paths;
-invalid input is rejected before creating a file.
+작업 파일은 SQLite 와 `journal_mode=DELETE`, `synchronous=EXTRA`, 및 `fullfsync=ON` 를 사용하며, 검토된 의존성은 `DEPENDENCIES.md` 에 문서화됩니다. 허용된 변형은 호출이 반환될 때 주 파일에 있으며, 나중에 체크포인트를 기다리는 WAL 에는 없습니다. SQLite 의 일시적인 롤백 저널은 트랜잭션 중이거나 중단된 트랜잭션 후에 존재할 수 있습니다; 복구 중에는 이를 파일에서 삭제하거나 분리하지 마십시오. Close 는 대기 중인 편집을 기록하지 않습니다.
 
-Durability relies on the filesystem and device honoring synchronization and
-locking. Use a local filesystem; this is not a network collaboration protocol.
-The tests cover competing connections, rollback, fail-closed corruption and
-schema checks, reopening after every editing path, and process termination
-without destructors. They are not hardware power-cut certification.
+영구 파일의 버전은 변경된 트랜잭션이 커밋된 후만 진행됩니다. 무작업 작업은 기록을 작성하지 않으며 진행시키지 않습니다. 구조 편집기는 저장 실패 시 `DocumentEditCode::PersistenceFailed` 를 반환합니다. 비트맵 편집자는 false 를 반환하고 `lastError()` 를 제공합니다; 그들의 빈 `cancelStroke()` 는 활성 제스처를 보존하며 취소가 커밋할 수 없는 경우 `lastError()` 를 보고합니다. 실패한 작성은 문서 상태, 편집자 버전, 더티 범위, 및 되돌리기 이력을 보존합니다. 실패한 커밋의 디스크 결과가 확립되지 않으면 파일이 분리되어 메모리를 확인된 저장소로 노출하는 대신 다시 열어야 합니다.
 
-## Physical working-file format, schema 1
+즉시 트랜잭션과 지속적인 리비전, 그리고 SQLite `data_version` 검사는 다른 열린 세션이 새로운 커밋을 덮어쓰는 것을 방지합니다. 오래된 세션은 다시 열고 다시 바인드해야 합니다. Busy/read-lock 실패는 즉시 다시 발생하며, 잠금이 해제된 후에 다시 시도될 수 있습니다. 파일 시스템/권한/디스크 오류는 절대 메모리 전용 성공으로 변환되지 않습니다. 파일 생성은 기존 경로를 거부합니다; 파일을 생성하기 전에 잘못된 입력이 거부됩니다.
 
-A working `.iisc` file begins with SQLite's `SQLite format 3\0` header, has
-`application_id=0x49495343` and `user_version=1`, and contains exactly these two
-application tables. Schema versions are independent of the canvas model's
-`FormatVersion` (currently 1.6). Unknown identities/versions/schema objects,
-invalid record identities/order, failed checksums, invalid references, and
-configured resource-limit violations fail closed.
+내구성은 파일 시스템과 장치가 동기화와 잠금을 준수하는 것에 의존합니다. 로컬 파일 시스템을 사용하세요; 이는 네트워크 협업 프로토콜이 아닙니다. 테스트는 경쟁 연결, 안전하게 거부하는 손상 및 스키마 확인, 모든 편집 경로 후 재개, 그리고 디스트로이러 없이 프로세스 종료를 포함합니다. 이는 하드웨어 전원 차단 인증이 아닙니다.
 
-`canvas_state` contains one row (`singleton=1`, nonnegative signed-64-bit
-`revision`). `canvas_records` has an internal rowid and columns `kind`, `id`,
-`position`, `data`, and `digest`, unique on `(kind,id)`. Data is a BLOB; digest
-is SHA-256 of that BLOB. Position is the zero-based order within a kind. Record
-ids are bound SQL text values, never SQL syntax or filesystem paths.
+<a id="physical-working-file-format-schema-1"></a>
 
-| Kind | Record | Payload |
+## 물리 작업 파일 형식, 스키마 1
+
+작동 중인 `.iisc` 파일은 SQLite의 `SQLite format 3\0` 헤더로 시작하고, `application_id=0x49495343`와 `user_version=1`를 포함하며, 정확히 이 2 애플리케이션 테이블을 포함합니다. 스키마 버전은 캔버스 모델의 `FormatVersion`(현재 1.6)와 독립적입니다. 알 수 없는 ID/버전/스키마 객체, 잘못된 레코드 ID/순서, 실패한 체크섬, 잘못된 참조 및 구성된 리소스 제한 위반 안전하게 거부한다.
+
+`canvas_state`는 한 행을 포함합니다 ( `singleton=1` , non negative signed-64-bit `revision` ). `canvas_records`는 내부 rowid와 `kind`, `id`, `position`, `data` 및 `digest` 열을 가지고 있으며, 이는 `(kind,id)`에서 고유합니다. 데이터는 BLOB이며, 다이제스트는 해당 BLOB의 SHA-256입니다. 포지션은 0기반 주문이며, 해당 종류 내에 있습니다. 레코드 ID는 SQL 텍스트 값에 바인딩되며, 절대 SQL 구문이나 파일 시스템 경로에 연결되지 않습니다.
+
+|종류|기록|유료 하중|
 | --- | --- | --- |
-| 0 | One header, empty id | Model major/minor as two u16 values, i32 chunk size (also retained while finite), then the snapshot payload prefix through asset count |
-| 1 | One record per asset, asset id | Snapshot asset record, always **raw** little-endian ARGB32 for raster/chunk pixels |
-| 2 | One layer count, empty id | u32 layer count |
-| 3 | One record per layer, layer id | Snapshot layer record, including projected frame-owned keys and optional range |
-| 4 | One metadata trailer, empty id | The version's optional generation metadata payload, empty before model 1.2 |
-| 5 | One audio asset count, empty id, model 1.4+ only | u32 audio asset count |
-| 6 | One record per audio asset, asset id, model 1.4+ only | Snapshot audio asset record, including raw interleaved signed PCM16 |
-| 7 | One audio track count, empty id, model 1.4+ only | u32 audio track count |
-| 8 | One record per audio track, track id, model 1.4+ only | Snapshot audio track record, including clips, trims, mute, enabled state, and gain |
+| 0 |헤더 하나, 빈 ID|모델 메이저/마이너를 2 u16 값으로, i32 청크 크기(유한 상태에서도 유지), 그 다음 스냅샷 페이로드 접두사를 자산 카운트를 통해|
+| 1 |자산당 하나의 레코드, 자산 ID|스냅샷 자산 레코드, 항상 **원시** 리틀 엔디안 ARGB32 for 래스터 /청크 픽셀|
+| 2 |한 층 카운트, 빈 ID|U32 레이어 수|
+| 3 |레이어당 레코드 1개, 레이어 ID|스냅샷 레이어 레코드(투사된 프레임 소유 키 및 선택적 범위 포함)|
+| 4 |메타데이터 트레일러 1개, 빈 ID|버전의 선택적인 생성 메타데이터 페이로드이며 모델 1.2이전에는 비어 있다.|
+| 5 |오디오 자산 수 1개, ID가 비어 있으며, 모델 1.4+만|U32 오디오 자산 수|
+| 6 |오디오 자산당 하나의 레코드, 자산 ID, 모델 1.4+만|스냅샷 오디오 자산 레코드, 원본 인터리브 서명된 PCM16 포함|
+| 7 |오디오 트랙 수 1개, 빈 ID, 모델 1.4+만|U32 오디오 트랙 수|
+| 8 |오디오 트랙당 하나의 레코드, 트랙 ID, 모델 1.4+만|스냅샷 오디오 트랙 레코드(클립, 트림, 음소거, 활성화 상태 및 게인 포함)|
 
-The field encodings follow `FORMAT.md`, except raw raster storage is required
-even where the interchange codec would choose run-length encoding. Stable ids
-separate records from collection positions: reordering does not rewrite pixel
-payloads. Unchanged raster and audio assets are not serialized again. Equal-size changed
-records use incremental BLOB writes for changed spans; a resized record is
-replaced individually. No complete canvas dump is written for an edit.
+필드 인코딩은 `FORMAT.md`를 따르지만, 교환 코덱이 런-길이 인코딩을 선택하는 경우에도 원시 래스터 저장이 필요합니다. Stable ID는 레코드를 컬렉션 위치와 구분합니다: 재정렬은 픽셀 페이로드를 다시 쓰지 않습니다. 변경되지 않은 래스터와 오디오 자산이 다시 직렬화되지 않습니다. 동일한 크기의 변경된 레코드는 변경된 스팬에 대해 증분 BLOB 쓰기를 사용하며, 크기가 조정된 레코드는 개별적으로 교체됩니다. 편집을 위해 완전한 캔버스 덤프가 작성되지 않습니다.
 
-Model 1.4 retains schema 1 because the existing table already supports typed
-records without a restricted kind range. Records 0–4 and their encodings remain
-unchanged. Model 1.0–1.3 working files omit records 5–8 and continue to reopen
-without audio. A model 1.4 file requires both audio count records, even when
-empty. Earlier readers reject the newer model/kinds and cannot silently discard
-audio. Audio PCM has its own record, so clip timing, source trim, track mute and
-gain edits never rewrite the associated audio payload. A changed PCM16 scalar
-sample writes at most two logical payload bytes through the same BLOB patcher.
+모델 1.4 은 기존 테이블이 제한된 종 범위 없이 타입화된 레코드를 이미 지원하므로 스키마 1 를 유지합니다. 레코드 0 – 4 와 그 인코딩은 변경되지 않습니다. 모델 1.0 – 1.3 작업 파일은 레코드 5 – 8 를 생략하고 오디오 없이 계속 재개합니다. 모델 1.4 파일은 비어있더라도 오디오 개수 레코드가 모두 필요합니다. 이전 리더는 새 모델/종류를 거부하며 오디오를 아무런 알림 없이 삭제할 수 없습니다. 오디오 PCM 는 자체 레코드를 가지므로 클립 타이밍, 소스 트리밍, 트랙 뮤트 및 게인 편집은 관련 오디오 페이로드를 다시 쓰지 않습니다. 변경된 PCM16 스칼라 샘플은 동일한 BLOB 패처를 통해 최대 2 논리적 페이로드 바이트를 씁니다.
 
-`lastWriteStatistics()` reports logical record/payload writes for the last
-operation, excluding SQLite pages, hashes, indices, and journal overhead. A
-single changed pixel can write at most four payload bytes; this is not a claim
-about physical disk I/O. Authoring transactions currently copy a document draft
-in memory for rollback; undo snapshots are immutable/shared across transaction
-copies. Large-document latency and cross-device sync costs require profiling.
+`lastWriteStatistics()`는 마지막 작업에 대한 논리적 레코드/페이로드 쓰기를 보고하며, SQLite 페이지, 해시, 인덱스 및 저널 오버헤드를 제외합니다. 단일 변경 픽셀은 최대 4 페이로드 바이트까지 기록할 수 있으며, 이는 물리 디스크 I/O에 관한 주장이 아닙니다. 현재 트랜잭션 작성은 롤백을 위해 메모리에서 문서 초안을 복사하고, 실행 취소 스냅샷은 트랜잭션 복사본 간에 불변/공유됩니다. 대용량 문서 지연 및 기기 간 동기화 비용은 프로파일링이 필요합니다.
 
-## Legacy interchange
+<a id="legacy-interchange"></a>
 
-`encodeIisc` / `decodeIisc` retain their canonical version-1.0–1.4 binary
-snapshot contract and fixed golden compatibility tests. They are explicit
-import/export APIs, not the working-file editing path. Detect the header, not
-just the extension. `DocumentFile::open` rejects a legacy snapshot without
-modifying it. To adopt one, decode and validate it, then call `create` with a
-**new** working-file path and that document; preserve the original snapshot.
-To export a snapshot, call `encodeIisc(*file.document())` explicitly.
+## 레거시 인터체인지
 
-`CameraRawData` and the separate `TimelineProject` remain import/adjacent models,
-not fields of the persisted canvas. Native model 1.4 audio belongs to the canvas
-timeline; it does not serialize that separate video-project model or add a RAW
-codec, and it does not edit any downstream application.
+`encodeIisc` / `decodeIisc`는 표준 버전1.0–1.4 바이너리 스냅샷 계약과 고정 기준 호환성 테스트를 유지한다. 이는 명시적인 가져오기/내보내기 API이며 작업 파일 편집 경로가 아니다. 확장자만 보지 말고 헤더를 탐지한다. `DocumentFile::open`은 레거시 스냅샷을 수정하지 않고 거부한다. 이를 채택하려면 디코딩·검증한 후 **새로운** 작업 파일 경로와 해당 문서로 `create`를 호출하고, 원래 스냅샷은 보존한다. 스냅샷 내보내기는 `encodeIisc(*file.document())`를 명시적으로 호출한다.
 
-## Authorship transaction record (1.5)
+`CameraRawData`와 별도의 `TimelineProject`는 영구 캔버스의 필드가 아니라 가져오기/인터치 모델로 남아 있습니다. 네이티브 모델 1.4 오디오는 캔버스 타임라인에 속하며, 해당 비디오 프로젝트 모델을 직렬화하지 않고 RAW 코덱을 추가하지 않으며, 하위 소비 측 애플리케이션도 편집하지 않습니다.
 
-Record kind 9 is a singleton with empty id and position 0. Its payload is the
-1.5 length-prefixed authorship JSON string and it follows audio track records.
-It is required exactly once in 1.5 and newer and forbidden in older models. Schema 1 remains
-unchanged. Editors eagerly refresh the ledger; a raw file edit is stamped by
-`DocumentFile` if it changed content without stamping itself. The record is patched
-in the same transaction as content. Rollback/conflict preserves both live content
-and metadata. No-op edits do not write; selecting the same recorded author only
-updates the runtime editing identity. Read-only decoded snapshots have no active
-author or writable file binding.
+<a id="authorship-transaction-record-15"></a>
+
+## 저작자 거래 기록 ( 1.5 )
+
+레코드 종류 9 는 싱글턴 이며, 빈 id 와 위치 0입니다. 페이로드 는 1.5 길이의 접두어가 있는 저작권 JSON 문자열이며 오디오 트랙 기록을 따릅니다. 1.5 버전 이상에서는 정확히 한 번만 필요하며, 이전 모델에서는 금지됩니다. 스키마 1 는 변경되지 않습니다. 편집자가 열정적으로 장부를 새로 고침합니다; 내용이 변경되어 스스로를 도장하지 않은 경우 `DocumentFile` 로 원본 파일 편집이 도장됩니다. 레코드는 콘텐츠와 같은 트랜잭션에 패치됩니다. 롤백/충돌은 라이브 콘텐츠와 메타데이터를 모두 유지합니다. 동작 없는 편집은 기록을 작성하지 않으며, 동일한 기록된 작성자를 선택하면 런타임 편집 신원만 업데이트됩니다. 읽기 전용 디코딩된 스냅샷에는 활성 작성자나 쓰기 가능한 파일 바인딩이 없습니다.
 
 ## 파일 저장 소유권
 
 0.10.1부터 실제 파일 CRUD, SQLite 연결·트랜잭션·부분 BLOB 기록·백업은 iiFileProvider 0.5에 위임한다. DocumentFile은 캔버스 스키마, 형식 검증, 편집 상태, 충돌 판정을 소유한다. `.iisc` 기존 파일 형식과 즉시 반영 동작은 유지한다. 의존성은 iiSharedCanvas → iiFileProvider이며 역참조는 없다.
 
-## Native video and motion records (1.6)
+<a id="native-video-and-motion-records-16"></a>
 
-Schema 1 stores `VideoAsset` in the existing asset record kind. Its frame data
-uses raw ARGB records so pixel-span updates retain stable offsets when dimensions
-stay equal. Motion keys and video playback metadata are in each layer's 1.6
-record. Unchanged video assets skip payload serialization during property-only
-edits; no external file is needed on reopen. `DocumentEditor` video/motion edits
-use the same synchronous transactions, conflict checks and rollback as other
-content. The new serialization budgets apply to both snapshots and working files.
+## 네이티브 비디오 및 모션 기록 ( 1.6 )
 
-Semantic layers (package 0.13.0) use versioned 1.7 Layer records in the existing
-working schema. Definitions/settings change independently of mask pixels; unchanged
-mask assets remain eligible for record reuse. See SEMANTIC_SEGMENT.md.
+스키마 1 는 기존 자산 레코드 종류에 `VideoAsset` 를 저장합니다. 프레임 데이터는 원시 ARGB 레코드를 사용하므로 차원이 같을 때 픽셀 스파인 업데이트는 안정적인 오프셋을 유지합니다. 운동 키와 비디오 재생 메타데이터는 각 레이어의 1.6 레코드에 있습니다. 변경되지 않은 비디오 자산은 속성만 편집하는 동안 페이로드 직렬화 를 건너뜁니다; 재열 때 외부 파일이 필요하지 않습니다. 비디오/운동 편집 `DocumentEditor` 는 다른 콘텐츠와 동일한 동기 트랜잭션, 충돌 확인 및 롤백을 사용합니다. 새 직렬화 예산은 스냅샷과 작업 파일 모두에 적용됩니다.
 
-Pose assets/layers (0.14.0) use 1.8 records. Anchor and expression edits write the
-changed PoseAsset with normal authorship updates; control-only edits can retain
-unchanged pose records. See POSE.md for dense topology and source sampling.
+시맨틱 레이어(패키지 0.13.0)는 기존 작업 스키마에서 버전별 1.7 레이어 레코드를 사용합니다. 정의/설정은 마스크 픽셀과 무관하게 변경되며, 변경되지 않은 마스크 자산은 기록 재사용이 가능한 상태를 유지합니다. SEMANTIC_SEGMENT .md.를 확인하십시오.
 
-Depth assets/layers (0.15.0) use 1.9 records. Binary64 values survive snapshot
-and working-file round trips without grayscale quantization. Individual sample
-and bulk asset edits write the changed depth asset; control-only edits reuse
-unchanged asset records. SQLite schema remains 1. See DEPTH.md.
+자산/레이어(0.14.0)는 1.8 레코드를 사용합니다. 앵커 및 표현식 편집은 정상적인 저자 업데이트와 함께 변경된 PoseAsset를 기록하며, 컨트롤 전용 편집은 포즈 레코드를 변경하지 않고 유지할 수 있습니다. 조밀한 토폴로지와 소스 샘플링에 대해서는 POSE .md를 참조하십시오.
 
-Line Art assets/layers (0.16.0) use 1.10 records. Native binary64 coverage is
-preserved across snapshots and working files. Sample/bulk edits write changed
-assets; control-only edits reuse unchanged assets. SQLite schema stays 1. See
-LINE_ART.md.
+깊이 자산/레이어(0.15.0)는 1.9 레코드를 사용합니다. 바이너리64 값은 그레이스케일 양자화 없이 스냅샷 및 작업 파일 라운드 트립을 견딜 수 있습니다. 개별 샘플 및 대량 자산 편집은 변경된 깊이 자산을 기록하고, 제어 전용 편집은 변경되지 않은 자산 레코드를 재사용합니다. SQLite 스키마는 1로 유지됩니다. DEPTH .md를 확인하십시오.
 
-Canny/Scribble (0.17.0) use 1.11 records with one byte per binary sample.
-Snapshots and working files preserve exact mask bytes and source kinds. Sample
-edits replace the changed asset record; control-only edits reuse unchanged
-mask records. SQLite schema remains 1. See BINARY_LINE_CONTROL.md.
+라인 아트 자산/레이어(0.16.0)는 1.10 레코드를 사용합니다. 네이티브 바이너리64 커버리지는 스냅샷 및 작업 파일 전반에 걸쳐 유지됩니다. 샘플/벌크 편집은 변경된 자산을 쓰고, 제어 전용 편집은 변경되지 않은 자산을 재사용합니다. SQLite 스키마는 1를 유지합니다. LINE_ART .md를 확인하십시오.
 
-MLSD (0.18.0) uses 1.12 geometry records. Segment coordinates, ids, confidence
-and enabled state survive exact binary64 snapshot and working-file round trips.
-Geometry edits rewrite the changed asset, while control-only edits reuse it.
-SQLite schema stays 1. See MLSD.md.
+Canny/스크리블 ( 0.17.0 )은 바이너리 샘플당 1 바이트의 1.11 레코드를 사용합니다. 스냅샷과 작업 파일은 정확한 마스크 바이트와 소스 종류를 보존합니다. 샘플 편집은 변경된 자산 레코드를 대체하며, 컨트롤만 편집하는 경우 변경되지 않은 마스크 레코드를 재사용합니다. SQLite 스키마는 1로 유지됩니다. BINARY_LINE_CONTROL .md 를 참조하세요.
 
-Normal Map (0.19.0) uses model 1.13 records containing binary64 XYZ unit normals
-and a separate validity bit per sample. File-bound sample/asset edits validate
-and commit synchronously; failed edits preserve the previous data and revision.
-Control-only changes reuse unchanged asset records. SQLite schema remains 1;
-RGB previews are derived outputs, never the authoritative normal values.
-See [NORMAL_MAP.md](NORMAL_MAP.md).
+MLSD ( 0.18.0 )는 1.12 기하학 레코드를 사용합니다. 세그먼트 좌표, ID, 신뢰도 및 활성화된 상태는 정확한 바이너리64 스냅샷 및 작업 파일 라운드 트립을 지원합니다. Geometry 편집은 변경된 자산을 다시 쓰고, 제어 전용 편집은 이를 재사용합니다. SQLite 스키마는 1를 유지합니다. MLSD .md를 참조하십시오.
 
-Shuffle (0.20.0) adds model 1.14 RGB8 asset records. File-bound sample and asset
-changes validate and commit synchronously. Rejected edits preserve state/revision;
-control-only changes reuse unchanged assets. Stored pixels are the exact prepared
-conditioning image, so reopening or changing frames never reruns a random shuffle.
-SQLite schema remains 1. See [SHUFFLE.md](SHUFFLE.md).
+노멀 맵(0.19.0)은 모델 1.13 레코드를 사용하며, 이 레코드에는 이진64, XYZ 단위 노멀과 샘플당 별도의 유효성 비트가 포함됩니다. 파일에 바인드된 샘플/애셋 편집은 검증 및 동시 커밋되며, 실패한 편집은 이전 데이터와 리비전을 보존합니다. 제어 전용 변경은 변경되지 않은 자산 레코드를 재사용합니다. SQLite 스키마는 1이며, RGB 프리뷰는 파생된 출력이며, 권위 있는 정규값이 아닙니다. [NORMAL_MAP .md](NORMAL_MAP.md)를 참조하십시오.
 
-Tile (0.21.0) uses model 1.15 RGB8 records, preserving spatial arrangement and
-exact channels. DocumentFile-bound edits validate and commit synchronously;
-failed edits preserve state/revision, and control-only edits reuse unchanged
-asset records. Whole-image and region exports read the same authored image.
-SQLite schema remains 1. See [TILE.md](TILE.md).
+Shuffle ( 0.20.0 ) 은 모델 1.14 RGB8 자산 기록을 추가합니다. 파일 바인드 샘플 및 자산 변경을 검증하고 동시에 커밋합니다. 거부된 편집은 상태/수정을 유지하고, 제어 전용 변경은 변경되지 않은 자산을 재사용합니다. 저장된 픽셀은 정확히 준비된 컨디셔닝 이미지이므로, 프레임을 다시 열거나 변경해도 무작위 셔플이 다시 실행되지 않습니다. SQLite 스키마는 1그대로 유지됩니다. [SHUFFLE .md](SHUFFLE.md)를 참조하십시오.
 
-Reference (0.22.0) uses model 1.16 RGB8 records and a layer extension for application
-mode/style fidelity. File-bound sample and settings edits validate and commit
-synchronously. Failed edits preserve state/revision; common or reference-specific
-settings changes reuse unchanged image records. SQLite schema remains 1.
-See [REFERENCE.md](REFERENCE.md).
+Tile ( 0.21.0 )은 모델 1.15 RGB8 레코드를 사용하며, 공간 배치와 정확한 채널을 보존합니다. DocumentFile 바인드 편집은 검증 및 커밋을 동시에 수행하며, 실패한 편집은 상태/수정을 유지하고, 제어 전용 편집은 변경되지 않은 자산 레코드를 재사용합니다. 전체 이미지와 지역 내보내기가 동일한 저작 이미지를 읽습니다. SQLite 스키마는 여전히 1입니다. [TILE .md](TILE.md)를 참조하십시오.
 
-IP-Adapter (0.23.0) persists owned binary32 embedding tensors and provenance in
-model 1.17 records. Conditional/unconditional branches remain independent; an absent
-unconditional branch is explicit. Static and hold-only dynamic source references
-round-trip. File-bound scalar/replacement/settings edits commit synchronously and
-roll back validation failures. Settings edits reuse unchanged tensor records.
-SQLite schema stays 1. See [IP_ADAPTER.md](IP_ADAPTER.md).
+Reference ( 0.22.0 )는 모델 1.16 RGB8 레코드와 애플리케이션 모드/스타일 충실도를 위한 레이어 확장을 사용합니다. 파일에 바인드된 샘플 및 설정 편집이 검증되고 동기식으로 커밋됩니다. 실패한 편집은 상태/수정을 유지하고, 일반적이거나 참조별 설정 변경은 변경되지 않은 이미지 레코드를 재사용합니다. SQLite 스키마는 1그대로 유지됩니다. [REFERENCE .md](REFERENCE.md)를 참조하십시오.
 
-## Detailed ControlNet parameters (0.24.0)
+IP -어댑터 ( 0.23.0 )은 소유된 바이너리32 임베딩 텐서와 기원을 모델 1.17 레코드에 유지합니다. 조건부/무조건부 분기는 독립적으로 유지되며, 부재한 무조건부 분기는 명시적입니다. 정적 및 유지 방식만 사용하는 동적 소스 참조는 왕복 변환 합니다. 파일 바운드 스칼라/대체/설정 편집은 동기적으로 커밋하고 검증 실패를 롤백합니다. 설정 편집은 변경되지 않은 텐서 레코드를 재사용합니다. SQLite 스키마는 1유지됩니다. [IP_ADAPTER .md](IP_ADAPTER.md)를 참조하세요.
 
-All 12 conditioning types expose typed layer/object snapshots through
-`getControlNetParameters` and `DocumentEditor::controlNetParameters`.
-`setControlNetParameters` applies one layer and all unique source states atomically;
-`patchControlNetSettings` edits selected common fields without replacing the others.
-Detailed fields, output options, ownership and rollback rules are documented in
-[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). Native model remains 1.17.
+<a id="detailed-controlnet-parameters-0240"></a>
+
+## 자세한 ControlNet 매개변수(0.24.0)
+
+모든 12 조건부 타입은 `getControlNetParameters` 와 `DocumentEditor::controlNetParameters` 를 통해 타입화된 레이어/객체 스냅샷을 노출합니다. `setControlNetParameters` 는 하나의 레이어와 모든 고유한 소스 상태를 원자적으로 적용하며, `patchControlNetSettings` 는 다른 것들을 대체하지 않고 선택된 공통 필드를 편집합니다. 상세 필드, 출력 옵션, 소유권 및 롤백 규칙은 문서화되어 있습니다.
+[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). 현재 네이티브 모델은 대지 기능을 포함한 1.18이다.
+
+## Artboard persistence (1.18)
+
+The schema remains 1. New `ArtboardCount` (10) and `Artboard` (11) records follow
+authorship; each board record is keyed by stable id and positioned in group order.
+Layer records include optional ownership. Board metadata edits and reorder operations
+do not rewrite raster/vector/media asset records. All related mutations commit in
+the existing `DocumentFile::edit` transaction. There is no save method.
+See [ARTBOARDS.md](ARTBOARDS.md).

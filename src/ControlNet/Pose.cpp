@@ -270,7 +270,7 @@ PoseControlMapResult renderPoseControlMap(const Document &doc,const std::string 
     if(!validOptions(options)||std::uint64_t(asset->viewport.width)*asset->viewport.height>options.maximumPixels) { result.message="invalid pose render options or pixel budget exceeded"; return result; }
     Document preview; preview.extent=asset->viewport;
     preview.assets={RasterAsset{"background",makeRasterLayer(asset->viewport.width,asset->viewport.height,0xff000000)},poseVectorPreview(*asset,options)};
-    preview.layers={BitmapLayer{{"background"},StaticSource{"background"}},VectorLayer{{"pose"},StaticSource{"pose-preview"}}};
+    preview.layers={StaticBitmapLayer{{"background"},StaticSource{"background"}},StaticVectorLayer{{"pose"},StaticSource{"pose-preview"}}};
     const auto rendered=renderFrame(preview,0); if(!rendered.ok()) { result.message=rendered.message; return result; } result.pixels=rendered.pixels;
     for(const auto &authored:asset->people) {
         if(!authored.enabled) continue; const auto p=evaluatePosePerson(authored); result.nativeAnchorCount+=PosePersonAnchorCount;
