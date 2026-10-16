@@ -106,3 +106,5 @@ iiFileProvider 0.5는 이제 기존 퍼블릭 도메인 SQLite 종속성을 비�
 네이티브 캔버스 비디오/모션 (0.11.0)은 종속성을 추가하지 않으며, 합리적인 프레임 선택, 변환 보간 및 버전별 필드는 표준 C++23를 사용합니다. 네이티브 비디오 가져오기는 기존 옵션인 FFmpeg 프로세스 어댑터를 재사용합니다; 저장된 네이티브 프레임은 이를 사용하지 않고 렌더링한 뒤 다시 열 수 있습니다. 검토된 파일 제공자인 paint-engine, Qt, zlib 및 libzip 경계는 변경되지 않았습니다.
 
 Bitmap processing adds no dependencies or runtime executables; its operations use C++23 and the existing raster and brush value types.
+
+The 0.30 layer compositor requires iiPaintEngine 0.4.1 for its standard-C++23 blend operations. iiSharedCanvas declares Qt Core/Gui/Qml/Quick explicitly for its existing file-provider, media and GUI adapter boundaries; Qt is no longer inherited from iiPaintEngine. Mask, filter and blend calculations add no Qt or reverse-engineering-project dependency.

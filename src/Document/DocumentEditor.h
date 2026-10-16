@@ -224,6 +224,7 @@ public:
                                          AffineTransform transform);
     DocumentEditResult setLayerBlendMode(const std::string &layerId,
                                          RasterBlendMode blendMode);
+    DocumentEditResult setLayerAppearance(const std::string &layerId, LayerAppearance appearance);
     DocumentEditResult setLayerFrameRange(
         const std::string &layerId,
         std::optional<LayerFrameRange> frameRange);

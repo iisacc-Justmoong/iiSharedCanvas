@@ -124,6 +124,8 @@ int main()
             if (corrupt.at(cursor++)) skipString(); // Optional artboard membership.
         }
         if (doc.formatVersion.minor >= 19) ++cursor; // Explicit visual type.
+        if (doc.formatVersion.minor >= 20) cursor += 18; // Default appearance; conditioning cannot own artwork effects.
+        if (doc.formatVersion.minor >= 21) cursor += 5; // Enabled flag and empty stack count.
         ++cursor; skipString(); ++cursor;
         expect(corrupt.at(cursor) == 1, "semantic role is serialized as tag one");
         corrupt.at(cursor) = 255;

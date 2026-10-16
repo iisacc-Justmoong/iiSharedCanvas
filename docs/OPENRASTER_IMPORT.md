@@ -18,6 +18,17 @@
 | `svg:multiply` | `Multiply` |
 | `svg:screen` | `Screen` |
 | `svg:overlay` | `Overlay` |
+| `svg:darken` | `Darken` |
+| `svg:lighten` | `Lighten` |
+| `svg:color-dodge` | `ColorDodge` |
+| `svg:color-burn` | `ColorBurn` |
+| `svg:hard-light` | `HardLight` |
+| `svg:soft-light` | `SoftLight` |
+| `svg:difference` | `Difference` |
+| `svg:color` | `Color` |
+| `svg:luminosity` | `Luminosity` |
+| `svg:hue` | `Hue` |
+| `svg:saturation` | `Saturation` |
 
 기타 블렌드, 마스크, 필터, 텍스트, 벡터 레이어 소스, 알 수 없는 그리기 요소/속성, 그리고 고립되었거나 중립적이지 않은 그룹 안전하게 거부한다. 수입자는 요청된 편집 가능한 레이어에 대해 `mergedimage.png`를 절대 대체하지 않습니다. `svg:dst-out`도 거부되었습니다: `DestinationOut`는 비트맵 브러시 블렌드 열거형이지만, 네이티브 캔버스 문서는 의도적으로 레이어 블렌드로 허용하지 않습니다.
 
@@ -50,3 +61,5 @@
 - [libzip 문서](https://libzip.org/documentation/)
 
 종속성 유지보수, 라이선스 및 발자국 검토는 `DEPENDENCIES.md`에 기록됩니다. 이 리더는 한계가 설정된 서브셋을 명시적으로 구현하며, 전체 OpenRaster 베이스라인 편집이나 임의의 레이어드 포맷 호환성을 구현하지 않습니다.
+
+See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.

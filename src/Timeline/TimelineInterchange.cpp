@@ -1,3 +1,4 @@
+#include <iiFileProviderDevice.h>
 #include "TimelineInterchange.h"
 #include "TimelineXmlWriter_p.hpp"
 
@@ -7,15 +8,11 @@
 #include "Render/FrameRenderer.h"
 #include "Serialization/IiscCodec.h"
 #include "Validation/Validation.h"
-
-#include <QDir>
 #include <iiFileProvider.h>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QTemporaryDir>
-
 #include <algorithm>
 #include <cerrno>
 #include <initializer_list>
@@ -144,7 +141,7 @@ QString destinationPath(const std::string &directory)
     if (destination.exists() || destination.isSymLink()) { fail(MediaIoCode::AlreadyExists, "timeline destination already exists; choose a new directory"); }
     const auto parent = destination.dir().canonicalPath();
     if (parent.isEmpty() || !QFileInfo(parent).isDir()) { fail(MediaIoCode::IoError, "timeline destination parent directory does not exist"); }
-    return QDir(parent).filePath(destination.fileName());
+    return iiFileProvider::Directory(parent).filePath(destination.fileName());
 }
 std::string blendName(RasterBlendMode blend)
 {
@@ -194,6 +191,8 @@ Prepared prepare(const Document &document, const TimelineInterchangeOptions &opt
     std::uint64_t clipCount = 0;
     for (std::size_t layerIndex = 0; layerIndex < document.layers.size(); ++layerIndex) {
         const auto &layer = document.layers[layerIndex]; const auto &properties = layerProperties(layer);
+        if (properties.appearance != LayerAppearance{})
+            fail(MediaIoCode::UnsupportedFeature, "timeline interchange cannot preserve native layer appearance");
         xmlText(properties.name); xmlText(properties.id);
         charge(prepared.metadataBytes, (properties.name.size() + properties.id.size()) * 8ULL + 1024, options.limits.maxDecodedBytes);
         InterchangeTrack track{properties.id, properties.name, properties.visible, properties.opacity, properties.blendMode, {}};
@@ -412,8 +411,8 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
         for (const auto &warning : xml.result.warnings) { warn(result, warning); }
         auto json = manifest(document, prepared.plan, result);
         if (std::uint64_t(json.size()) > serializationBudget) { fail(MediaIoCode::LimitExceeded, "timeline manifest exceeds the memory budget"); }
-        QTemporaryDir stage(QFileInfo(destination).dir().filePath(".iisc-timeline-XXXXXX"));
-        if (!stage.isValid() || !QDir(stage.path()).mkdir("media")) { fail(MediaIoCode::IoError, "cannot create private timeline package staging directory"); }
+        iiFileProvider::TemporaryDirectory stage(QFileInfo(destination).dir().filePath(".iisc-timeline-XXXXXX"));
+        if (!stage.isValid() || !iiFileProvider::Directory(stage.path()).mkdir("media")) { fail(MediaIoCode::IoError, "cannot create private timeline package staging directory"); }
         std::uint64_t used = 0;
         write(stage.filePath("timeline.xml"), xml.legacyXml, used, options.limits.maxOutputBytes);
         write(stage.filePath("timeline.fcpxml"), xml.fcpxml, used, options.limits.maxOutputBytes);

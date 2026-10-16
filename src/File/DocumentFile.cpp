@@ -307,6 +307,32 @@ DocumentFileResult DocumentFile::create(const std::string &path, const Document 
     }
 }
 
+DocumentFileResult DocumentFile::readRevision(const std::string &path, std::uint64_t &revision)
+{
+    try {
+        const auto target = absolutePath(path);
+        if (iiFileProvider::File::readPrefix(QString::fromStdString(target), 16)
+            != QByteArray("SQLite format 3\0", 16)) {
+            return {DocumentFileCode::UnsupportedFormat, false, "not a working file"};
+        }
+        Database database(target, true);
+        Transaction transaction(&database, false);
+        validateSchema(&database);
+        const auto stored = database.scalar("SELECT revision FROM canvas_state WHERE singleton=1");
+        if (stored < 0)
+            return {DocumentFileCode::CorruptFile, false, "negative working-file revision"};
+        transaction.commit();
+        revision = static_cast<std::uint64_t>(stored);
+        return {};
+    } catch (const FileFailure &error) {
+        return {error.code, false, error.what()};
+    } catch (const iiFileProvider::FileError &error) {
+        return {storageCode(error.code()), false, error.what()};
+    } catch (const std::exception &error) {
+        return {DocumentFileCode::IoError, false, error.what()};
+    }
+}
+
 DocumentFileResult DocumentFile::open(const std::string &path, SerializationLimits limits)
 {
     if (isOpen()) {
@@ -322,7 +348,6 @@ DocumentFileResult DocumentFile::open(const std::string &path, SerializationLimi
         auto database = std::make_unique<Database>(target);
         // Do not change unrelated/unknown databases, even their journal mode.
         validateSchema(database.get());
-        database->configureDurable();
         Transaction transaction(database.get(), false);
         const auto revision = database->scalar("SELECT revision FROM canvas_state WHERE singleton=1");
         if (revision < 0) {
@@ -338,6 +363,9 @@ DocumentFileResult DocumentFile::open(const std::string &path, SerializationLimi
         }
         const auto dataVersion = database->scalar("PRAGMA data_version");
         transaction.commit();
+        // Reject corrupt/future model records before changing the source's
+        // journal mode. Only a fully decoded working file becomes an authoring owner.
+        database->configureDurable();
         m_impl->database = std::move(database);
         m_impl->document = std::move(decoded.document);
         m_impl->path = target;
@@ -382,6 +410,19 @@ DocumentFileWriteStatistics DocumentFile::lastWriteStatistics() const noexcept {
 
 DocumentFileResult DocumentFile::edit(const std::function<bool(Document &)> &edit)
 {
+    return editImpl(edit, true);
+}
+
+DocumentFileResult DocumentFile::upgradeFormat()
+{
+    return editImpl([](Document &draft) {
+        draft.formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+        return true;
+    }, false);
+}
+
+DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> &edit, bool stampAuthorship)
+{
     m_impl->statistics = {};
     if (!isOpen()) {
         return m_impl->fail(DocumentFileCode::NotOpen, "no working file is open");
@@ -418,7 +459,7 @@ DocumentFileResult DocumentFile::edit(const std::function<bool(Document &)> &edi
             m_impl->result = {};
             return m_impl->result;
         }
-        if (draft.authorship.dump() == m_impl->document.authorship.dump()) {
+        if (stampAuthorship && draft.authorship.dump() == m_impl->document.authorship.dump()) {
             recordDocumentChange(draft);
             auto stamped = detail::encodeDocumentRecords(draft, &m_impl->document, m_impl->limits);
             requireEncoding(stamped.error);

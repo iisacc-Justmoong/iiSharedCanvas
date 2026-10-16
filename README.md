@@ -30,6 +30,11 @@ for iiSharedCanvas.
 
 ## Write-through authoring
 
+For read-only thumbnails, `renderDocumentPreview` and `readIiscPreview` return
+bounded, aspect-preserving composed pixels, including legacy snapshots and live
+SQLite/WAL working files. Existing files need no resave. See
+[Document previews](docs/DOCUMENT_PREVIEWS.md) for the public API, limits and tests.
+
 `DocumentFile` owns a working canvas file. Bind the structural, vector, bitmap,
 chunked-bitmap, or Qt editors to that file: every accepted content change is
 written before its editing call returns, including stroke increments, cancel,
@@ -43,6 +48,17 @@ validation and failure rollback. The committed document is const; standalone
 Working files use SQLite, while `encodeIisc` and `decodeIisc` retain the legacy
 binary snapshot contract for explicit interchange. Existing snapshot files
 are never silently converted or overwritten. See [the persistence contract](docs/PERSISTENCE.md).
+
+The installed `iisc-upgrade drawing.iisc` tool explicitly upgrades either a binary
+snapshot or a SQLite working file to the current IISC model in place.
+`iisc-upgrade old.iisc new.iisc` keeps the source and creates a new file of the same
+storage kind. It preserves artwork, animation, metadata and authorship, leaves
+current inputs unchanged, rejects future/corrupt inputs, and never overwrites an
+explicit output path. Working-file upgrades use `DocumentFile::upgradeFormat()`
+with the existing transaction and conflict checks. The standard-C++ console tool
+delegates to the public `upgradeIiscFile(inputPath, outputPath, limits)` API;
+the existing storage adapter stays inside the file module. No GUI session is required.
+See [IISC_UPGRADE_CLI.md](docs/IISC_UPGRADE_CLI.md) for usage and failure semantics.
 
 ## Content contract
 
@@ -464,7 +480,7 @@ and validates foreign entry paths without extracting them.
 
 ## Dependency
 
-The direct project dependencies are iiPaintEngine 0.1.0, SQLite 3.26 or newer,
+The direct project dependencies are iiPaintEngine 0.4.1, SQLite 3.26 or newer,
 zlib 1.2.9 or newer, and libzip 1.7.3 or newer (CMake target `libzip::zip`).
 SQLite is a private implementation dependency for durable working files;
 [the review](docs/DEPENDENCIES.md) covers maintenance, public-domain licensing,
@@ -475,8 +491,8 @@ by the application; this package neither downloads nor bundles them. Their
 maintenance, configuration-dependent licensing and footprint are reviewed in
 [DEPENDENCIES.md](docs/DEPENDENCIES.md).
 iiPaintEngine's exported CMake
-target supplies the raster types, rasterizer, blend modes, transforms, and its
-Qt Core/Gui/Qml/Quick platform targets transitively. `AsyncFrameRenderer` uses
+target supplies the standard-C++23 raster types, rasterizer, blend modes and transforms.
+iiSharedCanvas explicitly requests Qt Core/Gui/Qml/Quick for its existing adapters. `AsyncFrameRenderer` uses
 Qt Core `QPromise`, `QFutureWatcher`, and `QThreadPool`; `CanvasItem` uses the
 public Qt Quick scene graph texture API. These are already-supplied Qt targets,
 so these rendering features add no further package discovery or runtime.
@@ -539,9 +555,9 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.28.0 with SOVERSION 0.28 and exact-version
+The current C++ package version is 0.31.0 with SOVERSION 0.31 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the four distinct layer/content types. The canonical snapshot model is version 1.19;
+package to adopt the persistent layer appearance model. The canonical snapshot model is version 1.21;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 
@@ -671,6 +687,13 @@ supported layer blend mode.
 engine, verifies frame switching, external refresh, selected raster painting,
 inverse-transform input, and undo, and writes
 `build/test-output/shared-canvas-item.png`.
+`CanvasItem::renderArtboardId` optionally restricts the rendered composition to one
+native artboard while retaining the editable document and workspace coordinates.
+The empty value renders the complete document; an unknown ID presents transparency.
+The source document, revision, selection and undo remain unchanged by focus.
+The dedicated `iiSharedCanvas.CanvasItemArtboardFocus` pixel test covers overlapping
+artboards and loose layers, frame changes, painting, undo and stale render rejection.
+See [ARTBOARD_PRESENTATION.md](docs/ARTBOARD_PRESENTATION.md) for the public contract.
 With `IISHAREDCANVAS_VERIFY_GPU=1` on a windowed platform, the same executable
 also requires a hardware Qt Quick backend and verifies a captured scene-graph
 tile image; the normal offscreen CTest does not claim hardware execution.
@@ -777,7 +800,7 @@ commits the changed content and an independent authorship record in the same
 SQLite transaction before returning, including raw `edit` callbacks. There is no
 autosave timer or whole-document snapshot dump in the working-file path.
 
-Native snapshots use `.iisc` 1.19. Legacy 1.0–1.18 files remain readable and are
+Native snapshots use `.iisc` 1.20. Legacy 1.0–1.19 files remain readable and are
 upgraded on the first accepted change. Undo/cancel of already committed pixels
 is itself a recorded change. Detached public aggregates have no observers; use
 editors or `recordDocumentChange` after a direct detached mutation. File-bound
@@ -876,7 +899,7 @@ All 12 conditioning types expose typed layer/object snapshots through
 `setControlNetParameters` applies one layer and all unique source states atomically;
 `patchControlNetSettings` edits selected common fields without replacing the others.
 Detailed fields, output options, ownership and rollback rules are documented in
-[CONTROLNET_PARAMETERS.md](docs/CONTROLNET_PARAMETERS.md). Native model is now 1.19 (explicit layer types).
+[CONTROLNET_PARAMETERS.md](docs/CONTROLNET_PARAMETERS.md). Native model is now 1.20 (explicit layer types and layer appearance).
 
 Bitmap processing and native brush settings are documented in [BITMAP_PROCESSING.md](docs/BITMAP_PROCESSING.md).
 
@@ -887,7 +910,7 @@ every integer frame. `DocumentEditor::setDynamicFrameContent` atomically appends
 a fresh raster/vector asset and inserts or replaces its exact-frame key. A fresh
 asset id prevents other frames or layers from being overwritten. Supply a key
 at each frame for frame-by-frame content; sparse keys retain hold sampling.
-Snapshot and working-file persistence keep all states in native format 1.19.
+Snapshot and working-file persistence keep all states in native format 1.20.
 See [DYNAMIC_FRAME_CONTENT.md](docs/DYNAMIC_FRAME_CONTENT.md) for authoring,
 independent editing, persistence and verification.
 
@@ -898,8 +921,12 @@ positions, backgrounds and owned layer stacks. `DocumentEditor` supports creatio
 rename, move/resize, reorder, independent duplication, deletion and layer reparenting.
 Owned artwork uses local coordinates and clips to its board. `renderFrame` displays
 the complete workspace; `renderArtboard` renders one board. Snapshots and working
-files preserve all artboards in native format 1.19. See [ARTBOARDS.md](docs/ARTBOARDS.md)
+files preserve all artboards in native format 1.20. See [ARTBOARDS.md](docs/ARTBOARDS.md)
 for coordinate, composition, persistence and export contracts.
 
-The four-type model is installed as package 0.28.0; migration details and typed
+The four-type model was introduced in package 0.28.0 and remains in 0.31.0; migration details and typed
 content examples are in [FOUR_LAYER_TYPES.md](docs/FOUR_LAYER_TYPES.md).
+
+Native layer composition in 0.30.0 adds a persistent `LayerAppearance`, 27 blend modes, pixel/vector/filter masks, ordered non-destructive effect and color-adjustment stacks, clipping chains and split Blend If. The native model is IISC 1.20. See [Layer compositing](docs/LAYER_COMPOSITING.md) and [the evidence comparison](docs/PHOTOSHOP_LAYER_COMPARISON.md) for semantics, verification and the exact Photoshop/interchange boundaries. The GUI adapter now declares Qt dependencies directly; iiPaintEngine 0.4.1 remains a standard-C++23 bitmap library.
+
+`DocumentFile::readRevision(path, revision)` inspects the committed working-file revision through a read-only iiFileProvider connection without adopting an authoring document or changing journal mode. Errors preserve the output; serialized IISC snapshots have no stored revision. Storage/schema inspection does not validate the document payload.

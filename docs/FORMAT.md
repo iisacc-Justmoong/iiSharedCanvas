@@ -201,6 +201,8 @@ u8 blendMode
     string artboardId
 [if minor >= 19]
   u8 visualLayerKind // 0 static bitmap, 1 static vector, 2 dynamic bitmap, 3 dynamic vector, 255 nonspatial
+[if minor >= 20]
+  LayerAppearance appearance // See the 1.20 extension below.
 u8 sourceKind
 LayerSource source
 [if minor >= 3]
@@ -541,3 +543,19 @@ See [FOUR_LAYER_TYPES.md](FOUR_LAYER_TYPES.md) for the public model and migratio
 Versions 1.0–1.18 omit this byte. Their source/asset/role fields construct the
 correct concrete memory type and untouched legacy bytes remain canonical. The
 working-file schema stays 1; its layer record uses model version 1.19.
+
+## Layer appearance extension (1.20)
+
+After the 1.19 declared visual-kind byte, each layer writes: f64 Fill; bool clipped-to-below; bool blend-clipped-as-group; three optional masks (pixel, vector, filter); u32 filter count and filters; optional Blend If. Masks write string asset ID, bool enabled/inverted/linked, u8 channel (0 luminance, 1 alpha), f64 density/feather-sigma/outside-coverage, then six f64 affine transform values in m11/m12/m21/m22/translation-X/translation-Y order.
+
+Each filter writes name string, bool enabled, f64 opacity, u8 blend tag, and u8 operation tag. Operation 0 is RasterEffect: u8 kind (0..17 in declaration order), nine f64 amount/radius/angle/scale/detail/threshold/midpoint/roundness/feather, three bool monochromatic/edge-aware/natural, u32 seed. Operation 1 is ColorAdjustment: the 23 leading f64 fields in declaration order through gradeBalance, three i32 saturationChannel/gradeRange/curveChannel, f64 curve, then eight bool protectHighlights/preserveColor/linearLight/adaptive/liftBlacks/gamutLimit/colorize/smoothCurve. Values are explicit scalar encodings, never struct bytes.
+
+Blend If writes u8 Gray/Red/Green/Blue (0..3), then two ranges (source and backdrop), each f64 black/blackFade/whiteFade/white. Optional values use the existing strict bool presence marker. Layer blend tags 0..3 keep Normal/Multiply/Screen/Overlay. Tags 4..26 follow the appended RasterBlendMode order: Darken, Lighten, ColorBurn, LinearBurn, DarkerColor, ColorDodge, LinearDodge, LighterColor, SoftLight, HardLight, VividLight, LinearLight, PinLight, HardMix, Difference, Exclusion, Subtract, Divide, Hue, Saturation, Color, Luminosity, Dissolve. Erasing DestinationOut is not a document-layer mode.
+
+Old 1.0..1.19 bytes retain their original layout and default appearance on decode. Extended state requires 1.20. Per-layer/total filter counts, mask/filter strings, references, unknown tags and finite/range constraints are checked before successful decoding. File schema stays 1; its layer record now uses model version 1.20. Old file records remain readable without a migration until edited.
+
+## Ordered mask stack extension (1.21)
+
+After the 1.20 appearance fields, write bool maskStackEnabled, u32 count, then each entry: string ID, string name, u8 combine (0 Add/max, 1 Subtract/product with complement, 2 Intersect/product, 3 Replace), followed by the existing optional-mask encoding (presence must be true). Entry masks reference raster or vector assets and retain all mask parameters. First enabled operand establishes coverage; first Subtract starts from white. Disabled entries are skipped, and an empty/bypassed stack reveals the original. Stack coverage multiplies the existing raster/vector coverage. Pixel sources never change.
+
+Model 1.0–1.20 retains its exact byte layout and decodes an empty enabled stack. Nondefault stack state requires 1.21. Per-layer 4096 operands, total 65536 operands, ID uniqueness, string budgets, references, unknown tags and the 64-million-pixel aggregate feather processing budget are checked. Storage schema remains 1. File-bound updates use the existing synchronous appearance transaction.

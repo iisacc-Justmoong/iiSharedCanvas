@@ -1,3 +1,4 @@
+#include "Render/FrameRenderDispatch_p.hpp"
 #include "QtAdapter/AsyncFrameRenderer.h"
 
 #include <QFutureWatcher>
@@ -14,19 +15,7 @@
 
 namespace iiSharedCanvas {
 
-namespace render_detail {
 
-IISHAREDCANVAS_NO_EXPORT FrameLayerBatchRenderResult preflightFrameLayerRender(
-    const Document &document,
-    FrameIndex frame,
-    const std::vector<FrameRenderTileRequest> &requests);
-IISHAREDCANVAS_NO_EXPORT FrameLayerTileRenderResult renderPreflightedFrameLayerTiles(
-    const Document &document,
-    FrameIndex frame,
-    std::size_t layerIndex,
-    const std::vector<FrameRenderTileRequest> &requests);
-
-} // namespace render_detail
 
 namespace {
 

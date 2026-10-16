@@ -3,6 +3,7 @@
 #include "iiSharedCanvas/Export.h"
 #include <iiFileProvider.h>
 #include "Metadata/StableDiffusionMetadata.h"
+#include "Document/LayerAppearance.h"
 #include "ControlNet/SemanticSegment.h"
 #include "ControlNet/Pose.h"
 #include "ControlNet/Depth.h"
@@ -33,7 +34,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 19;
+inline constexpr std::uint16_t CurrentFormatMinor = 21;
 
 using FrameIndex = std::uint32_t;
 
@@ -323,6 +324,7 @@ struct LayerProperties {
     std::optional<LayerFrameRange> frameRange;
     std::vector<MotionKeyframe> motion; // Empty preserves the static layer properties.
     std::optional<std::string> artboardId; // Absence means unclipped world-space artwork.
+    LayerAppearance appearance;
 };
 
 struct StaticBitmapLayer {
@@ -490,10 +492,13 @@ struct Document {
     std::vector<Artboard> artboards; // Bottom-to-top group order; no nesting.
 };
 
+enum class AssetReferenceKind : std::uint8_t { Content, RasterMask, VectorMask, FilterMask, MaskStack };
 struct AssetReference {
     std::size_t layerIndex = 0;
     std::optional<std::size_t> frameIndex;
     std::optional<std::size_t> keyframeIndex;
+    AssetReferenceKind kind = AssetReferenceKind::Content;
+    std::optional<std::size_t> maskStackIndex;
 };
 
 // Updates the cached metadata dump and upgrades legacy documents on actual edits.

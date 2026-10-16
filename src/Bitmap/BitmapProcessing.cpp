@@ -56,12 +56,7 @@ RasterLayer blur(const RasterLayer &input, int radius) {
 
 RasterProcessResult adjustRaster(const RasterLayer &input, const ColorAdjustment &a) {
     if (!valid(input)) return {{}, "invalid raster extent or storage"};
-    const std::array params{a.exposure, a.offset, a.contrast, a.pivot, a.highlights, a.highlightRange,
-        a.rolloff, a.shadows, a.shadowRange, a.blackProtection, a.whites, a.whiteClip, a.blacks,
-        a.blackClip, a.temperature, a.tint, a.vibrance, a.lowSaturationBias, a.saturation,
-        a.channelSaturation, a.skinProtection, a.gradeHue, a.gradeBalance, a.curve};
-    if (std::ranges::any_of(params, [](double v) { return !std::isfinite(v) || std::abs(v) > 100; }))
-        return {{}, "color parameters must be finite and bounded"};
+    if (const auto error = validateColorAdjustment(a); !error.empty()) return {{}, error};
     auto out = input;
     const auto exposure = std::exp2(a.exposure);
     for (std::size_t i = 0; i < input.pixels.size(); ++i) {
@@ -120,10 +115,7 @@ RasterProcessResult adjustRaster(const RasterLayer &input, const ColorAdjustment
 
 RasterProcessResult effectRaster(const RasterLayer &input, const RasterEffect &e) {
     if (!valid(input)) return {{}, "invalid raster extent or storage"};
-    for (double p : {e.amount, e.radius, e.angle, e.scale, e.detail, e.threshold, e.midpoint, e.roundness, e.feather})
-        if (!std::isfinite(p)) return {{}, "effect parameters must be finite"};
-    if (e.radius < 0 || e.radius > 256 || std::abs(e.amount) > 16 || e.scale <= 0 || e.scale > 65536)
-        return {{}, "effect parameters exceed processing limits"};
+    if (const auto error = validateRasterEffect(e); !error.empty()) return {{}, error};
     auto out = input;
     const int radius = int(std::ceil(e.radius));
     const bool spatial = e.kind == RasterEffectKind::GaussianBlur || e.kind == RasterEffectKind::LensBlur
@@ -131,12 +123,30 @@ RasterProcessResult effectRaster(const RasterLayer &input, const RasterEffect &e
         || e.kind == RasterEffectKind::LuminanceDenoise || e.kind == RasterEffectKind::ColorDenoise;
     auto blurred = spatial ? blur(input, radius) : input;
     if (e.kind == RasterEffectKind::GaussianBlur || e.kind == RasterEffectKind::LensBlur) blurred = blur(blur(blurred, radius), radius);
+    Rgb average{};
+    if (e.kind == RasterEffectKind::Average) {
+        std::array<std::uint64_t, 3> sum{};
+        for (auto p : input.pixels) { sum[0] += (p >> 16) & 255; sum[1] += (p >> 8) & 255; sum[2] += p & 255; }
+        const auto count = input.pixels.size();
+        average = {double((sum[0] + count/2) / count) / 255,
+                   double((sum[1] + count/2) / count) / 255,
+                   double((sum[2] + count/2) / count) / 255};
+    }
     const double angle = e.angle * std::numbers::pi / 180;
     for (int y = 0; y < input.height; ++y) for (int x = 0; x < input.width; ++x) {
         const auto i = y * input.width + x; const auto px = input.pixels[i];
         const auto original = rgb(px); auto c = original, b = rgb(blurred.pixels[i]);
         double edge = std::abs(luminance(original) - luminance(b));
         switch (e.kind) {
+        case RasterEffectKind::Average: c = mix(original, average, unit(e.amount)); break;
+        case RasterEffectKind::Solarize: {
+            const auto solar = [](double v) { return v < 128.0/255 ? v : 1-v; };
+            c = mix(original, {solar(c.r), solar(c.g), solar(c.b)}, unit(e.amount)); break;
+        }
+        case RasterEffectKind::Invert: c = mix(original, {1-c.r, 1-c.g, 1-c.b}, unit(e.amount)); break;
+        case RasterEffectKind::Grayscale: {
+            const auto l = luminance(c); c = mix(original, {l,l,l}, unit(e.amount)); break;
+        }
         case RasterEffectKind::GaussianBlur: case RasterEffectKind::LensBlur:
             c = mix(original, b, unit(e.amount) * (e.edgeAware ? 1 - smooth(0.02, 0.2, edge) : 1)); break;
         case RasterEffectKind::MotionBlur: {
@@ -158,7 +168,8 @@ RasterProcessResult effectRaster(const RasterLayer &input, const RasterEffect &e
             c = {c.r * (1 + strength), c.g * (1 + strength), c.b * (1 + strength)}; break;
         }
         case RasterEffectKind::Grain: case RasterEffectKind::Noise: {
-            const std::uint32_t tile = std::uint32_t(int(x / e.scale) + int(y / e.scale) * input.width);
+            const std::uint32_t tile = std::uint32_t(std::fmod(std::floor(x / e.scale)
+                + std::floor(y / e.scale) * input.width, 4294967296.0));
             const double nr = (random(tile ^ e.seed) - 0.5) * e.amount;
             const double ng = e.monochromatic ? nr : (random(tile ^ (e.seed + 13)) - 0.5) * e.amount;
             const double nb = e.monochromatic ? nr : (random(tile ^ (e.seed + 29)) - 0.5) * e.amount;

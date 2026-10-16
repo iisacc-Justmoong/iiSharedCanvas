@@ -68,6 +68,10 @@ struct FrameLayerTileRenderResult {
     LayerRole role = LayerRole::Artwork;
     bool spatial = true; // False for embedding data: no raster preview tiles exist.
     std::optional<std::string> artboardId;
+    double fillOpacity = 1;
+    bool clippedToBelow = false;
+    bool blendClippedAsGroup = true;
+    std::optional<BlendIf> blendIf;
 
     [[nodiscard]] bool ok() const noexcept
     {

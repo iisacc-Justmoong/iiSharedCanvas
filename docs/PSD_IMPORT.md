@@ -10,7 +10,7 @@
 
 초기 리더는 PSD 버전 1, 8비트 RGB, 양의 크기 래스터 레이어, 3 RGB 채널 및 선택적 투명성 채널을 받습니다. 헤더 차원은 PSD v1 범위 내에 있어야 합니다. 채널 데이터는 원시 바이트, PackBits RLE, ZIP 또는 ZIP 와 8비트 수평 예측기를 사용할 수 있습니다. ZIP 는 기존 zlib 의존성에 의해 디코딩됩니다. 예측기 상태는 각 스캔라인마다 재시작됩니다.
 
-각 레코드는 하나의 `RasterAsset` 와 하나의 정적 `StaticBitmapLayer` 가 됩니다. 자산 저장은 ARGB 방식으로 이루어지며, 완전히 투명한 픽셀의 RGB 구성 요소도 포함됩니다. 레이어 불투명도는 픽셀에 내장되지 않습니다. 이름, 가시성, 불투명성, 부호화된 정수 배치, 그리고 노멀/곱하기/스크린/오버레이 블렌드 모드는 기존 캔버스 속성에 맵핑됩니다. PSD 바이너리 레코드 순서는 이미 네이티브 하단에서 상단 순서이며 유지됩니다. ID 는 `<idPrefix>-asset-<index>` 와 `<idPrefix>-layer-<index>` 이며, 인덱스 0 는 하단에 있습니다.
+각 레코드는 하나의 `RasterAsset` 와 하나의 정적 `StaticBitmapLayer` 가 됩니다. 자산 저장은 ARGB 방식으로 이루어지며, 완전히 투명한 픽셀의 RGB 구성 요소도 포함됩니다. 레이어 불투명도는 픽셀에 내장되지 않습니다. 이름, 가시성, 불투명성, 부호화된 정수 배치, 그리고 27가지 픽셀 레이어 블렌드 모드는 기존 캔버스 속성에 맵핑됩니다. PSD 바이너리 레코드 순서는 이미 네이티브 하단에서 상단 순서이며 유지됩니다. ID 는 `<idPrefix>-asset-<index>` 와 `<idPrefix>-layer-<index>` 이며, 인덱스 0 는 하단에 있습니다.
 
 Unicode `luni` 이름은 UTF-16에서 디코딩되며, 대리쌍을 포함합니다; 단일 터미널 null이 허용됩니다. 형식이 형성된 대리쌍과 내재된 널은 거부됩니다. `luni`가 없을 경우, ASCII 레거시 이름만 허용됩니다: 문서화되지 않은 레거시 코드 페이지를 선택하면 아무런 알림 없이가 레이어 이름을 변경할 수 있습니다. 빈 이름은 계속 비어 있습니다. 원본 편집기 ID와 잠금 상태는 보존되지 않으며, 해당 지원되는 메타데이터 블록이 발견될 경우 호출자는 경고를 받게 됩니다.
 
@@ -47,3 +47,5 @@ SDK 소스가 복사되거나 벤더되지 않았습니다. 여기서 구현된 
 
 이진 계층 순서도 기본 레이어와 교차 검증되었습니다.
 [psd-tools 레코드 리더](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/layer_and_mask.py) 및 [트리 재구성](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/api/psd_image.py): 순차 파일 레코드가 API의 바운트‐위 순서가 되돌림 없이 변환됩니다. 주문이 OpenRaster의 XML 스택 주문과 다릅니다.
+
+See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.

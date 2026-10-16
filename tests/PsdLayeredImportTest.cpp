@@ -213,7 +213,7 @@ int main(int argc, char **argv)
     rejects(psd({unsupported}), MediaIoCode::UnsupportedFeature, "layer mask is not silently discarded");
     unsupported = bottom; unsupported.clipping = 1;
     rejects(psd({unsupported}), MediaIoCode::UnsupportedFeature, "clipping layer is not silently discarded");
-    unsupported = bottom; unsupported.blend = "diff";
+    unsupported = bottom; unsupported.blend = "xxxx";
     rejects(psd({unsupported}), MediaIoCode::UnsupportedFeature, "unknown blend is not changed to source-over");
     unsupported = bottom; unsupported.ranges = Bytes(8, 0);
     rejects(psd({unsupported}), MediaIoCode::UnsupportedFeature, "non-default blending ranges are not ignored");

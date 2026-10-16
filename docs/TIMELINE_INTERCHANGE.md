@@ -77,3 +77,5 @@ The CLI 는 공유 읽기 전용 백업 로더를 사용하여 네이티브 표�
 생성된 XML 포맷은 모두 게시된 DTD를 통과했습니다. PNG /audio 픽스처 혼합물이 30000/1001 프레임률에서도 독립적인 오라클을 통과했으며, 정확한 단일 샘플 WAV 원점 이동이 포함되었습니다; 이 픽스처 는 최종 컷에서 가져오지 않았습니다. 프리미어 프로와 DaVinci 리졸브가 이 호스트에 설치되어 있지 않으므로 해당 편집자에 대한 오디오 애플리케이션 수락은 확인되지 않았습니다. 신규 릴리스 빌드, 모든 36 CTest 체크, 스테이지 설치 및 독립형 0.9.0 패키지 소비자가 통과했습니다.
 
 원본 비디오 자산이나 0.11.0 에서 도입된 속성 운동 키는 패키지 게시 전에 `UnsupportedFeature` 를 반환하며, 편집 가능한 타이밍과 보간은 `.iisc` 1.6 에 있으며, `exportVideo` 가 이를 렌더링합니다. 기존 비트맵 /vector hold-key 및 오디오 트랙 교환은 변경되지 않았습니다.
+
+See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.

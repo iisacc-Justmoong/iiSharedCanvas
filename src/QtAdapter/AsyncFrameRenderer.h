@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Document/Document.h"
-#include "iiSharedCanvas/Export.h"
+#include "iiSharedCanvas/QuickExport.h"
 #include "Render/FrameRenderer.h"
 
 #include <QObject>
@@ -12,7 +12,7 @@
 
 namespace iiSharedCanvas {
 
-class IISHAREDCANVAS_EXPORT AsyncFrameRenderer final : public QObject {
+class IISHAREDCANVASQUICK_EXPORT AsyncFrameRenderer final : public QObject {
     Q_OBJECT
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(qulonglong lastCompletedRequest READ lastCompletedRequest NOTIFY finished)

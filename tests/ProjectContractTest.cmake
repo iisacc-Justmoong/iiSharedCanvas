@@ -11,14 +11,30 @@ function(require_text file_path expected)
 endfunction()
 
 file(READ "${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" cmake_lists)
-string(REGEX MATCHALL "find_package\\(" direct_find_packages "${cmake_lists}")
-list(LENGTH direct_find_packages direct_dependency_count)
-if(NOT direct_dependency_count EQUAL 5)
-    message(FATAL_ERROR "iiSharedCanvas must have only the reviewed iiFileProvider, iiPaintEngine, zlib and libzip dependencies plus test-only SQLite")
+# Dependencies can be discovered more than once for optional components. Check
+# the actual package set rather than the number of find_package statements.
+string(REGEX MATCHALL "find_package\\([A-Za-z0-9_]+" direct_find_packages "${cmake_lists}")
+set(direct_dependencies)
+foreach(call IN LISTS direct_find_packages)
+    string(REPLACE "find_package(" "" package "${call}")
+    list(APPEND direct_dependencies "${package}")
+endforeach()
+list(REMOVE_DUPLICATES direct_dependencies)
+list(SORT direct_dependencies)
+set(reviewed_dependencies Qt6 SQLite3 ZLIB iiFileProvider iiPaintEngine libzip)
+if(NOT direct_dependencies STREQUAL reviewed_dependencies)
+    message(FATAL_ERROR "Unreviewed iiSharedCanvas dependencies: ${direct_dependencies}")
 endif()
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "if(IISHAREDCANVAS_BUILD_QUICK)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Qml Quick)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_library(iiSharedCanvas::Core ALIAS iiSharedCanvasCore)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_library(iiSharedCanvas::Quick ALIAS iiSharedCanvasQuick)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/LAYER_COMPOSITING.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledLayerCompositing")
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)")
+             "find_package(iiPaintEngine 0.4.1 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "find_package(SQLite3 3.26 REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(ZLIB 1.2.9 REQUIRED)")
@@ -66,13 +82,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
              "sqlite.org/copyright.html")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.28.0 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.31.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.28.0 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.31.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -87,7 +103,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/DYNAMIC_FRAME_C
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/DocumentEditor.h" "setDynamicFrameContent")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "CurrentFormatMinor = 19")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "CurrentFormatMinor = 21")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Bitmap/BitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -123,9 +139,9 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
-             "find_dependency(iiPaintEngine 0.1.0 CONFIG REQUIRED)")
+             "find_dependency(iiPaintEngine 0.4.1 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The direct project dependencies are iiPaintEngine 0.1.0, SQLite")
+             "The direct project dependencies are iiPaintEngine 0.4.1, SQLite")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`BitmapEditor` binds to a raster asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -147,7 +163,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.28.0")
+             "The current C++ package version is 0.31.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -253,7 +269,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.28.0.dylib")
+             "libiiSharedCanvas.0.31.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
@@ -385,6 +401,17 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/FORMAT.md" "native-video-and-mot
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "CanvasMediaTest.cpp")
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/FOUR_LAYER_TYPES.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "tools/iisc-upgrade.cpp")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/IISC_UPGRADE_CLI.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/File/DocumentFile.h" "upgradeFormat()")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/File/IiscUpgrade.h" "upgradeIiscFile(")
+file(READ "${IISHAREDCANVAS_SOURCE_DIR}/tools/iisc-upgrade.cpp" upgrade_cli_source)
+if(upgrade_cli_source MATCHES "#[ \t]*include[ \t]*<Q[A-Za-z]" OR upgrade_cli_source MATCHES "Q(Core|Gui)Application")
+    message(FATAL_ERROR "The native upgrade CLI must use the standard C++ console entry point")
+endif()
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledIiscUpgradeCli")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh" "bin/iisc-upgrade")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md" "iisc-upgrade old.iisc new.iisc")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledFourLayerType")
 foreach(_type StaticBitmap StaticVector DynamicBitmap DynamicVector)
     require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "struct ${_type}Layer")

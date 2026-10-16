@@ -1,4 +1,5 @@
 #include "PsdParser_p.hpp"
+#include "BlendModeMapping_p.hpp"
 
 #include <QByteArray>
 #include <QColorSpace>
@@ -186,10 +187,7 @@ void imageResources(Reader &resources, const LayeredDocumentImportOptions &optio
 
 RasterBlendMode blendMode(std::string_view key)
 {
-    if (key == "norm") { return RasterBlendMode::SourceOver; }
-    if (key == "mul ") { return RasterBlendMode::Multiply; }
-    if (key == "scrn") { return RasterBlendMode::Screen; }
-    if (key == "over") { return RasterBlendMode::Overlay; }
+    for (const auto &[mode, name] : PsdBlendModes) if (name == key) return mode;
     unsupported("PSD blend mode is not supported: " + std::string(key));
 }
 

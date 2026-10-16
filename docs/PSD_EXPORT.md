@@ -62,3 +62,5 @@
 최종 릴리스 빌드가 모든 28 CTest 테스트와 단계적 설치 및 독립 실행형 설치 패키지 사용량을 모두 통과했습니다. 설치된 소비자용 `installed-frame-zero.psd`는 또한 독립적인 `psd-tools` / `pypdf` 오라클을 통과했으며, 여기에는 네이티브 PDF 벡터 연산자와 정확한 1프레임 픽셀이 포함됩니다.
 
 네이티브 `VideoLayer` 또는 `LayerProperties::motion`(패키지 0.11.0)는 현재 `UnsupportedFeature`를 반환합니다. 이렇게 하면 지원되는 PSD 스냅샷으로 비디오나 보간된 움직임을 잘못 표현하는 것을 방지합니다. 편집 가능한 콘텐츠를 유지하려면 `.iisc`를 사용하고, 렌더링된 출력에는 `exportVideo`를 사용하십시오. 기존 자산 전환 키 스냅샷은 계속 지원됩니다.
+
+See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.

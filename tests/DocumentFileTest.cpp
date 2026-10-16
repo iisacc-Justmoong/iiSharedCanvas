@@ -392,6 +392,58 @@ void testInvalidFiles(const std::string &sourcePath, const QString &directory)
     }
 }
 
+void testReadRevision(const QString &directory)
+{
+    const auto path = QDir(directory).filePath("inspect.iisc");
+    DocumentFile owner;
+    expect(owner.create(path.toStdString(), makeDocument()).ok(), "inspection fixture must be created");
+    expect(owner.edit([](Document &draft) {
+        layerProperties(draft.layers.front()).name = "Committed";
+        return true;
+    }).ok(), "inspection fixture must contain a committed edit");
+    std::uint64_t revision = 999;
+    const auto result = DocumentFile::readRevision(path.toStdString(), revision);
+    expect(result.ok() && !result.changed && revision == owner.revision(),
+           "read-only inspection must see the current committed WAL revision");
+    owner.close();
+    sqlite3 *database = nullptr;
+    expect(sqlite3_open(path.toUtf8().constData(), &database) == SQLITE_OK, "inspection SQL fixture opens");
+    sql(database, "PRAGMA journal_mode=DELETE");
+    sqlite3_close(database);
+    QFile source(path);
+    expect(source.open(QIODevice::ReadOnly), "inspection source must be readable");
+    const auto before = source.readAll();
+    source.close();
+    for (int i = 0; i < 3; ++i)
+        expect(DocumentFile::readRevision(path.toStdString(), revision).ok(), "inspection is repeatable");
+    expect(source.open(QIODevice::ReadOnly) && source.readAll() == before,
+           "inspection must preserve every byte of the source file");
+    source.close();
+    expect(!QFile::exists(path + "-wal") && !QFile::exists(path + "-shm"),
+           "inspection must not switch a DELETE-mode source to WAL");
+
+    const auto missing = QDir(directory).filePath("missing-inspection.iisc");
+    revision = 999;
+    expect(!DocumentFile::readRevision(missing.toStdString(), revision).ok()
+               && revision == 999 && !QFile::exists(missing),
+           "failed inspection preserves output and never creates a missing file");
+    const auto legacy = QDir(directory).filePath("snapshot-inspection.iisc");
+    QFile snapshotFile(legacy);
+    expect(snapshotFile.open(QIODevice::WriteOnly), "legacy inspection fixture opens");
+    const auto bytes = snapshot(makeDocument());
+    snapshotFile.write(reinterpret_cast<const char *>(bytes.data()), static_cast<qint64>(bytes.size()));
+    snapshotFile.close();
+    expect(DocumentFile::readRevision(legacy.toStdString(), revision).code == DocumentFileCode::UnsupportedFormat
+               && revision == 999,
+           "serialized snapshots have no working-file revision and preserve output");
+    expect(sqlite3_open(path.toUtf8().constData(), &database) == SQLITE_OK, "future-schema fixture opens");
+    sql(database, "PRAGMA user_version=999");
+    sqlite3_close(database);
+    expect(DocumentFile::readRevision(path.toStdString(), revision).code == DocumentFileCode::UnsupportedFormat
+               && revision == 999,
+           "unsupported working-file schemas must be rejected without an output value");
+}
+
 } // namespace
 
 int main(int argc, char **argv)
@@ -427,6 +479,7 @@ int main(int argc, char **argv)
     QDir().mkpath(QStringLiteral(IISHAREDCANVAS_TEST_OUTPUT_DIR));
     QTemporaryDir directory(QStringLiteral(IISHAREDCANVAS_TEST_OUTPUT_DIR "/live-file-XXXXXX"));
     expect(directory.isValid(), "test files must live under build/");
+    testReadRevision(directory.path());
     const std::string path = directory.filePath(QStringLiteral("canvas.iisc")).toStdString();
     testWriteThrough(path);
     if (failures) {

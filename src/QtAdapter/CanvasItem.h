@@ -3,7 +3,7 @@
 #include "Bitmap/BitmapEditor.h"
 #include "Bitmap/ChunkedBitmapEditor.h"
 #include "Document/DocumentEditor.h"
-#include "iiSharedCanvas/Export.h"
+#include "iiSharedCanvas/QuickExport.h"
 #include "File/DocumentFile.h"
 #include "QtAdapter/AsyncFrameRenderer.h"
 
@@ -30,7 +30,7 @@ class QWheelEvent;
 
 namespace iiSharedCanvas {
 
-class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickItem {
+class IISHAREDCANVASQUICK_EXPORT CanvasItem : public QQuickItem {
     Q_OBJECT
     Q_PROPERTY(bool documentReady READ documentReady NOTIFY documentChanged)
     Q_PROPERTY(int canvasWidth READ canvasWidth NOTIFY documentChanged)
@@ -71,6 +71,7 @@ class IISHAREDCANVAS_EXPORT CanvasItem : public QQuickItem {
     Q_PROPERTY(bool canRedo READ canRedo NOTIFY undoRedoChanged)
     Q_PROPERTY(qreal zoom READ zoom WRITE setZoom NOTIFY viewportChanged)
     Q_PROPERTY(bool smoothRendering READ smoothRendering WRITE setSmoothRendering NOTIFY smoothRenderingChanged)
+    Q_PROPERTY(QString renderArtboardId READ renderArtboardId WRITE setRenderArtboardId NOTIFY renderArtboardIdChanged)
     Q_PROPERTY(qreal panX READ panX WRITE setPanX NOTIFY viewportChanged)
     Q_PROPERTY(qreal panY READ panY WRITE setPanY NOTIFY viewportChanged)
     Q_PROPERTY(bool rendering READ rendering NOTIFY renderingChanged)
@@ -190,6 +191,8 @@ public:
     [[nodiscard]] qreal zoom() const noexcept;
     [[nodiscard]] bool smoothRendering() const noexcept;
     void setSmoothRendering(bool smooth);
+    [[nodiscard]] QString renderArtboardId() const;
+    void setRenderArtboardId(const QString &artboardId);
     [[nodiscard]] qreal renderDevicePixelRatio() const noexcept;
     [[nodiscard]] int renderLevelOfDetail() const noexcept;
     void setZoom(qreal zoom);
@@ -230,6 +233,7 @@ signals:
     void undoRedoChanged();
     void viewportChanged();
     void smoothRenderingChanged();
+    void renderArtboardIdChanged();
     void renderingChanged();
     void renderCompleted(qulonglong requestId);
     void residentTileCountChanged();
@@ -327,6 +331,7 @@ private:
     qulonglong m_latestAsyncRequest = 0;
     qreal m_zoom = 1.0;
     bool m_smoothRendering = true;
+    QString m_renderArtboardId;
     QPointer<QQuickWindow> m_renderWindow;
     qreal m_panX = 0.0;
     qreal m_panY = 0.0;

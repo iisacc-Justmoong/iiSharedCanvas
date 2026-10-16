@@ -1,4 +1,5 @@
 #include "PsdWriter_p.hpp"
+#include "BlendModeMapping_p.hpp"
 
 #include "Media/MediaIo_p.hpp"
 #include "Render/FrameRenderer.h"
@@ -102,13 +103,8 @@ void charge(std::uint64_t &total, std::uint64_t amount, std::uint64_t limit, con
 
 std::string_view psdBlend(RasterBlendMode mode)
 {
-    switch (mode) {
-    case RasterBlendMode::SourceOver: return "norm";
-    case RasterBlendMode::Multiply: return "mul ";
-    case RasterBlendMode::Screen: return "scrn";
-    case RasterBlendMode::Overlay: return "over";
-    default: fail(MediaIoCode::UnsupportedFeature, "PSD export does not support the layer blend mode");
-    }
+    for (const auto &[value, name] : layered_detail::PsdBlendModes) if (value == mode) return name;
+    fail(MediaIoCode::UnsupportedFeature, "PSD export does not support the layer blend mode");
 }
 
 bool nativeBitmap(const Asset *asset, const LayerProperties &properties, CanvasOrigin origin)
@@ -333,6 +329,8 @@ std::vector<ExportLayer> preflight(const Document &document, const PsdExportOpti
     if (document.stableDiffusionMetadata) { warn(result, "PSD does not retain native Stable Diffusion metadata"); }
     for (const auto &layer : document.layers) {
         const auto &properties = layerProperties(layer);
+        if (properties.appearance != LayerAppearance{})
+            fail(MediaIoCode::UnsupportedFeature, "PSD export cannot preserve native masks, filters, clipping, Fill or Blend If");
         if (properties.name.size() > options.limits.maxDecodedBytes / 4) {
             fail(MediaIoCode::LimitExceeded, "PSD layer names exceed the decoded-byte budget");
         }

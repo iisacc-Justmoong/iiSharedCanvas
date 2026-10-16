@@ -42,6 +42,8 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapProcessing.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/BitmapCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Media/MediaIo.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Render/DocumentPreview.h"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/DOCUMENT_PREVIEWS.md"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Vector/VectorCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Video/VideoCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Bitmap/ChunkedBitmapEditor.h"
@@ -77,6 +79,7 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/CanvasSampling.h"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/CANVAS_MEDIA.md"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Document/DocumentEditor.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/File/DocumentFile.h"
+test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/File/IiscUpgrade.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Layered/LayeredDocumentCodec.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Metadata/StableDiffusionGenerationParameters.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Metadata/StableDiffusionMetadata.h"
@@ -92,6 +95,7 @@ test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Validation/Validation.h"
 test -f "${INSTALL_PREFIX}/include/iiSharedCanvas/Vector/VectorEditor.h"
 test -f "${INSTALL_PREFIX}/lib/cmake/iiSharedCanvas/iiSharedCanvasConfig.cmake"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/FOUR_LAYER_TYPES.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/ARTBOARD_PRESENTATION.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/API.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PERSISTENCE.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/DEPENDENCIES.md"
@@ -104,6 +108,14 @@ test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/PSD_EXPORT_CLI.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/TIMELINE_INTERCHANGE.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/TIMELINE_INTERCHANGE_CLI.md"
 test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/TIMELINE_XML.md"
+test -f "${INSTALL_PREFIX}/share/doc/iiSharedCanvas/IISC_UPGRADE_CLI.md"
+
+upgrade_executable="${INSTALL_PREFIX}/bin/iisc-upgrade"
+if [[ ! -x "${upgrade_executable}" ]]; then
+    upgrade_executable="${INSTALL_PREFIX}/bin/iisc-upgrade.exe"
+fi
+test -x "${upgrade_executable}"
+"${upgrade_executable}" --help
 
 import_executable="${INSTALL_PREFIX}/bin/iisc-import"
 if [[ ! -x "${import_executable}" ]]; then
@@ -127,8 +139,8 @@ test -x "${export_timeline_executable}"
 "${export_timeline_executable}" --help
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.28.0.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.28.0' \
+    \( -name 'libiiSharedCanvas.0.31.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.31.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2

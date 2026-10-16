@@ -369,3 +369,7 @@ renderer handles local-to-world sampling, clipping and isolated group compositio
 Consumer UI controls remain consumer-owned. See [ARTBOARDS.md](ARTBOARDS.md).
 
 0.28.0은 네 가지 실제 레이어 및 전용 콘텐츠 타입을 정의한다. 정적/동적 전환은 실제 타입을 바꾸는 원자 편집이다. 네이티브 1.19는 명시적 타입을 기록한다. [FOUR_LAYER_TYPES.md](FOUR_LAYER_TYPES.md)를 참조한다.
+
+## Native layer appearance (0.30.0)
+
+IISC 1.20 owns native mask references, ordered non-destructive filters, clipping chains and split Blend If as validated `LayerAppearance` aggregate data. Pure C++23 effect parameter validation is co-located with `RasterProcessingTypes`; GUI projection consumes composed tiles. See [LAYER_COMPOSITING.md](LAYER_COMPOSITING.md).

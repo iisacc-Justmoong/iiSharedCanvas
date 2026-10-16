@@ -52,6 +52,10 @@ struct SerializationLimits {
     std::uint32_t maximumSemanticClasses = 65536;
     std::uint32_t maximumSemanticRegions = 1048576;
     std::uint32_t maximumSemanticEntries = 1048576; // Aliases and region attributes combined.
+    std::uint32_t maximumMaskStackEntriesPerLayer = 4096;
+    std::uint64_t maximumTotalMaskStackEntries = 65536;
+    std::uint32_t maximumFiltersPerLayer = 64;
+    std::uint64_t maximumTotalLayerFilters = 65536;
 };
 
 enum class IiscErrorCode {

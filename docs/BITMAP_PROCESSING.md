@@ -32,3 +32,5 @@ unassociated ARGB. Feathering colored content over transparency retains its
 color instead of introducing a dark fringe. Zero/full mask coverage preserves
 the corresponding input byte exactly. Dehaze strength is bounded to keep its
 transmission divisor positive for every accepted public parameter.
+
+See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.

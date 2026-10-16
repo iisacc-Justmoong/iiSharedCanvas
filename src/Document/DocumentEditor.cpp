@@ -69,6 +69,11 @@ void replaceAssetReferences(Document &document,
                             const std::string &to)
 {
     for (Layer &layer : document.layers) {
+        auto &a = layerProperties(layer).appearance;
+        for (auto *mask : {&a.rasterMask, &a.vectorMask, &a.filterMask})
+            if (*mask && (*mask)->assetId == from) (*mask)->assetId = to;
+        for (auto &entry : a.maskStack)
+            if (entry.mask.assetId == from) entry.mask.assetId = to;
         if (auto *source = staticLayerSource(layer)) {
             if (source->assetId == from) {
                 source->assetId = to;
@@ -2137,7 +2142,9 @@ DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)
     }
 
     const FormatVersion priorVersion = m_document->formatVersion;
-    if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
+    if (layerProperties(layer).appearance != LayerAppearance{}
+        || static_cast<unsigned>(layerProperties(layer).blendMode) > 4
+        || layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
         || std::holds_alternative<VideoLayer>(layer) || std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
@@ -2191,7 +2198,9 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
                   return left.frame < right.frame;
               });
     const FormatVersion priorVersion = m_document->formatVersion;
-    if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
+    if (layerProperties(layer).appearance != LayerAppearance{}
+        || static_cast<unsigned>(layerProperties(layer).blendMode) > 4
+        || layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
         || std::holds_alternative<VideoLayer>(layer) || std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
@@ -2242,7 +2251,9 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
     }
 
     const FormatVersion priorVersion = m_document->formatVersion;
-    if (layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
+    if (layerProperties(layer).appearance != LayerAppearance{}
+        || static_cast<unsigned>(layerProperties(layer).blendMode) > 4
+        || layerProperties(layer).frameRange || !layerProperties(layer).motion.empty()
         || std::holds_alternative<VideoLayer>(layer) || std::holds_alternative<SemanticSegmentLayer>(layer) || std::holds_alternative<PoseLayer>(layer) || std::holds_alternative<NormalMapLayer>(layer) || std::holds_alternative<ShuffleLayer>(layer) || std::holds_alternative<TileLayer>(layer) || std::holds_alternative<ReferenceLayer>(layer) || std::holds_alternative<IpAdapterLayer>(layer) || std::holds_alternative<DepthLayer>(layer) || std::holds_alternative<LineArtLayer>(layer) || std::holds_alternative<CannyLayer>(layer) || std::holds_alternative<ScribbleLayer>(layer) || std::holds_alternative<MlsdLayer>(layer)) {
         m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
     }
@@ -2426,9 +2437,32 @@ DocumentEditResult DocumentEditor::setLayerBlendMode(const std::string &id,
         return unchanged();
     }
     const RasterBlendMode prior = properties.blendMode;
+    const auto priorVersion = m_document->formatVersion;
+    if (static_cast<unsigned>(blendMode) > 4)
+        m_document->formatVersion.minor = CurrentFormatMinor;
     properties.blendMode = blendMode;
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         properties.blendMode = prior;
+        m_document->formatVersion = priorVersion;
+        return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::setLayerAppearance(const std::string &id, LayerAppearance appearance)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.setLayerAppearance(id, appearance); });
+    if (!requireValidDocument()) return m_lastResult;
+    auto *layer = findLayer(*m_document, id);
+    if (!layer) return reject(DocumentEditCode::LayerNotFound, "layers", "layer was not found");
+    auto &current = layerProperties(*layer).appearance;
+    if (current == appearance) return unchanged();
+    auto prior = current;
+    const auto version = m_document->formatVersion;
+    current = std::move(appearance);
+    m_document->formatVersion.minor = CurrentFormatMinor;
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        current = std::move(prior); m_document->formatVersion = version;
         return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
     }
     return applied();

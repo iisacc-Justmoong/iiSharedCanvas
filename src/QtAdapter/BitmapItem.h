@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Bitmap/BitmapEditor.h"
-#include "iiSharedCanvas/Export.h"
+#include "iiSharedCanvas/QuickExport.h"
 
 #include <QColor>
 #include <QPointF>
@@ -17,7 +17,7 @@ class QWheelEvent;
 
 namespace iiSharedCanvas {
 
-class IISHAREDCANVAS_EXPORT BitmapItem : public QQuickPaintedItem {
+class IISHAREDCANVASQUICK_EXPORT BitmapItem : public QQuickPaintedItem {
     Q_OBJECT
     Q_PROPERTY(bool bitmapReady READ bitmapReady NOTIFY bitmapChanged)
     Q_PROPERTY(int bitmapWidth READ bitmapWidth NOTIFY bitmapChanged)
@@ -127,6 +127,6 @@ private:
     bool m_panning = false;
 };
 
-IISHAREDCANVAS_EXPORT int registerIiSharedCanvasQmlTypes();
+IISHAREDCANVASQUICK_EXPORT int registerIiSharedCanvasQmlTypes();
 
 } // namespace iiSharedCanvas

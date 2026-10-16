@@ -58,7 +58,7 @@ if (!renamed.ok() || !bitmap.setPixel(10, 20, 0xff336699U)) {
 
 ## 물리 작업 파일 형식, 스키마 1
 
-작동 중인 `.iisc` 파일은 SQLite의 `SQLite format 3\0` 헤더로 시작하고, `application_id=0x49495343`와 `user_version=1`를 포함하며, 정확히 이 2 애플리케이션 테이블을 포함합니다. 스키마 버전은 캔버스 모델의 `FormatVersion`(현재 1.6)와 독립적입니다. 알 수 없는 ID/버전/스키마 객체, 잘못된 레코드 ID/순서, 실패한 체크섬, 잘못된 참조 및 구성된 리소스 제한 위반 안전하게 거부한다.
+작동 중인 `.iisc` 파일은 SQLite의 `SQLite format 3\0` 헤더로 시작하고, `application_id=0x49495343`와 `user_version=1`를 포함하며, 정확히 이 2 애플리케이션 테이블을 포함합니다. 스키마 버전은 캔버스 모델의 `FormatVersion`(현재 1.20)와 독립적입니다. 알 수 없는 ID/버전/스키마 객체, 잘못된 레코드 ID/순서, 실패한 체크섬, 잘못된 참조 및 구성된 리소스 제한 위반 안전하게 거부한다.
 
 `canvas_state`는 한 행을 포함합니다 ( `singleton=1` , non negative signed-64-bit `revision` ). `canvas_records`는 내부 rowid와 `kind`, `id`, `position`, `data` 및 `digest` 열을 가지고 있으며, 이는 `(kind,id)`에서 고유합니다. 데이터는 BLOB이며, 다이제스트는 해당 BLOB의 SHA-256입니다. 포지션은 0기반 주문이며, 해당 종류 내에 있습니다. 레코드 ID는 SQL 텍스트 값에 바인딩되며, 절대 SQL 구문이나 파일 시스템 경로에 연결되지 않습니다.
 
@@ -84,13 +84,20 @@ if (!renamed.ok() || !bitmap.setPixel(10, 20, 0xff336699U)) {
 
 ## 레거시 인터체인지
 
-`encodeIisc` / `decodeIisc`는 표준 버전1.0–1.4 바이너리 스냅샷 계약과 고정 기준 호환성 테스트를 유지한다. 이는 명시적인 가져오기/내보내기 API이며 작업 파일 편집 경로가 아니다. 확장자만 보지 말고 헤더를 탐지한다. `DocumentFile::open`은 레거시 스냅샷을 수정하지 않고 거부한다. 이를 채택하려면 디코딩·검증한 후 **새로운** 작업 파일 경로와 해당 문서로 `create`를 호출하고, 원래 스냅샷은 보존한다. 스냅샷 내보내기는 `encodeIisc(*file.document())`를 명시적으로 호출한다.
+`encodeIisc` / `decodeIisc`는 표준 버전 1.0–1.20 바이너리 스냅샷 계약과 고정 기준 호환성 테스트를 유지한다. 이는 명시적인 가져오기/내보내기 API이며 작업 파일 편집 경로가 아니다. 확장자만 보지 말고 헤더를 탐지한다. `DocumentFile::open`은 레거시 스냅샷을 수정하지 않고 거부한다. 이를 채택하려면 디코딩·검증한 후 **새로운** 작업 파일 경로와 해당 문서로 `create`를 호출하고, 원래 스냅샷은 보존한다. 스냅샷 내보내기는 `encodeIisc(*file.document())`를 명시적으로 호출한다. `iisc-upgrade`로 스냅샷의 모델을 갱신해도 저장 형식은 스냅샷으로 유지된다.
 
 `CameraRawData`와 별도의 `TimelineProject`는 영구 캔버스의 필드가 아니라 가져오기/인터치 모델로 남아 있습니다. 네이티브 모델 1.4 오디오는 캔버스 타임라인에 속하며, 해당 비디오 프로젝트 모델을 직렬화하지 않고 RAW 코덱을 추가하지 않으며, 하위 소비 측 애플리케이션도 편집하지 않습니다.
 
 <a id="authorship-transaction-record-15"></a>
 
 ## 저작자 거래 기록 ( 1.5 )
+
+명시적인 형식 갱신은 `DocumentFile::upgradeFormat()`을 사용한다. 이 작업은 기존
+편집 트랜잭션에서 모델과 레코드 표현만 현재 버전으로 갱신하며, 저작자 기록과
+콘텐츠를 유지한다. 현재 형식은 기록을 작성하지 않는다. 열린 문서를 검증하기
+전에는 원본의 저널 모드를 변경하지 않으며, 손상·미래 모델 버전은 쓰기 전에
+거부한다. 스냅샷과 작업 파일에 대한 설치 도구는
+[IISC_UPGRADE_CLI.md](IISC_UPGRADE_CLI.md)의 `iisc-upgrade`이다.
 
 레코드 종류 9 는 싱글턴 이며, 빈 id 와 위치 0입니다. 페이로드 는 1.5 길이의 접두어가 있는 저작권 JSON 문자열이며 오디오 트랙 기록을 따릅니다. 1.5 버전 이상에서는 정확히 한 번만 필요하며, 이전 모델에서는 금지됩니다. 스키마 1 는 변경되지 않습니다. 편집자가 열정적으로 장부를 새로 고침합니다; 내용이 변경되어 스스로를 도장하지 않은 경우 `DocumentFile` 로 원본 파일 편집이 도장됩니다. 레코드는 콘텐츠와 같은 트랜잭션에 패치됩니다. 롤백/충돌은 라이브 콘텐츠와 메타데이터를 모두 유지합니다. 동작 없는 편집은 기록을 작성하지 않으며, 동일한 기록된 작성자를 선택하면 런타임 편집 신원만 업데이트됩니다. 읽기 전용 디코딩된 스냅샷에는 활성 작성자나 쓰기 가능한 파일 바인딩이 없습니다.
 
@@ -131,7 +138,7 @@ IP -어댑터 ( 0.23.0 )은 소유된 바이너리32 임베딩 텐서와 기원�
 ## 자세한 ControlNet 매개변수(0.24.0)
 
 모든 12 조건부 타입은 `getControlNetParameters` 와 `DocumentEditor::controlNetParameters` 를 통해 타입화된 레이어/객체 스냅샷을 노출합니다. `setControlNetParameters` 는 하나의 레이어와 모든 고유한 소스 상태를 원자적으로 적용하며, `patchControlNetSettings` 는 다른 것들을 대체하지 않고 선택된 공통 필드를 편집합니다. 상세 필드, 출력 옵션, 소유권 및 롤백 규칙은 문서화되어 있습니다.
-[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). 현재 네이티브 모델은 대지 기능을 포함한 1.18이다.
+[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). 현재 네이티브 모델은 대지와 명시적 레이어 타입, 합성 속성을 포함한 1.20이다.
 
 ## Artboard persistence (1.18)
 
@@ -141,3 +148,5 @@ Layer records include optional ownership. Board metadata edits and reorder opera
 do not rewrite raster/vector/media asset records. All related mutations commit in
 the existing `DocumentFile::edit` transaction. There is no save method.
 See [ARTBOARDS.md](ARTBOARDS.md).
+
+`DocumentFile::readRevision(path, revision)` (0.30.2)은 iiFileProvider의 읽기 전용 연결로 작업 파일의 커밋된 저장 리비전만 조회한다. 편집 소유자나 픽셀 스냅샷을 만들지 않고 저널 모드를 변경하지 않는다. 실패 시 출력 값을 보존한다. 지원되는 저장 스키마와 SQLite 무결성을 검사하지만 문서 레코드의 모델·체크섬을 디코딩하지 않으므로, 이 결과는 문서 전체의 가독성을 보장하지 않는다. 직렬화된 IISC 스냅샷에는 저장 리비전이 없으며 UnsupportedFormat으로 보고한다.

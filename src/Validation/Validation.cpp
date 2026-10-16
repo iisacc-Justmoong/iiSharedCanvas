@@ -1,4 +1,5 @@
 #include "Validation/Validation.h"
+#include "Bitmap/BitmapProcessing.h"
 
 #include <cmath>
 #include <cstddef>
@@ -58,16 +59,107 @@ bool hasFiniteTransform(const AffineTransform &transform) noexcept
 
 bool isSupportedLayerBlendMode(RasterBlendMode blendMode) noexcept
 {
-    switch (blendMode) {
-    case RasterBlendMode::SourceOver:
-    case RasterBlendMode::Multiply:
-    case RasterBlendMode::Screen:
-    case RasterBlendMode::Overlay:
-        return true;
-    case RasterBlendMode::DestinationOut:
-        return false;
+    return blendMode != RasterBlendMode::DestinationOut
+        && static_cast<unsigned>(blendMode) <= static_cast<unsigned>(RasterBlendMode::Dissolve);
+}
+
+bool unitValue(double value) { return std::isfinite(value) && value >= 0 && value <= 1; }
+
+std::string validateMask(const Document &document, const std::optional<LayerMask> &mask, bool vectorOnly)
+{
+    if (!mask) return {};
+    const auto *asset = findAsset(document, mask->assetId);
+    if (!asset) return "mask must reference an existing asset";
+    const auto *raster = std::get_if<RasterAsset>(asset);
+    const auto *vector = std::get_if<VectorAsset>(asset);
+    if (vectorOnly ? !vector : !raster) return vectorOnly ? "vector mask requires a vector asset" : "pixel/filter mask requires a raster asset";
+    if (!unitValue(mask->density) || !unitValue(mask->outsideCoverage)
+        || !std::isfinite(mask->featherRadius) || mask->featherRadius < 0 || mask->featherRadius > 128
+        || static_cast<unsigned>(mask->channel) > static_cast<unsigned>(MaskChannel::Alpha)
+        || !hasFiniteTransform(mask->transform)) return "mask parameters must be supported and bounded";
+    const auto &t = mask->transform;
+    const double determinant = t.m11 * t.m22 - t.m12 * t.m21;
+    if (!std::isfinite(determinant) || determinant == 0) return "mask transform must be invertible";
+    const auto extent = raster ? CanvasExtent{raster->pixels.width, raster->pixels.height} : vector->viewport;
+    const auto padding = std::int64_t(std::ceil(mask->featherRadius * 3));
+    const auto width = std::int64_t(extent.width) + 2 * padding, height = std::int64_t(extent.height) + 2 * padding;
+    if (width <= 0 || height <= 0 || width * height > 16LL * 1024 * 1024)
+        return "feathered mask exceeds the 16-million-pixel processing budget";
+    return {};
+}
+
+std::string validateAppearance(const Document &document, const Layer &layer, std::size_t index)
+{
+    const auto &p = layerProperties(layer);
+    const auto &a = p.appearance;
+    if (layerRole(layer) != LayerRole::Artwork && a != LayerAppearance{})
+        return "conditioning layers cannot own artwork appearance operations";
+    if (!unitValue(a.fillOpacity)) return "fill opacity must be in [0,1]";
+    if (a.filters.size() > 64) return "a layer cannot contain more than 64 filters";
+    if (auto error = validateMask(document, a.rasterMask, false); !error.empty()) return error;
+    if (auto error = validateMask(document, a.vectorMask, true); !error.empty()) return error;
+    if (auto error = validateMask(document, a.filterMask, false); !error.empty()) return error;
+    if (a.maskStack.size() > 4096) return "mask stack exceeds 4096 operands";
+    std::unordered_set<std::string> maskIds;
+    std::uint64_t stackPixels = 0;
+    for (const auto &entry : a.maskStack) {
+        if (entry.id.empty() || !maskIds.insert(entry.id).second) return "mask stack IDs must be nonempty and unique";
+        if (static_cast<unsigned>(entry.combine) > static_cast<unsigned>(MaskCombineMode::Replace))
+            return "unknown mask stack combination";
+        const auto *asset = findAsset(document, entry.mask.assetId);
+        const bool vector = asset && std::holds_alternative<VectorAsset>(*asset);
+        if (auto error = validateMask(document, entry.mask, vector); !error.empty()) return error;
+        const auto extent = vector ? std::get<VectorAsset>(*asset).viewport
+            : CanvasExtent{std::get<RasterAsset>(*asset).pixels.width, std::get<RasterAsset>(*asset).pixels.height};
+        const auto pad = std::uint64_t(std::ceil(entry.mask.featherRadius * 3));
+        stackPixels += (std::uint64_t(extent.width) + 2 * pad) * (std::uint64_t(extent.height) + 2 * pad);
+        if (stackPixels > 64ULL * 1024 * 1024) return "mask stack exceeds the 64-million-pixel processing budget";
     }
-    return false;
+    for (const auto &filter : a.filters) {
+        if (!unitValue(filter.opacity) || !isSupportedLayerBlendMode(filter.blendMode))
+            return "filter opacity and blend mode must be supported";
+        const auto error = std::visit([](const auto &operation) {
+            if constexpr (std::is_same_v<std::decay_t<decltype(operation)>, RasterEffect>)
+                return validateRasterEffect(operation);
+            else return validateColorAdjustment(operation);
+        }, filter.operation);
+        if (!error.empty()) return error;
+    }
+    if (!a.filters.empty()) {
+        const auto checkSource = [&](FrameIndex frame) {
+            const auto *asset = resolveAssetAt(document, layer, frame);
+            if (!asset) return true; // Missing source is reported by the source validator.
+            if (const auto *raster = std::get_if<RasterAsset>(asset))
+                return std::uint64_t(raster->pixels.width) * raster->pixels.height <= 67108864;
+            if (const auto *vector = std::get_if<VectorAsset>(asset))
+                return std::uint64_t(vector->viewport.width) * vector->viewport.height <= 67108864;
+            return std::holds_alternative<VideoAsset>(*asset);
+        };
+        if (!checkSource(0)) return "filters require bounded raster, vector or video content";
+        if (const auto *source = keyframedLayerSource(layer))
+            for (auto frame : source->frameIndices) if (!checkSource(frame))
+                return "filters require bounded raster, vector or video content at every keyframe";
+    }
+    if (a.blendIf) {
+        const auto rangeValid = [](const BlendIfRange &r) {
+            return unitValue(r.black) && unitValue(r.blackFade) && unitValue(r.whiteFade)
+                && unitValue(r.white) && r.black <= r.blackFade && r.blackFade <= r.whiteFade && r.whiteFade <= r.white;
+        };
+        if (static_cast<unsigned>(a.blendIf->channel) > static_cast<unsigned>(BlendIfChannel::Blue)
+            || !rangeValid(a.blendIf->source) || !rangeValid(a.blendIf->backdrop))
+            return "Blend If split ranges must be ordered within [0,1]";
+    }
+    if (a.clippedToBelow) {
+        bool base = false;
+        while (index > 0) {
+            const auto &candidate = document.layers[--index];
+            if (layerRole(candidate) != LayerRole::Artwork || layerProperties(candidate).artboardId != p.artboardId) continue;
+            base = !layerProperties(candidate).appearance.clippedToBelow;
+            if (base) break;
+        }
+        if (!base) return "clipped layer requires a base in the same artboard composition";
+    }
+    return {};
 }
 
 void validateRasterAsset(const RasterAsset &asset,
@@ -453,6 +545,16 @@ ValidationResult validate(const Document &document)
         const LayerProperties &properties = layerProperties(layer);
         const ContentKind requiredKind = contentKind(layer);
         const std::string layerPath = "layers[" + std::to_string(index) + "]";
+        if (const auto error = validateAppearance(document, layer, index); !error.empty())
+            addIssue(result, ValidationCode::InvalidLayer, layerPath + ".appearance", error);
+        if (document.formatVersion.minor < 20
+            && (properties.appearance != LayerAppearance{} || static_cast<unsigned>(properties.blendMode) > 4))
+            addIssue(result, ValidationCode::UnsupportedFormatVersion, layerPath,
+                "extended blend modes and layer appearance require format 1.20");
+        if (document.formatVersion.minor < 21
+            && (!properties.appearance.maskStack.empty() || !properties.appearance.maskStackEnabled))
+            addIssue(result, ValidationCode::UnsupportedFormatVersion, layerPath,
+                "mask stacks require format 1.21");
         if (properties.artboardId) {
             if (document.formatVersion.minor < 18)
                 addIssue(result, ValidationCode::UnsupportedFormatVersion, layerPath + ".artboardId", "artboard membership requires format 1.18");

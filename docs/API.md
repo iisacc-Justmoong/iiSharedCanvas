@@ -4,6 +4,12 @@
 
 ## Raster presentation (0.25.0)
 
+`Render/DocumentPreview.h` exposes `DocumentPreviewOptions`,
+`DocumentPreviewResult`, `renderDocumentPreview` and `readIiscPreview`.
+They return composed, aspect-fit ARGB pixels without upscaling or modifying the
+source. The file API supports binary snapshots and committed SQLite/WAL contents.
+See [Document previews](DOCUMENT_PREVIEWS.md) for bounds and worker-thread usage.
+
 `FrameRenderTileRequest::sampling` and the five-argument `renderFrameRegion` select
 `RasterSampling::Nearest` or `RasterSampling::Smooth`. The existing overload retains
 nearest sampling. `CanvasItem::smoothRendering` defaults to true and is independent
@@ -42,6 +48,19 @@ iiSharedCanvas 는 C++23 집합형 타입으로 자신의 표준 캔버스 데�
 `DocumentFile` 는 커밋된 캔버스를 소유하며 `const Document *` 만 노출합니다. `create(path, document, limits)` 는 기존 경로를 거부하며, `open(path, limits)` 는 작업 파일을 유효성 검사합니다. 각 편집자의 `bind(DocumentFile &)` 오버로드는 승인된 편집을 즉시 작성합니다. `DocumentFile::edit` 는 사용자 정의 집계 변경에 대한 유효성 검사된 원자 콜백을 제공합니다. 닫기나 새로고침은 저장 작업을 수행하지 않습니다. `DocumentFileResult` 는 거부, I/O, 충돌, 스키마 및 제한 오류를 보고하며, `lastWriteStatistics` 는 논리적 증분 쓰기 횟수를 노출합니다.
 
 `DocumentEditor` 와 `CanvasItem` 은 파일 바인딩된 경우 그들의 변형 가능한 `document()` 오버로드로부터 의도적으로 null 을 반환합니다. 뷰를 위해 const 오버로드를 사용하거나, `file.edit` 또는 파일 바인딩 편집기를 사용하여 변형하십시오. 독립적인 집계 API 는 여전히 메모리에서 작동합니다. 새로운 파일 바인딩 오버로드, `CanvasItem::createFile`, `openFile`, `filePath`, 수명 주기 규칙, 스트로크/실패 취소 동작, 및 레거시 임포트는 [PERSISTENCE .md](PERSISTENCE.md)에 지정되어 있습니다.
+
+`DocumentFile::upgradeFormat()`은 열린 작업 파일의 모델만 현재 IISC 1.20으로
+갱신하는 동기 작업이다. 콘텐츠와 저작자 기록을 유지하며, 성공한 변경은 저장
+리비전만 한 번 진행시킨다. 현재 형식은 `changed=false`인 무작업이며, 기존 편집의
+충돌·파일 교체·리소스 제한·롤백 규칙을 적용한다. 파일이 열리지 않았으면 `NotOpen`이다.
+스냅샷과 작업 파일의 경로 기반 도구는 [IISC_UPGRADE_CLI.md](IISC_UPGRADE_CLI.md)에
+명세된 설치 CLI `iisc-upgrade`이다.
+
+`File/IiscUpgrade.h`의 `upgradeIiscFile(inputPath, outputPath = {}, limits = {})`는
+동일한 갱신을 수행하는 C++23 공개 API이다. UTF-8 경로를 받고 스냅샷/작업 파일의
+저장 형식을 보존한다. `IiscUpgradeResult`의 `code`, `message`, `changed`,
+`sourceVersion`, `outputPath`로 결과를 확인하며, 오류가 있어도 부분 출력을 게시하지
+않는다. 공개 헤더와 CLI 진입점은 Qt 타입이나 애플리케이션 초기화를 사용하지 않는다.
 
 <a id="camera-raw-authoring-objects"></a>
 
@@ -148,7 +167,7 @@ ComfyUI   `promptJson`  및  `workflowJson` 는 독립적으로 선택 사항입
 | `MotionKeyframe` | `frame`, `value`, `interpolation` |절대 정수 프레임 속성 키|
 | `VectorPath` | `commands`, `fill`, `stroke` |M/L/Q/C/Z 기하학 및 고체 페인트|
 | `LayerFrameRange` | `firstFrame`, `lastFrame` |선택적 포함 레이어 존재 경계|
-| `LayerProperties` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `frameRange`, `motion`, `artboardId` |모든 시각적 계층 유형에서 공유되는 프레젠테이션, 타임라인 존재 상태 및 선택적 대지 소속|
+| `LayerProperties` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `frameRange`, `motion`, `artboardId`, `appearance` |모든 시각적 계층 유형에서 공유되는 프레젠테이션, 타임라인 존재 상태 및 선택적 대지 소속|
 | `StaticBitmapLayer` | `properties`, `content: StaticBitmapContent` |단일 래스터 자산|
 | `DynamicBitmapLayer` | `properties`, `content: DynamicBitmapContent` |프레임별 래스터 자산|
 | `StaticVectorLayer` | `properties`, `content: StaticVectorContent` |단일 네이티브 벡터 자산|
@@ -303,7 +322,8 @@ for (const Frame &frame : decoded.document.frames) {
 | `setLayerVisible` |렌더링 참여 전환|
 | `setLayerOpacity` |0에서 1까지의 유한 불투명도 설정|
 | `setLayerTransform` |완전 유한 아핀 변환을 교체하십시오.|
-| `setLayerBlendMode` |지원되는 문서 선택 합성 모드|
+| `setLayerBlendMode` |27가지 픽셀 레이어 합성 모드|
+| `setLayerAppearance` |마스크, 필터, Fill, 클리핑과 Blend If를 원자적으로 갱신|
 | `setLayerFrameRange` |선택적 포함 존재 범위를 설정하거나 초기화하고, 커밋된 범위를 1.3형식으로 업그레이드합니다.|
 | `setStaticSource` |소스를 하나의 자산 참조로 교체|
 | `setKeyframedSource` |레이어에 애니메이션을 표시하고 `KeyframePlacement` 입력을 자체 희소 프레임에 원자적으로 배포합니다.|
@@ -343,6 +363,14 @@ for (const Frame &frame : decoded.document.frames) {
 <a id="canvasitem-integration"></a>
 
 ## CanvasItem 통합
+
+`CanvasItem::renderArtboardId` (0.29.0) is presentation-only focus: an empty string
+renders the complete document, a stable ID renders that artboard's background and
+owned visible artwork, and a missing ID presents transparency without an editing
+error. `setRenderArtboardId` preserves the bound document, full workspace geometry,
+selection, brush history and document revision. Its notify signal is
+`renderArtboardIdChanged`. See [ARTBOARD_PRESENTATION.md](ARTBOARD_PRESENTATION.md)
+for the immutable snapshot, asynchronous generation and frame-pixel contracts.
 
 `CanvasItem::document()`는 바운드 집계를 반환하고 `CanvasItem::documentEditor()`는 영구 구조 편집기를 반환합니다. 단일 구조 변경의 경우 `editDocument`를 선호합니다.
 
@@ -506,7 +534,7 @@ auto kind = layerKind(*findLayer(document, "drawing")); // DynamicVector
 ## 자세한 ControlNet 매개변수(0.24.0)
 
 모든 12 조건부 타입은 `getControlNetParameters` 와 `DocumentEditor::controlNetParameters` 를 통해 타입화된 레이어/객체 스냅샷을 노출합니다. `setControlNetParameters` 는 하나의 레이어와 모든 고유한 소스 상태를 원자적으로 적용하며, `patchControlNetSettings` 는 다른 것들을 대체하지 않고 선택된 공통 필드를 편집합니다. 상세 필드, 출력 옵션, 소유권 및 롤백 규칙은 문서화되어 있습니다.
-[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). 현재 네이티브 모델은 명시적 타입을 포함한 1.19이다.
+[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). 현재 네이티브 모델은 명시적 타입과 레이어 외형을 포함한 1.20이다.
 
 ## Dynamic frame content (0.27.1)
 
@@ -529,4 +557,16 @@ continue to hold until the next key. See [DYNAMIC_FRAME_CONTENT.md](DYNAMIC_FRAM
 canvas groups. `findArtboard`, `documentViewRegion`, `renderArtboard` and the artboard
 methods on `DocumentEditor` expose validated editing and rendering.
 `sampleLayerAt` returns world coordinates after applying board-local motion.
-See [ARTBOARDS.md](ARTBOARDS.md) for the complete public contract. Native model is 1.19.
+See [ARTBOARDS.md](ARTBOARDS.md) for the complete public contract. Native model is 1.20.
+
+## Persistent layer appearance (0.30.0)
+
+`LayerProperties::appearance` is `LayerAppearance`; `DocumentEditor::setLayerAppearance` replaces and validates it atomically, including synchronous file-bound persistence. It contains Fill, clipping/group-blend settings, pixel/vector/filter mask references, ordered `LayerFilter` values and optional split `BlendIf` ranges. Extended `RasterBlendMode` covers 27 pixel-layer modes. `FrameLayerTileRenderResult` carries Fill, clipping and Blend If metadata for `composeFrameLayers`. See [LAYER_COMPOSITING.md](LAYER_COMPOSITING.md). Current native format is **1.20**; the 1.19 four-type extension remains unchanged within the newer layout.
+
+`DocumentFile::readRevision(path, revision)` (0.30.2)은 iiFileProvider의 읽기 전용 연결로 작업 파일의 커밋된 저장 리비전만 조회한다. 편집 소유자나 픽셀 스냅샷을 만들지 않고 저널 모드를 변경하지 않는다. 실패 시 출력 값을 보존한다. 지원되는 저장 스키마와 SQLite 무결성을 검사하지만 문서 레코드의 모델·체크섬을 디코딩하지 않으므로, 이 결과는 문서 전체의 가독성을 보장하지 않는다. 직렬화된 IISC 스냅샷에는 저장 리비전이 없으며 UnsupportedFormat으로 보고한다.
+
+## Ordered mask operands (0.31.0)
+
+`LayerAppearance::maskStack` owns ordered `LayerMaskEntry { id, name, mask, combine }` values. This reusable canvas contract is independent of any product panel. `maskStackEnabled` bypasses the collection without discarding source pixels or operands. Each entry owns stable identity, its own visibility/inversion/density/feather/channel/transform and a raster or vector asset reference. Combine modes apply after each operand's properties. `assetReferences` reports `MaskStack` with `maskStackIndex`; renaming assets updates these references and referenced assets cannot be deleted. `DocumentEditor::setLayerAppearance` validates and commits the collection atomically, including working-file revisions. Raw pointer sequences and brush dabs are never persisted.
+
+The stack is native IISC 1.21. Legacy files remain readable. Unsupported foreign layered exports reject this appearance contract explicitly; flattened image rendering includes its final coverage. Tests cover soft-edge arithmetic, properties, source preservation, legacy decoding, downgrade rejection, budgets, failed transactions and durable reopening, and are also run against the installed package.

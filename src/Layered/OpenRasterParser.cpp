@@ -5,6 +5,7 @@
 #include "Validation/Validation.h"
 
 #include <QByteArray>
+#include "BlendModeMapping_p.hpp"
 #include <QString>
 #include <QXmlStreamReader>
 
@@ -303,11 +304,13 @@ MediaIoResult commonProperties(const QXmlStreamAttributes &attributes, LayerProp
     }
     if (attributes.hasAttribute(u"composite-op")) {
         const auto mode = attributes.value(u"composite-op");
-        if (mode == u"svg:src-over") { properties.blendMode = RasterBlendMode::SourceOver; }
-        else if (mode == u"svg:multiply") { properties.blendMode = RasterBlendMode::Multiply; }
-        else if (mode == u"svg:screen") { properties.blendMode = RasterBlendMode::Screen; }
-        else if (mode == u"svg:overlay") { properties.blendMode = RasterBlendMode::Overlay; }
-        else { return error(MediaIoCode::UnsupportedFeature, "unsupported OpenRaster composite operation"); }
+        bool found = false;
+        for (const auto &[value,name] : OraBlendModes) {
+            if (mode == QString::fromLatin1(name.data(),qsizetype(name.size()))) {
+                properties.blendMode = value; found = true; break;
+            }
+        }
+        if (!found) return error(MediaIoCode::UnsupportedFeature, "unsupported OpenRaster composite operation");
     }
     return {};
 }

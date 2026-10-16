@@ -613,6 +613,16 @@ std::vector<AssetReference> assetReferences(const Document &document,
         layerIndices.emplace(
             layerProperties(document.layers[layerPosition]).id,
             layerPosition);
+        const auto &a = layerProperties(document.layers[layerPosition]).appearance;
+        auto maskKind = static_cast<unsigned>(AssetReferenceKind::RasterMask);
+        for (const auto *mask : {&a.rasterMask, &a.vectorMask, &a.filterMask}) {
+            if (*mask && (*mask)->assetId == referencedAssetId)
+                references.push_back({layerPosition, std::nullopt, std::nullopt, static_cast<AssetReferenceKind>(maskKind)});
+            ++maskKind;
+        }
+        for (std::size_t i = 0; i < a.maskStack.size(); ++i)
+            if (a.maskStack[i].mask.assetId == referencedAssetId)
+                references.push_back({layerPosition, std::nullopt, std::nullopt, AssetReferenceKind::MaskStack, i});
         if (const auto *staticSource = staticLayerSource(document.layers[layerPosition])) {
             if (staticSource->assetId == referencedAssetId) {
                 references.push_back({layerPosition, std::nullopt, std::nullopt});

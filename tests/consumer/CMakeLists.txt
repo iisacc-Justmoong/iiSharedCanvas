@@ -1,7 +1,17 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.28.0 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.31.0 CONFIG REQUIRED)
+find_package(SQLite3 3.26 REQUIRED)
+find_program(IISC_UPGRADE_EXECUTABLE NAMES iisc-upgrade
+    HINTS "${iiSharedCanvas_DIR}/../../../bin" NO_DEFAULT_PATH REQUIRED)
+
+add_executable(iiSharedCanvasInstalledIiscUpgradeCli ../IiscUpgradeCliTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledIiscUpgradeCli PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+target_compile_definitions(iiSharedCanvasInstalledIiscUpgradeCli PRIVATE
+    IISHAREDCANVAS_UPGRADE_EXECUTABLE="${IISC_UPGRADE_EXECUTABLE}"
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledIiscUpgradeCli COMMAND iiSharedCanvasInstalledIiscUpgradeCli)
 
 add_executable(iiSharedCanvasInstalledBitmapProcessing ../BitmapProcessingTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledBitmapProcessing PRIVATE iiSharedCanvas::iiSharedCanvas)
@@ -22,6 +32,11 @@ target_include_directories(iiSharedCanvasConsumer BEFORE PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../foreign-headers")
 
 enable_testing()
+add_executable(iiSharedCanvasInstalledDocumentPreview ../DocumentPreviewTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledDocumentPreview PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledDocumentPreview PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledDocumentPreview COMMAND iiSharedCanvasInstalledDocumentPreview)
+set_tests_properties(iiSharedCanvas.InstalledDocumentPreview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_executable(iiSharedCanvasInstalledFourLayerType ../FourLayerTypeTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledFourLayerType PRIVATE iiSharedCanvas::iiSharedCanvas)
 target_compile_definitions(iiSharedCanvasInstalledFourLayerType PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
@@ -34,6 +49,10 @@ add_executable(iiSharedCanvasInstalledArtboard ../ArtboardTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledArtboard PRIVATE iiSharedCanvas::iiSharedCanvas)
 target_compile_definitions(iiSharedCanvasInstalledArtboard PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
 add_test(NAME iiSharedCanvas.InstalledArtboard COMMAND iiSharedCanvasInstalledArtboard)
+add_executable(iiSharedCanvasInstalledCanvasItemArtboardFocus ../CanvasItemArtboardFocusTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledCanvasItemArtboardFocus PRIVATE iiSharedCanvas::iiSharedCanvas)
+add_test(NAME iiSharedCanvas.InstalledCanvasItemArtboardFocus COMMAND iiSharedCanvasInstalledCanvasItemArtboardFocus)
+set_tests_properties(iiSharedCanvas.InstalledCanvasItemArtboardFocus PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_test(NAME iiSharedCanvas.InstalledRasterSampling COMMAND iiSharedCanvasInstalledRasterSampling)
 add_executable(iiSharedCanvasInstalledAuthorship ../AuthorshipTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledAuthorship PRIVATE iiSharedCanvas::iiSharedCanvas)
@@ -113,6 +132,17 @@ target_link_libraries(iiSharedCanvasInstalledMlsd PRIVATE iiSharedCanvas::iiShar
 target_compile_definitions(iiSharedCanvasInstalledMlsd PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 add_test(NAME iiSharedCanvas.InstalledMlsd COMMAND iiSharedCanvasInstalledMlsd)
 
+add_executable(iiSharedCanvasInstalledLayerCompositing ../LayerCompositingTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledLayerCompositing PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledLayerCompositing PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledLayerCompositing COMMAND iiSharedCanvasInstalledLayerCompositing)
+
+add_executable(iiSharedCanvasInstalledDocumentFile ../DocumentFileTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledDocumentFile PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+target_compile_definitions(iiSharedCanvasInstalledDocumentFile PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledDocumentFile COMMAND iiSharedCanvasInstalledDocumentFile)
+set_tests_properties(iiSharedCanvas.InstalledDocumentFile PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+
 # Prove the selected stage/host package rather than an unrelated shell SDK path.
 if(APPLE OR UNIX)
     get_property(_canvas_tests DIRECTORY PROPERTY TESTS)
@@ -122,7 +152,12 @@ if(APPLE OR UNIX)
         set(_canvas_loader_path LD_LIBRARY_PATH)
     endif()
     set_tests_properties(${_canvas_tests} PROPERTIES ENVIRONMENT_MODIFICATION
-        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvas::iiSharedCanvas>")
+        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvas::iiSharedCanvas>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
     unset(_canvas_tests)
     unset(_canvas_loader_path)
 endif()
+
+add_executable(iiSharedCanvasInstalledMaskStack ../MaskStackTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledMaskStack PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledMaskStack PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledMaskStack COMMAND iiSharedCanvasInstalledMaskStack)

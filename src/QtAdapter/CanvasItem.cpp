@@ -1486,6 +1486,25 @@ qreal CanvasItem::renderDevicePixelRatio() const noexcept
     return std::isfinite(ratio) && ratio > 0.0 ? ratio : qreal{1.0};
 }
 
+QString CanvasItem::renderArtboardId() const
+{
+    return m_renderArtboardId;
+}
+
+void CanvasItem::setRenderArtboardId(const QString &artboardId)
+{
+    if (m_renderArtboardId == artboardId) return;
+    m_renderArtboardId = artboardId;
+    // Presentation has its own generation; focus must not become a document edit.
+    ++m_contentGeneration;
+    m_asyncRenderer.cancel();
+    m_renderSnapshot.reset();
+    clearTileCache();
+    scheduleVisibleRender(false);
+    update();
+    emit renderArtboardIdChanged();
+}
+
 int CanvasItem::renderLevelOfDetail() const noexcept
 {
     return lodForZoom(m_zoom * renderDevicePixelRatio());
@@ -1791,7 +1810,18 @@ void CanvasItem::startScheduledRender()
     }
 
     if (!m_renderSnapshot) {
-        m_renderSnapshot = std::make_shared<Document>(*m_document);
+        auto snapshot = std::make_shared<Document>(*m_document);
+        if (!m_renderArtboardId.isEmpty()) {
+            const auto id = m_renderArtboardId.toStdString();
+            // Retain geometry and references for validation and input coordinates.
+            // Only the immutable worker snapshot changes its visible composition.
+            for (auto &board : snapshot->artboards) board.visible = board.visible && board.id == id;
+            for (auto &layer : snapshot->layers) {
+                auto &properties = layerProperties(layer);
+                properties.visible = properties.visible && properties.artboardId == id;
+            }
+        }
+        m_renderSnapshot = std::move(snapshot);
     }
 
     std::vector<FrameRenderTileRequest> requests = visibleTileRequests();
@@ -2078,7 +2108,8 @@ bool CanvasItem::canPresentLayerTiles() const noexcept
             continue;
         }
         hasVisibleLayer = true;
-        if (properties.blendMode != RasterBlendMode::SourceOver) {
+        if (properties.blendMode != RasterBlendMode::SourceOver
+            || properties.appearance != LayerAppearance{}) {
             return false;
         }
     }

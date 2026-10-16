@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.28.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.31.0 LANGUAGES CXX)
+# File creation is owned by iiFileProvider.
+
+
 
 set(IISHAREDCANVAS_LICENSE_SPDX "AGPL-3.0-only")
 
@@ -19,6 +22,11 @@ include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 
 if(BUILD_TESTING)
+    add_executable(iiSharedCanvasDocumentPreviewTest tests/DocumentPreviewTest.cpp)
+    target_link_libraries(iiSharedCanvasDocumentPreviewTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasDocumentPreviewTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.DocumentPreview COMMAND iiSharedCanvasDocumentPreviewTest)
+    set_tests_properties(iiSharedCanvas.DocumentPreview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(iiSharedCanvasFourLayerTypeTest tests/FourLayerTypeTest.cpp)
     target_link_libraries(iiSharedCanvasFourLayerTypeTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasFourLayerTypeTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
@@ -103,8 +111,13 @@ if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
 endif()
 
 list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiFileProvider")
-find_package(iiPaintEngine 0.1.0 CONFIG REQUIRED)
-find_package(iiFileProvider 0.5.0 CONFIG REQUIRED)
+find_package(iiPaintEngine 0.4.1 CONFIG REQUIRED)
+find_package(iiFileProvider 0.6 CONFIG REQUIRED HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
+option(IISHAREDCANVAS_BUILD_QUICK "Build Qt Quick presentation adapters" ON)
+find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui)
+if(IISHAREDCANVAS_BUILD_QUICK)
+    find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Qml Quick)
+endif()
 find_package(ZLIB 1.2.9 REQUIRED)
 find_package(libzip 1.7.3 CONFIG REQUIRED)
 if(BUILD_TESTING)
@@ -127,7 +140,9 @@ if(IISHAREDCANVAS_BUILD_SHARED AND NOT EMSCRIPTEN)
     set(IISHAREDCANVAS_LIBRARY_TYPE SHARED)
 endif()
 
-add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
+add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
+        src/Render/DocumentPreview.cpp
+        src/Render/DocumentPreview.h
         src/Audio/AudioCodec.cpp
         src/Audio/AudioCodec.h
         src/Bitmap/BitmapCodec.cpp
@@ -138,6 +153,8 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/BitmapEditor.h
         src/Bitmap/BitmapProcessing.h
         src/Bitmap/BitmapProcessing.cpp
+        src/Bitmap/RasterProcessingTypes.cpp
+        src/Document/LayerAppearance.cpp
         src/Bitmap/ChunkedBitmapEditor.cpp
         src/Bitmap/ChunkedBitmapEditor.h
         src/Camera/CameraRaw.cpp
@@ -179,6 +196,10 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Document/DocumentEditor.h
         src/File/DocumentFile.cpp
         src/File/DocumentFile.h
+        src/File/IiscUpgrade.cpp
+        src/File/IiscUpgrade.h
+        src/File/IiscInput.cpp
+        src/File/IiscInput_p.hpp
         src/Layered/LayeredDocumentCodec.cpp
         src/Layered/LayeredDocumentCodec.h
         src/Layered/OpenRasterParser.cpp
@@ -194,12 +215,6 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Metadata/StableDiffusionGenerationParameters.h
         src/Metadata/StableDiffusionMetadata.cpp
         src/Metadata/StableDiffusionMetadata.h
-        src/QtAdapter/CanvasItem.cpp
-        src/QtAdapter/CanvasItem.h
-        src/QtAdapter/BitmapItem.cpp
-        src/QtAdapter/BitmapItem.h
-        src/QtAdapter/AsyncFrameRenderer.cpp
-        src/QtAdapter/AsyncFrameRenderer.h
         src/Render/FrameRenderer.cpp
         src/Render/FrameRenderer.h
         src/Serialization/IiscCodec.cpp
@@ -222,52 +237,97 @@ add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Vector/VectorCodec.h
         src/Video/VideoCodec.cpp
         src/Video/VideoCodec.h)
+add_library(iiSharedCanvas::Core ALIAS iiSharedCanvasCore)
+add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE} src/Compatibility.cpp)
+set_target_properties(iiSharedCanvas PROPERTIES VERSION ${PROJECT_VERSION}
+    SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
+    INSTALL_RPATH_USE_LINK_PATH TRUE)
+target_compile_features(iiSharedCanvas PRIVATE cxx_std_23)
 add_library(iiSharedCanvas::iiSharedCanvas ALIAS iiSharedCanvas)
+target_link_libraries(iiSharedCanvas PUBLIC iiSharedCanvasCore)
 
-generate_export_header(iiSharedCanvas
+if(APPLE AND IISHAREDCANVAS_LIBRARY_TYPE STREQUAL "SHARED")
+    # Keep the legacy dylib's public symbol lookup valid after moving its
+    # implementations into Core/Quick. Backend consumers never link this facade.
+    target_link_options(iiSharedCanvas PRIVATE "LINKER:-reexport_library,$<TARGET_FILE:iiSharedCanvasCore>")
+    set_property(TARGET iiSharedCanvas APPEND PROPERTY INSTALL_RPATH "@loader_path")
+endif()
+
+generate_export_header(iiSharedCanvasCore BASE_NAME iiSharedCanvas
         EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h")
 
-target_compile_features(iiSharedCanvas PUBLIC cxx_std_23)
-target_include_directories(iiSharedCanvas PUBLIC
+target_compile_features(iiSharedCanvasCore PUBLIC cxx_std_23)
+target_include_directories(iiSharedCanvasCore PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-target_link_libraries(iiSharedCanvas PUBLIC
+target_link_libraries(iiSharedCanvasCore PUBLIC
         iiFileProvider::iiFileProvider
         iiPaintEngine::iiPaintEngine
-        Qt6::Qml
-        Qt6::Quick)
-target_link_libraries(iiSharedCanvas PRIVATE ZLIB::ZLIB libzip::zip)
-target_include_directories(iiSharedCanvas SYSTEM PRIVATE
+        Qt6::Core Qt6::Gui)
+target_link_libraries(iiSharedCanvasCore PRIVATE ZLIB::ZLIB libzip::zip)
+target_include_directories(iiSharedCanvasCore SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fast_float")
 if(APPLE OR UNIX)
-    target_link_options(iiSharedCanvas INTERFACE
+    target_link_options(iiSharedCanvasCore INTERFACE
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 endif()
 
-set_target_properties(iiSharedCanvas PROPERTIES
-        AUTOMOC ON
+set_target_properties(iiSharedCanvasCore PROPERTIES
+        EXPORT_NAME Core OUTPUT_NAME iiSharedCanvasCore
+        AUTOMOC OFF
         EXPORT_NO_SYSTEM TRUE
         VERSION ${PROJECT_VERSION}
         SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
-set_property(TARGET iiSharedCanvas APPEND PROPERTY
+set_property(TARGET iiSharedCanvasCore APPEND PROPERTY
         BUILD_RPATH "$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
-set_property(TARGET iiSharedCanvas APPEND PROPERTY
+if(APPLE)
+    set_property(TARGET iiSharedCanvasCore APPEND PROPERTY INSTALL_RPATH
+            "@loader_path/../../iiPaintEngine/lib"
+            "@loader_path/../../iiPaintEngine/platforms/macos/lib")
+elseif(UNIX)
+    set_property(TARGET iiSharedCanvasCore APPEND PROPERTY INSTALL_RPATH
+            "$ORIGIN/../../iiPaintEngine/lib"
+            "$ORIGIN/../../iiPaintEngine/platforms/linux/lib")
+endif()
+
+set_property(TARGET iiSharedCanvasCore APPEND PROPERTY
         INSTALL_RPATH "$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>"
         "$<TARGET_FILE_DIR:iiFileProvider::iiFileProvider>")
-if(APPLE)
-    set_property(TARGET iiSharedCanvas APPEND PROPERTY INSTALL_RPATH
-            "@loader_path/../../iiPaintEngine/platforms/macos/lib"
-            "@loader_path/../../iiPaintEngine/lib")
-elseif(UNIX)
-    set_property(TARGET iiSharedCanvas APPEND PROPERTY INSTALL_RPATH
-            "$ORIGIN/../../iiPaintEngine/platforms/linux/lib"
-            "$ORIGIN/../../iiPaintEngine/lib")
+
+
+if(IISHAREDCANVAS_BUILD_QUICK)
+    add_library(iiSharedCanvasQuick ${IISHAREDCANVAS_LIBRARY_TYPE}
+        src/QtAdapter/CanvasItem.cpp src/QtAdapter/CanvasItem.h
+        src/QtAdapter/BitmapItem.cpp src/QtAdapter/BitmapItem.h
+        src/QtAdapter/AsyncFrameRenderer.cpp src/QtAdapter/AsyncFrameRenderer.h)
+    add_library(iiSharedCanvas::Quick ALIAS iiSharedCanvasQuick)
+    generate_export_header(iiSharedCanvasQuick BASE_NAME iiSharedCanvasQuick
+        EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/QuickExport.h")
+    target_compile_features(iiSharedCanvasQuick PUBLIC cxx_std_23)
+    target_link_libraries(iiSharedCanvasQuick PUBLIC iiSharedCanvasCore Qt6::Qml Qt6::Quick)
+    target_link_libraries(iiSharedCanvas PUBLIC iiSharedCanvasQuick)
+    if(APPLE AND IISHAREDCANVAS_LIBRARY_TYPE STREQUAL "SHARED")
+        target_link_options(iiSharedCanvas PRIVATE "LINKER:-reexport_library,$<TARGET_FILE:iiSharedCanvasQuick>")
+    endif()
+    set_target_properties(iiSharedCanvasQuick PROPERTIES EXPORT_NAME Quick AUTOMOC ON
+        VERSION ${PROJECT_VERSION} SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
+        INSTALL_RPATH_USE_LINK_PATH TRUE)
+    if(APPLE)
+        set_property(TARGET iiSharedCanvasQuick APPEND PROPERTY INSTALL_RPATH "@loader_path")
+    elseif(UNIX)
+        set_property(TARGET iiSharedCanvasQuick APPEND PROPERTY INSTALL_RPATH "$ORIGIN")
+    endif()
+    install(TARGETS iiSharedCanvasQuick EXPORT iiSharedCanvasTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/QuickExport.h"
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 endif()
 
 add_executable(iisc-import tools/iisc-import.cpp)
-target_link_libraries(iisc-import PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_link_libraries(iisc-import PRIVATE iiSharedCanvas::Core)
 # Keep the configured external Qt/framework runtime paths in a host install,
 # in addition to the relocatable sibling library path below.
 set_target_properties(iisc-import PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -280,7 +340,7 @@ install(TARGETS iisc-import RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_executable(iisc-export-psd tools/iisc-export-psd.cpp)
 target_sources(iisc-export-psd PRIVATE tools/IiscInput.cpp tools/IiscInput_p.hpp)
-target_link_libraries(iisc-export-psd PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_link_libraries(iisc-export-psd PRIVATE iiSharedCanvas::Core)
 set_target_properties(iisc-export-psd PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 if(APPLE)
     set_property(TARGET iisc-export-psd APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
@@ -291,7 +351,7 @@ install(TARGETS iisc-export-psd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_executable(iisc-export-timeline tools/iisc-export-timeline.cpp)
 target_sources(iisc-export-timeline PRIVATE tools/IiscInput.cpp tools/IiscInput_p.hpp)
-target_link_libraries(iisc-export-timeline PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_link_libraries(iisc-export-timeline PRIVATE iiSharedCanvas::Core)
 set_target_properties(iisc-export-timeline PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 if(APPLE)
     set_property(TARGET iisc-export-timeline APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
@@ -300,12 +360,22 @@ elseif(UNIX)
 endif()
 install(TARGETS iisc-export-timeline RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
-install(TARGETS iiSharedCanvas
+add_executable(iisc-upgrade tools/iisc-upgrade.cpp)
+target_link_libraries(iisc-upgrade PRIVATE iiSharedCanvas::Core)
+set_target_properties(iisc-upgrade PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
+if(APPLE)
+    set_property(TARGET iisc-upgrade APPEND PROPERTY INSTALL_RPATH "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
+elseif(UNIX)
+    set_property(TARGET iisc-upgrade APPEND PROPERTY INSTALL_RPATH "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
+install(TARGETS iisc-upgrade RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+install(TARGETS iiSharedCanvas iiSharedCanvasCore
         EXPORT iiSharedCanvasTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES src/iiSharedCanvas.h
+install(FILES src/iiSharedCanvas.h src/iiSharedCanvasCore.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 install(DIRECTORY src/Audio src/Bitmap src/Camera src/ControlNet src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
@@ -322,9 +392,10 @@ install(FILES LICENSE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
 install(FILES third_party/fast_float/LICENSE-MIT third_party/fast_float/UPSTREAM.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas/fast_float)
-install(FILES docs/FOUR_LAYER_TYPES.md docs/DYNAMIC_FRAME_CONTENT.md docs/ARTBOARDS.md docs/CONTROLNET_PARAMETERS.md docs/IP_ADAPTER.md docs/REFERENCE.md docs/TILE.md docs/SHUFFLE.md docs/NORMAL_MAP.md docs/MLSD.md docs/BINARY_LINE_CONTROL.md docs/LINE_ART.md docs/DEPTH.md docs/POSE.md docs/SEMANTIC_SEGMENT.md docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md
+install(FILES docs/LAYER_COMPOSITING.md docs/PHOTOSHOP_LAYER_COMPARISON.md docs/FOUR_LAYER_TYPES.md docs/DYNAMIC_FRAME_CONTENT.md docs/ARTBOARDS.md docs/ARTBOARD_PRESENTATION.md docs/CONTROLNET_PARAMETERS.md docs/IP_ADAPTER.md docs/REFERENCE.md docs/TILE.md docs/SHUFFLE.md docs/NORMAL_MAP.md docs/MLSD.md docs/BINARY_LINE_CONTROL.md docs/LINE_ART.md docs/DEPTH.md docs/POSE.md docs/SEMANTIC_SEGMENT.md docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md docs/BuildComponents.md
         docs/RASTER_SAMPLING.md docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
-        docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md
+        docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md docs/IISC_UPGRADE_CLI.md
+        docs/DOCUMENT_PREVIEWS.md
         docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/iiSharedCanvas)
 
@@ -346,6 +417,13 @@ if(BUILD_TESTING)
         add_test(NAME iiSharedCanvas.InstallScript
             COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/InstallScriptTest.sh")
     endif()
+    add_executable(iiSharedCanvasIiscUpgradeCliTest tests/IiscUpgradeCliTest.cpp)
+    target_link_libraries(iiSharedCanvasIiscUpgradeCliTest PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+    target_compile_definitions(iiSharedCanvasIiscUpgradeCliTest PRIVATE
+        IISHAREDCANVAS_UPGRADE_EXECUTABLE="$<TARGET_FILE:iisc-upgrade>"
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_dependencies(iiSharedCanvasIiscUpgradeCliTest iisc-upgrade)
+    add_test(NAME iiSharedCanvas.IiscUpgradeCli COMMAND iiSharedCanvasIiscUpgradeCliTest)
     foreach(import_test LayeredDocumentCodec OpenRasterImport PsdLayeredImport LayeredImportCli PsdExport PsdExportCli TimelineInterchange TimelineInterchangeCli)
         add_executable(iiSharedCanvas${import_test}Test tests/${import_test}Test.cpp)
         target_compile_definitions(iiSharedCanvas${import_test}Test PRIVATE
@@ -518,6 +596,10 @@ if(BUILD_TESTING)
             COMMAND iiSharedCanvasCanvasItemRenderTest)
     set_tests_properties(iiSharedCanvas.CanvasItemRender PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    add_executable(iiSharedCanvasCanvasItemArtboardFocusTest tests/CanvasItemArtboardFocusTest.cpp)
+    target_link_libraries(iiSharedCanvasCanvasItemArtboardFocusTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.CanvasItemArtboardFocus COMMAND iiSharedCanvasCanvasItemArtboardFocusTest)
+    set_tests_properties(iiSharedCanvas.CanvasItemArtboardFocus PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
     add_executable(iiSharedCanvasIiscCodecTest
             tests/IiscCodecTest.cpp)
@@ -554,6 +636,13 @@ if(BUILD_TESTING)
     add_test(NAME iiSharedCanvas.Authorship COMMAND iiSharedCanvasAuthorshipTest)
 endif()
 
+if(BUILD_TESTING)
+    add_executable(iiSharedCanvasLayerCompositingTest tests/LayerCompositingTest.cpp)
+    target_link_libraries(iiSharedCanvasLayerCompositingTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasLayerCompositingTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.LayerCompositing COMMAND iiSharedCanvasLayerCompositingTest)
+endif()
+
 # A host shell may force an older SDK with the same ABI through its loader path.
 # Source tests must exercise this build, preserving all other dependency paths.
 if(BUILD_TESTING AND (APPLE OR UNIX))
@@ -564,7 +653,14 @@ if(BUILD_TESTING AND (APPLE OR UNIX))
         set(_canvas_loader_path LD_LIBRARY_PATH)
     endif()
     set_tests_properties(${_canvas_tests} PROPERTIES ENVIRONMENT_MODIFICATION
-        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvas>")
+        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvasCore>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
     unset(_canvas_tests)
     unset(_canvas_loader_path)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(iiSharedCanvasMaskStackTest tests/MaskStackTest.cpp)
+    target_link_libraries(iiSharedCanvasMaskStackTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasMaskStackTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.MaskStack COMMAND iiSharedCanvasMaskStackTest)
 endif()

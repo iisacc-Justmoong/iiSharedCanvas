@@ -61,7 +61,7 @@ Bytes psd(bool unsupportedBlend = false, bool metadata = false)
             u16(channels, 0);
             channels.push_back(std::uint8_t(colors[index] >> (channel == -1 ? 24 : 16 - channel * 8)));
         }
-        text(records, "8BIM"); text(records, unsupportedBlend ? "diff" : "norm");
+        text(records, "8BIM"); text(records, unsupportedBlend ? "xxxx" : "norm");
         records.insert(records.end(), {255, 0, 0, 0});
         Bytes extra;
         u32(extra, 0); u32(extra, 0);

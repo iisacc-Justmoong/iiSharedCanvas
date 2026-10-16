@@ -163,7 +163,12 @@ int main(int argc, char **argv)
            "visibility, fractional opacity, signed offsets, and multiply mode are preserved");
     for (const auto &[name, mode] : std::vector<std::pair<std::string, RasterBlendMode>>{
              {"svg:src-over", RasterBlendMode::SourceOver}, {"svg:screen", RasterBlendMode::Screen},
-             {"svg:overlay", RasterBlendMode::Overlay}}) {
+             {"svg:overlay", RasterBlendMode::Overlay}, {"svg:darken", RasterBlendMode::Darken},
+             {"svg:lighten", RasterBlendMode::Lighten}, {"svg:color-burn", RasterBlendMode::ColorBurn},
+             {"svg:color-dodge", RasterBlendMode::ColorDodge}, {"svg:hard-light", RasterBlendMode::HardLight},
+             {"svg:soft-light", RasterBlendMode::SoftLight}, {"svg:difference", RasterBlendMode::Difference},
+             {"svg:color", RasterBlendMode::Color}, {"svg:luminosity", RasterBlendMode::Luminosity},
+             {"svg:hue", RasterBlendMode::Hue}, {"svg:saturation", RasterBlendMode::Saturation}}) {
         const auto result = decodeLayeredDocument(archive(fixture(image(
             "<layer src='data/top.png' composite-op='" + name + "'/>"))));
         expect(result.ok() && layerProperties(result.document.layers[0]).blendMode == mode,
@@ -198,7 +203,7 @@ int main(int argc, char **argv)
              "<layer src='../outside.png'/>", "<layer src='https://example.com/layer.png'/>",
              "<layer src='missing.png'/>", "<layer src='data/top.png' opacity='nan'/>",
              "<layer src='data/top.png' opacity='1.1'/>", "<layer src='data/top.png' x='2147483648'/>",
-             "<layer src='data/top.png' visibility='maybe'/>", "<layer src='data/top.png' composite-op='svg:darken'/>",
+             "<layer src='data/top.png' visibility='maybe'/>", "<layer src='data/top.png' composite-op='svg:unknown'/>",
              "<layer src='data/top.png' composite-op='svg:dst-out'/>",
              "<layer src='data/top.png' clipping='true'/>", "<text>unsupported</text>",
              "<layer src='data/top.png'><filter/></layer>"}) {

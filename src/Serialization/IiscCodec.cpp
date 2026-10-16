@@ -1,5 +1,6 @@
 #include "Serialization/IiscCodec.h"
 #include "Serialization/DocumentRecords_p.hpp"
+#include "Bitmap/RasterProcessingFields_p.hpp"
 
 #include "Validation/Validation.h"
 
@@ -236,6 +237,8 @@ struct LimitTotals {
     std::uint64_t audioClips = 0;
     std::uint64_t videoFrames = 0;
     std::uint64_t motionKeyframes = 0;
+    std::uint64_t layerFilters = 0;
+    std::uint64_t maskStackEntries = 0;
     std::uint64_t posePeople = 0, poseExpressions = 0, poseDeltas = 0;
     std::uint64_t semanticClasses = 0, semanticRegions = 0, semanticEntries = 0;
 };
@@ -592,6 +595,20 @@ IiscError checkDocumentLimits(const Document &document,
     keyframeCountsByLayer.reserve(document.layers.size());
     for (const Layer &layer : document.layers) {
         const LayerProperties &properties = layerProperties(layer);
+        const auto &appearance = properties.appearance;
+        if (appearance.filters.size() > limits.maximumFiltersPerLayer
+            || !addWithin(totals.layerFilters, appearance.filters.size(), limits.maximumTotalLayerFilters))
+            return makeError(IiscErrorCode::LimitExceeded, 0, "layer filter budget exceeded");
+        for (const auto *mask : {&appearance.rasterMask, &appearance.vectorMask, &appearance.filterMask})
+            if (*mask) if (auto error = trackString((*mask)->assetId, limits, totals); error.code != IiscErrorCode::None) return error;
+        if (appearance.maskStack.size() > limits.maximumMaskStackEntriesPerLayer
+            || !addWithin(totals.maskStackEntries, appearance.maskStack.size(), limits.maximumTotalMaskStackEntries))
+            return makeError(IiscErrorCode::LimitExceeded, 0, "mask stack budget exceeded");
+        for (const auto &entry : appearance.maskStack)
+            for (const auto *value : {&entry.id, &entry.name, &entry.mask.assetId})
+                if (auto error = trackString(*value, limits, totals); error.code != IiscErrorCode::None) return error;
+        for (const auto &filter : appearance.filters)
+            if (auto error = trackString(filter.name, limits, totals); error.code != IiscErrorCode::None) return error;
         if (const auto *mlsd = std::get_if<MlsdLayer>(&layer)) {
             for (const auto *text : {&mlsd->control.modelId,&mlsd->control.modelRevision}) {
                 if (auto error=trackString(*text,limits,totals); error.code!=IiscErrorCode::None) return error;
@@ -875,8 +892,55 @@ std::uint8_t encodedBlendMode(RasterBlendMode mode)
         return 3;
     case RasterBlendMode::DestinationOut:
         break;
+    default:
+        return static_cast<std::uint8_t>(static_cast<unsigned>(mode) - 1);
     }
     return 0;
+}
+
+void writeLayerAppearance(ByteWriter &writer, const LayerAppearance &a, FormatVersion version)
+{
+    writer.writeDouble(a.fillOpacity); writer.writeU8(a.clippedToBelow); writer.writeU8(a.blendClippedAsGroup);
+    const auto mask = [&](const std::optional<LayerMask> &m) {
+        writer.writeU8(m.has_value()); if (!m) return;
+        writer.writeString(m->assetId); writer.writeU8(m->enabled); writer.writeU8(m->inverted);
+        writer.writeU8(m->linkedToLayer); writer.writeU8(static_cast<std::uint8_t>(m->channel));
+        writer.writeDouble(m->density); writer.writeDouble(m->featherRadius); writer.writeDouble(m->outsideCoverage);
+        for (auto v : {m->transform.m11, m->transform.m12, m->transform.m21, m->transform.m22,
+                      m->transform.translationX, m->transform.translationY}) writer.writeDouble(v);
+    };
+    mask(a.rasterMask); mask(a.vectorMask); mask(a.filterMask);
+    writer.writeU32(static_cast<std::uint32_t>(a.filters.size()));
+    const auto field = [&](const auto &value) {
+        using T = std::remove_cvref_t<decltype(value)>;
+        if constexpr (std::is_same_v<T, double>) writer.writeDouble(value);
+        else if constexpr (std::is_same_v<T, bool> || std::is_enum_v<T>) writer.writeU8(static_cast<std::uint8_t>(value));
+        else if constexpr (std::is_signed_v<T>) writer.writeI32(value);
+        else writer.writeU32(value);
+    };
+    for (const auto &filter : a.filters) {
+        writer.writeString(filter.name); writer.writeU8(filter.enabled); writer.writeDouble(filter.opacity);
+        writer.writeU8(encodedBlendMode(filter.blendMode)); writer.writeU8(static_cast<std::uint8_t>(filter.operation.index()));
+        std::visit([&](const auto &operation) {
+            if constexpr (std::is_same_v<std::decay_t<decltype(operation)>, RasterEffect>)
+                detail::visitRasterEffectFields(operation, field);
+            else detail::visitColorAdjustmentFields(operation, field);
+        }, filter.operation);
+    }
+    writer.writeU8(a.blendIf.has_value());
+    if (a.blendIf) {
+        writer.writeU8(static_cast<std::uint8_t>(a.blendIf->channel));
+        for (const auto &r : {a.blendIf->source, a.blendIf->backdrop})
+            for (auto value : {r.black, r.blackFade, r.whiteFade, r.white}) writer.writeDouble(value);
+    }
+    if (version.minor >= 21) {
+        writer.writeU8(a.maskStackEnabled);
+        writer.writeU32(static_cast<std::uint32_t>(a.maskStack.size()));
+        for (const auto &entry : a.maskStack) {
+            writer.writeString(entry.id); writer.writeString(entry.name);
+            writer.writeU8(static_cast<std::uint8_t>(entry.combine)); mask(entry.mask);
+        }
+    }
 }
 
 void writeRaster(ByteWriter &writer, const RasterLayer &raster, bool compress = true)
@@ -1350,6 +1414,7 @@ void writePayload(ByteWriter &writer, const Document &document,
             const auto kind = layerKind(layer);
             writer.writeU8(kind ? static_cast<std::uint8_t>(*kind) : 255U);
         }
+        if (document.formatVersion.minor >= 20) writeLayerAppearance(writer, properties.appearance, document.formatVersion);
         if (const auto *source = staticLayerSource(layer)) {
             writer.writeU8(0);
             writer.writeString(source->assetId);
@@ -2064,9 +2129,10 @@ private:
         return chunked;
     }
 
-    RasterBlendMode readBlendMode()
+    RasterBlendMode readBlendMode(FormatVersion version)
     {
-        switch (m_reader.readU8()) {
+        const auto tag = m_reader.readU8();
+        switch (tag) {
         case 0:
             return RasterBlendMode::SourceOver;
         case 1:
@@ -2076,8 +2142,69 @@ private:
         case 3:
             return RasterBlendMode::Overlay;
         default:
+            if (version.minor >= 20 && tag <= 26) return static_cast<RasterBlendMode>(tag + 1);
             m_reader.fail(IiscErrorCode::InvalidData, "unknown layer blend mode tag");
         }
+    }
+
+    LayerAppearance readLayerAppearance(FormatVersion version)
+    {
+        LayerAppearance a;
+        a.fillOpacity = m_reader.readDouble(); a.clippedToBelow = readBoolean(); a.blendClippedAsGroup = readBoolean();
+        const auto mask = [&]() -> std::optional<LayerMask> {
+            if (!readBoolean()) return std::nullopt;
+            LayerMask m; m.assetId = readString(); m.enabled = readBoolean(); m.inverted = readBoolean();
+            m.linkedToLayer = readBoolean(); m.channel = static_cast<MaskChannel>(m_reader.readU8());
+            m.density = m_reader.readDouble(); m.featherRadius = m_reader.readDouble(); m.outsideCoverage = m_reader.readDouble();
+            for (auto *field : {&m.transform.m11, &m.transform.m12, &m.transform.m21, &m.transform.m22,
+                               &m.transform.translationX, &m.transform.translationY}) *field = m_reader.readDouble();
+            return m;
+        };
+        a.rasterMask = mask(); a.vectorMask = mask(); a.filterMask = mask();
+        const auto count = m_reader.readU32();
+        if (count > m_limits.maximumFiltersPerLayer || count > 64)
+            m_reader.fail(IiscErrorCode::LimitExceeded, "layer filter budget exceeded");
+        addTotal(m_totals.layerFilters, count, m_limits.maximumTotalLayerFilters, "layer filter");
+        a.filters.reserve(count);
+        const auto field = [&](auto &value) {
+            using T = std::remove_cvref_t<decltype(value)>;
+            if constexpr (std::is_same_v<T, double>) value = m_reader.readDouble();
+            else if constexpr (std::is_same_v<T, bool>) value = readBoolean();
+            else if constexpr (std::is_enum_v<T>) value = static_cast<T>(m_reader.readU8());
+            else if constexpr (std::is_signed_v<T>) value = m_reader.readI32();
+            else value = m_reader.readU32();
+        };
+        for (std::uint32_t i = 0; i < count; ++i) {
+            LayerFilter filter; filter.name = readString(); filter.enabled = readBoolean(); filter.opacity = m_reader.readDouble();
+            filter.blendMode = readBlendMode(version); const auto kind = m_reader.readU8();
+            if (kind == 0) { RasterEffect e; detail::visitRasterEffectFields(e, field); filter.operation = e; }
+            else if (kind == 1) { ColorAdjustment c; detail::visitColorAdjustmentFields(c, field); filter.operation = c; }
+            else m_reader.fail(IiscErrorCode::InvalidData, "unknown layer filter operation tag");
+            a.filters.push_back(std::move(filter));
+        }
+        if (readBoolean()) {
+            BlendIf ranges; ranges.channel = static_cast<BlendIfChannel>(m_reader.readU8());
+            for (auto *r : {&ranges.source, &ranges.backdrop})
+                for (auto *v : {&r->black, &r->blackFade, &r->whiteFade, &r->white}) *v = m_reader.readDouble();
+            a.blendIf = ranges;
+        }
+        if (version.minor >= 21) {
+            a.maskStackEnabled = readBoolean();
+            const auto count = m_reader.readU32();
+            if (count > m_limits.maximumMaskStackEntriesPerLayer || count > 4096)
+                m_reader.fail(IiscErrorCode::LimitExceeded, "mask stack budget exceeded");
+            addTotal(m_totals.maskStackEntries, count, m_limits.maximumTotalMaskStackEntries, "mask stack");
+            requireCollectionBytes(count, 87);
+            a.maskStack.reserve(count);
+            for (std::uint32_t i = 0; i < count; ++i) {
+                LayerMaskEntry entry; entry.id = readString(); entry.name = readString();
+                entry.combine = static_cast<MaskCombineMode>(m_reader.readU8());
+                const auto decoded = mask();
+                if (!decoded) m_reader.fail(IiscErrorCode::InvalidData, "mask stack operand requires a mask");
+                entry.mask = *decoded; a.maskStack.push_back(std::move(entry));
+            }
+        }
+        return a;
     }
 
     MlsdAsset readMlsdAsset(const std::string &id)
@@ -2393,7 +2520,7 @@ private:
         properties.transform.m22 = m_reader.readDouble();
         properties.transform.translationX = m_reader.readDouble();
         properties.transform.translationY = m_reader.readDouble();
-        properties.blendMode = readBlendMode();
+        properties.blendMode = readBlendMode(version);
         if (version.minor >= 18 && readBoolean()) properties.artboardId = readString();
 
         std::optional<LayerKind> declaredKind;
@@ -2404,6 +2531,7 @@ private:
             else if (tag != 255U)
                 m_reader.fail(IiscErrorCode::InvalidData, "unknown visual layer type tag");
         }
+        if (version.minor >= 20) properties.appearance = readLayerAppearance(version);
         const auto finish = [&](Layer layer) {
             if (version.minor >= 19 && layerKind(layer) != declaredKind)
                 m_reader.fail(IiscErrorCode::InvalidData, "layer type does not match its content");
