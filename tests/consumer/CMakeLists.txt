@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.31.0 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.31.1 CONFIG REQUIRED)
 find_package(SQLite3 3.26 REQUIRED)
 find_program(IISC_UPGRADE_EXECUTABLE NAMES iisc-upgrade
     HINTS "${iiSharedCanvas_DIR}/../../../bin" NO_DEFAULT_PATH REQUIRED)

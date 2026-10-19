@@ -1,5 +1,10 @@
 # iiSharedCanvas
 
+Package release: **0.31.1** (2026-10-19). This patch packages the current
+source snapshot; build, test and installation evidence is recorded in the SDK
+patch-release report. Earlier versioned feature notes remain historical.
+
+
 The private media error constructor is inline so independently compiled timeline
 writer tests do not depend on an unexported DLL symbol on Windows. Its UTF-8
 message contract is covered by the timeline XML writer regression test.
@@ -480,7 +485,7 @@ and validates foreign entry paths without extracting them.
 
 ## Dependency
 
-The direct project dependencies are iiPaintEngine 0.4.1, SQLite 3.26 or newer,
+The direct project dependencies are iiPaintEngine 0.5.1, SQLite 3.26 or newer,
 zlib 1.2.9 or newer, and libzip 1.7.3 or newer (CMake target `libzip::zip`).
 SQLite is a private implementation dependency for durable working files;
 [the review](docs/DEPENDENCIES.md) covers maintenance, public-domain licensing,
@@ -555,7 +560,7 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.31.0 with SOVERSION 0.31 and exact-version
+The current C++ package version is 0.31.1 with SOVERSION 0.31 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
 package to adopt the persistent layer appearance model. The canonical snapshot model is version 1.21;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
@@ -927,6 +932,6 @@ for coordinate, composition, persistence and export contracts.
 The four-type model was introduced in package 0.28.0 and remains in 0.31.0; migration details and typed
 content examples are in [FOUR_LAYER_TYPES.md](docs/FOUR_LAYER_TYPES.md).
 
-Native layer composition in 0.30.0 adds a persistent `LayerAppearance`, 27 blend modes, pixel/vector/filter masks, ordered non-destructive effect and color-adjustment stacks, clipping chains and split Blend If. The native model is IISC 1.20. See [Layer compositing](docs/LAYER_COMPOSITING.md) and [the evidence comparison](docs/PHOTOSHOP_LAYER_COMPARISON.md) for semantics, verification and the exact Photoshop/interchange boundaries. The GUI adapter now declares Qt dependencies directly; iiPaintEngine 0.4.1 remains a standard-C++23 bitmap library.
+Native layer composition in 0.30.0 adds a persistent `LayerAppearance`, 27 blend modes, pixel/vector/filter masks, ordered non-destructive effect and color-adjustment stacks, clipping chains and split Blend If. The native model is IISC 1.20. See [Layer compositing](docs/LAYER_COMPOSITING.md) and [the evidence comparison](docs/PHOTOSHOP_LAYER_COMPARISON.md) for semantics, verification and the exact Photoshop/interchange boundaries. The GUI adapter now declares Qt dependencies directly; iiPaintEngine 0.5.1 remains a standard-C++23 bitmap library.
 
 `DocumentFile::readRevision(path, revision)` inspects the committed working-file revision through a read-only iiFileProvider connection without adopting an authoring document or changing journal mode. Errors preserve the output; serialized IISC snapshots have no stored revision. Storage/schema inspection does not validate the document payload.

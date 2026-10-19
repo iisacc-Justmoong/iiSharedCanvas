@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.31.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.31.1 LANGUAGES CXX)
 # File creation is owned by iiFileProvider.
 
 
@@ -111,8 +111,8 @@ if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
 endif()
 
 list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiFileProvider")
-find_package(iiPaintEngine 0.4.1 CONFIG REQUIRED)
-find_package(iiFileProvider 0.6 CONFIG REQUIRED HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
+find_package(iiPaintEngine 0.5.1 CONFIG REQUIRED)
+find_package(iiFileProvider 0.7.1 CONFIG REQUIRED HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
 option(IISHAREDCANVAS_BUILD_QUICK "Build Qt Quick presentation adapters" ON)
 find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui)
 if(IISHAREDCANVAS_BUILD_QUICK)
