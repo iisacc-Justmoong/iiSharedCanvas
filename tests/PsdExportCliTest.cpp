@@ -207,7 +207,8 @@ void success(const QString &directory)
                                 | QFileDevice::ReadGroup | QFileDevice::ReadOther), "make the original source read-only");
     auto result = run({source, destination}, directory, true);
     expect(result.code == 0 && result.output.contains("Exported") && result.output.contains("psd"),
-           "read-only working source with Unicode paths exports headlessly: " + result.error.toStdString());
+           "read-only working source with Unicode paths exports headlessly: code=" + std::to_string(result.code)
+           + " stdout=" + result.output.toStdString() + " stderr=" + result.error.toStdString());
     if (result.code == 0) { expectPsd(destination, value); }
     expect(hash(source) == sourceHash, "working source SHA-256 remains unchanged");
     const auto destinationHash = hash(destination);
