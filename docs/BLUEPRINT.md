@@ -253,7 +253,7 @@ Qt 어댑터는2 의 LOD 의 2의 거듭제곱을 뷰포트 줌에서 선택하�
 
 ## 9. 의존성 검토
 
-iiPaintEngine   0.1.0 이 선택된 이유는 사용자의 기존  비트맵 -only 엔진이며 이미  RasterLayer , 브러시 래스터화, 블렌드 모드, 및 변환을 제공하기 때문입니다. 그것은  AGPL-3.0 -only 이며  Qt / LVRS 를 간접적으로 포함합니다.  iiSharedCanvas 는 따라서  AGPL-3.0 -only 하에 시작됩니다.
+iiPaintEngine 0.1.0은 기존 비트맵 전용 엔진으로 RasterLayer, 브러시 래스터화, 블렌드 모드와 변환을 제공하며 Qt / LVRS를 간접적으로 포함한다. iiSharedCanvas와 iiPaintEngine의 자체 코드에는 MIT 라이선스를 적용한다.
 
 SQLite 는 두 번째 직접 의존성으로, 내구성 인크리멘털 파일 트랜잭션을 공급하며, DEPENDENCIES .md 는 유지 관리, 라이선스, 및 크기 검토를 기록합니다. 그의 타입은 사적인 상태로 유지됩니다. Qt 코어 스레드 풀/미래 원시 함수와 공개 Qt 퀵 씬 그래프는 iiPaintEngine 의 기존 Qt 타겟을 통해 도착합니다. `.iisc` 코덱은 표준 라이브러리를 사용합니다. SVG 임포트 맵은 엄격한 고체 기하학 어휘를 Qt XML /path 원시 함수를 통해 매핑하며, SVGZ 는 검토된 zlib 압축을 사용합니다. 기존 Qt Gui 코덱과 PDF 작성은 이미지 및 PDF 교환을 제공합니다. 텍스트 모양 지정과 GPU 벡터 경로 래스터화는 여전히 별개의 결정입니다.
 

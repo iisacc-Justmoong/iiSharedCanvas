@@ -788,9 +788,9 @@ Premiere Pro, Final Cut Pro and DaVinci Resolve. Details and examples are in
 
 ## License
 
-SPDX-License-Identifier: AGPL-3.0-only
+SPDX-License-Identifier: MIT
 
-The code and documentation written by iiSharedCanvas are distributed under the GNU Affero General Public License version 3 only ( `AGPL-3.0-only` ). The full terms follow [LICENSE](LICENSE). This choice matches the `AGPL-3.0-only` license of the iiPaintEngine public dependency.
+The code and documentation written by iiSharedCanvas are distributed under the MIT License ( `MIT` ). The full terms follow [LICENSE](LICENSE). This choice matches the `MIT` license of the iiPaintEngine public dependency.
 
 Third-party code, libraries, tools, and models retain their respective licenses and copyright notices, and this repository's license does not replace them. Existing dependency and distribution-related notices are
 Follows [NOTICE.md](NOTICE.md)and the [dependency review](docs/DEPENDENCIES.md).

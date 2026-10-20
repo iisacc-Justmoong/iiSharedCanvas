@@ -277,9 +277,11 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "layerExistsAt")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
-             "GNU AFFERO GENERAL PUBLIC LICENSE")
+             "MIT License")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
-             "SPDX-License-Identifier: AGPL-3.0-only")
+             "SPDX-License-Identifier: MIT")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "set(IISHAREDCANVAS_LICENSE_SPDX \"MIT\")")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakePresets.json"
              "\"binaryDir\": \"\${sourceDir}/build\"")
 
