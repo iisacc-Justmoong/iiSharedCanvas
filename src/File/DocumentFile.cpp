@@ -1,14 +1,19 @@
 #include "File/DocumentFile.h"
 
 #include "Serialization/DocumentRecords_p.hpp"
+#include "File/IiscInput_p.hpp"
 
 #include <QCryptographicHash>
 #include <iiFileProvider.h>
+#include <iiFileProviderPresentation.h>
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <limits>
 #include <map>
+#include <mutex>
+#include <new>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -40,6 +45,7 @@ public:
 using iiFileProvider::Database;
 using iiFileProvider::Statement;
 using iiFileProvider::Transaction;
+using iiFileProvider::native::SourceAccess;
 
 DocumentFileCode storageCode(iiFileProvider::FileCode code)
 {
@@ -233,6 +239,7 @@ void requireEncoding(const IiscError &error)
 
 class DocumentFile::Impl final {
 public:
+    std::unique_ptr<SourceAccess> access;
     std::unique_ptr<Database> database;
     Document document;
     std::string path;
@@ -271,6 +278,8 @@ DocumentFileResult DocumentFile::create(const std::string &path, const Document 
         const auto target = absolutePath(path);
         iiFileProvider::File::create(QString::fromStdString(target), {});
         createdPath = target;
+        auto access = std::make_unique<SourceAccess>(std::filesystem::u8path(target));
+        std::unique_lock sourceLock(*access);
         auto database = std::make_unique<Database>(target);
         database->configureDurable();
         Transaction transaction(database.get(), true);
@@ -282,6 +291,7 @@ DocumentFileResult DocumentFile::create(const std::string &path, const Document 
         const auto statistics = writeRecords(database.get(), encoded.records, limits);
         transaction.commit();
         m_impl->dataVersion = database->scalar("PRAGMA data_version");
+        m_impl->access = std::move(access);
         m_impl->database = std::move(database);
         m_impl->document = std::move(decoded.document);
         m_impl->path = target;
@@ -290,6 +300,8 @@ DocumentFileResult DocumentFile::create(const std::string &path, const Document 
         ++m_impl->generation;
         m_impl->statistics = statistics;
         m_impl->result = {DocumentFileCode::None, true, {}};
+        sourceLock.unlock();
+        iiFileProvider::native::Presentation::enqueue(std::filesystem::u8path(target));
         return m_impl->result;
     } catch (const FileFailure &error) {
         if (!createdPath.empty()) {
@@ -307,10 +319,32 @@ DocumentFileResult DocumentFile::create(const std::string &path, const Document 
     }
 }
 
+DocumentFileResult DocumentFile::readSnapshot(const std::string &path, Document &snapshot,
+                                             SerializationLimits limits)
+{
+    if (path.empty() || path.find('\0') != std::string::npos || path.find("://") != std::string::npos)
+        return {DocumentFileCode::InvalidPath, false, "a UTF-8 local canvas file path is required"};
+    try {
+        const auto temporary = std::filesystem::temp_directory_path().u8string();
+        auto document = detail::loadIiscDocumentReadOnly(path,
+            std::string(temporary.begin(), temporary.end()), limits);
+        snapshot = std::move(document);
+        return {};
+    } catch (const detail::IiscInputFailure &error) {
+        return {error.code, false, error.what()};
+    } catch (const std::bad_alloc &) {
+        return {DocumentFileCode::LimitExceeded, false, "not enough memory to read a native canvas snapshot"};
+    } catch (const std::exception &error) {
+        return {DocumentFileCode::IoError, false, error.what()};
+    }
+}
+
 DocumentFileResult DocumentFile::readRevision(const std::string &path, std::uint64_t &revision)
 {
     try {
         const auto target = absolutePath(path);
+        SourceAccess access(std::filesystem::u8path(target));
+        std::lock_guard sourceLock(access);
         if (iiFileProvider::File::readPrefix(QString::fromStdString(target), 16)
             != QByteArray("SQLite format 3\0", 16)) {
             return {DocumentFileCode::UnsupportedFormat, false, "not a working file"};
@@ -340,6 +374,8 @@ DocumentFileResult DocumentFile::open(const std::string &path, SerializationLimi
     }
     try {
         const auto target = absolutePath(path);
+        auto access = std::make_unique<SourceAccess>(std::filesystem::u8path(target));
+        std::lock_guard sourceLock(*access);
         if (iiFileProvider::File::readPrefix(QString::fromStdString(target), 16)
             != QByteArray("SQLite format 3\0", 16)) {
             return m_impl->fail(DocumentFileCode::UnsupportedFormat,
@@ -366,6 +402,7 @@ DocumentFileResult DocumentFile::open(const std::string &path, SerializationLimi
         // Reject corrupt/future model records before changing the source's
         // journal mode. Only a fully decoded working file becomes an authoring owner.
         database->configureDurable();
+        m_impl->access = std::move(access);
         m_impl->database = std::move(database);
         m_impl->document = std::move(decoded.document);
         m_impl->path = target;
@@ -391,6 +428,7 @@ void DocumentFile::close() noexcept
         return; // A callback cannot invalidate its own transaction owner.
     }
     m_impl->database.reset();
+    m_impl->access.reset();
     m_impl->document = {};
     m_impl->path.clear();
     m_impl->revision = 0;
@@ -435,6 +473,8 @@ DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> 
         explicit EditingGuard(bool &value) : editing(value) { editing = true; }
         ~EditingGuard() { editing = false; }
     } guard(m_impl->editing);
+    // Keep rollback and outcome verification inside the same source scope.
+    std::unique_lock<SourceAccess> sourceLock;
     try {
         Document draft = m_impl->document;
         if (!edit(draft)) {
@@ -442,6 +482,7 @@ DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> 
         }
         auto encoded = detail::encodeDocumentRecords(draft, &m_impl->document, m_impl->limits);
         requireEncoding(encoded.error);
+        sourceLock = std::unique_lock(*m_impl->access);
         auto *database = m_impl->database.get();
         Transaction transaction(database, true);
         if (database->hasMoved()
@@ -476,6 +517,9 @@ DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> 
         ++m_impl->revision;
         m_impl->statistics = statistics;
         m_impl->result = {DocumentFileCode::None, true, {}};
+        // Queue backpressure may wait for the worker that needs this source.
+        sourceLock.unlock();
+        iiFileProvider::native::Presentation::enqueue(std::filesystem::u8path(m_impl->path));
         return m_impl->result;
     } catch (const FileFailure &error) {
         // A failed COMMIT normally rolls back. If its outcome cannot be verified,

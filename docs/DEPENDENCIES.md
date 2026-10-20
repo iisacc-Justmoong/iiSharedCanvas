@@ -2,6 +2,16 @@
 
 # 의존성 검토
 
+## Source transaction coordination (2026-10-20)
+
+Working-file and preview intake reuse iiFileProvider 0.7.3 and its existing
+Qt-free Native component 0.8.3. `SourceAccess` adds a standard-C++ native-identity
+scope around actual source I/O; SQLite still owns cross-process locking and
+durability. Core links the existing Native library directly, without a reverse
+dependency on a product or higher SDK. `Threads::Threads` is used by the isolated
+source-access concurrency regression. The test delegates through SQLite's VFS
+interface to observe transaction entry without changing file locking behavior.
+
 <a id="macos-release-compatibility-2026-09-09"></a>
 
 ## macOS 릴리스 호환성(2026-09-09)

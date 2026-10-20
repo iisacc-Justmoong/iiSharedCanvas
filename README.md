@@ -2,9 +2,17 @@
 
 [Windows 빌드 및 실행](docs/WindowsBuildAndRun.md)
 
-Package release: **0.31.1** (2026-10-19). This patch packages the current
-source snapshot; build, test and installation evidence is recorded in the SDK
-patch-release report. Earlier versioned feature notes remain historical.
+Package release: **0.31.3** (2026-10-21). `DocumentFile::readSnapshot` reads a complete,
+detached native document without modifying its source or imposing preview bounds.
+Legacy snapshots, read-only working files and committed WAL contents share the
+existing bounded input reader. Failures preserve the caller's prior output.
+
+Frame navigation reuses the immutable render snapshot without incrementing the
+document revision or notifying an edit.
+Dynamic bitmap/vector sampling and coalesced seeks are covered by native adapter
+regressions. Detached native transform previews use `refreshPreview()` to redraw
+without publishing a document edit; writable file bindings reject that path.
+Earlier versioned feature notes remain historical.
 
 
 The private media error constructor is inline so independently compiled timeline
@@ -55,6 +63,12 @@ validation and failure rollback. The committed document is const; standalone
 Working files use SQLite, while `encodeIisc` and `decodeIisc` retain the legacy
 binary snapshot contract for explicit interchange. Existing snapshot files
 are never silently converted or overwritten. See [the persistence contract](docs/PERSISTENCE.md).
+
+Working-file transactions and preview snapshots share the source-identity access
+scope provided by iiFileProvider Native 0.8.3 and its 0.7.3 GUI adapter. Only actual
+I/O is coordinated: edit callbacks, rendering and idle connections stay outside
+the scope. Successful writes enqueue fresh file presentation after releasing it.
+This supplements SQLite locking and keeps the existing durability/conflict rules.
 
 The installed `iisc-upgrade drawing.iisc` tool explicitly upgrades either a binary
 snapshot or a SQLite working file to the current IISC model in place.
@@ -328,6 +342,16 @@ rerenders the current frame, repairs selection, and clamps the current frame
 after a valid timeline shrink. Direct raw edits remain possible, but their
 owner must call `refresh()` and validate the result.
 
+Derived presentation adapters can capture `renderDocumentSnapshot()` on the
+item's owner thread. It shares the renderer's detached `shared_ptr<const Document>`;
+it never retains a writable file binding or schedules storage work. Frame, pan
+and zoom changes reuse that value. Content edits, rebinding and artboard render
+focus invalidate the current cache without changing earlier retained values.
+The snapshot reflects `renderArtboardId` composition filtering, rather than an
+unfiltered authoring export. An unbound, invalid or closed working-file owner
+returns an empty pointer. Independent worker consumers must capture their frame
+and any requested output region separately; this method does not render pixels.
+
 See [docs/API.md](docs/API.md) for the complete data field, lookup, mutation,
 failure, lifetime, and threading contracts.
 
@@ -562,7 +586,7 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.31.1 with SOVERSION 0.31 and exact-version
+The current C++ package version is 0.31.3 with SOVERSION 0.31 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
 package to adopt the persistent layer appearance model. The canonical snapshot model is version 1.21;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file

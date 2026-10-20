@@ -53,6 +53,11 @@ public:
     DocumentFileResult create(const std::string &path, const Document &document,
                               SerializationLimits limits = {});
     DocumentFileResult open(const std::string &path, SerializationLimits limits = {});
+    // Read the complete native snapshot/committed working-file state without
+    // authoring bindings, source writes, format migration or preview-size caps.
+    // UTF-8 local path; detached output is replaced only after a successful read.
+    static DocumentFileResult readSnapshot(const std::string &path, Document &snapshot,
+                                           SerializationLimits limits = {});
     // Inspect only the committed storage revision through a read-only connection.
     // No authoring binding, pixel decoding, journal reconfiguration or writes.
     // Failure preserves the output. This does not validate the document records.

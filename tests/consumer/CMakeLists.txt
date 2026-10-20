@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.31.1 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.31.3 CONFIG REQUIRED)
 find_package(SQLite3 3.26 REQUIRED)
 find_program(IISC_UPGRADE_EXECUTABLE NAMES iisc-upgrade
     HINTS "${iiSharedCanvas_DIR}/../../../bin" NO_DEFAULT_PATH REQUIRED)
@@ -32,6 +32,12 @@ target_include_directories(iiSharedCanvasConsumer BEFORE PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../foreign-headers")
 
 enable_testing()
+add_executable(iiSharedCanvasInstalledCanvasPresentation ../CanvasItemRenderTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledCanvasPresentation PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledCanvasPresentation PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledCanvasPresentation COMMAND iiSharedCanvasInstalledCanvasPresentation)
+set_tests_properties(iiSharedCanvas.InstalledCanvasPresentation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_executable(iiSharedCanvasInstalledDocumentPreview ../DocumentPreviewTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledDocumentPreview PRIVATE iiSharedCanvas::iiSharedCanvas)
 target_compile_definitions(iiSharedCanvasInstalledDocumentPreview PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
@@ -138,6 +144,10 @@ target_compile_definitions(iiSharedCanvasInstalledLayerCompositing PRIVATE IISHA
 add_test(NAME iiSharedCanvas.InstalledLayerCompositing COMMAND iiSharedCanvasInstalledLayerCompositing)
 
 add_executable(iiSharedCanvasInstalledDocumentFile ../DocumentFileTest.cpp)
+add_executable(iiSharedCanvasInstalledDocumentSnapshot ../DocumentSnapshotTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledDocumentSnapshot PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+target_compile_definitions(iiSharedCanvasInstalledDocumentSnapshot PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+add_test(NAME iiSharedCanvas.InstalledDocumentSnapshot COMMAND iiSharedCanvasInstalledDocumentSnapshot)
 target_link_libraries(iiSharedCanvasInstalledDocumentFile PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
 target_compile_definitions(iiSharedCanvasInstalledDocumentFile PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
 add_test(NAME iiSharedCanvas.InstalledDocumentFile COMMAND iiSharedCanvasInstalledDocumentFile)

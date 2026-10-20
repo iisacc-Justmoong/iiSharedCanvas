@@ -538,7 +538,14 @@ void CanvasItem::setFrame(quint32 value)
 
     m_frame = value;
     syncSelectedLayer();
-    scheduleVisibleRender(true);
+    // Seeking changes the sampled presentation, never the document. Reuse the
+    // immutable document snapshot, but reject tiles and in-flight results from
+    // the previous frame. A document revision here triggers host saves/undo.
+    ++m_contentGeneration;
+    m_asyncRenderer.cancel();
+    clearTileCache();
+    scheduleVisibleRender(false);
+    update();
     setLastError({});
     emit frameChanged();
 }
@@ -1115,6 +1122,7 @@ bool CanvasItem::endStrokeAt(const QPointF &documentPosition, qreal pressure)
 void CanvasItem::cancelStroke()
 {
     const bool wasActive = activeEditorStrokeActive();
+    if (!wasActive) return;
     const bool priorCanUndo = activeEditorCanUndo();
     const bool priorCanRedo = activeEditorCanRedo();
     if (chunkedRasterSelected()) {
@@ -1322,6 +1330,22 @@ void CanvasItem::zoomAt(qreal factor, const QPointF &itemPosition)
 bool CanvasItem::refresh()
 {
     return refreshAsync() != 0;
+}
+
+bool CanvasItem::refreshPreview()
+{
+    if (!m_document || !m_documentValid || m_file || activeEditorStrokeActive()
+        || m_frame >= m_document->timeline.frameCount) return false;
+    // The detached document owner maintains preview validity. Only the render
+    // generation changes; file sessions, authorship, and edit observers stay idle.
+    ++m_contentGeneration;
+    m_asyncRenderer.cancel();
+    m_renderSnapshot.reset();
+    m_framePixels = {};
+    clearTileCache();
+    scheduleVisibleRender(false);
+    update();
+    return true;
 }
 
 qulonglong CanvasItem::refreshAsync()
@@ -1798,17 +1822,9 @@ void CanvasItem::scheduleVisibleRender(bool contentChanged)
     QTimer::singleShot(delay, this, &CanvasItem::startScheduledRender);
 }
 
-void CanvasItem::startScheduledRender()
+std::shared_ptr<const Document> CanvasItem::renderDocumentSnapshot()
 {
-    if (!m_renderSchedulePending) {
-        return;
-    }
-    if (!m_document || !m_documentValid) {
-        m_renderSchedulePending = false;
-        updateRenderingState();
-        return;
-    }
-
+    if (!documentReady()) return {};
     if (!m_renderSnapshot) {
         auto snapshot = std::make_shared<Document>(*m_document);
         if (!m_renderArtboardId.isEmpty()) {
@@ -1822,6 +1838,18 @@ void CanvasItem::startScheduledRender()
             }
         }
         m_renderSnapshot = std::move(snapshot);
+    }
+    return m_renderSnapshot;
+}
+
+void CanvasItem::startScheduledRender()
+{
+    if (!m_renderSchedulePending) return;
+    const auto snapshot = renderDocumentSnapshot();
+    if (!snapshot) {
+        m_renderSchedulePending = false;
+        updateRenderingState();
+        return;
     }
 
     std::vector<FrameRenderTileRequest> requests = visibleTileRequests();
@@ -1855,7 +1883,7 @@ void CanvasItem::startScheduledRender()
     if (!missing.empty()) {
         m_latestRequestContentGeneration = m_contentGeneration;
         m_latestAsyncRequest = m_asyncRenderer.request(
-            m_renderSnapshot, m_frame, std::move(missing));
+            snapshot, m_frame, std::move(missing));
     }
     m_renderSchedulePending = false;
     updateRenderingState();

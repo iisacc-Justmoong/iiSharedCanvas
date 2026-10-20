@@ -45,6 +45,15 @@ iiSharedCanvas 는 C++23 집합형 타입으로 자신의 표준 캔버스 데�
 
 ## 작업 파일 작성
 
+Working-file create/open/revision reads and edit transactions use
+`iiFileProvider::native::SourceAccess` (Native 0.8.3; GUI adapter 0.7.3). A bound
+file retains its native identity across path replacement, while only the actual
+transaction holds access. Callbacks and record encoding precede acquisition;
+rollback/outcome verification remains inside it. Read-only preview backup holds
+the same access only while copying the source. Rendering and private snapshot
+cleanup follow after release. Successful changed commits enqueue presentation
+after unlocking; rejected and unchanged edits do not enqueue an update.
+
 `DocumentFile` 는 커밋된 캔버스를 소유하며 `const Document *` 만 노출합니다. `create(path, document, limits)` 는 기존 경로를 거부하며, `open(path, limits)` 는 작업 파일을 유효성 검사합니다. 각 편집자의 `bind(DocumentFile &)` 오버로드는 승인된 편집을 즉시 작성합니다. `DocumentFile::edit` 는 사용자 정의 집계 변경에 대한 유효성 검사된 원자 콜백을 제공합니다. 닫기나 새로고침은 저장 작업을 수행하지 않습니다. `DocumentFileResult` 는 거부, I/O, 충돌, 스키마 및 제한 오류를 보고하며, `lastWriteStatistics` 는 논리적 증분 쓰기 횟수를 노출합니다.
 
 `DocumentEditor` 와 `CanvasItem` 은 파일 바인딩된 경우 그들의 변형 가능한 `document()` 오버로드로부터 의도적으로 null 을 반환합니다. 뷰를 위해 const 오버로드를 사용하거나, `file.edit` 또는 파일 바인딩 편집기를 사용하여 변형하십시오. 독립적인 집계 API 는 여전히 메모리에서 작동합니다. 새로운 파일 바인딩 오버로드, `CanvasItem::createFile`, `openFile`, `filePath`, 수명 주기 규칙, 스트로크/실패 취소 동작, 및 레거시 임포트는 [PERSISTENCE .md](PERSISTENCE.md)에 지정되어 있습니다.
@@ -364,6 +373,28 @@ for (const Frame &frame : decoded.document.frames) {
 
 ## CanvasItem 통합
 
+`CanvasItem::setFrame` (0.31.2) only changes the sampled presentation. It emits
+`frameChanged`, preserves the document revision and emits neither
+`revisionChanged` nor `documentChanged`. Seeking reuses the immutable document
+snapshot, invalidates frame tiles and rejects older in-flight results. Multiple
+seeks before the next event-loop turn coalesce to the latest frame. Hosts must
+not persist a document or add an undo entry in response to frame navigation.
+Actual document edits and explicit `refreshAsync()` still advance the revision.
+Invalid frame indices preserve both the current frame and document revision.
+`cancelStroke()` is a no-op when no paint stroke is active; a focus or tool change
+must not fabricate a document edit by cancelling an idle paint adapter.
+
+`CanvasItem::refreshPreview()` redraws temporary, already valid state owned by a
+detached in-memory document. The native owner must preserve the bound document's
+validity and restore the original state on cancellation. It invalidates render
+snapshots and tiles without advancing the document revision, changing authorship,
+or emitting `documentChanged` / `revisionChanged`. Repeated calls coalesce at the
+render scheduling boundary. It rejects working-file bindings, missing/invalid
+documents, and live paint strokes; it never writes a file or accepts an edit.
+After a temporary gesture is accepted, the owner publishes its real edit through
+the normal validated edit / `refresh()` contract. Viewport, focus and frame
+navigation continue to use their dedicated setters.
+
 `CanvasItem::renderArtboardId` (0.29.0) is presentation-only focus: an empty string
 renders the complete document, a stable ID renders that artboard's background and
 owned visible artwork, and a missing ID presents transparency without an editing
@@ -373,6 +404,16 @@ selection, brush history and document revision. Its notify signal is
 for the immutable snapshot, asynchronous generation and frame-pixel contracts.
 
 `CanvasItem::document()`는 바운드 집계를 반환하고 `CanvasItem::documentEditor()`는 영구 구조 편집기를 반환합니다. 단일 구조 변경의 경우 `editDocument`를 선호합니다.
+
+Derived Qt Quick adapters may use protected `renderDocumentSnapshot()` to share
+the renderer's immutable presentation value. Call it on the item owner thread,
+then retain its `shared_ptr<const Document>` for worker use. It neither renders
+pixels nor retains or opens authoring storage. Navigation reuses the same value;
+edits, binding replacement and `renderArtboardId` changes invalidate the current
+cache. Earlier retained snapshots remain valid after unbinding/file close.
+The current owner returns no snapshot when unbound, invalid or its working file
+has closed. Render focus filters only the snapshot's composition; this is not an
+unfiltered authoring snapshot. Frame/region selection stays with each consumer.
 
 ~~~cpp
 const DocumentEditResult result = canvas.editDocument(
@@ -570,3 +611,29 @@ See [ARTBOARDS.md](ARTBOARDS.md) for the complete public contract. Native model 
 `LayerAppearance::maskStack` owns ordered `LayerMaskEntry { id, name, mask, combine }` values. This reusable canvas contract is independent of any product panel. `maskStackEnabled` bypasses the collection without discarding source pixels or operands. Each entry owns stable identity, its own visibility/inversion/density/feather/channel/transform and a raster or vector asset reference. Combine modes apply after each operand's properties. `assetReferences` reports `MaskStack` with `maskStackIndex`; renaming assets updates these references and referenced assets cannot be deleted. `DocumentEditor::setLayerAppearance` validates and commits the collection atomically, including working-file revisions. Raw pointer sequences and brush dabs are never persisted.
 
 The stack is native IISC 1.21. Legacy files remain readable. Unsupported foreign layered exports reject this appearance contract explicitly; flattened image rendering includes its final coverage. Tests cover soft-edge arithmetic, properties, source preservation, legacy decoding, downgrade rejection, budgets, failed transactions and durable reopening, and are also run against the installed package.
+
+
+## Detached complete native snapshots (0.31.3)
+
+`DocumentFile::readSnapshot(path, output, limits)` reads a UTF-8 local serialized
+IISC snapshot or committed SQLite working file into detached typed document data.
+It does not create an authoring owner, migrate the format, change source journal
+mode, write a derived preview, or impose a preview-size cap. The existing bounded
+input reader uses a private SQLite backup, includes committed WAL records and
+releases access to the source before returning the detached document. Its
+private temporary directory follows the process temporary-directory setting.
+
+The result uses `DocumentFileResult`; `changed` remains false because this is a
+read. Invalid paths, future/corrupt formats and configured limits are reported
+without replacing the caller's existing output. No live authoring binding,
+revision or edit context is adopted. The returned document can be rendered or
+processed on its owning worker, independently of later source edits. Ordinary
+`open` remains the synchronous authoring API, and `readRevision` remains a small
+storage-revision query rather than a document decoder.
+
+`iiSharedCanvas.DocumentSnapshot` checks legacy/current snapshots, full original
+extent beyond preview bounds, typed-data round trips, detached edits, a real
+committed WAL record replacement, read-only sources, source byte/mtime
+preservation, malformed/missing paths and preserved output on failure. The same
+test is compiled and run against the installed package by
+`iiSharedCanvas.InstalledDocumentSnapshot`.

@@ -1,7 +1,9 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(iiFileProvider 0.7.1 CONFIG HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
+list(PREPEND CMAKE_PREFIX_PATH "${PACKAGE_PREFIX_DIR}/../iiFileProvider" "$ENV{HOME}/.local/SDK/iiFileProvider")
+find_dependency(iiFileProvider 0.7.3 CONFIG HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
+find_dependency(iiFileProviderNative 0.8.3 CONFIG)
 
 
 
@@ -15,7 +17,6 @@ if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
     list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiPaintEngine")
 endif()
 
-list(PREPEND CMAKE_PREFIX_PATH "${PACKAGE_PREFIX_DIR}/../iiFileProvider" "$ENV{HOME}/.local/SDK/iiFileProvider")
 find_dependency(iiPaintEngine 0.5.1 CONFIG REQUIRED)
 find_dependency(Qt6 6.8.3 EXACT COMPONENTS Core Gui REQUIRED)
 set(iiSharedCanvas_Core_FOUND TRUE)

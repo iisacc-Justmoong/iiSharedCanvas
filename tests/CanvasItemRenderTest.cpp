@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QElapsedTimer>
+#include <QFile>
 #include <QGuiApplication>
 #include <QImage>
 #include <QPainter>
@@ -108,6 +109,53 @@ int main(int argc, char **argv)
     using namespace iiSharedCanvas;
 
     {
+        Document draft;
+        draft.extent = {8, 4};
+        draft.assets.emplace_back(RasterAsset{"red", makeRasterLayer(2, 2, 0xffff0000U)});
+        draft.layers.emplace_back(StaticBitmapLayer{{"layer"}, StaticSource{"red"}});
+        CanvasItem view;
+        expect(view.bind(draft), "detached preview binds");
+        expect(render(view, 8, 4).pixel(0, 0) == 0xffff0000U, "detached preview initial pixels");
+        const auto revision = view.revision();
+        const auto authorship = draft.authorship.toJson();
+        int documentChanges = 0, revisionChanges = 0;
+        QObject::connect(&view, &CanvasItem::documentChanged, &view, [&] { ++documentChanges; });
+        QObject::connect(&view, &CanvasItem::revisionChanged, &view, [&] { ++revisionChanges; });
+        view.cancelStroke();
+        view.selectLayer("layer");
+        view.clearSelection();
+        view.setZoom(2);
+        view.panBy(1, 1);
+        view.setSmoothRendering(false);
+        view.setRenderArtboardId("missing");
+        view.setRenderArtboardId({});
+        view.setZoom(1); view.setPanX(0); view.setPanY(0);
+        expect(view.revision() == revision && revisionChanges == 0 && documentChanges == 0,
+               "idle cancellation, selection, viewport and focus must not publish document edits");
+        layerProperties(draft.layers[0]).transform.translationX = 4;
+        expect(view.refreshPreview(), "temporary detached transform can redraw");
+        const auto preview = render(view, 8, 4);
+        expect(qAlpha(preview.pixel(0, 0)) == 0 && preview.pixel(4, 0) == 0xffff0000U,
+               "preview replaces cached tiles with temporary geometry");
+        layerProperties(draft.layers[0]).transform.translationX = 0;
+        expect(view.refreshPreview(), "cancelled preview redraws the restored state");
+        expect(render(view, 8, 4).pixel(0, 0) == 0xffff0000U, "cancelled preview restores pixels");
+        expect(view.revision() == revision && revisionChanges == 0 && documentChanges == 0
+                   && draft.authorship.toJson() == authorship,
+               "temporary previews must not notify edits or change document authorship");
+        expect(view.refresh(), "explicit accepted edit refresh remains available");
+        expect(view.revision() > revision && revisionChanges == 1 && documentChanges == 1,
+               "accepted edit refresh still notifies document consumers");
+        DocumentFile file;
+        const auto path = std::string(IISHAREDCANVAS_TEST_OUTPUT_DIR) + "/preview-working.iisc";
+        QFile::remove(QString::fromStdString(path));
+        expect(file.create(path, draft).ok() && view.bind(file), "working file binds for preview guard");
+        const auto fileRevision = file.revision();
+        expect(!view.refreshPreview() && file.revision() == fileRevision,
+               "temporary preview must reject writable file bindings");
+    }
+
+    {
         Document frames;
         frames.extent = {8, 4}; frames.timeline.frameCount = 3;
         DocumentEditor editor(frames);
@@ -129,6 +177,11 @@ int main(int argc, char **argv)
         }
         CanvasItem view;
         expect(view.bind(frames), "CanvasItem binds independently authored dynamic content");
+        const auto documentRevision = view.revision();
+        int documentChanges = 0;
+        int revisionChanges = 0;
+        QObject::connect(&view, &CanvasItem::documentChanged, &view, [&] { ++documentChanges; });
+        QObject::connect(&view, &CanvasItem::revisionChanged, &view, [&] { ++revisionChanges; });
         for (const FrameIndex frame : {0U, 2U, 1U, 0U, 2U}) {
             view.setFrame(frame);
             const auto image = render(view,8,4);
@@ -137,6 +190,16 @@ int main(int argc, char **argv)
             expect(view.framePixels() && view.framePixels()->pixels == renderFrame(frames,frame).pixels.pixels,
                 "CanvasItem's complete cached frame agrees with native per-frame content");
         }
+        expect(view.revision() == documentRevision && revisionChanges == 0 && documentChanges == 0,
+               "frame navigation must not notify a document edit or advance its revision");
+        for (int update = 0; update < 240; ++update) view.setFrame(FrameIndex(update % 3));
+        expect(view.revision() == documentRevision && revisionChanges == 0,
+               "coalesced rapid scrubbing must remain read-only");
+        expect(render(view,8,4).pixel(0,0) == bitmapColors[2],
+               "coalesced rapid scrubbing must present the final requested frame");
+        view.setFrame(3);
+        expect(view.frame() == 2 && view.revision() == documentRevision,
+               "an invalid seek must preserve the last frame and document revision");
     }
 
     expect(registerIiSharedCanvasQmlTypes() >= 0,

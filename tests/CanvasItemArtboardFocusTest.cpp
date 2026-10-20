@@ -5,10 +5,15 @@
 #include <QMetaProperty>
 #include <QPainter>
 #include <QThread>
+#include <QTemporaryDir>
 #include <iostream>
 
 namespace {
 int failures = 0;
+class SnapshotView final : public iiSharedCanvas::CanvasItem {
+public:
+    using CanvasItem::renderDocumentSnapshot;
+};
 void expect(bool condition, const char *message) {
     if (!condition) { std::cerr << message << '\n'; ++failures; }
 }
@@ -52,8 +57,19 @@ int main(int argc, char **argv) {
     auto document = overlappingDocument();
     const auto encoded = encodeIisc(document);
     expect(encoded.ok(), "overlapping artboard fixture is a valid native document");
-    CanvasItem view; view.setSize({6, 4});
+    SnapshotView empty;
+    expect(!empty.renderDocumentSnapshot(), "an unbound presentation has no document snapshot");
+    SnapshotView view; view.setSize({6, 4});
     expect(view.bind(document), "the renderer binds the complete editable document");
+    const auto completeSnapshot = view.renderDocumentSnapshot();
+    expect(completeSnapshot && completeSnapshot.get() != &document,
+           "presentation snapshots own detached immutable data rather than an authoring binding");
+    expect(view.renderDocumentSnapshot() == completeSnapshot,
+           "repeated presentation consumers share the renderer's existing snapshot");
+    view.setFrame(1);
+    expect(view.renderDocumentSnapshot() == completeSnapshot,
+           "frame navigation reuses immutable document data");
+    view.setFrame(0);
     expect(view.canvasWidth() == 6 && view.canvasOriginX() == -2, "native workspace dimensions retain the original union");
     const int propertyIndex = view.metaObject()->indexOfProperty("renderArtboardId");
     expect(propertyIndex >= 0 && view.metaObject()->property(propertyIndex).hasNotifySignal(), "render focus exposes a native notify signal");
@@ -64,6 +80,13 @@ int main(int argc, char **argv) {
     int focusSignals = 0;
     QObject::connect(&view, &CanvasItem::renderArtboardIdChanged, &view, [&] { ++focusSignals; });
     focus(view, "first");
+    const auto focusedSnapshot = view.renderDocumentSnapshot();
+    expect(focusedSnapshot && focusedSnapshot != completeSnapshot,
+           "changing render focus invalidates the composition snapshot");
+    expect(!layerProperties(focusedSnapshot->layers.back()).visible && layerProperties(document.layers.back()).visible,
+           "only the detached presentation snapshot filters loose artwork");
+    expect(encodeIisc(*completeSnapshot).bytes == encoded.bytes,
+           "a retained earlier snapshot stays unchanged after another view focus");
     expect(focusSignals == 1, "a changed focus emits one notify signal while assigning the same value is a no-op");
     auto image = rendered(view);
     expect(image.pixel(0, 0) == 0xffff0000u && image.pixel(3, 3) == 0xff222222u && image.pixel(5, 1) == 0,
@@ -91,6 +114,8 @@ int main(int argc, char **argv) {
     view.setBrushColor(Qt::yellow); view.setBrushSize(1); view.setBrushHardness(1);
     expect(view.beginStrokeAt({-2, 0}) && view.endStrokeAt({-2, 0}), "native brush input retains document coordinates under render focus");
     expect(rendered(view).pixel(0, 0) == 0xffffff00u && view.canUndo(), "focused presentation refreshes committed brush pixels");
+    expect(view.renderDocumentSnapshot() != focusedSnapshot,
+           "a committed pixel edit replaces the cached immutable snapshot");
     const auto selected = view.selectedLayerId(); const auto paintedRevision = view.revision();
     focus(view, "second"); rendered(view);
     expect(view.selectedLayerId() == selected && view.canUndo() && view.revision() == paintedRevision,
@@ -98,6 +123,21 @@ int main(int argc, char **argv) {
     expect(view.undo(), "brush undo remains available after focus changes");
     focus(view, "first");
     expect(rendered(view).pixel(0, 0) == 0xffff0000u, "undo invalidates the focused snapshot and restores the source pixels");
+    {
+        QTemporaryDir directory(QCoreApplication::applicationDirPath() + "/snapshot-owner-XXXXXX");
+        expect(directory.isValid(), "the snapshot fixture uses the build/consumer executable directory");
+        DocumentFile file;
+        expect(file.create(directory.filePath("source.iisc").toStdString(), document).ok(), "a native working file can own the fixture");
+        SnapshotView bound;
+        expect(bound.bind(file), "presentation binds the native working file");
+        const auto detached = bound.renderDocumentSnapshot();
+        file.close();
+        expect(!bound.renderDocumentSnapshot(), "a closed working-file binding cannot publish a current snapshot");
+        bound.unbind();
+        expect(!bound.renderDocumentSnapshot(), "unbinding removes the owner's snapshot");
+        expect(detached && renderFrame(*detached, 0).ok(),
+               "a retained render value survives unbinding and closing its authoring file");
+    }
     view.setFrame(1);
     expect(rendered(view).pixel(0, 0) == 0xff00ff00u, "focused snapshots reevaluate native frame content");
     view.setFrame(0);

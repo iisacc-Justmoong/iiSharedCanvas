@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.31.1 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.31.3 LANGUAGES CXX)
 # File creation is owned by iiFileProvider.
 
 
@@ -22,6 +22,10 @@ include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 
 if(BUILD_TESTING)
+    add_executable(iiSharedCanvasDocumentSnapshotTest tests/DocumentSnapshotTest.cpp)
+    target_link_libraries(iiSharedCanvasDocumentSnapshotTest PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
+    target_compile_definitions(iiSharedCanvasDocumentSnapshotTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.DocumentSnapshot COMMAND iiSharedCanvasDocumentSnapshotTest)
     add_executable(iiSharedCanvasDocumentPreviewTest tests/DocumentPreviewTest.cpp)
     target_link_libraries(iiSharedCanvasDocumentPreviewTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasDocumentPreviewTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
@@ -112,7 +116,8 @@ endif()
 
 list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiFileProvider")
 find_package(iiPaintEngine 0.5.1 CONFIG REQUIRED)
-find_package(iiFileProvider 0.7.1 CONFIG REQUIRED HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
+find_package(iiFileProvider 0.7.3 CONFIG REQUIRED HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
+find_package(iiFileProviderNative 0.8.3 CONFIG REQUIRED)
 option(IISHAREDCANVAS_BUILD_QUICK "Build Qt Quick presentation adapters" ON)
 find_package(Qt6 6.8.3 EXACT REQUIRED COMPONENTS Core Gui)
 if(IISHAREDCANVAS_BUILD_QUICK)
@@ -266,11 +271,12 @@ target_link_libraries(iiSharedCanvasCore PUBLIC
         iiFileProvider::iiFileProvider
         iiPaintEngine::iiPaintEngine
         Qt6::Core Qt6::Gui)
-target_link_libraries(iiSharedCanvasCore PRIVATE ZLIB::ZLIB libzip::zip)
+target_link_libraries(iiSharedCanvasCore PRIVATE ZLIB::ZLIB libzip::zip iiFileProvider::Native)
 target_include_directories(iiSharedCanvasCore SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fast_float")
 if(APPLE OR UNIX)
     target_link_options(iiSharedCanvasCore INTERFACE
+            "LINKER:-rpath,$<TARGET_FILE_DIR:iiFileProvider::Native>"
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 endif()
 
@@ -471,6 +477,12 @@ if(BUILD_TESTING)
     add_test(NAME iiSharedCanvas.DocumentFile COMMAND iiSharedCanvasDocumentFileTest)
     set_tests_properties(iiSharedCanvas.DocumentFile PROPERTIES
             ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+    find_package(Threads REQUIRED)
+    add_executable(iiSharedCanvasSourceAccessTest tests/SourceAccessTest.cpp)
+    target_link_libraries(iiSharedCanvasSourceAccessTest PRIVATE iiSharedCanvas::Core iiFileProvider::Native Threads::Threads SQLite3::SQLite3)
+    target_compile_definitions(iiSharedCanvasSourceAccessTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.SourceAccess COMMAND iiSharedCanvasSourceAccessTest)
+    set_tests_properties(iiSharedCanvas.SourceAccess PROPERTIES TIMEOUT 20)
 
     add_executable(iiSharedCanvasStableDiffusionGenerationParametersTest
             tests/StableDiffusionGenerationParametersTest.cpp)

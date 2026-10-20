@@ -207,6 +207,9 @@ public:
 
     Q_INVOKABLE bool refresh();
     Q_INVOKABLE qulonglong refreshAsync();
+    // Redraw caller-owned, already valid temporary state without publishing an
+    // accepted document edit. Writable DocumentFile bindings are rejected.
+    bool refreshPreview();
     [[nodiscard]] bool rendering() const noexcept;
     [[nodiscard]] int renderTileSize() const noexcept;
     [[nodiscard]] int residentTileCount() const noexcept;
@@ -243,6 +246,10 @@ signals:
     void lastErrorChanged();
 
 protected:
+    // Owner-thread capture of the current presentation composition. Consumers
+    // may retain/share the detached immutable value on worker threads. Frame
+    // and viewport navigation reuse it; edits, rebinding and render focus do not.
+    [[nodiscard]] std::shared_ptr<const Document> renderDocumentSnapshot();
     bool event(QEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;

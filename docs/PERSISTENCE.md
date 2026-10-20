@@ -46,6 +46,16 @@ if (!renamed.ok() || !bitmap.setPixel(10, 20, 0xff336699U)) {
 
 ## 거래 및 실패
 
+In-process source access is coordinated by native file identity, including hard
+links. Working-file create/open/revision reads, edit transactions and read-only
+preview backup use the same iiFileProvider Native access token. Idle bindings do
+not hold access. User callbacks and draft encoding run before acquisition;
+transaction rollback and outcome verification finish before release. The preview
+reader releases the original source before rendering or cleaning private files.
+Successful changed commits queue presentation only after release, so queue
+backpressure cannot wait on a worker blocked by the writing thread. This does
+not replace SQLite's cross-process locks or alter persistence/conflict behavior.
+
 작업 파일은 SQLite 와 `journal_mode=DELETE`, `synchronous=EXTRA`, 및 `fullfsync=ON` 를 사용하며, 검토된 의존성은 `DEPENDENCIES.md` 에 문서화됩니다. 허용된 변형은 호출이 반환될 때 주 파일에 있으며, 나중에 체크포인트를 기다리는 WAL 에는 없습니다. SQLite 의 일시적인 롤백 저널은 트랜잭션 중이거나 중단된 트랜잭션 후에 존재할 수 있습니다; 복구 중에는 이를 파일에서 삭제하거나 분리하지 마십시오. Close 는 대기 중인 편집을 기록하지 않습니다.
 
 영구 파일의 버전은 변경된 트랜잭션이 커밋된 후만 진행됩니다. 무작업 작업은 기록을 작성하지 않으며 진행시키지 않습니다. 구조 편집기는 저장 실패 시 `DocumentEditCode::PersistenceFailed` 를 반환합니다. 비트맵 편집자는 false 를 반환하고 `lastError()` 를 제공합니다; 그들의 빈 `cancelStroke()` 는 활성 제스처를 보존하며 취소가 커밋할 수 없는 경우 `lastError()` 를 보고합니다. 실패한 작성은 문서 상태, 편집자 버전, 더티 범위, 및 되돌리기 이력을 보존합니다. 실패한 커밋의 디스크 결과가 확립되지 않으면 파일이 분리되어 메모리를 확인된 저장소로 노출하는 대신 다시 열어야 합니다.
@@ -150,3 +160,29 @@ the existing `DocumentFile::edit` transaction. There is no save method.
 See [ARTBOARDS.md](ARTBOARDS.md).
 
 `DocumentFile::readRevision(path, revision)` (0.30.2)은 iiFileProvider의 읽기 전용 연결로 작업 파일의 커밋된 저장 리비전만 조회한다. 편집 소유자나 픽셀 스냅샷을 만들지 않고 저널 모드를 변경하지 않는다. 실패 시 출력 값을 보존한다. 지원되는 저장 스키마와 SQLite 무결성을 검사하지만 문서 레코드의 모델·체크섬을 디코딩하지 않으므로, 이 결과는 문서 전체의 가독성을 보장하지 않는다. 직렬화된 IISC 스냅샷에는 저장 리비전이 없으며 UnsupportedFormat으로 보고한다.
+
+
+## Detached complete native snapshots (0.31.3)
+
+`DocumentFile::readSnapshot(path, output, limits)` reads a UTF-8 local serialized
+IISC snapshot or committed SQLite working file into detached typed document data.
+It does not create an authoring owner, migrate the format, change source journal
+mode, write a derived preview, or impose a preview-size cap. The existing bounded
+input reader uses a private SQLite backup, includes committed WAL records and
+releases access to the source before returning the detached document. Its
+private temporary directory follows the process temporary-directory setting.
+
+The result uses `DocumentFileResult`; `changed` remains false because this is a
+read. Invalid paths, future/corrupt formats and configured limits are reported
+without replacing the caller's existing output. No live authoring binding,
+revision or edit context is adopted. The returned document can be rendered or
+processed on its owning worker, independently of later source edits. Ordinary
+`open` remains the synchronous authoring API, and `readRevision` remains a small
+storage-revision query rather than a document decoder.
+
+`iiSharedCanvas.DocumentSnapshot` checks legacy/current snapshots, full original
+extent beyond preview bounds, typed-data round trips, detached edits, a real
+committed WAL record replacement, read-only sources, source byte/mtime
+preservation, malformed/missing paths and preserved output on failure. The same
+test is compiled and run against the installed package by
+`iiSharedCanvas.InstalledDocumentSnapshot`.

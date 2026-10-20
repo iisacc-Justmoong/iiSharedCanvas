@@ -2,16 +2,20 @@
 #include "File/IiscInput_p.hpp"
 
 #include <iiFileProvider.h>
+#include <iiFileProviderPresentation.h>
 #include <QDir>
 #include <QFileInfo>
 #include <algorithm>
 #include <limits>
+#include <mutex>
 #include <utility>
 
 namespace iiSharedCanvas::detail {
 namespace {
 void backupWorkingFile(const QString &path, const QString &backup, SerializationLimits limits)
 {
+    iiFileProvider::native::SourceAccess access(std::filesystem::path(path.toStdU16String()));
+    std::lock_guard sourceLock(access);
     std::uint64_t encodedBytes = std::uint64_t(QFileInfo(path).size());
     for (const auto suffix : {"-wal", "-journal", "-shm"}) {
         const QFileInfo sidecar(path + suffix);
