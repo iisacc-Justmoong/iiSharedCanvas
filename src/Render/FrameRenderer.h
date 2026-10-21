@@ -100,6 +100,11 @@ IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboard(
 IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboard(
     const Document &document, FrameIndex frame, const std::string &artboardId,
     CanvasExtent outputExtent, RasterSampling sampling = RasterSampling::Nearest);
+// World-space crop contained by this artboard; retains its isolated composition.
+IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboardRegion(
+    const Document &document, FrameIndex frame, const std::string &artboardId,
+    CanvasRegion region, CanvasExtent outputExtent,
+    RasterSampling sampling = RasterSampling::Nearest);
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
     const Document &document,
     FrameIndex frame,

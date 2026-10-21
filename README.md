@@ -2,7 +2,12 @@
 
 [Windows 빌드 및 실행](docs/WindowsBuildAndRun.md)
 
-Package release: **0.31.3** (2026-10-21). `DocumentFile::readSnapshot` reads a complete,
+Package release: **0.31.4** (2026-10-21). `renderArtboardRegion` renders a bounded
+world-space crop of one isolated artboard using the native composition pipeline.
+One-pixel requests retain masks, transforms, dynamic sources, background and
+world-coordinate blend behavior without allocating the full artboard output.
+
+In 0.31.3, `DocumentFile::readSnapshot` added a complete,
 detached native document without modifying its source or imposing preview bounds.
 Legacy snapshots, read-only working files and committed WAL contents share the
 existing bounded input reader. Failures preserve the caller's prior output.
@@ -586,7 +591,7 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.31.3 with SOVERSION 0.31 and exact-version
+The current C++ package version is 0.31.4 with SOVERSION 0.31 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
 package to adopt the persistent layer appearance model. The canonical snapshot model is version 1.21;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file

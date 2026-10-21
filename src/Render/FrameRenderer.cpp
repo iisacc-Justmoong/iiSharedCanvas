@@ -1147,12 +1147,27 @@ FrameRenderResult renderArtboard(const Document &document, FrameIndex frame, con
 FrameRenderResult renderArtboard(const Document &document, FrameIndex frame, const std::string &id,
                                   CanvasExtent outputExtent, RasterSampling sampling)
 {
+    const auto *a = findArtboard(document, id);
+    return renderArtboardRegion(document, frame, id, a ? a->region : CanvasRegion{}, outputExtent, sampling);
+}
+
+FrameRenderResult renderArtboardRegion(const Document &document, FrameIndex frame, const std::string &id,
+                                      CanvasRegion region, CanvasExtent outputExtent, RasterSampling sampling)
+{
     const auto validation = validate(document);
     if (!validation.ok()) return errorResult(FrameRenderStatus::InvalidDocument, validation.issues.front().message);
     const auto *a = findArtboard(document, id);
     if (!a) return errorResult(FrameRenderStatus::ArtboardNotFound, "artboard id was not found");
-    auto batch = render_detail::preflightFrameLayerRender(document, frame, {{a->region, outputExtent, sampling}});
-    if (!batch.ok()) return errorResult(batch.status, batch.message);
+    if (frame >= document.timeline.frameCount)
+        return errorResult(FrameRenderStatus::FrameOutOfRange, "requested frame is outside the document timeline");
+    const auto right = [](CanvasRegion r) { return std::int64_t(r.origin.x) + r.extent.width; };
+    const auto bottom = [](CanvasRegion r) { return std::int64_t(r.origin.y) + r.extent.height; };
+    const std::vector<FrameRenderTileRequest> requests{{region, outputExtent, sampling}};
+    if (!validRequests(document, requests) || region.origin.x < a->region.origin.x || region.origin.y < a->region.origin.y
+        || right(region) > right(a->region) || bottom(region) > bottom(a->region))
+        return errorResult(FrameRenderStatus::InvalidRegion, "render region must be positive, contained by the artboard, and have a valid output extent and sampling policy");
+    FrameLayerBatchRenderResult batch;
+    batch.requests = requests;
     batch.artboards = {*a};
     batch.layers.reserve(document.layers.size());
     for (std::size_t index = 0; index < document.layers.size(); ++index) {
@@ -1169,7 +1184,7 @@ FrameRenderResult renderArtboard(const Document &document, FrameIndex frame, con
     auto composed = composeFrameLayers(batch);
     if (!composed.ok()) return errorResult(composed.status, composed.message);
     FrameRenderResult result;
-    result.origin = a->region.origin; result.pixels = std::move(composed.tiles.front().pixels);
+    result.origin = region.origin; result.pixels = std::move(composed.tiles.front().pixels);
     return result;
 }
 

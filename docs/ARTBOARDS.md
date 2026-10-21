@@ -139,3 +139,32 @@ and the installed library, without source-tree include paths.
 
 Reference semantics: [Adobe Photoshop artboards](https://helpx.adobe.com/photoshop/desktop/create-manage-layers/layout-design-tools/get-started-artboards.html)
 and [Adobe Illustrator artboards](https://helpx.adobe.com/illustrator/desktop/create-manage-artboards/add-edit-artboards/introduction-to-artboards.html).
+# Cropped isolated rendering (0.31.4)
+
+`renderArtboardRegion(document, frame, artboardId, region, outputExtent, sampling)`
+renders only the requested world-space region within the identified artboard.
+The result origin is `region.origin`. A native-size crop uses `Nearest` by
+default; `Smooth` is an explicit presentation option for scaled output.
+
+The region must be positive and wholly contained by that artboard, including
+when its origin is negative. Invalid geometry, output size or sampling policy
+returns `InvalidRegion`; missing artboards and invalid frames retain their typed
+errors. No raster output is allocated before validation succeeds.
+
+Composition uses only this artboard's authored visibility, background and owned
+layers. Other overlapping artboards and loose artwork are excluded. Layer order,
+transforms, frame ranges, dynamic assets, raster/vector masks, filters, clipping
+and world-coordinate Dissolve behavior use the same native renderer as
+`renderArtboard`. Full-artboard rendering delegates to this path and validates
+the document once. The operation never mutates the input document.
+
+Only requested output pixels are allocated by the composition. A source-wide
+filter or source/mask preparation can still require native source-sized work;
+this API is not a constant-time guarantee or an asynchronous owner. Consumers
+must schedule potentially expensive analysis independently of their UI thread.
+
+The native and installed-package region tests compare every pixel of small
+mixed compositions with the full native artboard oracle, including negative
+origins, overlapping boards, loose artwork, masks, vectors, nontrivial transforms,
+partial/dynamic timing and Dissolve. A 32768 by 32768 artboard separately verifies
+that a corner request produces exactly one output pixel.

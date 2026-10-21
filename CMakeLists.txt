@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.31.3 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.31.4 LANGUAGES CXX)
 # File creation is owned by iiFileProvider.
 
 
@@ -43,6 +43,9 @@ if(BUILD_TESTING)
     target_link_libraries(iiSharedCanvasArtboardTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasArtboardTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
     add_test(NAME iiSharedCanvas.Artboard COMMAND iiSharedCanvasArtboardTest)
+    add_executable(iiSharedCanvasArtboardRegionTest tests/ArtboardRegionTest.cpp)
+    target_link_libraries(iiSharedCanvasArtboardRegionTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.ArtboardRegion COMMAND iiSharedCanvasArtboardRegionTest)
     add_executable(iiSharedCanvasMlsdTest tests/MlsdTest.cpp)
     target_link_libraries(iiSharedCanvasMlsdTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasMlsdTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")

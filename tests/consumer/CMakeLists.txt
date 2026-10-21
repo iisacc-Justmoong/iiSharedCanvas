@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.31.3 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.31.4 CONFIG REQUIRED)
 find_package(SQLite3 3.26 REQUIRED)
 find_program(IISC_UPGRADE_EXECUTABLE NAMES iisc-upgrade
     HINTS "${iiSharedCanvas_DIR}/../../../bin" NO_DEFAULT_PATH REQUIRED)
@@ -55,6 +55,9 @@ add_executable(iiSharedCanvasInstalledArtboard ../ArtboardTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledArtboard PRIVATE iiSharedCanvas::iiSharedCanvas)
 target_compile_definitions(iiSharedCanvasInstalledArtboard PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
 add_test(NAME iiSharedCanvas.InstalledArtboard COMMAND iiSharedCanvasInstalledArtboard)
+add_executable(iiSharedCanvasInstalledArtboardRegion ../ArtboardRegionTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledArtboardRegion PRIVATE iiSharedCanvas::iiSharedCanvas)
+add_test(NAME iiSharedCanvas.InstalledArtboardRegion COMMAND iiSharedCanvasInstalledArtboardRegion)
 add_executable(iiSharedCanvasInstalledCanvasItemArtboardFocus ../CanvasItemArtboardFocusTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledCanvasItemArtboardFocus PRIVATE iiSharedCanvas::iiSharedCanvas)
 add_test(NAME iiSharedCanvas.InstalledCanvasItemArtboardFocus COMMAND iiSharedCanvasInstalledCanvasItemArtboardFocus)

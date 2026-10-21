@@ -637,3 +637,10 @@ committed WAL record replacement, read-only sources, source byte/mtime
 preservation, malformed/missing paths and preserved output on failure. The same
 test is compiled and run against the installed package by
 `iiSharedCanvas.InstalledDocumentSnapshot`.
+# Isolated artboard regions (0.31.4)
+
+`renderArtboardRegion` accepts a document, native frame, artboard identity,
+world-space `CanvasRegion`, output `CanvasExtent` and optional `RasterSampling`.
+The region must be contained by that artboard. Its output retains the full
+artboard's native composition while excluding other artboards and loose artwork.
+See [ARTBOARDS.md](ARTBOARDS.md) for validation, ownership and source-work limits.
