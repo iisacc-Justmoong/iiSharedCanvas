@@ -17,6 +17,7 @@
 #include "Media/MediaIo.h"
 #include "Metadata/StableDiffusionGenerationParameters.h"
 #include "Metadata/StableDiffusionMetadata.h"
+#include "Metadata/PublicationMetadata.h"
 #include "Render/FrameRenderer.h"
 #include "Render/DocumentPreview.h"
 #include "Serialization/IiscCodec.h"

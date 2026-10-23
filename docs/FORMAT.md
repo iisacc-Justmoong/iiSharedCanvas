@@ -559,3 +559,7 @@ Old 1.0..1.19 bytes retain their original layout and default appearance on decod
 After the 1.20 appearance fields, write bool maskStackEnabled, u32 count, then each entry: string ID, string name, u8 combine (0 Add/max, 1 Subtract/product with complement, 2 Intersect/product, 3 Replace), followed by the existing optional-mask encoding (presence must be true). Entry masks reference raster or vector assets and retain all mask parameters. First enabled operand establishes coverage; first Subtract starts from white. Disabled entries are skipped, and an empty/bypassed stack reveals the original. Stack coverage multiplies the existing raster/vector coverage. Pixel sources never change.
 
 Model 1.0–1.20 retains its exact byte layout and decodes an empty enabled stack. Nondefault stack state requires 1.21. Per-layer 4096 operands, total 65536 operands, ID uniqueness, string budgets, references, unknown tags and the 64-million-pixel aggregate feather processing budget are checked. Storage schema remains 1. File-bound updates use the existing synchronous appearance transaction.
+
+## 공통 게시 메타데이터 확장 (1.22)
+
+아트보드 목록 뒤에 u8 존재 여부(0/1)를 기록한다. 존재하면 title, description, coverArtboardId 문자열, u32 캔버스 수, 순서대로 artboardId/caption/alternativeText 문자열, u32 설정 수, 키 순으로 정렬된 설정 키 문자열과 u8 타입 및 값을 기록한다. 타입 0은 문자열, 1은 u8 불리언(0/1)이다. 중복 키·참조, 알 수 없는 태그와 공통 문자열/메타데이터 제한 위반은 거부한다. 작업 스키마 1의 레코드 종류 12는 해당 존재 여부와 페이로드를 독립적으로 보존한다. 1.0~1.21의 바이트 배치는 변경하지 않는다. [모델·저장·호환성](PUBLICATION_METADATA.md).

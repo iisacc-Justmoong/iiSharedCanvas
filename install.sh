@@ -139,8 +139,8 @@ test -x "${export_timeline_executable}"
 "${export_timeline_executable}" --help
 
 installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.31.4.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.31.4' \
+    \( -name 'libiiSharedCanvas.0.32.0.dylib' \
+       -o -name 'libiiSharedCanvas.so.0.32.0' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
 if [[ -z "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2

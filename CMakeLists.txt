@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.31.4 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.32.0 LANGUAGES CXX)
 # File creation is owned by iiFileProvider.
 
 
@@ -20,8 +20,17 @@ include(CTest)
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
+option(IISHAREDCANVAS_BUILD_QT_API "Build the legacy Qt media/Quick package" ON)
+if(NOT IISHAREDCANVAS_BUILD_QT_API)
+    include(cmake/iiSharedCanvasNative.cmake)
+    return()
+endif()
 
 if(BUILD_TESTING)
+    add_executable(iiSharedCanvasPublicationMetadataTest tests/PublicationMetadataTest.cpp)
+    target_link_libraries(iiSharedCanvasPublicationMetadataTest PRIVATE iiSharedCanvas::Core iiFileProvider::Native ZLIB::ZLIB)
+    target_compile_definitions(iiSharedCanvasPublicationMetadataTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    add_test(NAME iiSharedCanvas.PublicationMetadata COMMAND iiSharedCanvasPublicationMetadataTest)
     add_executable(iiSharedCanvasDocumentSnapshotTest tests/DocumentSnapshotTest.cpp)
     target_link_libraries(iiSharedCanvasDocumentSnapshotTest PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
     target_compile_definitions(iiSharedCanvasDocumentSnapshotTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
@@ -223,6 +232,7 @@ add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Metadata/StableDiffusionGenerationParameters.h
         src/Metadata/StableDiffusionMetadata.cpp
         src/Metadata/StableDiffusionMetadata.h
+        src/Metadata/PublicationMetadata.h
         src/Render/FrameRenderer.cpp
         src/Render/FrameRenderer.h
         src/Serialization/IiscCodec.cpp
@@ -289,6 +299,8 @@ set_target_properties(iiSharedCanvasCore PROPERTIES
         EXPORT_NO_SYSTEM TRUE
         VERSION ${PROJECT_VERSION}
         SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+set_target_properties(iiSharedCanvasCore PROPERTIES INTERFACE_IISHAREDCANVAS_ABI legacy)
+set_property(TARGET iiSharedCanvasCore APPEND PROPERTY COMPATIBLE_INTERFACE_STRING IISHAREDCANVAS_ABI)
 set_property(TARGET iiSharedCanvasCore APPEND PROPERTY
         BUILD_RPATH "$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 if(APPLE)
@@ -405,6 +417,7 @@ install(FILES docs/LAYER_COMPOSITING.md docs/PHOTOSHOP_LAYER_COMPARISON.md docs/
         docs/RASTER_SAMPLING.md docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md docs/IISC_UPGRADE_CLI.md
         docs/DOCUMENT_PREVIEWS.md
+        docs/PUBLICATION_METADATA.md
         docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/iiSharedCanvas)
 
@@ -658,6 +671,15 @@ if(BUILD_TESTING)
     add_test(NAME iiSharedCanvas.LayerCompositing COMMAND iiSharedCanvasLayerCompositingTest)
 endif()
 
+
+
+if(BUILD_TESTING)
+    add_executable(iiSharedCanvasMaskStackTest tests/MaskStackTest.cpp)
+    target_link_libraries(iiSharedCanvasMaskStackTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_compile_definitions(iiSharedCanvasMaskStackTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    add_test(NAME iiSharedCanvas.MaskStack COMMAND iiSharedCanvasMaskStackTest)
+endif()
+
 # A host shell may force an older SDK with the same ABI through its loader path.
 # Source tests must exercise this build, preserving all other dependency paths.
 if(BUILD_TESTING AND (APPLE OR UNIX))
@@ -668,14 +690,7 @@ if(BUILD_TESTING AND (APPLE OR UNIX))
         set(_canvas_loader_path LD_LIBRARY_PATH)
     endif()
     set_tests_properties(${_canvas_tests} PROPERTIES ENVIRONMENT_MODIFICATION
-        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvasCore>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
+        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvasCore>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiFileProvider::iiFileProvider>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiFileProvider::Native>")
     unset(_canvas_tests)
     unset(_canvas_loader_path)
-endif()
-
-if(BUILD_TESTING)
-    add_executable(iiSharedCanvasMaskStackTest tests/MaskStackTest.cpp)
-    target_link_libraries(iiSharedCanvasMaskStackTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasMaskStackTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
-    add_test(NAME iiSharedCanvas.MaskStack COMMAND iiSharedCanvasMaskStackTest)
 endif()

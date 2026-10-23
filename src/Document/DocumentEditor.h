@@ -75,7 +75,7 @@ public:
     [[nodiscard]] std::uint64_t revision() const noexcept;
     [[nodiscard]] const DocumentEditResult &lastResult() const noexcept;
 
-    DocumentEditResult setFileAuthor(const iiFileProvider::FileAuthor &author);
+    DocumentEditResult setFileAuthor(const DocumentFileAuthor &author);
     DocumentEditResult setCanvasExtent(CanvasExtent extent);
     DocumentEditResult insertArtboard(Artboard artboard, std::size_t index = AppendDocumentIndex);
     DocumentEditResult setArtboardName(const std::string &id, std::string name);
@@ -95,7 +95,10 @@ public:
     DocumentEditResult setFrameCount(FrameIndex frameCount);
     DocumentEditResult setStableDiffusionMetadata(StableDiffusionMetadata metadata);
     DocumentEditResult clearStableDiffusionMetadata();
+    DocumentEditResult setPublicationMetadata(PublicationMetadata metadata);
+    DocumentEditResult clearPublicationMetadata();
 
+    DocumentEditResult insertChunkedRasterAsset(ChunkedRasterAsset asset, std::size_t index = AppendDocumentIndex);
     DocumentEditResult insertRasterAsset(std::string id,
                                          RasterLayer pixels,
                                          std::size_t index = AppendDocumentIndex);

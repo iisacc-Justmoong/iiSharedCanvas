@@ -1,8 +1,9 @@
 #pragma once
 
 #include "iiSharedCanvas/Export.h"
-#include <iiFileProvider.h>
+#include "Document/Attribution.h"
 #include "Metadata/StableDiffusionMetadata.h"
+#include "Metadata/PublicationMetadata.h"
 #include "Document/LayerAppearance.h"
 #include "ControlNet/SemanticSegment.h"
 #include "ControlNet/Pose.h"
@@ -34,7 +35,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 21;
+inline constexpr std::uint16_t CurrentFormatMinor = 22;
 
 using FrameIndex = std::uint32_t;
 
@@ -488,8 +489,9 @@ struct Document {
     std::optional<StableDiffusionMetadata> stableDiffusionMetadata;
     std::vector<AudioAsset> audioAssets;
     std::vector<AudioTrackLayer> audioTracks;
-    iiFileProvider::Authorship authorship;
+    DocumentAuthorship authorship;
     std::vector<Artboard> artboards; // Bottom-to-top group order; no nesting.
+    std::optional<PublicationMetadata> publicationMetadata;
 };
 
 enum class AssetReferenceKind : std::uint8_t { Content, RasterMask, VectorMask, FilterMask, MaskStack };

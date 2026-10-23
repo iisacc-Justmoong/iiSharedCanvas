@@ -31,12 +31,14 @@ DocumentEditResult DocumentEditor::editArtboards(const std::function<DocumentEdi
     auto priorArtboards = draft.artboards;
     auto priorLayers = draft.layers;
     auto priorFrames = draft.frames;
+    auto priorPublication = draft.publicationMetadata;
     const auto priorVersion = draft.formatVersion;
     const auto priorAssetCount = draft.assets.size();
     const auto restore = [&]() {
         draft.artboards = std::move(priorArtboards);
         draft.layers = std::move(priorLayers);
         draft.frames = std::move(priorFrames);
+        draft.publicationMetadata = std::move(priorPublication);
         draft.formatVersion = priorVersion;
         draft.assets.resize(priorAssetCount);
     };
@@ -214,6 +216,12 @@ DocumentEditResult DocumentEditor::removeArtboard(const std::string &id, Artboar
             std::erase_if(d.frames, [](const Frame &frame) { return frame.keyframes.empty(); });
         }
         std::erase_if(d.artboards, [&](const Artboard &value) { return value.id == id; });
+        if (d.publicationMetadata) {
+            auto &metadata = *d.publicationMetadata;
+            std::erase_if(metadata.canvases,[&](const auto &canvas) { return canvas.artboardId == id; });
+            if (metadata.coverArtboardId == id)
+                metadata.coverArtboardId = metadata.canvases.empty() ? std::string{} : metadata.canvases.front().artboardId;
+        }
         return changed();
     });
 }

@@ -105,6 +105,8 @@ IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboardRegion(
     const Document &document, FrameIndex frame, const std::string &artboardId,
     CanvasRegion region, CanvasExtent outputExtent,
     RasterSampling sampling = RasterSampling::Nearest);
+// Finite requests stay inside documentViewRegion. Infinite requests can sample
+// any bounded world region without editing the persisted origin or extent.
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
     const Document &document,
     FrameIndex frame,

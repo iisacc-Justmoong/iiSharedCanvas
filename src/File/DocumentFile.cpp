@@ -110,12 +110,12 @@ std::vector<DocumentRecord> readRecords(Database *database, SerializationLimits 
     Statement query(database, "SELECT kind,id,position,data,digest FROM canvas_records ORDER BY kind,position");
     std::uint64_t total = IiscHeaderSize - 4;
     const auto maximumRecords = static_cast<std::uint64_t>(limits.maximumAssets)
-        + limits.maximumLayers + limits.maximumAudioAssets + limits.maximumAudioTracks + limits.maximumArtboards + 7;
+        + limits.maximumLayers + limits.maximumAudioAssets + limits.maximumAudioTracks + limits.maximumArtboards + 8;
     while (query.row()) {
         const auto kind = query.integer(0);
         const auto position = query.integer(2);
         const auto data = query.bytes(3);
-        if (kind < 0 || kind > static_cast<int>(detail::RecordKind::Artboard) || position < 0
+        if (kind < 0 || kind > static_cast<int>(detail::RecordKind::PublicationMetadata) || position < 0
             || position > std::numeric_limits<std::uint32_t>::max()) {
             throw FileFailure(DocumentFileCode::CorruptFile, "invalid record kind or position");
         }

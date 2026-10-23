@@ -11,7 +11,7 @@ namespace iiSharedCanvas::detail {
 enum class RecordKind : int {
     Header, Asset, LayerCount, Layer, Metadata,
     AudioAssetCount, AudioAsset, AudioTrackCount, AudioTrack, Authorship,
-    ArtboardCount, Artboard,
+    ArtboardCount, Artboard, PublicationMetadata,
 };
 
 struct DocumentRecord {

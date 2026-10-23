@@ -108,6 +108,48 @@ int main(int argc, char **argv)
 
     using namespace iiSharedCanvas;
 
+    for (const bool repeated : {false, true}) {
+        Document draft;
+        draft.extent = {8, 8}; draft.timeline.frameCount = 3;
+        draft.assets.emplace_back(RasterAsset{"a", makeRasterLayer(8, 8, 0xffcc6633U)});
+        draft.assets.emplace_back(RasterAsset{"b", makeRasterLayer(8, 8, 0xff3366ccU)});
+        draft.layers.emplace_back(DynamicBitmapLayer{{"layer"}, KeyframedSource{{0, 1, 2}}});
+        draft.frames = {{0, {{"layer", "a"}}}, {1, {{"layer", repeated ? "a" : "b"}}}, {2, {{"layer", "a"}}}};
+        CanvasItem view;
+        expect(view.bind(draft) && view.selectLayer("layer"), "dynamic stroke cancellation binds");
+        const auto before = std::get<RasterAsset>(draft.assets[0]).pixels.pixels;
+        view.setBrushColor(Qt::green); view.setBrushSize(2);
+        expect(view.beginStrokeAt({3, 3}), "dynamic stroke cancellation starts paint");
+        expect(std::get<RasterAsset>(draft.assets[0]).pixels.pixels != before, "stroke fixture changes the current asset before cancellation");
+        view.setFrame(0); view.setFrame(9);
+        expect(view.frame() == 0 && view.liveStrokeActive(), "same/invalid frame leaves the active edit intact");
+        view.setFrame(1);
+        expect(!view.liveStrokeActive(), "a real seek cancels painting before sampling another frame");
+        expect(std::get<RasterAsset>(draft.assets[0]).pixels.pixels == before,
+               "a real seek rolls back the original dynamic asset before the editor is rebound");
+        expect(view.frame() == 1 && view.selectedRasterPixels() && view.selectedRasterPixels()->pixels[0] == (repeated ? 0xffcc6633U : 0xff3366ccU),
+               "cancelled seek presents the requested source without copying the prior frame");
+    }
+
+    for (const bool retire : {false, true}) {
+        auto draft = mixedDocument(); draft.timeline.frameCount = 3;
+        draft.frames.push_back({2, {{"background", "background-0"}}});
+        draft.layers[0] = DynamicBitmapLayer{layerProperties(draft.layers[0]), KeyframedSource{{0, 1, 2}}};
+        auto view = std::make_unique<CanvasItem>();
+        expect(view->bind(draft) && view->selectLayer("background"), "reentrant cancelled seek binds");
+        view->setBrushColor(Qt::green); view->setBrushSize(2);
+        expect(view->beginStrokeAt({1, 1}), "reentrant cancelled seek starts painting");
+        auto *raw = view.get();
+        QObject::connect(raw, &CanvasItem::liveStrokeActiveChanged, &application, [&] {
+            if (!view || view->liveStrokeActive()) return;
+            if (retire) view.reset();
+            else view->setFrame(2);
+        });
+        raw->setFrame(1);
+        expect(retire ? !view : view && view->frame() == 2,
+               "a cancelled seek respects observer destruction or newer navigation");
+    }
+
     {
         Document draft;
         draft.extent = {8, 4};

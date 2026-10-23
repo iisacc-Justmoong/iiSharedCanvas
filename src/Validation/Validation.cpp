@@ -413,6 +413,28 @@ ValidationResult validate(const Document &document)
         }
     }
 
+    if (document.publicationMetadata) {
+        const auto &metadata = *document.publicationMetadata;
+        const auto invalid = [&](const std::string &field, const char *message) {
+            addIssue(result,ValidationCode::InvalidPublicationMetadata,"publicationMetadata."+field,message);
+        };
+        if (document.formatVersion.minor < 22)
+            invalid("formatVersion","publication metadata requires format 1.22");
+        std::unordered_set<std::string> ids;
+        const auto known = [&](const std::string &id) {
+            return id.empty() || artboardIds.contains(id);
+        };
+        for (const auto &canvas : metadata.canvases) {
+            if (!known(canvas.artboardId) || !ids.insert(canvas.artboardId).second)
+                invalid("canvases","publication canvases must reference distinct existing artboards or the root canvas");
+        }
+        if ((!metadata.coverArtboardId.empty() && !known(metadata.coverArtboardId))
+            || (!metadata.coverArtboardId.empty() && !metadata.canvases.empty() && !ids.contains(metadata.coverArtboardId)))
+            invalid("coverArtboardId","publication cover must reference an included artboard");
+        for (const auto &[key,value] : metadata.settings)
+            if (key.empty()) invalid("settings","publication setting names must not be empty");
+    }
+
     AssetLookup assetsById;
     assetsById.reserve(document.assets.size());
     for (std::size_t index = 0; index < document.assets.size(); ++index) {

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasConsumer LANGUAGES CXX)
 
-find_package(iiSharedCanvas 0.31.4 CONFIG REQUIRED)
+find_package(iiSharedCanvas 0.32.0 CONFIG REQUIRED)
 find_package(SQLite3 3.26 REQUIRED)
 find_program(IISC_UPGRADE_EXECUTABLE NAMES iisc-upgrade
     HINTS "${iiSharedCanvas_DIR}/../../../bin" NO_DEFAULT_PATH REQUIRED)
@@ -156,6 +156,13 @@ target_compile_definitions(iiSharedCanvasInstalledDocumentFile PRIVATE IISHAREDC
 add_test(NAME iiSharedCanvas.InstalledDocumentFile COMMAND iiSharedCanvasInstalledDocumentFile)
 set_tests_properties(iiSharedCanvas.InstalledDocumentFile PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 
+
+
+add_executable(iiSharedCanvasInstalledMaskStack ../MaskStackTest.cpp)
+target_link_libraries(iiSharedCanvasInstalledMaskStack PRIVATE iiSharedCanvas::iiSharedCanvas)
+target_compile_definitions(iiSharedCanvasInstalledMaskStack PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+add_test(NAME iiSharedCanvas.InstalledMaskStack COMMAND iiSharedCanvasInstalledMaskStack)
+
 # Prove the selected stage/host package rather than an unrelated shell SDK path.
 if(APPLE OR UNIX)
     get_property(_canvas_tests DIRECTORY PROPERTY TESTS)
@@ -165,12 +172,7 @@ if(APPLE OR UNIX)
         set(_canvas_loader_path LD_LIBRARY_PATH)
     endif()
     set_tests_properties(${_canvas_tests} PROPERTIES ENVIRONMENT_MODIFICATION
-        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvas::iiSharedCanvas>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
+        "${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiSharedCanvas::iiSharedCanvas>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiFileProvider::iiFileProvider>;${_canvas_loader_path}=path_list_prepend:$<TARGET_FILE_DIR:iiFileProvider::Native>")
     unset(_canvas_tests)
     unset(_canvas_loader_path)
 endif()
-
-add_executable(iiSharedCanvasInstalledMaskStack ../MaskStackTest.cpp)
-target_link_libraries(iiSharedCanvasInstalledMaskStack PRIVATE iiSharedCanvas::iiSharedCanvas)
-target_compile_definitions(iiSharedCanvasInstalledMaskStack PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
-add_test(NAME iiSharedCanvas.InstalledMaskStack COMMAND iiSharedCanvasInstalledMaskStack)

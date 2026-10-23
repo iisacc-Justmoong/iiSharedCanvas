@@ -11,6 +11,11 @@
 #include <QQuickPaintedItem>
 
 static_assert(std::is_aggregate_v<iiSharedCanvas::Document>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::PublicationMetadata>);
+static_assert(std::is_aggregate_v<iiSharedCanvas::CanvasPublicationMetadata>);
+static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::publicationMetadata),
+                             std::optional<iiSharedCanvas::PublicationMetadata>>);
+static_assert(std::is_same_v<iiSharedCanvas::PublicationSetting,std::variant<std::string,bool>>);
 static_assert(std::is_aggregate_v<iiSharedCanvas::LayerAppearance>);
 static_assert(std::is_aggregate_v<iiSharedCanvas::LayerMask>);
 static_assert(std::is_aggregate_v<iiSharedCanvas::LayerFilter>);
@@ -233,7 +238,7 @@ static_assert(!std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::CanvasItem>)
 int main()
 {
     return iiSharedCanvas::CurrentFormatMajor == 1
-        && iiSharedCanvas::CurrentFormatMinor == 21
+        && iiSharedCanvas::CurrentFormatMinor == 22
         ? 0
         : 1;
 }

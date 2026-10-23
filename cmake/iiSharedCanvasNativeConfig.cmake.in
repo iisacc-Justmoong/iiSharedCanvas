@@ -1,0 +1,16 @@
+@PACKAGE_INIT@
+include(CMakeFindDependencyMacro)
+find_dependency(iiFileProviderNative 0.9 CONFIG)
+find_dependency(iiPaintEngine 0.5.1 CONFIG)
+find_dependency(iiSDKCore 0.18 CONFIG COMPONENTS Contracts)
+
+
+find_dependency(iiFileProviderCompatibility 0.9 CONFIG)
+find_dependency(iiImageCodec 0.1 CONFIG)
+find_dependency(LibXml2)
+find_dependency(ZLIB)
+include("${CMAKE_CURRENT_LIST_DIR}/iiSharedCanvasNativeTargets.cmake")
+
+if(NOT TARGET iiSharedCanvas::Core)
+    add_library(iiSharedCanvas::Core ALIAS iiSharedCanvas::Native)
+endif()

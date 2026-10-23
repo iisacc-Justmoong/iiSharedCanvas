@@ -644,3 +644,11 @@ world-space `CanvasRegion`, output `CanvasExtent` and optional `RasterSampling`.
 The region must be contained by that artboard. Its output retains the full
 artboard's native composition while excluding other artboards and loose artwork.
 See [ARTBOARDS.md](ARTBOARDS.md) for validation, ownership and source-work limits.
+
+## 프레임 이동과 미완료 래스터 페인팅
+
+`CanvasItem::setFrame()`은 실제로 프레임이 바뀔 때 현재 스트로크를 취소한 뒤 선택 편집기를 새 애셋에 연결한다. 같은 프레임 및 범위 밖 요청은 진행 중인 입력을 취소하지 않는다. 취소 알림에서 객체가 삭제되거나 문서·프레임이 바뀌면 이전 이동을 계속하지 않는다. 취소에 따른 실제 픽셀 롤백 알림과 편집이 없는 프레임 탐색의 문서 무변경 계약은 별개이다. 이 구현 변경은 공개 헤더와 ABI를 변경하지 않으며, 앱은 별도의 사설 후보 패키지를 검증한 후 채택한다.
+
+## 네이티브 게시 메타데이터 (0.32.0)
+
+`Document::publicationMetadata`와 `DocumentEditor::setPublicationMetadata` / `clearPublicationMetadata`는 제목·설명·순서 있는 캔버스별 캡션·대체 텍스트·커버·문자열/불리언 게시 설정을 네이티브 문서에 보존한다. 공개 표준 C++ 모델과 단일 파일 저장·편집·호환성 계약은 [게시 메타데이터](PUBLICATION_METADATA.md)를 따른다. 스냅샷과 작업 파일 모두 형식 1.22를 사용하며 별도 메타데이터 파일을 요구하지 않는다.

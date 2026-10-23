@@ -525,6 +525,32 @@ DocumentEditResult DocumentEditor::clearStableDiffusionMetadata()
     return applied();
 }
 
+DocumentEditResult DocumentEditor::setPublicationMetadata(PublicationMetadata metadata)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.setPublicationMetadata(std::move(metadata)); });
+    if (!requireValidDocument()) return m_lastResult;
+    if (m_document->publicationMetadata == metadata) return unchanged();
+    const auto version = m_document->formatVersion;
+    auto prior = std::move(m_document->publicationMetadata);
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->publicationMetadata = std::move(metadata);
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->formatVersion = version;
+        m_document->publicationMetadata = std::move(prior);
+        return reject(DocumentEditCode::ValidationRejected,issue->path,issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::clearPublicationMetadata()
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.clearPublicationMetadata(); });
+    if (!requireValidDocument()) return m_lastResult;
+    if (!m_document->publicationMetadata) return unchanged();
+    m_document->publicationMetadata.reset();
+    return applied();
+}
+
 DocumentEditResult DocumentEditor::insertRasterAsset(std::string id,
                                                      RasterLayer pixels,
                                                      std::size_t index)
@@ -1106,6 +1132,31 @@ DocumentEditResult DocumentEditor::replacePoseAsset(const std::string &id, PoseA
     *target = std::move(asset);
     if (const auto issue = firstValidationIssue(*m_document)) {
         *target = std::move(prior);
+        return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+    }
+    return applied();
+}
+
+DocumentEditResult DocumentEditor::insertChunkedRasterAsset(ChunkedRasterAsset asset, std::size_t index)
+{
+    if (m_file) {
+        return editFile([&](DocumentEditor &editor) { return editor.insertChunkedRasterAsset(std::move(asset), index); });
+    }
+    if (!requireValidDocument()) { return m_lastResult; }
+    if (asset.id.empty()) { return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty"); }
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id)) {
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    }
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size()) {
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    }
+    const auto priorVersion = m_document->formatVersion;
+    m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+    m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+    if (const auto issue = firstValidationIssue(*m_document)) {
+        m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
@@ -3021,7 +3072,7 @@ DocumentEditResult DocumentEditor::unchanged()
     return m_lastResult;
 }
 
-DocumentEditResult DocumentEditor::setFileAuthor(const iiFileProvider::FileAuthor &author)
+DocumentEditResult DocumentEditor::setFileAuthor(const DocumentFileAuthor &author)
 {
     if (m_file) {
         return editFile([&](DocumentEditor &working) { return working.setFileAuthor(author); });

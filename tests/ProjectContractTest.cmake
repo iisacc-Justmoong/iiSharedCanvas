@@ -84,13 +84,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
              "sqlite.org/copyright.html")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.31.4 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.32.0 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "COMPATIBILITY ExactVersion")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt"
-             "find_package(iiSharedCanvas 0.31.4 CONFIG REQUIRED)")
+             "find_package(iiSharedCanvas 0.32.0 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "iiPaintEngine::iiPaintEngine")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -105,7 +105,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/DYNAMIC_FRAME_C
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/DocumentEditor.h" "setDynamicFrameContent")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "CurrentFormatMinor = 21")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "CurrentFormatMinor = 22")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Bitmap/BitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -165,7 +165,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.31.4")
+             "The current C++ package version is 0.32.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -271,7 +271,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.31.4.dylib")
+             "libiiSharedCanvas.0.32.0.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
@@ -323,6 +323,13 @@ foreach(module Audio Bitmap Camera Document File Layered Media Metadata QtAdapte
     endif()
     foreach(module_header IN LISTS module_headers)
         get_filename_component(source_name "${module_header}" NAME_WE)
+        # This persisted value model has only standard aggregates and inline
+        # defaulted equality. Its codec and validation live in their own modules.
+        if(module STREQUAL "Metadata" AND source_name STREQUAL "PublicationMetadata")
+            require_text("${module_header}" "std::variant<std::string, bool>")
+            require_text("${module_header}" "operator==(const PublicationMetadata &) const = default")
+            continue()
+        endif()
         if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.cpp")
             message(FATAL_ERROR "${module_header} must have a co-located implementation")
         endif()

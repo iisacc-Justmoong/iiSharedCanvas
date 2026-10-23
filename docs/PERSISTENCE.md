@@ -186,3 +186,7 @@ committed WAL record replacement, read-only sources, source byte/mtime
 preservation, malformed/missing paths and preserved output on failure. The same
 test is compiled and run against the installed package by
 `iiSharedCanvas.InstalledDocumentSnapshot`.
+
+## 게시 메타데이터의 단일 파일 보존
+
+0.32.0의 `Document::publicationMetadata`는 스키마 1의 `PublicationMetadata` 레코드로 `.iisc` 내부에 저장된다. `DocumentEditor`의 설정/삭제는 미디어를 다시 기록하지 않는 동기 트랜잭션이며, 별도 JSON 동반 파일을 만들지 않는다. 바이너리 스냅샷에도 동일한 데이터가 포함된다. [전체 계약](PUBLICATION_METADATA.md).

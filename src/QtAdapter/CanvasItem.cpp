@@ -10,6 +10,7 @@
 #include <QMatrix4x4>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPointer>
 #include <QPointingDevice>
 #include <QQuickWindow>
 #include <QSGOpacityNode>
@@ -536,6 +537,17 @@ void CanvasItem::setFrame(quint32 value)
         return;
     }
 
+    if (activeEditorStrokeActive()) {
+        const QPointer<CanvasItem> owner(this);
+        const auto *document = m_document;
+        const auto previousFrame = m_frame;
+        const auto generation = m_contentGeneration;
+        cancelStroke();
+        // Cancellation publishes edit rollback. A callback may close/rebind the
+        // view or navigate again; its newer context owns the next frame.
+        if (!owner || m_document != document || m_frame != previousFrame
+            || m_contentGeneration != generation + 1 || !m_documentValid || activeEditorStrokeActive()) return;
+    }
     m_frame = value;
     syncSelectedLayer();
     // Seeking changes the sampled presentation, never the document. Reuse the
@@ -1135,8 +1147,11 @@ void CanvasItem::cancelStroke()
         return;
     }
     m_stabilizerActive = false;
+    const QPointer<CanvasItem> owner(this);
     refresh();
+    if (!owner) return;
     notifyUndoRedo(priorCanUndo, priorCanRedo);
+    if (!owner) return;
     if (wasActive != activeEditorStrokeActive()) {
         emit liveStrokeActiveChanged();
     }

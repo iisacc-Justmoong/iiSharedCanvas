@@ -1,5 +1,9 @@
 #include "Metadata/StableDiffusionGenerationParameters.h"
+#ifdef IISHAREDCANVAS_NATIVE_API
+#include <iiSDKCore/Core/Text/Number.h>
+#else
 #include <fast_float.h>
+#endif
 
 #include <algorithm>
 #include <charconv>
@@ -419,6 +423,10 @@ std::optional<double> finiteNumber(StableDiffusionGenerationParametersParseResul
     if (!entry) {
         return std::nullopt;
     }
+#ifdef IISHAREDCANVAS_NATIVE_API
+    const auto parsed = ii::core::parse_decimal(entry->value);
+    if (!parsed) {
+#else
     double value = 0.0;
     const char *begin = entry->value.data();
     const char *end = begin + entry->value.size();
@@ -427,11 +435,15 @@ std::optional<double> finiteNumber(StableDiffusionGenerationParametersParseResul
         begin, end, value, fast_float::chars_format::general);
     if (entry->value.empty() || parsed.ec != std::errc{}
         || parsed.ptr != end || !std::isfinite(value)) {
+#endif
         addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidNumber,
                  "parameters." + std::string(key),
                  std::string(key) + " must be a finite number");
         return std::nullopt;
     }
+#ifdef IISHAREDCANVAS_NATIVE_API
+    const double value = *parsed;
+#endif
     if (value < minimum || value > maximum) {
         addIssue(result, StableDiffusionGenerationParametersParseCode::InvalidValueRange,
                  "parameters." + std::string(key),

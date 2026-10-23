@@ -1,4 +1,7 @@
 #pragma once
+#ifdef IISHAREDCANVAS_NATIVE_API
+#include "iiSharedCanvasNative.h"
+#else
 
 #include "Document/CanvasSampling.h"
 
@@ -17,6 +20,7 @@
 #include "Media/MediaIo.h"
 #include "Metadata/StableDiffusionGenerationParameters.h"
 #include "Metadata/StableDiffusionMetadata.h"
+#include "Metadata/PublicationMetadata.h"
 #include "QtAdapter/BitmapItem.h"
 #include "QtAdapter/CanvasItem.h"
 #include "QtAdapter/AsyncFrameRenderer.h"
@@ -45,3 +49,4 @@
 #include "ControlNet/Canny.h"
 #include "ControlNet/Mlsd.h"
 #include "ControlNet/Scribble.h"
+#endif

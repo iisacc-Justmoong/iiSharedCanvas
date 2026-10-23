@@ -2,7 +2,14 @@
 
 [Windows 빌드 및 실행](docs/WindowsBuildAndRun.md)
 
-Package release: **0.31.4** (2026-10-21). `renderArtboardRegion` renders a bounded
+Package release: **0.32.0** (2026-10-22). Native format 1.22 embeds common
+publication metadata in the same `.iisc` file: title, description, ordered
+canvas captions and alternative text, cover and typed publication settings.
+Both snapshots and working files preserve it without a companion document.
+See [Publication metadata](docs/PUBLICATION_METADATA.md). Consumers passing
+`Document` by value must rebuild for ABI 0.32.
+
+In 0.31.4, `renderArtboardRegion` renders a bounded
 world-space crop of one isolated artboard using the native composition pipeline.
 One-pixel requests retain masks, transforms, dynamic sources, background and
 world-coordinate blend behavior without allocating the full artboard output.
@@ -591,9 +598,9 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.31.4 with SOVERSION 0.31 and exact-version
+The current C++ package version is 0.32.0 with SOVERSION 0.32 and exact-version
 CMake package matching. Consumers must rebuild against the new installed
-package to adopt the persistent layer appearance model. The canonical snapshot model is version 1.21;
+package to adopt the publication metadata model. The canonical snapshot model is version 1.22;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
 schema 1 is identified separately by its SQLite header and application id.
 

@@ -396,8 +396,8 @@ IiscError checkDocumentLimits(const Document &document,
         }
     }
     if (document.formatVersion.minor >= 5) {
-        if (auto error = trackString(document.authorship.dump().toStdString(), limits, totals,
-                iiFileProvider::Authorship::MaximumBytes); error.code != IiscErrorCode::None) {
+        if (auto error = trackString(authorshipDump(document.authorship), limits, totals,
+                DocumentAuthorship::MaximumBytes); error.code != IiscErrorCode::None) {
             return error;
         }
     }
@@ -830,6 +830,24 @@ IiscError checkDocumentLimits(const Document &document,
                     return error;
                 }
             }
+        }
+    }
+    if (document.publicationMetadata) {
+        const auto &m = *document.publicationMetadata;
+        if (m.canvases.size() > UINT32_MAX || m.settings.size() > UINT32_MAX
+            || !addWithin(totals.metadataEntries,m.canvases.size(),limits.maximumMetadataEntries)
+            || !addWithin(totals.metadataEntries,m.settings.size(),limits.maximumMetadataEntries))
+            return makeError(IiscErrorCode::LimitExceeded,0,"publication metadata entry count exceeds the configured limit");
+        const auto track = [&](const std::string &s) { return trackString(s,limits,totals,limits.maximumMetadataStringBytes); };
+        for (const auto *s : {&m.title,&m.description,&m.coverArtboardId})
+            if (auto e=track(*s); e.code!=IiscErrorCode::None) return e;
+        for (const auto &canvas : m.canvases)
+            for (const auto *s : {&canvas.artboardId,&canvas.caption,&canvas.alternativeText})
+                if (auto e=track(*s); e.code!=IiscErrorCode::None) return e;
+        for (const auto &[key,value] : m.settings) {
+            if (auto e=track(key); e.code!=IiscErrorCode::None) return e;
+            if (const auto *s=std::get_if<std::string>(&value))
+                if (auto e=track(*s); e.code!=IiscErrorCode::None) return e;
         }
     }
     return {};
@@ -1531,7 +1549,7 @@ void writePayload(ByteWriter &writer, const Document &document,
         }
     }
     if (document.formatVersion.minor >= 5) {
-        writer.writeString(document.authorship.dump().toStdString());
+        writer.writeString(authorshipDump(document.authorship));
         record(detail::RecordKind::Authorship);
     }
     if (document.formatVersion.minor >= 18) {
@@ -1545,6 +1563,25 @@ void writePayload(ByteWriter &writer, const Document &document,
             writer.writeU32(a.backgroundArgb); writer.writeU8(a.visible ? 1U : 0U);
             record(detail::RecordKind::Artboard, a.id, static_cast<std::uint32_t>(index));
         }
+    }
+    if (document.formatVersion.minor >= 22) {
+        writer.writeU8(document.publicationMetadata ? 1U : 0U);
+        if (document.publicationMetadata) {
+            const auto &m = *document.publicationMetadata;
+            writer.writeString(m.title); writer.writeString(m.description); writer.writeString(m.coverArtboardId);
+            writer.writeU32(static_cast<std::uint32_t>(m.canvases.size()));
+            for (const auto &canvas : m.canvases) {
+                writer.writeString(canvas.artboardId); writer.writeString(canvas.caption); writer.writeString(canvas.alternativeText);
+            }
+            writer.writeU32(static_cast<std::uint32_t>(m.settings.size()));
+            for (const auto &[key,value] : m.settings) {
+                writer.writeString(key);
+                writer.writeU8(std::holds_alternative<std::string>(value) ? 0U : 1U);
+                if (const auto *s=std::get_if<std::string>(&value)) writer.writeString(*s);
+                else writer.writeU8(std::get<bool>(value) ? 1U : 0U);
+            }
+        }
+        record(detail::RecordKind::PublicationMetadata);
     }
 }
 
@@ -1684,8 +1721,8 @@ public:
             readAudio(document);
         }
         if (version.minor >= 5) {
-            const auto dump = readStringWithLimit(iiFileProvider::Authorship::MaximumBytes, "authorship");
-            auto authorship = iiFileProvider::Authorship::fromDump(QByteArray::fromStdString(dump));
+            const auto dump = readStringWithLimit(DocumentAuthorship::MaximumBytes, "authorship");
+            auto authorship = authorshipFromDump(dump);
             if (!authorship) m_reader.fail(IiscErrorCode::InvalidData, "invalid authorship metadata");
             document.authorship = std::move(*authorship);
         }
@@ -1704,6 +1741,26 @@ public:
                 a.backgroundArgb = m_reader.readU32(); a.visible = readBoolean();
                 document.artboards.push_back(std::move(a));
             }
+        }
+        if (version.minor >= 22 && readBoolean()) {
+            PublicationMetadata m;
+            m.title=readMetadataString(); m.description=readMetadataString(); m.coverArtboardId=readMetadataString();
+            const auto count=readMetadataCount("publication canvas");
+            requireCollectionBytes(count,12); m.canvases.reserve(count);
+            for (std::uint32_t i=0;i<count;++i)
+                m.canvases.push_back({readMetadataString(),readMetadataString(),readMetadataString()});
+            const auto settings=readMetadataCount("publication setting");
+            requireCollectionBytes(settings,6);
+            for (std::uint32_t i=0;i<settings;++i) {
+                auto key=readMetadataString(); PublicationSetting value;
+                const auto tag=m_reader.readU8();
+                if (tag==0) value=readMetadataString();
+                else if (tag==1) value=readBoolean();
+                else m_reader.fail(IiscErrorCode::InvalidData,"unknown publication setting type");
+                if (!m.settings.emplace(std::move(key),std::move(value)).second)
+                    m_reader.fail(IiscErrorCode::InvalidData,"duplicate publication setting name");
+            }
+            document.publicationMetadata=std::move(m);
         }
         return document;
     }
@@ -2776,7 +2833,7 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if (records.size() < 3
             || records.size() > static_cast<std::uint64_t>(limits.maximumAssets)
                                   + limits.maximumLayers + limits.maximumAudioAssets
-                                  + limits.maximumAudioTracks + limits.maximumArtboards + 7) {
+                                  + limits.maximumAudioTracks + limits.maximumArtboards + 8) {
             invalid("working-file record count is invalid");
         }
         std::size_t assetCount = 0;
@@ -2789,6 +2846,7 @@ IiscDecodeResult detail::decodeDocumentRecords(
         bool sawAudioTrackCount = false;
         bool sawAuthorship = false;
         bool sawArtboardCount = false;
+        bool sawPublicationMetadata = false;
         std::size_t artboardCount = 0;
         ByteWriter writer;
         std::uint64_t total = IiscHeaderSize - 4;
@@ -2846,6 +2904,10 @@ IiscDecodeResult detail::decodeDocumentRecords(
             case RecordKind::Artboard:
                 valid = sawArtboardCount && record.position == artboardCount++;
                 break;
+            case RecordKind::PublicationMetadata:
+                valid = sawArtboardCount && !sawPublicationMetadata && record.id.empty() && record.position==0;
+                sawPublicationMetadata = true;
+                break;
             }
             if (!valid || !record.data) {
                 invalid("working-file record layout is invalid");
@@ -2875,6 +2937,8 @@ IiscDecodeResult detail::decodeDocumentRecords(
         }
         if ((version.minor >= 18) != sawArtboardCount)
             invalid("working-file artboard records do not match the document version");
+        if ((version.minor >= 22) != sawPublicationMetadata)
+            invalid("working-file publication metadata does not match the document version");
         const auto storedChunkSize = bytes.readI32();
         DocumentReader reader(bytes, limits, true);
         Document document = reader.read(version);

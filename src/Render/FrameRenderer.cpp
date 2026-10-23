@@ -600,6 +600,9 @@ bool regionContainedByDocument(const Document &document,
         + region.extent.width;
     const std::int64_t requestedBottom = static_cast<std::int64_t>(region.origin.y)
         + region.extent.height;
+    if(document.canvasMode==CanvasMode::Infinite)
+        return requestedRight<=std::numeric_limits<std::int32_t>::max()
+            &&requestedBottom<=std::numeric_limits<std::int32_t>::max();
     const std::int64_t availableRight = static_cast<std::int64_t>(available.origin.x)
         + available.extent.width;
     const std::int64_t availableBottom = static_cast<std::int64_t>(available.origin.y)
