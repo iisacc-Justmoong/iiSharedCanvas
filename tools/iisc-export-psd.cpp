@@ -32,7 +32,7 @@ int argumentError(std::string_view message)
 int convert(const QStringList &arguments, int &guiArgc, char **guiArgv)
 {
     if (arguments.size() == 1 && (arguments.front() == "--help" || arguments.front() == "-h")) {
-        std::cout << usage;
+        std::cout << usage << std::flush;
         return 0;
     }
     PsdExportOptions options;
@@ -78,7 +78,7 @@ int convert(const QStringList &arguments, int &guiArgc, char **guiArgv)
         std::cerr << "iisc-export-psd: warning: " << warning << '\n';
     }
     if (!result.ok()) { throw Failure(result.code, result.message); }
-    std::cout << "Exported psd frame 0 -> " << paths[1].toStdString() << '\n';
+    std::cout << "Exported psd frame 0 -> " << paths[1].toStdString() << '\n' << std::flush;
     return 0;
 }
 }

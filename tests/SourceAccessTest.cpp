@@ -31,8 +31,10 @@ int observeLock(sqlite3_file *file,int level) {
 }
 int observeOpen(sqlite3_vfs *,const char *path,sqlite3_file *file,int flags,int *outFlags) {
     const auto result=originalVfs->xOpen(originalVfs,path,file,flags,outFlags);
-    if(result==SQLITE_OK && writerThread && path && observation->path==path
-        && (flags&SQLITE_OPEN_MAIN_DB)) {
+    std::error_code pathError;
+    if(result==SQLITE_OK && writerThread && path && (flags&SQLITE_OPEN_MAIN_DB)
+        && std::filesystem::equivalent(std::filesystem::u8path(observation->path),
+                                      std::filesystem::u8path(path),pathError)) {
         auto &seen=*observation;
         seen.original=file->pMethods;
         seen.methods=*file->pMethods;

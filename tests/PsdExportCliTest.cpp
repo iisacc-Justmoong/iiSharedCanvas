@@ -210,6 +210,13 @@ void success(const QString &directory)
            "read-only working source with Unicode paths exports headlessly: code=" + std::to_string(result.code)
            + " stdout=" + result.output.toStdString() + " stderr=" + result.error.toStdString());
     if (result.code == 0) { expectPsd(destination, value); }
+      for (int attempt = 0; attempt < 8; ++attempt) {
+          const auto repeated = QDir(directory).filePath(QStringLiteral("flush-%1.psd").arg(attempt));
+          const auto exported = run({source, repeated}, directory, true);
+          expect(exported.code == 0 && exported.output.contains("Exported psd frame 0"),
+                 "each headless export must flush its complete success report");
+          if (exported.code == 0) expectPsd(repeated, value);
+      }
     expect(hash(source) == sourceHash, "working source SHA-256 remains unchanged");
     const auto destinationHash = hash(destination);
     result = run({source, destination}, directory);

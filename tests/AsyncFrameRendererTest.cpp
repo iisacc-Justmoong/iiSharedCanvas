@@ -5,7 +5,9 @@
 #include <QTimer>
 
 #include <cstdint>
+#include <algorithm>
 #include <iostream>
+#include <limits>
 #include <string>
 
 namespace {
@@ -121,9 +123,19 @@ int main(int argc, char **argv)
            "LOD tile output must be bounded by its requested texture extent");
     expect(rasterLayerPixelAt(immediate.tiles.front().pixels, {5, 4}) == 0xff22d3eeU,
            "LOD sampling must preserve the addressed sparse world pixel");
-    expect(renderFrameRegion(document, 0, {{32760, 32760}, {32, 32}}, {32, 32}).status
+    const auto finite = makeLargeVectorDocument();
+    expect(renderFrameRegion(finite, 0, {{65528, 49144}, {32, 32}}, {32, 32}).status
                == FrameRenderStatus::InvalidRegion,
-           "a region outside the allocated world bounds must fail closed");
+           "a region outside a finite document must fail closed");
+    const auto unallocated = renderFrameRegion(document, 0, {{32760, 32760}, {32, 32}}, {32, 32});
+    expect(unallocated.ok() && unallocated.pixels.pixels.size() == 32U * 32U
+               && std::all_of(unallocated.pixels.pixels.begin(), unallocated.pixels.pixels.end(),
+                              [](auto pixel) { return pixel == 0; }),
+           "an unallocated infinite-canvas region must render bounded transparent pixels");
+    expect(renderFrameRegion(document, 0,
+               {{std::numeric_limits<std::int32_t>::max()-8, 0}, {32, 32}}, {32, 32}).status
+               == FrameRenderStatus::InvalidRegion,
+           "infinite-canvas requests must still reject overflowing world coordinates");
 
     const FrameTileRenderResult vectorTile = renderFrameTiles(
         makeLargeVectorDocument(), 0, {tileRequest});

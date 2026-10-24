@@ -330,6 +330,14 @@ foreach(module Audio Bitmap Camera Document File Layered Media Metadata QtAdapte
             require_text("${module_header}" "operator==(const PublicationMetadata &) const = default")
             continue()
         endif()
+        # Attribution only aliases the selected provider ABI and defines inline
+        # conversions; it deliberately has no separate implementation owner.
+        if(module STREQUAL "Document" AND source_name STREQUAL "Attribution")
+            require_text("${module_header}" "using DocumentAuthorship=")
+            require_text("${module_header}" "inline std::string authorshipDump")
+            require_text("${module_header}" "IISHAREDCANVAS_NATIVE_API")
+            continue()
+        endif()
         if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.cpp")
             message(FATAL_ERROR "${module_header} must have a co-located implementation")
         endif()

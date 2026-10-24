@@ -1,6 +1,7 @@
 #include "File/DocumentFile.h"
 
 #include "Serialization/DocumentRecords_p.hpp"
+#include "Document/DocumentCommit_p.hpp"
 #include "File/IiscInput_p.hpp"
 
 #include "Native/Storage_p.hpp"
@@ -24,7 +25,7 @@ namespace {
 
 constexpr int ApplicationId = 0x49495343; // IISC, distinct from other SQLite files.
 constexpr int StorageVersion = 1;
-static_assert(std::is_nothrow_move_assignable_v<Document>);
+static_assert(noexcept(std::declval<detail::PreparedDocumentCommit&>().commit()));
 constexpr const char *StateSchema =
     "CREATE TABLE canvas_state (singleton INTEGER PRIMARY KEY CHECK(singleton=1), "
     "revision INTEGER NOT NULL CHECK(revision>=0))";
@@ -273,6 +274,7 @@ DocumentFileResult DocumentFile::create(const std::string &path, const Document 
         // Validate the complete persisted representation before touching a path.
         auto decoded = detail::decodeDocumentRecords(encoded.records, limits);
         requireEncoding(decoded.error);
+        detail::PreparedDocumentCommit prepared(m_impl->document, decoded.document);
         const auto target = absolutePath(path);
         iiFileProvider::native::File::create(std::filesystem::u8path(target), {});
         createdPath = target;
@@ -291,7 +293,7 @@ DocumentFileResult DocumentFile::create(const std::string &path, const Document 
         m_impl->dataVersion = database->scalar("PRAGMA data_version");
         m_impl->access = std::move(access);
         m_impl->database = std::move(database);
-        m_impl->document = std::move(decoded.document);
+        prepared.commit();
         m_impl->path = target;
         m_impl->limits = limits;
         m_impl->revision = 0;
@@ -326,7 +328,7 @@ DocumentFileResult DocumentFile::readSnapshot(const std::string &path, Document 
         const auto temporary = std::filesystem::temp_directory_path().u8string();
         auto document = detail::loadIiscDocumentReadOnly(path,
             std::string(temporary.begin(), temporary.end()), limits);
-        snapshot = std::move(document);
+        detail::PreparedDocumentCommit(snapshot, document).commit();
         return {};
     } catch (const detail::IiscInputFailure &error) {
         return {error.code, false, error.what()};
@@ -395,6 +397,7 @@ DocumentFileResult DocumentFile::open(const std::string &path, SerializationLimi
                                          ? DocumentFileCode::UnsupportedFormat : DocumentFileCode::CorruptFile),
                               decoded.error.message);
         }
+        detail::PreparedDocumentCommit prepared(m_impl->document, decoded.document);
         const auto dataVersion = database->scalar("PRAGMA data_version");
         transaction.commit();
         // Reject corrupt/future model records before changing the source's
@@ -402,7 +405,7 @@ DocumentFileResult DocumentFile::open(const std::string &path, SerializationLimi
         database->configureDurable();
         m_impl->access = std::move(access);
         m_impl->database = std::move(database);
-        m_impl->document = std::move(decoded.document);
+        prepared.commit();
         m_impl->path = target;
         m_impl->limits = limits;
         m_impl->revision = static_cast<std::uint64_t>(revision);
@@ -509,9 +512,10 @@ DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> 
         if (m_impl->revision == static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
             throw FileFailure(DocumentFileCode::LimitExceeded, "working-file revision is exhausted");
         }
+        detail::PreparedDocumentCommit prepared(m_impl->document, draft);
         database->execute("UPDATE canvas_state SET revision=revision+1 WHERE singleton=1");
         transaction.commit();
-        m_impl->document = std::move(draft);
+        prepared.commit();
         ++m_impl->revision;
         m_impl->statistics = statistics;
         m_impl->result = {DocumentFileCode::None, true, {}};

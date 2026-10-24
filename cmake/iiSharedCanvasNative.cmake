@@ -32,6 +32,9 @@ set_property(TARGET iiSharedCanvasNative APPEND PROPERTY COMPATIBLE_INTERFACE_ST
 generate_export_header(iiSharedCanvasNative BASE_NAME iiSharedCanvas
     EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h")
 if(BUILD_TESTING)
+    add_executable(iiSharedCanvasNativeDocumentCommitTest tests/DocumentCommitTest.cpp)
+    target_link_libraries(iiSharedCanvasNativeDocumentCommitTest PRIVATE iiSharedCanvas::Native)
+    add_test(NAME iiSharedCanvas.Native.DocumentCommit COMMAND iiSharedCanvasNativeDocumentCommitTest)
     add_executable(iiSharedCanvasNativeMedia tests/NativeMedia.cpp)
     target_link_libraries(iiSharedCanvasNativeMedia PRIVATE iiSharedCanvas::Native)
     add_test(NAME iiSharedCanvas.Native.Media COMMAND iiSharedCanvasNativeMedia "${CMAKE_CURRENT_BINARY_DIR}")
