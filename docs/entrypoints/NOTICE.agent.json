@@ -1,0 +1,131 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:39609cefb9f27b8afdf3bb52ece6c6bfa112291fd289adabc3ad75605bf68dba",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "NOTICE.md",
+    "sha256": "5e8d8f50225a142a6002af2298e535eee0f06284166cc4403455ee1d3c52b604",
+    "bytes": 1239,
+    "line_count": 23,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "NOTICE.md",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "paragraph",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "SPDX-License-Identifier: MIT\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "Copyright (c) 2026 iisacc\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "iiSharedCanvas is licensed under the MIT License. The complete license text is included in LICENSE.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 8,
+      "raw": "This license matches the MIT license of the required iiPaintEngine\ndependency.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 12,
+      "raw": "Working-file persistence additionally links the platform-provided SQLite\nlibrary, whose delivered code is dedicated to the public domain. No SQLite\nsource is vendored here. See docs/DEPENDENCIES.md for the dependency review.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 14,
+      "end_line": 23,
+      "raw": "SVGZ support links the platform/package-provided zlib under the zlib license.\nOpenRaster ZIP reading links the platform/package-provided libzip under its\nBSD-3-Clause license. No libzip source is vendored. Its optional codec runtime\ndependencies retain their own licenses and must accompany deployed binaries.\nExisting Qt image plugins retain their Qt and third-party codec licenses.\nPSD Smart Object export reuses Qt PDF writing. Optional psd-tools development\nverification is not a product dependency and is not redistributed here.\nThe optional video adapter executes a separately supplied FFmpeg/ffprobe build;\nno FFmpeg binary or source is redistributed by this package. Its LGPL/GPL terms\ndepend on the supplied build. See docs/DEPENDENCIES.md for packaging boundaries.\n"
+    }
+  ],
+  "outline": [],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000007",
+        "line": 7,
+        "text": "This license matches the MIT license of the required iiPaintEngine",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 17,
+        "text": "dependencies retain their own licenses and must accompany deployed binaries.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

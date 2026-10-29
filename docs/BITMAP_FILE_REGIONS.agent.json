@@ -1,0 +1,235 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:da34bd306fc9162d4a9b04777572818b74adeac85c93b37ab670cac0e96aa8dc",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/BITMAP_FILE_REGIONS.md",
+    "sha256": "bf998f0bbcedfc7beb85a0c870a4b03d42375598fc5aeeb6f3870d0fedbd4a17",
+    "bytes": 3427,
+    "line_count": 52,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "파일에 바인딩된 비트맵 영역 편집",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 파일에 바인딩된 비트맵 영역 편집\n",
+      "level": 1,
+      "title": "파일에 바인딩된 비트맵 영역 편집"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 6,
+      "raw": "iiSharedCanvas Native 0.35.1은 `DocumentFile`에 바인딩된 `BitmapEditor`와\n`ChunkedBitmapEditor`의 같은 크기 픽셀 변경을 준비된 영역으로 저장한다.\n공개 편집 API와 iiPaintEngine의 이력 계약, 정규 IISC 1.22는 그대로이다.\n이력 엔진과 파일 저장은 내부의 동기 포트로만 연결되며 서로의 구현을 소유하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "## 호출과 트랜잭션\n",
+      "level": 2,
+      "title": "호출과 트랜잭션"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "fenced_code",
+      "start_line": 10,
+      "end_line": 20,
+      "raw": "```cpp\nDocumentFile file;\nif (!file.open(path).ok()) return;\nBitmapEditor editor(file, \"paint\");\nconst std::array<std::uint32_t, 1> value{0xff6688aa};\nconst BitmapPatch patch{{{12, 34}, 1, 1}, value};\nif (editor.replacePatches(std::span(&patch, 1))) {\n    editor.undo();\n    editor.redo();\n}\n```\n",
+      "language": "cpp",
+      "code": "DocumentFile file;\nif (!file.open(path).ok()) return;\nBitmapEditor editor(file, \"paint\");\nconst std::array<std::uint32_t, 1> value{0xff6688aa};\nconst BitmapPatch patch{{{12, 34}, 1, 1}, value};\nif (editor.replacePatches(std::span(&patch, 1))) {\n    editor.undo();\n    editor.redo();\n}\n",
+      "closed": true
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 28,
+      "raw": "호출은 사용자 입력 궤적이 아니라 최종 ARGB32 픽셀과 이력 변경을 사용한다.\n먼저 입력과 원본 표본, 이력 예산, 청크 존재 및 저작 정보를 검증하고 필요한\n메모리를 준비한다. 그다음 현재 파일 리비전, 소스 변경 여부, 닿은 타일의 데이터와\n체크섬을 확인한다. 픽셀 타일, 필요한 청크 기술자, 저작 정보와 파일 리비전은\n하나의 동기 SQLite 트랜잭션으로 확정한다. 성공한 후에만 준비한 메모리 픽셀과\n편집기 이력 커서를 게시한다. 거부·충돌·예산 초과는 변경을 적용하지 않는다.\n외부 변경으로 결과 확인이 불가능해진 파일은 안전을 위해 바인딩을 해제한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 30,
+      "end_line": 33,
+      "raw": "무변경 편집은 저장 리비전을 올리지 않는다. 열린 형식 1 파일은 무변경 호출로\n마이그레이션하지 않는다. 같은 모델 버전의 첫 실제 변경은 형식 2 전환과 편집을\n한 트랜잭션에서 수행한다. `iisc-working inspect|verify|upgrade-storage`는 기존\nJSON CLI로 저장 상태의 확인·검증·명시적 전환을 제공한다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "## 비용 및 경계\n",
+      "level": 2,
+      "title": "비용 및 경계"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 41,
+      "raw": "기존 래스터와 기존 청크의 일반 픽셀 변경은 전체 문서 복사나 대상 자산의 모든 타일\n순회 대신 닿은 타일과 변경된 픽셀 행을 사용한다. 타일 검증·쓰기 버퍼의 기본 크기는\n최대 16 KiB이다. 새 청크에는 해당 크기의 픽셀 소유 메모리가 필요하며, 청크를\n추가하거나 삭제하면 자산의 청크 좌표 기술자를 다시 작성한다. 청크 삭제는 다른\n픽셀을 버리지 않는지 확인하므로 삭제 대상의 픽셀을 검사할 수 있다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 46,
+      "raw": "일반 구조 편집 `DocumentFile::edit`, 유한 비트맵 크기 변경, 이전 문서 모델의\n자동 갱신과 초기 형식 1 마이그레이션은 전체 문서나 자산을 처리할 수 있다. 파일\n열기·스냅샷 생성 자체는 문서 픽셀을 메모리에 구성한다. 이것은 앱의 이력 통합이나\n필터·마스크가 포함된 대형 실제 작업 전체의 성능 보증을 뜻하지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 48,
+      "end_line": 52,
+      "raw": "테스트의 할당 계측은 편집 호출 스레드의 C++ `operator new`만 포함한다. SQLite의\nC 할당, 다른 스레드, 테스트 자료 생성, 디스크 쓰기량 및 프로세스 RSS는 포함하지\n않는다. 대상 및 결과는 전체 테스트의 실행 로그와 제품 진행 보고서에 별도 기록한다.\n설치 소비자의 `NativeCanvas.BitmapFileRegionLarge`는 4096×4096 픽셀 자산 세 개와\n참조된 마스크를 포함한 파일에서 한 픽셀 편집·Undo·Redo·재열기를 검사한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "파일에 바인딩된 비트맵 영역 편집",
+      "anchor": "파일에-바인딩된-비트맵-영역-편집",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "호출과 트랜잭션",
+      "anchor": "호출과-트랜잭션",
+      "start_line": 8
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "비용 및 경계",
+      "anchor": "비용-및-경계",
+      "start_line": 35
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 6,
+        "text": "이력 엔진과 파일 저장은 내부의 동기 포트로만 연결되며 서로의 구현을 소유하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 27,
+        "text": "편집기 이력 커서를 게시한다. 거부·충돌·예산 초과는 변경을 적용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 31,
+        "text": "마이그레이션하지 않는다. 같은 모델 버전의 첫 실제 변경은 형식 2 전환과 편집을",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 46,
+        "text": "필터·마스크가 포함된 대형 실제 작업 전체의 성능 보증을 뜻하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

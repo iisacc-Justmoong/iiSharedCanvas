@@ -275,6 +275,12 @@ private:
                                                    FrameIndex frame, Asset content);
     DocumentEditResult editArtboards(const std::function<DocumentEditResult(Document &)> &edit);
     DocumentEditResult editFile(const std::function<DocumentEditResult(DocumentEditor &)> &edit);
+#ifdef IISHAREDCANVAS_NATIVE_API
+    DocumentEditResult editLayerFile(const std::string &layerId,
+        const std::function<DocumentEditResult(DocumentEditor &)> &edit);
+    DocumentEditResult editLayerStructureFile(bool changesFrames,
+        const std::function<DocumentEditResult(DocumentEditor &)> &edit);
+#endif
     [[nodiscard]] DocumentEditResult reject(DocumentEditCode code,
                                             std::string path,
                                             std::string message);

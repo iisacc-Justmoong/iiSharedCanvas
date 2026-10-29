@@ -1,7 +1,8 @@
 @PACKAGE_INIT@
+set_and_check(iiSharedCanvasNative_RESOURCE_DIR "@PACKAGE_CMAKE_INSTALL_DATADIR@/iiSharedCanvas/resources")
 include(CMakeFindDependencyMacro)
-find_dependency(iiFileProviderNative 0.9 CONFIG)
-find_dependency(iiPaintEngine 0.5.1 CONFIG)
+find_dependency(iiFileProviderNative 0.11.1 CONFIG)
+find_dependency(iiPaintEngine 0.5.4 CONFIG)
 find_dependency(iiSDKCore 0.18 CONFIG COMPONENTS Contracts)
 
 

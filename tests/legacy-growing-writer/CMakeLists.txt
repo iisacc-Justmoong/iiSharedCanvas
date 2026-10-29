@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.31)
+project(LegacyGrowingFixtureWriter LANGUAGES CXX)
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt5 ON)
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt6 ON)
+find_package(iiSharedCanvasNative 0.34.0 EXACT CONFIG REQUIRED)
+add_executable(legacy-growing-writer main.cpp)
+target_link_libraries(legacy-growing-writer PRIVATE iiSharedCanvas::Native)
+target_compile_features(legacy-growing-writer PRIVATE cxx_std_23)

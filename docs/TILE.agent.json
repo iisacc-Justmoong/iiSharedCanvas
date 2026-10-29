@@ -1,0 +1,426 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:614527cea3442cc62ecf0c70155b406d7952cae502564574fad928c2f30ec267",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/TILE.md",
+    "sha256": "90f7d8d7a376c51bb35b04c360ff8de152424cfb4452f4bd19fe867efd045967",
+    "bytes": 6565,
+    "line_count": 60,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "타일 ControlNet 레이어",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"tile-controlnet-layer\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 타일 ControlNet 레이어\n",
+      "level": 1,
+      "title": "타일 ControlNet 레이어"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "패키지 0.21.0는 전용 타일 자산/레이어 변형을 추가하고 소비자에게 재구축을 요구합니다. 네이티브 모델 버전은 1.15이며, SQLite 작업 파일 스키마는 여전히 1입니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "html",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "<a id=\"meaning-and-data-contract\"></a>\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 의미와 데이터 계약\n",
+      "level": 2,
+      "title": "의미와 데이터 계약"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 12,
+      "raw": "ControlNet 타일은 공간 이미지 컨텍스트를 사용하여 세부 재생을 안내합니다. 그\n[공식 타일 설명](https://github.com/lllyasviel/ControlNet-v1-1-nightly#controlnet-11-tile)는 로컬 컨텍스트 컨디셔닝 및 디테일 교체를 설명하며, 별도의 타일 디퓨전 워크플로와의 사용을 포함합니다. 이 SDK 모델은 RGB가 참조합니다. 누락된 세부 사항을 추론하거나 확산/업스케일링 알고리즘을 선택하지 않습니다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "list",
+      "start_line": 14,
+      "end_line": 16,
+      "raw": "- `TileColor { uint8_t red, green, blue }`는 정확한 인코딩된 RGB8 값을 저장합니다.\n- `TileAsset { id, viewport, vector<TileColor> colors }`는 양의 치수와 정확히 width*height 색상을 행-major 공간 순서로 보유합니다. 검은색은 유효한 콘텐츠입니다. 알파, 마스크, 반복 패턴 또는 숨겨진 셔플 연산이 없습니다.\n- `TileLayer { properties, source, control }` 는 TileAsset 만 참조하며 `LayerRole::ControlNet` 와 `ControlNetKind::Tile` 를 포함합니다. 이는 라인 제어 레이어가 아닙니다. StaticSource 는 StaticBitmap 입니다. KeyframedSource 는 DynamicBitmap 입니다. 유지 방식만 사용하는 원천 선택은 정수 프레임에서 수행되며 첫 번째 키프레임 는 0입니다.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "`TileColor { uint8_t red, green, blue }`는 정확한 인코딩된 RGB8 값을 저장합니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`TileAsset { id, viewport, vector<TileColor> colors }`는 양의 치수와 정확히 width*height 색상을 행-major 공간 순서로 보유합니다. 검은색은 유효한 콘텐츠입니다. 알파, 마스크, 반복 패턴 또는 숨겨진 셔플 연산이 없습니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`TileLayer { properties, source, control }` 는 TileAsset 만 참조하며 `LayerRole::ControlNet` 와 `ControlNetKind::Tile` 를 포함합니다. 이는 라인 제어 레이어가 아닙니다. StaticSource 는 StaticBitmap 입니다. KeyframedSource 는 DynamicBitmap 입니다. 유지 방식만 사용하는 원천 선택은 정수 프레임에서 수행되며 첫 번째 키프레임 는 0입니다.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "참조 이미지는 캔버스와 다른 네이티브 해상도를 사용할 수 있습니다. 그 픽셀은 저자 형태로 저장되며, 모델별 크기 조정, 흐림/다운샘플링, 색상 변환, 타일 추론, 겹침 블렌딩 및 출력 병합은 명시적인 소비 어댑터에 속합니다. 렌더링/열 때 암시적 전처리가 발생하지 않습니다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "html",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "<a id=\"preparing-and-editing\"></a>\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "## 준비 및 편집\n",
+      "level": 2,
+      "title": "준비 및 편집"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "`makeTileAsset(id, opaqueRaster, maxPixels=16Mi)`는 공간 레이아웃, 세부 사항 또는 해상도를 변경하지 않고 소스 RGB를 복사합니다. 투명 입력은 거부되므로 호출자는 합성 배경을 명시적으로 선택합니다. 형식이 올르지 않거나 빈 ID가 invalid_argument를 던지고, 출력 예산 오버플로가 색상을 할당하기 전에 length_error를 던집니다. 준비된 RGB 데이터에 대해서도 직접 골재 구축이 지원됩니다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "검증된 편집을 위해 `insertTileAsset`, `replaceTileAsset`, `insertTileLayer`, `setTileSample`, `setKeyframedSource` 및 `setControlNetSettings`를 사용하십시오. 자산 교체는 ID를 보존합니다. 잘못된 좌표, 차원, 참조 및 설정은 상태/수정을 변경하지 않습니다. 바인드된 DocumentEditor 작업은 DocumentFile에 동기식으로 커밋됩니다. BitmapEditor는 전용 Tile 자산을 바인딩할 수 없습니다. 공통 모델 ID/수정, 조건화 척도 및 안내 간격이 적용됩니다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "fenced_code",
+      "start_line": 28,
+      "end_line": 41,
+      "raw": "```cpp\nDocument doc;\ndoc.extent = {2,2};\nDocumentEditor editor(doc);\nRasterLayer input = {2,2,{0xffff0000,0xff00ff00,0xff0000ff,0xffffffff}};\nauto assetResult = editor.insertTileAsset(makeTileAsset(\"reference\",input));\nTileLayer layer;\nlayer.properties = {\"detail-control\", \"Tile reference\"};\nlayer.source = StaticSource{\"reference\"};\nauto layerResult = editor.insertTileLayer(layer);\nauto full = renderTileControlMap(doc,\"detail-control\",0);\nauto region = renderTileControlRegion(doc,\"detail-control\",0,{1,0,1,2});\n// 데이터를 사용하기 전에 각 편집 결과와 출력의 ok()를 확인한다.\n```\n",
+      "language": "cpp",
+      "code": "Document doc;\ndoc.extent = {2,2};\nDocumentEditor editor(doc);\nRasterLayer input = {2,2,{0xffff0000,0xff00ff00,0xff0000ff,0xffffffff}};\nauto assetResult = editor.insertTileAsset(makeTileAsset(\"reference\",input));\nTileLayer layer;\nlayer.properties = {\"detail-control\", \"Tile reference\"};\nlayer.source = StaticSource{\"reference\"};\nauto layerResult = editor.insertTileLayer(layer);\nauto full = renderTileControlMap(doc,\"detail-control\",0);\nauto region = renderTileControlRegion(doc,\"detail-control\",0,{1,0,1,2});\n// 데이터를 사용하기 전에 각 편집 결과와 출력의 ok()를 확인한다.\n",
+      "closed": true
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "html",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "<a id=\"full-and-region-output\"></a>\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "heading",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "## 전체 및 지역 출력\n",
+      "level": 2,
+      "title": "전체 및 지역 출력"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "`tileRasterPreview` 는 불투명한 RGB 미리보기를 생성합니다. `renderTileControlMap` 는 전체 현재 프레임 참조와 `region={0,0,width,height}` 를 반환합니다. `renderTileControlRegion` 는 네이티브 자산 픽셀의 `TileRegion { x,y,width,height }` 를 수락하고 해당 직사각형만 복사합니다. 결과물은 `pixels`, 정확한 `colors`, 소스 `region`, 및 실패 `message` 를 소유합니다. 중첩된 요청은 동일한 소스 좌표에 대해 동일한 색상을 반환합니다. 영역 차원은 양수여야 하며 완전히 범위 내에 있어야 하며, 클리핑, 패딩, 반복 또는 크기 조절은 수행되지 않습니다. 범위 산술은 과도한 직사각형을 거부하기 위해 확장된 합을 사용합니다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "두 문서는 Honor Control.enabled, 레이어 프레임 범위 및 타임라인을 내보냅니다. 디스플레이 가시성, 불투명도, 아핀 변환 및 움직임은 제어 픽셀을 변경하지 않습니다. 기본 16 Mi 픽셀 예산이 요청된 출력에 적용되므로, 전체 이미지에 필요한 것보다 작은 영역을 더 적은 예산으로 읽을 수 있습니다. 지역 내보내기가 임시 전체 이미지 출력을 할당하지 않습니다. 내보내기가 실패하면 OK가 아닌 결과가 반환됩니다; 직접 미리보기에서는 invalid_argument 또는 length_error가 발생합니다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "일반 아트워크/ CanvasItem / PDF 구성은 ControlNet 레이어를 제외합니다; 명시적인 레이어별 미리보기는 디스플레이 속성와 함께 제공됩니다. PSD와 타임라인 교환은 지원되지 않는 Tile 의미론을 거부하며, 타임라인 패키지에 포함된 orphan Tile 자산을 포함합니다. 스냅샷 및 작업 파일 왕복은 모든 픽셀과 소스 키프레임를 보존합니다. 변경되지 않은 이미지 레코드는 제어 전용 편집에 재사용됩니다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "html",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "<a id=\"verification-boundary\"></a>\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "heading",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "## 검증 경계\n",
+      "level": 2,
+      "title": "검증 경계"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "TileTest는 전체/영역의 정확한 RGB·겹침 일관성·작은 크롭 예산·잘못되거나 오버플로 크기의 영역·불투명 가져오기·형식 지정/static/dynamic 원본·제어/표시 분리·거부 시 롤백·유효한 체크섬을 가진 스냅샷의 버전/tag/개수 실패·작업 파일 재열기와 레코드 재사용·미지원 외부 형식 내보내기를 검증한다. 설치 패키지 소비자도 같은 테스트를 실행한다. 실제 확산·초해상도 품질·타일 출력 혼합은 이 SDK 객체 및 내보내기 검증의 범위 밖이다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 60,
+      "raw": "자세한 레이어 및 개체 필드는 다음을 통해 원자적으로 편집할 수도 있습니다.\n모든 동적 소스 상태를 포함하는 [공통 매개변수 API](CONTROLNET_PARAMETERS.md).\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "타일 ControlNet 레이어",
+      "anchor": "타일-controlnet-레이어",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "의미와 데이터 계약",
+      "anchor": "의미와-데이터-계약",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "준비 및 편집",
+      "anchor": "준비-및-편집",
+      "start_line": 22
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "전체 및 지역 출력",
+      "anchor": "전체-및-지역-출력",
+      "start_line": 45
+    },
+    {
+      "block_id": "b000039",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "검증 경계",
+      "anchor": "검증-경계",
+      "start_line": 55
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000011",
+        "label": "공식 타일 설명",
+        "target": "https://github.com/lllyasviel/ControlNet-v1-1-nightly#controlnet-11-tile",
+        "kind": "external",
+        "line": 12
+      },
+      {
+        "block_id": "b000043",
+        "label": "공통 매개변수 API",
+        "target": "CONTROLNET_PARAMETERS.md",
+        "kind": "relative",
+        "line": 60
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

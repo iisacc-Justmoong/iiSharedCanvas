@@ -1,0 +1,483 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:ad1b3f1b7eb8266a44115c47d6fb25da1421891b168fa4386c26c925113a5527",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/PSD_IMPORT.md",
+    "sha256": "6ec558c405ceacfbc03f361e64466dd57d503930e606666cf0669cf0c87a85b7",
+    "bytes": 9130,
+    "line_count": 51,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "레이어 보존 PSD 가져오기",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"layer-preserving-psd-import\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 레이어 보존 PSD 가져오기\n",
+      "level": 1,
+      "title": "레이어 보존 PSD 가져오기"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "`decodeLayeredDocument(bytes, options)`와 `importLayeredDocument(path, options)`는 PSD를 `8BPS` 서명으로 식별하고 분리된 `Document`를 반환합니다. 파일 확장자는 파서를 결정하지 않습니다. 이 경로는 `decodeBitmap`의 평탄화된 PSD 지원과 무관합니다: 병합된 이미지가 편집 가능한 레이어로 대체되지 않으며, 지원되는 레이어 레코드가 없는 PSD는 거부됩니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "html",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "<a id=\"supported-contract\"></a>\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 지원되는 계약\n",
+      "level": 2,
+      "title": "지원되는 계약"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "초기 리더는 PSD 버전 1, 8비트 RGB, 양의 크기 래스터 레이어, 3 RGB 채널 및 선택적 투명성 채널을 받습니다. 헤더 차원은 PSD v1 범위 내에 있어야 합니다. 채널 데이터는 원시 바이트, PackBits RLE, ZIP 또는 ZIP 와 8비트 수평 예측기를 사용할 수 있습니다. ZIP 는 기존 zlib 의존성에 의해 디코딩됩니다. 예측기 상태는 각 스캔라인마다 재시작됩니다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "각 레코드는 하나의 `RasterAsset` 와 하나의 정적 `StaticBitmapLayer` 가 됩니다. 자산 저장은 ARGB 방식으로 이루어지며, 완전히 투명한 픽셀의 RGB 구성 요소도 포함됩니다. 레이어 불투명도는 픽셀에 내장되지 않습니다. 이름, 가시성, 불투명성, 부호화된 정수 배치, 그리고 27가지 픽셀 레이어 블렌드 모드는 기존 캔버스 속성에 맵핑됩니다. PSD 바이너리 레코드 순서는 이미 네이티브 하단에서 상단 순서이며 유지됩니다. ID 는 `<idPrefix>-asset-<index>` 와 `<idPrefix>-layer-<index>` 이며, 인덱스 0 는 하단에 있습니다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "Unicode `luni` 이름은 UTF-16에서 디코딩되며, 대리쌍을 포함합니다; 단일 터미널 null이 허용됩니다. 형식이 형성된 대리쌍과 내재된 널은 거부됩니다. `luni`가 없을 경우, ASCII 레거시 이름만 허용됩니다: 문서화되지 않은 레거시 코드 페이지를 선택하면 아무런 알림 없이가 레이어 이름을 변경할 수 있습니다. 빈 이름은 계속 비어 있습니다. 원본 편집기 ID와 잠금 상태는 보존되지 않으며, 해당 지원되는 메타데이터 블록이 발견될 경우 호출자는 경고를 받게 됩니다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "기본 색상 해석은 sRGB 입니다. 명시적으로 내장된 유효한 sRGB 프로필은 채널 바이트를 변경하지 않고 허용됩니다. 다른 프로필, 유효하지 않은 프로필, 의도적으로 태그가 없는 색상 데이터 (이미지 리소스 1041 를 1 로 설정), 그리고 정사각형이 아닌 픽셀 비율은 거부됩니다. 태그가 없는 프로필 플래그는 정확히 하나의 정통 부호자 바이트를 포함해야 하며, 이를 0 로 설정하면 기본 sRGB 해석이 허용되지만, 명시적인 sRGB 프로필 옆에서도 1 는 거부됩니다. 이미지 리소스인 DPI 와 썸네일은 유지되지 않으며 경고로 표시됩니다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "html",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "<a id=\"explicitly-unsupported\"></a>\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "## 명시적으로 지원되지 않음\n",
+      "level": 2,
+      "title": "명시적으로 지원되지 않음"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "PSB , 16/32비트 채널, 회색/ CMYK /Lab/색상 인덱싱/문서 보조 채널, 빈/픽셀이 아닌 레이어, 그룹, 클리핑 레이어, 마스크, 기본이 아닌 블렌드 범위, 255보다 낮은 채우기 불투명도, 조정/텍스트/벡터/스마트 오브젝트 레이어, 효과, 레이어 컴포지션, 애니메이션 메타데이터, 전역 마스크, 그리고 전역 추가 레이어 정보 블록은 이 리더를 통과하지 않습니다. 레이어의 알 수 없는 추가 정보 키는 오류 메시지에서 안전하게 거부한다 4자 키와 함께 안전하게 거부합니다. 캐시된 래스터 를 사용하여 지원되지 않는 편집 가능한 객체가 충실히 변환되었다고 속인 것은 사용되지 않습니다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "`luni` 외에도, 작은 레이어 태그 허용 목록은 편집기 전용 `lyid`, `lspf`, `lyvr`, `lclr` 및 `fxrp`와 기본 `iOpa`로 구성됩니다. 그 결과, 특정 PSD 프로듀서의 다소 단순한 파일들은 해당 추가 기록이 명시적으로 검토되고 테스트될 때까지 거부될 수 있습니다. 이는 한계가 설정된 호환성 하위 집합이며, 전체 Photoshop 충실도에 대한 주장이 아닙니다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "html",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "<a id=\"validation-and-resource-boundaries\"></a>\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "heading",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "## 검증 및 자원 경계\n",
+      "level": 2,
+      "title": "검증 및 자원 경계"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "각 파서는 길이 한계가 설정된 범위를 읽습니다. 픽셀 할당 전에 채널 ID, 서명, 개수, 차원, 기록 길이 및 이름 인코딩이 검증됩니다. 선언된 모든 채널 범위는 어떤 자산도 생성하기 전에 확인됩니다. 음수 부호 레이어 개수는 4 문서 채널을 필요로 합니다: RGB 플러스 병합된 투명도입니다. 아무런 알림 없이 삭제되지 않은 `maxInputBytes` 를 사용하고, 캔버스 및 레이어 크기는 `maxPixelsPerFrame` 를 사용하며, 개수는 `maxLayers` 를 사용합니다. 총 유지된 ARGB 저장 공간, 가장 큰 단일 채널 임시 평면 및 UTF-8 이름은 `maxDecodedBytes` 에 맞아야 합니다. 이름은 두 번째 디코딩된 사본을 유지하지 않고 네이티브 레이어로 전달됩니다. 한도는 프로세스 RSS 한도가 아닌 디코딩된 콘텐츠 예산입니다: 할당기 오버헤드, 작은 기록 객체 및 zlib 상태는 별개입니다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "RLE는 행 경계를 넘을 수 없으며, 각 행은 정확히 너비를 생성해야 합니다. ZIP는 정상적으로 종료되어야 하며, 선언된 채널 스팬 전체를 소비하고, 선언된 평면 크기를 정확히 생성해야 합니다. 선택적 병합된 미리보기는 자산으로 디코딩되지 않으며, 존재하는 경우 raw/ RLE / ZIP 프레이밍 및 디코딩 길이가 일정한 스크래치 스토리지로 검증됩니다. 제작자는 호환성 최대화가 비활성화된 경우 병합된 미리보기를 완전히 생략할 수 있습니다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "실패하면 자산이나 레이어가 반환되지 않습니다. 성공적인 값은 네이티브 캔버스 문서와 동일한 공개 문서 검증을 통과해야 합니다. Import는 입력 파일을 쓰거나, 리소스를 추출하거나, 외부 디코더를 시작하거나, 작업 문서를 변형하지 않습니다. 가져오기 후 일반 네이티브 직렬화기 또는 검증된 `DocumentFile` 워크플로우를 지속하십시오.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "`PsdLayeredImportTest` 는 리더를 호출하기 전에 독립적인 이진 픽스처 를 생성합니다. 범위는 모든 4 압축 모드, 투명 RGB , 대리자 쌍 이름, 레이어 순서 및 속성, 음수 오프셋, 지원되는 블렌드 모드, 네이티브 `.iisc` 왕복 변환 , 내장된 미리보기와 다른 렌더링된 골든 프레임, 안전하게 거부하는 지원되지 않는 의미론, 잘린 기록, 리소스 한계, 병합 대 보조 알파 의미론, 의도적으로 태그되지 않은 색상 거부 및 콘텐츠 기반 파일 경로 가져오기를 포함합니다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "html",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "<a id=\"dependency-review-2026-09-03\"></a>\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "heading",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "## 의존성 검토 ( 2026-09-03 )\n",
+      "level": 2,
+      "title": "의존성 검토 ( 2026-09-03 )"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 44,
+      "raw": "[Molecular Matters PSD SDK](https://github.com/MolecularMatters/psd_sdk)가 먼저 고려되었습니다. 해당 [BSD-2 -Clause 라이선스](https://github.com/MolecularMatters/psd_sdk/blob/master/LICENSE)는 재배포에 적합하며, 집중된 C++ 구현은 전체 이미지 편집 스택보다 훨씬 작습니다. 하지만 현재 상위 공급 측\n[`MemoryFile::DoRead`](https://github.com/MolecularMatters/psd_sdk/blob/master/src/Psd/PsdMemoryFile.cpp)는 어설션 뒤에 `memcpy` 를 따르며, 복구 가능한 bounds-error 반환 경로가 없고 경계 표현식에 체크되지 않은 덧셈이 없습니다. 이러한 관찰된 검사는 필요한 신뢰할 수 없는 입력 및 제한 인식 계약을 성립하지 않습니다. 채택에는 유지된 하드닝 포크와 보다 광범위한 파서 감사가 필요합니다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "SDK 소스가 복사되거나 벤더되지 않았습니다. 여기서 구현된 소규모 엄격 매핑은 [Adobe PSD 형식 사양](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)를 따르며, 이미 검토된 zlib를 ZIP에 적용하고 Qt를 사용하여 ICC 인식을 위해 사용합니다. 새로운 PSD 런타임 의존성이 없으며, 실행 파일 다운로드도 없고, 공개 문서나 래스터 모델 소유권에 대한 변경도 없습니다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 48,
+      "end_line": 49,
+      "raw": "이진 계층 순서도 기본 레이어와 교차 검증되었습니다.\n[psd-tools 레코드 리더](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/layer_and_mask.py) 및 [트리 재구성](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/api/psd_image.py): 순차 파일 레코드가 API의 바운트‐위 순서가 되돌림 없이 변환됩니다. 주문이 OpenRaster의 XML 스택 주문과 다릅니다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "레이어 보존 PSD 가져오기",
+      "anchor": "레이어-보존-psd-가져오기",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "지원되는 계약",
+      "anchor": "지원되는-계약",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "명시적으로 지원되지 않음",
+      "anchor": "명시적으로-지원되지-않음",
+      "start_line": 21
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "검증 및 자원 경계",
+      "anchor": "검증-및-자원-경계",
+      "start_line": 29
+    },
+    {
+      "block_id": "b000041",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "의존성 검토 ( 2026-09-03 )",
+      "anchor": "의존성-검토--2026-09-03-",
+      "start_line": 41
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000043",
+        "label": "Molecular Matters PSD SDK",
+        "target": "https://github.com/MolecularMatters/psd_sdk",
+        "kind": "external",
+        "line": 43
+      },
+      {
+        "block_id": "b000043",
+        "label": "BSD-2 -Clause 라이선스",
+        "target": "https://github.com/MolecularMatters/psd_sdk/blob/master/LICENSE",
+        "kind": "external",
+        "line": 43
+      },
+      {
+        "block_id": "b000043",
+        "label": "`MemoryFile::DoRead`",
+        "target": "https://github.com/MolecularMatters/psd_sdk/blob/master/src/Psd/PsdMemoryFile.cpp",
+        "kind": "external",
+        "line": 44
+      },
+      {
+        "block_id": "b000045",
+        "label": "Adobe PSD 형식 사양",
+        "target": "https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/",
+        "kind": "external",
+        "line": 46
+      },
+      {
+        "block_id": "b000047",
+        "label": "psd-tools 레코드 리더",
+        "target": "https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/layer_and_mask.py",
+        "kind": "external",
+        "line": 49
+      },
+      {
+        "block_id": "b000047",
+        "label": "트리 재구성",
+        "target": "https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/api/psd_image.py",
+        "kind": "external",
+        "line": 49
+      },
+      {
+        "block_id": "b000049",
+        "label": "Native layer compositing",
+        "target": "LAYER_COMPOSITING.md",
+        "kind": "relative",
+        "line": 51
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

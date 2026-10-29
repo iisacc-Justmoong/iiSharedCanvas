@@ -1,0 +1,135 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:9ddaf1a54cc0084500b4fe4fa9ccea98c41bd5db91b54f3cfb4dc7dd2b2d1220",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/WindowsDocumentCommit.md",
+    "sha256": "03e88cf58159ff5bf8d52e415bb726d3bc42a4f9a2c99794439d6cfd02d26dc3",
+    "bytes": 2141,
+    "line_count": 27,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "Windows 문서 커밋 검증",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Windows 문서 커밋 검증\n",
+      "level": 1,
+      "title": "Windows 문서 커밋 검증"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 5,
+      "raw": "MSVC의 std::map 이동 생성은 내부 sentinel 할당 때문에 예외를 던질 수 있다.\n따라서 map을 포함한 optional PublicationMetadata의 이동 대입을 근거로 문서 전체가\n무조건 예외 없이 이동한다고 가정하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 10,
+      "raw": "문서 게시 전에 선택적 메타데이터의 저장 공간을 준비한다. DB 커밋 뒤에는 각 필드의\n예외 없는 이동 대입을 정적으로 확인하여 반영한다. DB 커밋이 실패하면 준비한 빈\n메타데이터를 되돌린다. 읽기 snapshot도 같은 준비·반영 절차를 사용한다.\n기존 Document 객체의 주소와 공개 집계 모델을 유지하여 바인딩된 편집기를 보존한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 12,
+      "end_line": 14,
+      "raw": "DocumentCommit 검사는 준비 중단의 복원, map 설정의 게시·제거, 문서 주소 보존을\n검증한다. Qt 호환 구성과 네이티브 구성에서 같은 검사를 빌드·실행한다. 기존\nDocumentFile의 파일 왕복·실패·동시 변경 거절 검사도 전체 실행한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 16,
+      "end_line": 19,
+      "raw": "SQLite VFS 검사에서는 파일 경로의 문자열 표기 대신 실제 파일 식별을 비교한다.\nWindows가 경로 구분자를 정규화해도 SourceAccess 잠금 중 SQL 쓰기가 시작되지 않고\n해제 뒤 정확히 한 번 시작되는지 검사한다. 순수 별칭·인라인 변환만 제공하는\nAttribution 헤더는 독립 구현 파일을 요구하지 않으며 선택된 제공자 ABI를 확인한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 27,
+      "raw": "렌더러의 유한 캔버스는 문서 경계를 벗어난 영역을 거절한다. 무한 캔버스는 기존\n계약대로 미할당 영역도 제한된 출력 크기의 투명 픽셀로 렌더링하며, signed 32-bit\n좌표가 넘치는 요청은 계속 거절한다. 두 경우를 서로 다른 유효 문서로 검사한다.\nPSD 내보내기 CLI는 성공 보고서와 도움말을 종료 전에 명시적으로 flush한다.\nheadless·Unicode 경로 내보내기, PSD 내용, 원본 SHA-256 보존을 함께 확인한다.\n같은 읽기 전용 원본에서 8회 추가 내보내기를 수행하여 매번 완전한 성공 보고서와\n정상 PSD가 남는지 검사한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Windows 문서 커밋 검증",
+      "anchor": "windows-문서-커밋-검증",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 5,
+        "text": "무조건 예외 없이 이동한다고 가정하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

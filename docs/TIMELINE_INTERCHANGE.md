@@ -2,6 +2,16 @@
 
 # 편집 가능한 타임라인 교환
 
+Qt 없는 `iiSharedCanvas::Native`도 `Timeline/TimelineInterchange.h`의 공개 API를
+제공한다. iiFileProvider Native 0.11.1 이상의 배타적 디렉터리 게시와 자체
+XML 생성기를 사용하며, `NativeTimelineInterchangeTest`는 별도 JSON·XML 파서,
+PCM 샘플, PNG, 소스 스냅샷과 동시 게시 충돌을 검사한다. 네이티브
+`iisc-export-timeline`은 `--name`, `--`, 스냅샷과 SQLite 작업 파일을 지원한다.
+무한 캔버스의 음수 원점은 매니페스트에 기록하고 현재 캔버스 영역을 미디어로
+내보낸다. 영역 밖의 콘텐츠가 잘린다는 경고를 반환한다.
+아래의 과거 편집기 검증은 해당 시점의 기존 구현에
+대한 결과이며 새 네이티브 구현의 편집기 수락을 뜻하지 않는다.
+
 `exportTimelineInterchange(document, directory, options)` 는 네이티브 캔버스 타임라인을 비디오 편집기에 가져오기 위해 새로운 로컬 패키지를 생성합니다. 그것은 전체 `Document::timeline` 를 내보내며, PSD 프레임-0 프로젝션이 아닙니다. 그것은 다른 애플리케이션에 네이티브 `.iisc` 가져오기 플러그인을 설치하지 않습니다.
 
 |파일|목적|

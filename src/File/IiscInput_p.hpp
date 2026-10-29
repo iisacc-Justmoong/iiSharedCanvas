@@ -18,5 +18,10 @@ public:
 // connection ever touches a source database; WAL data belongs to its snapshot.
 IISHAREDCANVAS_EXPORT Document loadIiscDocumentReadOnly(
     const std::string &path, const std::string &temporaryParent, SerializationLimits limits);
+#ifdef IISHAREDCANVAS_NATIVE_API
+IISHAREDCANVAS_EXPORT Document loadIiscDocumentReadOnly(
+    const std::string &path, const std::string &temporaryParent, SerializationLimits limits,
+    int backupTimeoutMs);
+#endif
 
 } // namespace iiSharedCanvas::detail

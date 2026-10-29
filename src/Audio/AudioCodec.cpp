@@ -1,5 +1,9 @@
 #include "AudioCodec.h"
+#ifdef IISHAREDCANVAS_NATIVE_API
+#include "Native/Media_p.hpp"
+#else
 #include "Media/MediaIo_p.hpp"
+#endif
 
 #include <bit>
 #include <cstring>

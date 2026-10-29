@@ -1,0 +1,344 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:77bc597630a1ab1da05fbb1728a92c708a599479b19cd54ab6e8b489ca4304f5",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/FOUR_LAYER_TYPES.md",
+    "sha256": "9d5d538156b04bc0a54ffaea9a61f7bf1a894826aa9b52ab67dcf718b3f36a2c",
+    "bytes": 5359,
+    "line_count": 89,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Four concrete layer/content types (0.28.0)",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Four concrete layer/content types (0.28.0)\n",
+      "level": 1,
+      "title": "Four concrete layer/content types (0.28.0)"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 4,
+      "raw": "The artwork model has exactly four concrete C++ alternatives. Each owns its own\ncontent type; there is no mutable static/dynamic source variant inside them.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "table",
+      "start_line": 6,
+      "end_line": 11,
+      "raw": "| Layer | Content | Allowed payload | Timeline behavior |\n| --- | --- | --- | --- |\n| `StaticBitmapLayer` | `StaticBitmapContent` | `RasterAsset` or `ChunkedRasterAsset` | One asset for all frames |\n| `StaticVectorLayer` | `StaticVectorContent` | `VectorAsset` with native paths/paint | One asset for all frames |\n| `DynamicBitmapLayer` | `DynamicBitmapContent` | Frame-selected raster or chunked raster assets | Each content key selects pixels |\n| `DynamicVectorLayer` | `DynamicVectorContent` | Frame-selected native vector assets | Each content key selects paths/paint |\n",
+      "columns": [
+        "Layer",
+        "Content",
+        "Allowed payload",
+        "Timeline behavior"
+      ],
+      "rows": [
+        [
+          "`StaticBitmapLayer`",
+          "`StaticBitmapContent`",
+          "`RasterAsset` or `ChunkedRasterAsset`",
+          "One asset for all frames"
+        ],
+        [
+          "`StaticVectorLayer`",
+          "`StaticVectorContent`",
+          "`VectorAsset` with native paths/paint",
+          "One asset for all frames"
+        ],
+        [
+          "`DynamicBitmapLayer`",
+          "`DynamicBitmapContent`",
+          "Frame-selected raster or chunked raster assets",
+          "Each content key selects pixels"
+        ],
+        [
+          "`DynamicVectorLayer`",
+          "`DynamicVectorContent`",
+          "Frame-selected native vector assets",
+          "Each content key selects paths/paint"
+        ]
+      ]
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 19,
+      "raw": "`content.assetId` belongs to either static content type. `content.frameIndices`\nbelongs to either dynamic content type. The common source bases only share\nreference/index storage. The four content types cannot be substituted for one\nanother. The document owns full asset payloads and `Document::frames` owns exact\n`{layerId, assetId}` keys; content does not duplicate those payloads or keys.\nValidation checks every referenced asset against the concrete layer type and\nchecks the complete increasing frame index against the frame-owned keys.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 26,
+      "raw": "Static means the same content across the timeline, rather than immutable pixels.\nMotion and an existence range are independent of content identity. Dynamic keys\nuse hold sampling, begin at frame zero, and may be present on every frame. A\none-key dynamic layer retains its dynamic type. `setDynamicFrameContent` commits a\nfresh raster/vector payload and the exact-frame key atomically. Editing one\nindependent asset does not modify other frame assets.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "fenced_code",
+      "start_line": 28,
+      "end_line": 40,
+      "raw": "```cpp\nDocument document;\ndocument.extent = {640, 480};\ndocument.timeline.frameCount = 24;\nDocumentEditor editor(document);\neditor.insertAsset(RasterAsset{\"background\", makeRasterLayer(640, 480, 0xff000000U)});\neditor.insertLayer(StaticBitmapLayer{{\"background-layer\"}, StaticBitmapContent{\"background\"}});\neditor.insertDynamicLayer({\"animation\"}, LayerRepresentation::Bitmap, {{0, \"background\"}});\neditor.setDynamicFrameContent(\"animation\", 1,\n    RasterAsset{\"frame-1\", makeRasterLayer(640, 480, 0xffff0000U)});\nconst auto *animation = findDynamicBitmapLayer(document, \"animation\");\n// animation->content.frameIndices == {0, 1}\n```\n",
+      "language": "cpp",
+      "code": "Document document;\ndocument.extent = {640, 480};\ndocument.timeline.frameCount = 24;\nDocumentEditor editor(document);\neditor.insertAsset(RasterAsset{\"background\", makeRasterLayer(640, 480, 0xff000000U)});\neditor.insertLayer(StaticBitmapLayer{{\"background-layer\"}, StaticBitmapContent{\"background\"}});\neditor.insertDynamicLayer({\"animation\"}, LayerRepresentation::Bitmap, {{0, \"background\"}});\neditor.setDynamicFrameContent(\"animation\", 1,\n    RasterAsset{\"frame-1\", makeRasterLayer(640, 480, 0xffff0000U)});\nconst auto *animation = findDynamicBitmapLayer(document, \"animation\");\n// animation->content.frameIndices == {0, 1}\n",
+      "closed": true
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "## Editing and migration\n",
+      "level": 2,
+      "title": "Editing and migration"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 48,
+      "raw": "Use `DocumentEditor::setStaticSource` or `setKeyframedSource` to convert timing.\nThey replace the concrete layer alternative and its content together, retain\nproperties, rebuild/remove frame-owned keys, and validate atomically. Failure\nrestores the previous type, frame records, revision and authorship. File-bound\nedits commit synchronously through the existing incremental transaction.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 53,
+      "raw": "`findStaticBitmapLayer`, `findStaticVectorLayer`, `findDynamicBitmapLayer` and\n`findDynamicVectorLayer` return only their exact alternative. `layerKind` returns\n`std::optional<LayerKind>` containing one of the four values for artwork.\n`layerTiming` and `layerRepresentation` remain independent queries.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 55,
+      "end_line": 62,
+      "raw": "This is a breaking C++ model/API change: rebuild against package **0.28.0**, ABI\n**0.28**. Replace `BitmapLayer`/`VectorLayer` with the appropriate concrete type and\nreplace `.source` with `.content`. `layerSource` now returns a detached source\nvalue; assigning to it does not mutate a document. `staticLayerSource` and\n`keyframedLayerSource` borrow reference/index storage without allocating.\n`makeBitmapLayer`/`makeVectorLayer` convert a source carrier into the correct\nconcrete aggregate. `setLayerSource` performs aggregate conversion but does not\nvalidate or manage document-owned keys; use the editor for structural edits.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 68,
+      "raw": "Video and existing ControlNet specializations retain their media/conditioning\ncontracts. Video reports dynamic bitmap identity; spatial conditioning maps its\ntiming and representation to the same four visual kinds. IP-Adapter tensor\nconditioning has `LayerRepresentation::Embedding` and `layerKind == nullopt`;\nit does not add artwork kinds or masquerade as bitmap/vector pixels.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "heading",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "## Persistence and verification\n",
+      "level": 2,
+      "title": "Persistence and verification"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 72,
+      "end_line": 77,
+      "raw": "Native **1.19** records store the explicit visual type byte immediately after\nartboard membership. Tags 0/1/2/3 mean static bitmap/static vector/dynamic bitmap/\ndynamic vector. Tag 255 identifies nonspatial conditioning. Decoders reject an\nunknown tag or a declared type that disagrees with source/asset/role, even when\nthe checksum is valid. Working-file schema remains 1 and stores the same typed\nlayer record in its existing incremental store.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 79,
+      "end_line": 81,
+      "raw": "All legacy 1.0–1.18 versions infer concrete memory types from their existing\nsource/asset/role fields. Re-encoding an untouched legacy document retains its\nversion and canonical bytes. An accepted editor change advances to 1.19.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 83,
+      "end_line": 89,
+      "raw": "`iiSharedCanvas.FourLayerType` verifies distinct compile-time content types,\nall four rendered behaviors, canonical current/legacy round trips, valid-checksum\ntype corruption rejection, successful/failed concrete conversions, and working\nfile reopen. Existing per-frame content, rendering, conditioning, layered media,\nartboard and installed-package suites cover the migrated paths. The standalone\nconsumer also runs `iiSharedCanvas.InstalledFourLayerType` against the installed\nheaders and shared library.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Four concrete layer/content types (0.28.0)",
+      "anchor": "four-concrete-layercontent-types-0280",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Editing and migration",
+      "anchor": "editing-and-migration",
+      "start_line": 42
+    },
+    {
+      "block_id": "b000023",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Persistence and verification",
+      "anchor": "persistence-and-verification",
+      "start_line": 70
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [],
+    "tables": [
+      {
+        "block_id": "b000005",
+        "columns": [
+          "Layer",
+          "Content",
+          "Allowed payload",
+          "Timeline behavior"
+        ],
+        "rows": [
+          [
+            "`StaticBitmapLayer`",
+            "`StaticBitmapContent`",
+            "`RasterAsset` or `ChunkedRasterAsset`",
+            "One asset for all frames"
+          ],
+          [
+            "`StaticVectorLayer`",
+            "`StaticVectorContent`",
+            "`VectorAsset` with native paths/paint",
+            "One asset for all frames"
+          ],
+          [
+            "`DynamicBitmapLayer`",
+            "`DynamicBitmapContent`",
+            "Frame-selected raster or chunked raster assets",
+            "Each content key selects pixels"
+          ],
+          [
+            "`DynamicVectorLayer`",
+            "`DynamicVectorContent`",
+            "Frame-selected native vector assets",
+            "Each content key selects paths/paint"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

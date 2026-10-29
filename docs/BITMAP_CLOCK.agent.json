@@ -1,0 +1,346 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:11bd8b205dad2ee04f6f53070fffbb496e59068d7b389dc0ec7e677f79ebd001",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/BITMAP_CLOCK.md",
+    "sha256": "433cdaf74b96e9f469490587388c2076acc4c335fdb1bd4e2651e92115743dbc",
+    "bytes": 3851,
+    "line_count": 36,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "획 시계와 중단 시간",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 획 시계와 중단 시간\n",
+      "level": 1,
+      "title": "획 시계와 중단 시간"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "iiSharedCanvas 0.33.2는 유한·청크 편집기에 `advanceStrokeTime(seconds)`와 `rebaseStrokeTime(seconds)`를 제공한다. 시계는 호출자가 소유한다. SDK는 타이머·스레드·GUI 이벤트 루프를 만들지 않는다. 입력·틱·복귀 시각은 **같은 단조 시간축의 초**여야 한다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## 정지 분사와 안정화\n",
+      "level": 2,
+      "title": "정지 분사와 안정화"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "활성 브러시의 airbrush가 켜져 있거나, PulledString smoothing과 catch-up이 유효하면 `advanceStrokeTime`이 현재 압력·기울기·회전·custom 값을 보존한 채 다음 시각을 진행한다. 안정화는 마지막 필터 위치 대신 보관한 현재 raw target을 사용하여 정지 중에도 따라잡는다. 위치 목록이나 미래 입력은 만들지 않는다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "fenced_code",
+      "start_line": 9,
+      "end_line": 14,
+      "raw": "```cpp\nconst auto before = editor.revision();\nif (editor.advanceStrokeTime(nowSeconds) && editor.revision() != before) {\n    // 소비자가 dirtyBounds()를 사용하여 화면을 갱신한다.\n}\n```\n",
+      "language": "cpp",
+      "code": "const auto before = editor.revision();\nif (editor.advanceStrokeTime(nowSeconds) && editor.revision() != before) {\n    // 소비자가 dirtyBounds()를 사용하여 화면을 갱신한다.\n}\n",
+      "closed": true
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "틱 빈도가 분사량을 결정하지 않는다. 획 시작에 한 표본을 찍고, 초당 설정된 비율로 필요한 dab을 방출한다. 같은 시각의 반복 틱은 새 픽셀·리비전을 만들지 않는다. 일반 공간 브러시는 시간만으로 새 물감을 만들지 않으며 이 호출을 거부한다. 종료·취소·Undo/Redo·바인딩 변경 후에는 활성 시계도 없다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "시각은 절댓값 1e12 이하의 유한 값이며 역행할 수 없다. 비유한 값·역행 시각·엔진 이벤트 예산 초과는 false와 lastError로 보고하며 현재 픽셀·리비전·활성 획을 유지한다. 브러시 설정의 시계·따라잡기 값도 preset 검증을 통과해야 한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "## 전경 상태와 복귀\n",
+      "level": 2,
+      "title": "전경 상태와 복귀"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "앱은 포인터 캡처와 전경 상태를 판단한다. 중단 중에는 틱을 전달하지 않는다. 복귀 시 계속할 유효한 획이면 **다음 틱 전에** `rebaseStrokeTime(nowSeconds)`를 호출한다. 캡처나 문서가 유효하지 않으면 기존 `cancelStroke()` 정책을 사용한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "재기준화는 이전 현재 시각과 새 시각의 차이만큼 시작·다음 분사 시각을 함께 옮긴다. 누적 거리·표본 순서·대칭·마모·색·불투명도 상태는 보존한다. 쉬었던 시간이 논리적인 획 경과 시간이나 다음 속도 계산에 포함되지 않는다. 일반 공간 브러시의 활성 획에도 재기준화할 수 있다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "재기준화 자체는 dab·픽셀·문서 편집·저장 리비전을 만들지 않는다. 시각 1.2에서 중단해 100에 복귀하면 98.8초분의 물감이 생기지 않는다. 복귀 후 100.1의 틱은 추가 0.1초만 처리한다. 앱이 재기준화 없이 큰 시각 차이를 전달하면 엔진은 이를 실제 경과 시간으로 해석한다. SDK는 운영체제의 백그라운드 여부를 추정하지 않는다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "heading",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "## 파일과 호환성\n",
+      "level": 2,
+      "title": "파일과 호환성"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "파일에 바인딩한 편집기도 같은 계약이다. 시각만 재기준화한 작업은 파일 리비전을 늘리지 않으며, 시간으로 그린 픽셀은 기존 획 Undo/Redo와 파일 왕복을 따른다. 기존 좌표·압력 API는 계속 1/120초 호환 시각을 합성한다. 새 시계와 함께 사용할 앱은 실제 입력 경계로 이관하고 시각 원점을 일치시켜야 한다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "공개 객체 배치, ABI 0.33과 IISC 1.22 형식은 유지한다. 소비자는 새 exported target으로 다시 링크해야 새 메서드를 사용할 수 있다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "heading",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "## 검증\n",
+      "level": 2,
+      "title": "검증"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "`BitmapClockTest`는 0.2/1/2초의 독립 source-over 분사량, 틱 분할, 미리보기와 release의 동일성, 중단·복귀·역행·비유한 시각·큰 시간 예산 거부, 안정화 따라잡기, 취소와 파일 리비전·Undo/Redo·재열기를 검사한다. 이 검사는 앱의 실제 프레임 틱·전경 전환이나 물리 펜 검증을 대신하지 않는다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "획 시계와 중단 시간",
+      "anchor": "획-시계와-중단-시간",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "정지 분사와 안정화",
+      "anchor": "정지-분사와-안정화",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "전경 상태와 복귀",
+      "anchor": "전경-상태와-복귀",
+      "start_line": 20
+    },
+    {
+      "block_id": "b000023",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "파일과 호환성",
+      "anchor": "파일과-호환성",
+      "start_line": 28
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "검증",
+      "anchor": "검증",
+      "start_line": 34
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000011",
+        "line": 16,
+        "text": "틱 빈도가 분사량을 결정하지 않는다. 획 시작에 한 표본을 찍고, 초당 설정된 비율로 필요한 dab을 방출한다. 같은 시각의 반복 틱은 새 픽셀·리비전을 만들지 않는다. 일반 공간 브러시는 시간만으로 새 물감을 만들지 않으며 이 호출을 거부한다. 종료·취소·Undo/Redo·바인딩 변경 후에는 활성 시계도 없다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 18,
+        "text": "시각은 절댓값 1e12 이하의 유한 값이며 역행할 수 없다. 비유한 값·역행 시각·엔진 이벤트 예산 초과는 false와 lastError로 보고하며 현재 픽셀·리비전·활성 획을 유지한다. 브러시 설정의 시계·따라잡기 값도 preset 검증을 통과해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 22,
+        "text": "앱은 포인터 캡처와 전경 상태를 판단한다. 중단 중에는 틱을 전달하지 않는다. 복귀 시 계속할 유효한 획이면 **다음 틱 전에** `rebaseStrokeTime(nowSeconds)`를 호출한다. 캡처나 문서가 유효하지 않으면 기존 `cancelStroke()` 정책을 사용한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 26,
+        "text": "재기준화 자체는 dab·픽셀·문서 편집·저장 리비전을 만들지 않는다. 시각 1.2에서 중단해 100에 복귀하면 98.8초분의 물감이 생기지 않는다. 복귀 후 100.1의 틱은 추가 0.1초만 처리한다. 앱이 재기준화 없이 큰 시각 차이를 전달하면 엔진은 이를 실제 경과 시간으로 해석한다. SDK는 운영체제의 백그라운드 여부를 추정하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000031",
+        "line": 36,
+        "text": "`BitmapClockTest`는 0.2/1/2초의 독립 source-over 분사량, 틱 분할, 미리보기와 release의 동일성, 중단·복귀·역행·비유한 시각·큰 시간 예산 거부, 안정화 따라잡기, 취소와 파일 리비전·Undo/Redo·재열기를 검사한다. 이 검사는 앱의 실제 프레임 틱·전경 전환이나 물리 펜 검증을 대신하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

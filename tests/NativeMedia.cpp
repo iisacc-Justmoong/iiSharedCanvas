@@ -24,6 +24,31 @@ int main(int argc,char** argv){try{check(argc==2,"A workspace test directory is 
     auto psd=encodePsd(document);check(psd.ok(),psd.result.message.c_str());auto imported=decodeLayeredDocument(psd.bytes);check(imported.ok(),imported.result.message.c_str());check(imported.document.layers.size()==1&&layerProperties(imported.document.layers[0]).name=="한글 🙂","PSD lost Unicode or layer count");check(renderFrame(imported.document,0).pixels.pixels==pixels.pixels,"PSD composite differs from native pixels");
     for(std::size_t cut:{std::size_t(0),std::size_t(4),psd.bytes.size()/2,psd.bytes.size()-1})check(!decodeLayeredDocument(std::span(psd.bytes).first(cut)).ok(),"Truncated PSD accepted");
     const auto output=temporary.path()/"layered.psd";check(exportPsd(document,output.string()).ok(),"PSD exclusive publication failed");check(exportPsd(document,output.string()).code==MediaIoCode::AlreadyExists,"PSD replaced an existing file without overwrite");
+    PsdExportOptions overwritePsd; overwritePsd.overwrite=true;
+    check(exportPsd(document,output.string(),overwritePsd).ok(),"ordinary PSD overwrite remains available when requested");
+    const auto symlink=temporary.path()/"link.psd";
+    std::error_code symlinkError;std::filesystem::create_symlink(output,symlink,symlinkError);
+    if(!symlinkError){
+        const auto original=iiFileProvider::native::File::read(output);
+        check(exportPsd(document,symlink.string(),overwritePsd).code==MediaIoCode::IoError
+              && iiFileProvider::native::File::read(output)==original,"PSD export must not follow a symbolic link");
+    }
+    const auto protectedName=temporary.path()/"untouched.IISC";
+    check(exportPsd(document,protectedName.string(),overwritePsd).code==MediaIoCode::InvalidArgument
+          && !std::filesystem::exists(protectedName),"PSD export must reject an IISC extension even when absent");
+    const auto protectedSnapshot=temporary.path()/"snapshot.psd";
+    const std::string snapshotHeader("IISC\r\n\x1a\ncontents",16);
+    iiFileProvider::native::File::create(protectedSnapshot,snapshotHeader);
+    check(exportPsd(document,protectedSnapshot.string(),overwritePsd).code==MediaIoCode::InvalidArgument
+          && iiFileProvider::native::File::read(protectedSnapshot)==snapshotHeader,
+          "PSD export must not overwrite a renamed canvas snapshot");
+    const auto protectedDatabase=temporary.path()/"database.png";
+    const std::string databaseHeader("SQLite format 3\0contents",24);
+    iiFileProvider::native::File::create(protectedDatabase,databaseHeader);
+    BitmapExportOptions overwriteBitmap; overwriteBitmap.overwrite=true;
+    check(exportBitmap(pixels,protectedDatabase.string(),overwriteBitmap).code==MediaIoCode::InvalidArgument
+          && iiFileProvider::native::File::read(protectedDatabase)==databaseHeader,
+          "bitmap export must not overwrite a renamed SQLite database");
     check(importLayeredDocument(output.string()).ok(),"Provider-owned native PSD read failed");
     VectorPath path;path.fill=SolidPaint{0x80ff0000};path.stroke=StrokeStyle{{0xff0022ff},.5};path.commands={MoveTo{{.1,.2}},QuadraticTo{{1,3},{3,1}},CubicTo{{3,0},{1,0},{.1,.2}},ClosePath{}};
     document.assets.emplace_back(VectorAsset{"vector",{4,3},{path}});document.layers.emplace_back(StaticVectorLayer{{"vector-layer","Vector"},StaticSource{"vector"}});

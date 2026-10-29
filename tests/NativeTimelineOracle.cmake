@@ -1,0 +1,18 @@
+if(NOT DEFINED DRIVER OR NOT DEFINED PYTHON OR NOT DEFINED ORACLE OR NOT DEFINED WORK)
+    message(FATAL_ERROR "DRIVER, PYTHON, ORACLE and WORK are required")
+endif()
+file(MAKE_DIRECTORY "${WORK}")
+string(RANDOM LENGTH 16 ALPHABET 0123456789abcdef nonce)
+set(dir "${WORK}/${nonce}")
+file(MAKE_DIRECTORY "${dir}")
+execute_process(COMMAND "${DRIVER}" --fixture "${dir}/한글 %20 & timeline"
+    RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+if(NOT result EQUAL 0)
+    message(FATAL_ERROR "cannot export the timeline fixture: ${output} ${error}")
+endif()
+execute_process(COMMAND "${PYTHON}" "${ORACLE}" "${dir}/한글 %20 & timeline"
+    RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+if(NOT result EQUAL 0)
+    message(FATAL_ERROR "independent timeline oracle failed: ${output} ${error}")
+endif()
+file(REMOVE_RECURSE "${dir}")

@@ -12,9 +12,9 @@ The 27 modes are Normal (`SourceOver`), Dissolve, Darken, Multiply, ColorBurn, L
 
 `rasterMask`, `vectorMask` and `filterMask` are optional `LayerMask` values. Pixel/filter masks reference a `RasterAsset`; vector masks reference a `VectorAsset`. A vector mask uses its path geometry, with opaque white fill/stroke coverage, retaining the source vector paths. `channel` selects alpha or alpha-weighted Rec.709 luminance. Black is zero coverage and white is full coverage.
 
-`enabled` bypasses a mask without deleting it. `inverted` complements coverage. `density` uses `1-density + density*coverage`, so reducing density restores hidden content. `outsideCoverage` explicitly controls the area outside the mask asset. `featherRadius` is a separable Gaussian sigma in mask-asset pixels, truncated at three sigma, in [0,128]. Padding includes the feather halo and uses outside coverage. Prepared mask storage is bounded to 16 million pixels, including padding.
+`enabled`는 마스크를 삭제하지 않고 우회하고 `inverted`는 커버리지를 반전한다. `density`는 `1-density + density*coverage`이며, `outsideCoverage`는 자산 밖의 커버리지를 지정한다. `featherRadius`는 마스크 자산 픽셀 단위의 Gaussian sigma이고 범위는 0..128, 후광은 3 sigma이다. 0.35.6부터 전체 마스크를 복제하지 않고 [필요한 영역의 타일](MASK_REGIONS.md)을 계산한다.
 
-A linked mask's transform is local to the sampled layer transform, including motion. An unlinked mask stays in document or owning-artboard coordinates. Raster and vector masks multiply the final layer alpha. The filter mask mixes the complete processed filter stack with the original layer; it does not hide layer pixels. All masks are prepared at their own native resolution before region sampling, so neighboring tiles use the same feather field. Smooth requests integrate mask coverage. Renaming a referenced asset updates mask IDs; deleting an in-use mask asset is rejected. `AssetReference::kind` distinguishes Content, RasterMask, VectorMask and FilterMask references.
+연결된 마스크는 모션을 포함한 레이어 변환을 따르고, 연결되지 않은 마스크는 문서 또는 소속 아트보드 좌표에 남는다. 래스터와 벡터 마스크는 레이어 alpha를 곱하고, 필터 마스크는 전체 필터 결과와 원본을 혼합한다. 마스크는 자산 원래 해상도에서 샘플링하므로 인접 타일도 같은 feather 값을 사용한다. Smooth 요청은 커버리지를 적분한다. 자산 이름 변경은 참조 ID를 갱신하며 사용 중인 자산의 삭제는 거부한다. `AssetReference::kind`는 Content, RasterMask, VectorMask, FilterMask를 구분한다.
 
 ## Non-destructive filters
 

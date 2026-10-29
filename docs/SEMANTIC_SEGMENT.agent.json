@@ -1,0 +1,569 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:1467fd77f114fc188ed2bad6b7ccde42ed6d54b2e95a74c69b56338a68e6668f",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/SEMANTIC_SEGMENT.md",
+    "sha256": "a1bea42f0d0a773638a88f898ace19667c17db9f294d405f9774511c63d53a1e",
+    "bytes": 9517,
+    "line_count": 80,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "ControlNet 의미 세그먼트 레이어 ( 0.13.0 )",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"controlnet-semantic-segment-layers-0130\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# ControlNet 의미 세그먼트 레이어 ( 0.13.0 )\n",
+      "level": 1,
+      "title": "ControlNet 의미 세그먼트 레이어 ( 0.13.0 )"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "`Layer` 는 전용 `SemanticSegmentLayer` 대안을 소유합니다. 도메인 계층 구조는 레이어 -> ControlNet 역할 -> SemanticSegment 종류입니다. 이는 구성이며, 임의의 메타데이터가 첨부된 비트맵 비트맵이 아닙니다. `layerRole()` 는 아트워크를 조건부에서 분리합니다; `controlNetKind()` 는 전문화된 제어를 식별합니다. 이전 타이밍/표현 축은 여전히 독립적입니다: 시맨틱 레이어는 출처에 따라 StaticBitmap 또는 DynamicBitmap 입니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "html",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "<a id=\"object-contract\"></a>\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 객체 계약\n",
+      "level": 2,
+      "title": "객체 계약"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "table",
+      "start_line": 11,
+      "end_line": 19,
+      "raw": "|물건|분야와 목적|\n| --- | --- |\n| `ControlNetSettings` |`enabled`, 모델 식별자/수정, 비음수 유한 조건화 척도, 정규화된 가이던스 시작/끝|\n| `SemanticTaxonomy` |안정적인 분류 ID, 버전, 출처 URI, 클래스 컬렉션|\n| `SemanticClass` |안정적인 숫자 ID, 고유 머신 키, 표시 이름, 설명, 카테고리, 선택적 부모, 외부 데이터셋 ID, 별칭, 정확한 모델-팔레트 ARGB 색상|\n| `SemanticRegion` |안정적인 비영점 ID, 클래스 참조, 고유 ID 마스크 ARGB 색상, 이름, 설명, 선택적 인스턴스 ID/신뢰도, 주석 출처, 생성기, 소스 참조, 명명된 속성|\n| `SemanticSegmentation` |분류학, 영역, 명시적 무효 정체성 색상 및 무효 조건 색상|\n| `SemanticRegionGeometry` |프레임당 픽셀 수, 좁은 정수 경계, 픽셀 중심 중심점; 존재하지 않는 영역은 0 기하학을 갖습니다.|\n| `SemanticControlMapResult` |정확한 컨디셔닝 픽셀, 고밀도 클래스 ID, 영역 ID, 유효한 픽셀 플래그, 영역 기하학 및 오류 메시지|\n",
+      "columns": [
+        "물건",
+        "분야와 목적"
+      ],
+      "rows": [
+        [
+          "`ControlNetSettings`",
+          "`enabled`, 모델 식별자/수정, 비음수 유한 조건화 척도, 정규화된 가이던스 시작/끝"
+        ],
+        [
+          "`SemanticTaxonomy`",
+          "안정적인 분류 ID, 버전, 출처 URI, 클래스 컬렉션"
+        ],
+        [
+          "`SemanticClass`",
+          "안정적인 숫자 ID, 고유 머신 키, 표시 이름, 설명, 카테고리, 선택적 부모, 외부 데이터셋 ID, 별칭, 정확한 모델-팔레트 ARGB 색상"
+        ],
+        [
+          "`SemanticRegion`",
+          "안정적인 비영점 ID, 클래스 참조, 고유 ID 마스크 ARGB 색상, 이름, 설명, 선택적 인스턴스 ID/신뢰도, 주석 출처, 생성기, 소스 참조, 명명된 속성"
+        ],
+        [
+          "`SemanticSegmentation`",
+          "분류학, 영역, 명시적 무효 정체성 색상 및 무효 조건 색상"
+        ],
+        [
+          "`SemanticRegionGeometry`",
+          "프레임당 픽셀 수, 좁은 정수 경계, 픽셀 중심 중심점; 존재하지 않는 영역은 0 기하학을 갖습니다."
+        ],
+        [
+          "`SemanticControlMapResult`",
+          "정확한 컨디셔닝 픽셀, 고밀도 클래스 ID, 영역 ID, 유효한 픽셀 플래그, 영역 기하학 및 오류 메시지"
+        ]
+      ]
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "클래스 ID 는 분류학에 국한되며 0일 수 있습니다. @number@ 지역 ID 와 선택적 인스턴스 ID 는 0 이 아닙니다. 여러 지역은 하나의 클래스를 참조할 수 있으며, 동일한 객체를 설명할 때 여러 지역은 인스턴스 id 를 공유할 수 있습니다. 영역은 여러 개의 연결되지 않은 구성 요소를 포함할 수 있으며, 영역 식별자는 연결성을 주장하지 않습니다. 동일한 영역 정의는 모든 프레임 마스크에 적용되며 일부 프레임에서는 누락될 수 있습니다. 부모 클래스는 순환이 없는 계층 구조를 형성합니다. 속성은 주석을 설명하며 텍스트 프롬프트에 자동으로 삽입되거나 지시사항으로 실행되지 않습니다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "html",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "<a id=\"identity-colors-versus-model-colors\"></a>\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "## 아이덴티티 색상과 모델 색상 비교\n",
+      "level": 2,
+      "title": "아이덴티티 색상과 모델 색상 비교"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "식별 마스크는 소유된 조밀한 `RasterAsset`이다. 각 불투명 픽셀은 영역의 정확한 `maskColor` 또는 `voidMaskColor`이다. 2명의 사람은 같은 사람 클래스를 참조하면서 서로 다른 빨간색·초록색 식별 색상을 가질 수 있다. 조건 내보내기는 두 영역을 해당 클래스의 `controlColor`로 다시 칠한다. 이로써 서로 다른 색상을 다른 의미 클래스로 간주하지 않으면서 독립적인 객체 편집을 유지한다. 대상 팔레트가 요구하면 출력 클래스 색상은 반복될 수 있지만 영역 색상은 고유해야 한다. 근사 매칭·알파 혼합·안티앨리어싱·손실 마스크 가져오기·자동 의미 추론은 없다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 30,
+      "raw": "분류 체계는 선택된 모델이 기대하는 팔레트를 명시적으로 기술해야 합니다. 모든 ControlNet와 호환된다고 주장되는 내장 팔레트는 없습니다. 원본 세분화 모델의 예제는 라벨 ID를 팔레트를 통해 매핑합니다; 기본을 참조하십시오.\n[ControlNet 분할 모델 카드](https://huggingface.co/lllyasviel/control_v11p_sd15_seg). SDK는 모델을 다운로드하지 않으며 세분화/인페어런스 모델을 실행하지도 않습니다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "html",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "<a id=\"creation-editing-and-frame-behavior\"></a>\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "heading",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "## 생성, 편집 및 프레임 동작\n",
+      "level": 2,
+      "title": "생성, 편집 및 프레임 동작"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "fenced_code",
+      "start_line": 36,
+      "end_line": 55,
+      "raw": "```cpp\nSemanticSegmentation semantics;\nsemantics.taxonomy.id = \"my-scene\";\nsemantics.taxonomy.version = \"1\";\nSemanticClass person;\nperson.id = 1; person.key = \"person\"; person.name = \"Person\";\nperson.controlColor = 0xffaabbcc; // 실제 모델의 팔레트 값을 제공한다.\nsemantics.taxonomy.classes.push_back(person);\nSemanticRegion region;\nregion.id = 10; region.classId = 1; region.maskColor = 0xffff0000;\nregion.name = \"Left person\"; region.instanceId = 100;\nsemantics.regions.push_back(region);\n\nSemanticSegmentLayer layer;\nlayer.properties = {\"segments\", \"Semantic segmentation\"};\nlayer.source = StaticSource{\"identity-mask\"}; // 해당 RasterAsset을 먼저 삽입한다.\nlayer.segmentation = semantics;\neditor.insertSemanticSegmentLayer(layer);\nauto controlMap = renderSemanticControlMap(document, \"segments\", currentFrame);\n```\n",
+      "language": "cpp",
+      "code": "SemanticSegmentation semantics;\nsemantics.taxonomy.id = \"my-scene\";\nsemantics.taxonomy.version = \"1\";\nSemanticClass person;\nperson.id = 1; person.key = \"person\"; person.name = \"Person\";\nperson.controlColor = 0xffaabbcc; // 실제 모델의 팔레트 값을 제공한다.\nsemantics.taxonomy.classes.push_back(person);\nSemanticRegion region;\nregion.id = 10; region.classId = 1; region.maskColor = 0xffff0000;\nregion.name = \"Left person\"; region.instanceId = 100;\nsemantics.regions.push_back(region);\n\nSemanticSegmentLayer layer;\nlayer.properties = {\"segments\", \"Semantic segmentation\"};\nlayer.source = StaticSource{\"identity-mask\"}; // 해당 RasterAsset을 먼저 삽입한다.\nlayer.segmentation = semantics;\neditor.insertSemanticSegmentLayer(layer);\nauto controlMap = renderSemanticControlMap(document, \"segments\", currentFrame);\n",
+      "closed": true
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "애니메이션을 위해 `source = KeyframedSource{}` 를 설정하고 프레임 배치를 `insertSemanticSegmentLayer` 에 공급합니다. Frame-0  콘텐츠는 필수이며, 다음 키가 나올 때까지 콘텐츠는 유지됩니다. 참조된 모든 마스크는 동일한 차원을 가져야 합니다. `setStaticSource`  /  `setKeyframedSource`  의 변경 타이밍을 잃지 않고 조정합니다. `setSemanticSegmentation`  와  `setControlNetSettings`  는 정의와 제어 매개변수를 원자적으로 업데이트합니다. 기존 자산 교체는 참조하는 모든 의미론적 마스크를 유효하게 검증합니다. 거절된 편집은 상태/버전을 보존하며,  `DocumentFile` 에 대해서도 마찬가지입니다. `isSemanticMaskAsset`  는 편집자가 범주별 소유권을 감지할 수 있게 합니다. `BitmapEditor`  는 이러한 마스크에 연성 브러시 결합을 거부합니다 (의미론적 소유권이 추가된 후 기존 결합 포함);  `replaceRasterPixels` 를 사용하여 정확한 픽셀을 사용하세요. 마스크 색상과 정의를 함께 변경하려면 새 마스크 자산과  `replaceLayer` 를 사용하여 유효한 교체를 구성한 다음 사용하지 않는 이전 자산을 제거합니다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "html",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "<a id=\"rendering-and-coordinate-contract\"></a>\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "heading",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "## 렌더링 및 계약 조정\n",
+      "level": 2,
+      "title": "렌더링 및 계약 조정"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "`renderSemanticControlMap`  는 현재 소스 프레임을 샘플링하고 네이티브 마스크 해상도에서 불투명 클래스 색상을 방출합니다. 타임라인/범위와  `control.enabled` 를 존중합니다. 표시 가시성, 불투명도, 운동 및 변환은 적용되지 않습니다: 출력 좌표는 명시적으로 로컬 마스크 좌표입니다. 기본 16 Mi-pixel 예산은 출력 할당량을 제한하며, 호출자는 `maxPixels` 을 제공할 수 있습니다. 0유효한 픽셀 버퍼는 빈 공간과 유효한 클래스 ID 를 구별합니다. 기하학은 픽셀 중심 (x+0.5,y+0.5 )을 사용하며, 정의 순서로 선언된 모든 영역을 덮습니다. 클래스/지역 조회는 안정적인 id 로 이용 가능합니다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "일반 프레임 합성·CanvasItem 아트워크 타일·PDF 아트워크 출력은 ControlNet 레이어를 제외한다. 명시적인 레이어별 렌더링은 여전히 식별 색상 프리뷰를 제공하며 ControlNet 역할을 담는다. 표시 프리뷰는 변환될 수 있으므로 무손실 조건 맵으로 사용해서는 안 된다. 모델 배율과 가이던스 필드는 소비하는 추론 런타임을 위한 저장된 의도이다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "html",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "<a id=\"persistence-and-limits\"></a>\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "heading",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "## 끈기와 한계\n",
+      "level": 2,
+      "title": "끈기와 한계"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "스냅샷은 `.iisc` 1.7를 필요로 하며, 작업 파일 레코드는 정확히 동일한 버전의 레이어 확장을 재사용합니다; SQLite 스키마는 1로 유지됩니다. 모든 클래스/지역/제어 필드는 의미론 전용 증분 편집을 포함하여 유지됩니다. 스냅샷 1.0 – 1.6는 여전히 읽을 수 있습니다. 이전 버전 안전하게 거부한다에서 의미론적 콘텐츠를 저장합니다. 패키지 ABI 0.13는 새로운 레이어 대안을 위해 소비자가 재구성해야 합니다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "문서 유효성 검사는 레이어당 최대 65,536 개의 클래스와 1,048,576 개의 영역을 허용합니다. 직렬화 는 문서 전체의 클래스, 영역, 별칭 및 속성을 각각 독립적으로 제한하며, 기존 문자/컨테이너/픽셀 예산도 함께 제한합니다. 할당 전에 사용 가능한 바이트에 대해 수집 크기를 검증하여 디코딩합니다. 알 수 없는 역할/출처 태그, 사이클, 중복된 id/키/마스크 색상, 잘못된 클래스 참조, 잘못된 신뢰도/스케일/범위 및 매핑되지 않은 마스크 픽셀은 거부됩니다. 빈 색상과 모든 마스크/모델 팔레트 색상은 불투명해야 합니다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "PSD 와 타임라인 XML 에서 클래스, 인스턴스, 출처 및 제어 데이터를 아무런 알림 없이  대신 시맨틱 레이어를 거부합니다. 편집 가능한 상호 교환을 위한 네이티브 문서와 모델 입력을 위한 전용 정확한 맵을 사용하십시오. 자동 분할, 모델 팔레트 발견, GPU  추론 및 라이브 소스 캡처는 이 레이어의 계약 범위를 벗어납니다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "0.14.0이후, ControlNetSettings는 ControlNet / ControlNet .h에 거주하며 PoseLayer와 공유됩니다. 이 헤더는 기존 시맨틱 API 소비자를 위해 이를 포함합니다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 79,
+      "end_line": 80,
+      "raw": "자세한 레이어 및 개체 필드는 다음을 통해 원자적으로 편집할 수도 있습니다.\n모든 동적 소스 상태를 포함하는 [공통 매개변수 API](CONTROLNET_PARAMETERS.md).\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "ControlNet 의미 세그먼트 레이어 ( 0.13.0 )",
+      "anchor": "controlnet-의미-세그먼트-레이어--0130-",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "객체 계약",
+      "anchor": "객체-계약",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "아이덴티티 색상과 모델 색상 비교",
+      "anchor": "아이덴티티-색상과-모델-색상-비교",
+      "start_line": 25
+    },
+    {
+      "block_id": "b000025",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "생성, 편집 및 프레임 동작",
+      "anchor": "생성-편집-및-프레임-동작",
+      "start_line": 34
+    },
+    {
+      "block_id": "b000033",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "렌더링 및 계약 조정",
+      "anchor": "렌더링-및-계약-조정",
+      "start_line": 61
+    },
+    {
+      "block_id": "b000041",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "끈기와 한계",
+      "anchor": "끈기와-한계",
+      "start_line": 69
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000019",
+        "line": 27,
+        "text": "식별 마스크는 소유된 조밀한 `RasterAsset`이다. 각 불투명 픽셀은 영역의 정확한 `maskColor` 또는 `voidMaskColor`이다. 2명의 사람은 같은 사람 클래스를 참조하면서 서로 다른 빨간색·초록색 식별 색상을 가질 수 있다. 조건 내보내기는 두 영역을 해당 클래스의 `controlColor`로 다시 칠한다. 이로써 서로 다른 색상을 다른 의미 클래스로 간주하지 않으면서 독립적인 객체 편집을 유지한다. 대상 팔레트가 요구하면 출력 클래스 색상은 반복될 수 있지만 영역 색상은 고유해야 한다. 근사 매칭·알파 혼합·안티앨리어싱·손실 마스크 가져오기·자동 의미 추론은 없다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000029",
+        "line": 57,
+        "text": "애니메이션을 위해 `source = KeyframedSource{}` 를 설정하고 프레임 배치를 `insertSemanticSegmentLayer` 에 공급합니다. Frame-0  콘텐츠는 필수이며, 다음 키가 나올 때까지 콘텐츠는 유지됩니다. 참조된 모든 마스크는 동일한 차원을 가져야 합니다. `setStaticSource`  /  `setKeyframedSource`  의 변경 타이밍을 잃지 않고 조정합니다. `setSemanticSegmentation`  와  `setControlNetSettings`  는 정의와 제어 매개변수를 원자적으로 업데이트합니다. 기존 자산 교체는 참조하는 모든 의미론적 마스크를 유효하게 검증합니다. 거절된 편집은 상태/버전을 보존하며,  `DocumentFile` 에 대해서도 마찬가지입니다. `isSemanticMaskAsset`  는 편집자가 범주별 소유권을 감지할 수 있게 합니다. `BitmapEditor`  는 이러한 마스크에 연성 브러시 결합을 거부합니다 (의미론적 소유권이 추가된 후 기존 결합 포함);  `replaceRasterPixels` 를 사용하여 정확한 픽셀을 사용하세요. 마스크 색상과 정의를 함께 변경하려면 새 마스크 자산과  `replaceLayer` 를 사용하여 유효한 교체를 구성한 다음 사용하지 않는 이전 자산을 제거합니다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 65,
+        "text": "일반 프레임 합성·CanvasItem 아트워크 타일·PDF 아트워크 출력은 ControlNet 레이어를 제외한다. 명시적인 레이어별 렌더링은 여전히 식별 색상 프리뷰를 제공하며 ControlNet 역할을 담는다. 표시 프리뷰는 변환될 수 있으므로 무손실 조건 맵으로 사용해서는 안 된다. 모델 배율과 가이던스 필드는 소비하는 추론 런타임을 위한 저장된 의도이다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000021",
+        "label": "ControlNet 분할 모델 카드",
+        "target": "https://huggingface.co/lllyasviel/control_v11p_sd15_seg",
+        "kind": "external",
+        "line": 30
+      },
+      {
+        "block_id": "b000051",
+        "label": "공통 매개변수 API",
+        "target": "CONTROLNET_PARAMETERS.md",
+        "kind": "relative",
+        "line": 80
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000011",
+        "columns": [
+          "물건",
+          "분야와 목적"
+        ],
+        "rows": [
+          [
+            "`ControlNetSettings`",
+            "`enabled`, 모델 식별자/수정, 비음수 유한 조건화 척도, 정규화된 가이던스 시작/끝"
+          ],
+          [
+            "`SemanticTaxonomy`",
+            "안정적인 분류 ID, 버전, 출처 URI, 클래스 컬렉션"
+          ],
+          [
+            "`SemanticClass`",
+            "안정적인 숫자 ID, 고유 머신 키, 표시 이름, 설명, 카테고리, 선택적 부모, 외부 데이터셋 ID, 별칭, 정확한 모델-팔레트 ARGB 색상"
+          ],
+          [
+            "`SemanticRegion`",
+            "안정적인 비영점 ID, 클래스 참조, 고유 ID 마스크 ARGB 색상, 이름, 설명, 선택적 인스턴스 ID/신뢰도, 주석 출처, 생성기, 소스 참조, 명명된 속성"
+          ],
+          [
+            "`SemanticSegmentation`",
+            "분류학, 영역, 명시적 무효 정체성 색상 및 무효 조건 색상"
+          ],
+          [
+            "`SemanticRegionGeometry`",
+            "프레임당 픽셀 수, 좁은 정수 경계, 픽셀 중심 중심점; 존재하지 않는 영역은 0 기하학을 갖습니다."
+          ],
+          [
+            "`SemanticControlMapResult`",
+            "정확한 컨디셔닝 픽셀, 고밀도 클래스 ID, 영역 ID, 유효한 픽셀 플래그, 영역 기하학 및 오류 메시지"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -1,5 +1,7 @@
 #include "Bitmap/BitmapEditor.h"
+#include "Bitmap/BitmapEditJournal_p.h"
 #include "Bitmap/BrushEngineState_p.hpp"
+#include "Bitmap/StrokeSample_p.hpp"
 #include "File/DocumentFile.h"
 
 #include <Render/DirtyRegion.h>
@@ -7,36 +9,35 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <stdexcept>
 #include <utility>
 
-namespace iiSharedCanvas {
-namespace {
+namespace iiSharedCanvas
+{
+namespace
+{
 
 bool hasValidPixelStorage(const RasterLayer &layer)
 {
-    if (layer.width <= 0 || layer.height <= 0) {
+    if (layer.width <= 0 || layer.height <= 0)
+    {
         return false;
     }
 
     const auto width = static_cast<std::size_t>(layer.width);
     const auto height = static_cast<std::size_t>(layer.height);
-    return width <= std::numeric_limits<std::size_t>::max() / height
-        && width * height == layer.pixels.size();
+    return width <= std::numeric_limits<std::size_t>::max() / height &&
+           width * height == layer.pixels.size();
 }
 
-bool isFinitePoint(DocumentPoint point)
-{
-    return std::isfinite(point.x) && std::isfinite(point.y);
-}
+bool isFinitePoint(DocumentPoint point) { return std::isfinite(point.x) && std::isfinite(point.y); }
 
-bool inUnitRange(double value)
-{
-    return std::isfinite(value) && value >= 0.0 && value <= 1.0;
-}
+bool inUnitRange(double value) { return std::isfinite(value) && value >= 0.0 && value <= 1.0; }
 
 bool contains(DevicePixelRect outer, DevicePixelRect inner)
 {
-    if (inner.width <= 0 || inner.height <= 0) {
+    if (inner.width <= 0 || inner.height <= 0)
+    {
         return false;
     }
 
@@ -44,31 +45,35 @@ bool contains(DevicePixelRect outer, DevicePixelRect inner)
     const std::int64_t outerBottom = static_cast<std::int64_t>(outer.origin.y) + outer.height;
     const std::int64_t innerRight = static_cast<std::int64_t>(inner.origin.x) + inner.width;
     const std::int64_t innerBottom = static_cast<std::int64_t>(inner.origin.y) + inner.height;
-    return inner.origin.x >= outer.origin.x
-        && inner.origin.y >= outer.origin.y
-        && innerRight <= outerRight
-        && innerBottom <= outerBottom;
+    return inner.origin.x >= outer.origin.x && inner.origin.y >= outer.origin.y &&
+           innerRight <= outerRight && innerBottom <= outerBottom;
 }
 
 } // namespace
 
-BitmapEditor::BitmapEditor(Document &document, const std::string &assetId)
+BitmapEditor::BitmapEditor(Document &document, const std::string &assetId,
+                           RasterHistoryLimits limits)
+    : m_historyLimits(limits)
 {
     bind(document, assetId);
 }
 
-BitmapEditor::BitmapEditor(DocumentFile &file, const std::string &assetId)
+BitmapEditor::BitmapEditor(DocumentFile &file, const std::string &assetId,
+                           RasterHistoryLimits limits)
+    : m_historyLimits(limits)
 {
     bind(file, assetId);
 }
 
 bool BitmapEditor::bind(DocumentFile &file, const std::string &assetId)
 {
-    if (!file.isOpen()) {
+    if (!file.isOpen())
+    {
         setError("no working file is open");
         return false;
     }
-    if (!bind(*file.boundDocument(), assetId)) {
+    if (!bind(*file.boundDocument(), assetId))
+    {
         return false;
     }
     m_file = &file;
@@ -78,17 +83,27 @@ bool BitmapEditor::bind(DocumentFile &file, const std::string &assetId)
 
 bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
 {
-    if (isSemanticMaskAsset(document, assetIdValue)) {
+    if (pixelPreviewActive() && isBound())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("resolve the pixel preview before changing its binding");
+        return false;
+    }
+
+    if (isSemanticMaskAsset(document, assetIdValue))
+    {
         setError("semantic identity masks require exact categorical edits through DocumentEditor");
         return false;
     }
     Asset *candidate = findAsset(document, assetIdValue);
     auto *raster = candidate ? std::get_if<RasterAsset>(candidate) : nullptr;
-    if (!raster) {
+    if (!raster)
+    {
         setError(candidate ? "asset is not raster content" : "raster asset was not found");
         return false;
     }
-    if (!hasValidPixelStorage(raster->pixels)) {
+    if (!hasValidPixelStorage(raster->pixels))
+    {
         setError("raster asset has invalid dimensions or pixel storage");
         return false;
     }
@@ -98,8 +113,8 @@ bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
     m_fileGeneration = 0;
     m_assetId = assetIdValue;
     resetRasterDabStream(m_dabStream);
-    m_undoHistory.clear();
-    m_redoHistory.clear();
+    m_journal = std::make_shared<detail::BitmapEditJournal>(m_historyLimits);
+    m_historyResult = {};
     m_dirtyBounds = {};
     m_revision = 0;
     m_nextStrokeSeed = 1;
@@ -112,13 +127,19 @@ bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
 
 void BitmapEditor::unbind() noexcept
 {
+    if (pixelPreviewActive() && isBound())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        return;
+    }
+
     m_document = nullptr;
     m_file = nullptr;
     m_fileGeneration = 0;
     m_assetId.clear();
     resetRasterDabStream(m_dabStream);
-    m_undoHistory.clear();
-    m_redoHistory.clear();
+    m_journal.reset();
+    m_historyResult = {};
     m_dirtyBounds = {};
     m_revision = 0;
     m_strokeTime = 0.0;
@@ -133,10 +154,7 @@ bool BitmapEditor::isBound() const noexcept
     return asset && hasValidPixelStorage(asset->pixels);
 }
 
-const std::string &BitmapEditor::boundAssetId() const noexcept
-{
-    return m_assetId;
-}
+const std::string &BitmapEditor::boundAssetId() const noexcept { return m_assetId; }
 
 const RasterLayer *BitmapEditor::pixels() const noexcept
 {
@@ -159,37 +177,36 @@ int BitmapEditor::height() const noexcept
 std::optional<std::uint32_t> BitmapEditor::pixelAt(int x, int y) const noexcept
 {
     const RasterLayer *layer = pixels();
-    if (!layer || x < 0 || y < 0 || x >= layer->width || y >= layer->height) {
+    if (!layer || x < 0 || y < 0 || x >= layer->width || y >= layer->height)
+    {
         return std::nullopt;
     }
     return rasterLayerPixelAt(*layer, {x, y});
 }
 
-const BitmapBrush &BitmapEditor::brush() const noexcept
-{
-    return m_brush;
-}
+const BitmapBrush &BitmapEditor::brush() const noexcept { return m_brush; }
 
 bool BitmapEditor::setBrush(const BitmapBrush &value)
 {
-    if (value.engineState) {
+    if (value.engineState)
+    {
         const auto errors = detail::validateEngineState(*value.engineState);
-        if (!errors.empty()) { setError(errors.front()); return false; }
+        if (!errors.empty())
+        {
+            setError(errors.front());
+            return false;
+        }
     }
-    if (m_strokeActive) {
+    if (m_strokeActive)
+    {
         setError("brush settings cannot change during an active stroke");
         return false;
     }
-    if (!std::isfinite(value.size) || value.size <= 0.0 || value.size > 4096.0
-        || !inUnitRange(value.opacity)
-        || !inUnitRange(value.flow)
-        || !inUnitRange(value.hardness)
-        || !std::isfinite(value.spacing)
-        || value.spacing < 0.0
-        || value.spacing > 4096.0
-        || !std::isfinite(value.spacingRatio)
-        || value.spacingRatio < 0.0
-        || value.spacingRatio > 4.0) {
+    if (!std::isfinite(value.size) || value.size <= 0.0 || value.size > 4096.0 ||
+        !inUnitRange(value.opacity) || !inUnitRange(value.flow) || !inUnitRange(value.hardness) ||
+        !std::isfinite(value.spacing) || value.spacing < 0.0 || value.spacing > 4096.0 ||
+        !std::isfinite(value.spacingRatio) || value.spacingRatio < 0.0 || value.spacingRatio > 4.0)
+    {
         setError("brush values are outside the supported finite range");
         return false;
     }
@@ -201,352 +218,368 @@ bool BitmapEditor::setBrush(const BitmapBrush &value)
 
 bool BitmapEditor::setPixel(int x, int y, std::uint32_t argb)
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.setPixel(x, y, argb); });
-    }
-    if (!requireBound()) {
-        return false;
-    }
-    if (m_strokeActive) {
-        setError("a direct pixel edit cannot run during a brush stroke");
-        return false;
-    }
-
-    RasterLayer *layer = mutablePixels();
-    if (!layer || x < 0 || y < 0 || x >= layer->width || y >= layer->height) {
-        setError("pixel coordinate is outside the bitmap");
-        return false;
-    }
-
-    const std::size_t index = static_cast<std::size_t>(y)
-        * static_cast<std::size_t>(layer->width) + static_cast<std::size_t>(x);
-    if (layer->pixels[index] == argb) {
-        clearError();
-        return true;
-    }
-
-    recordSnapshot();
-    layer->pixels[index] = argb;
-    noteChange({{x, y}, 1, 1});
-    clearError();
-    return true;
+    const BitmapPatch patch{{{x, y}, 1, 1}, std::span(&argb, 1)};
+    return replacePatches(std::span(&patch, 1));
 }
-
 bool BitmapEditor::clear(std::uint32_t argb)
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.clear(argb); });
-    }
-    if (!requireBound()) {
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.clear(argb); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        setError("clear requires an idle bound bitmap");
         return false;
     }
-    if (m_strokeActive) {
-        setError("clear cannot run during a brush stroke");
-        return false;
-    }
-
-    RasterLayer *layer = mutablePixels();
-    if (!layer) {
-        return false;
-    }
-    if (std::all_of(layer->pixels.begin(), layer->pixels.end(),
-                    [argb](std::uint32_t pixel) { return pixel == argb; })) {
-        clearError();
-        return true;
-    }
-
-    recordSnapshot();
-    std::fill(layer->pixels.begin(), layer->pixels.end(), argb);
-    noteChange(bitmapBounds());
-    clearError();
-    return true;
+    auto &edits = journal();
+    return finishEdit(edits.clear(*m_document, m_assetId, argb));
 }
-
-bool BitmapEditor::replacePatch(DevicePixelRect bounds,
-                                const std::vector<std::uint32_t> &argbPixels)
+bool BitmapEditor::replacePatch(DevicePixelRect bounds, const std::vector<std::uint32_t> &pixels)
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.replacePatch(bounds, argbPixels); });
-    }
-    if (!requireBound()) {
-        return false;
-    }
-    if (m_strokeActive) {
-        setError("a pixel patch cannot be replaced during a brush stroke");
-        return false;
-    }
-    if (!contains(bitmapBounds(), bounds)) {
-        setError("pixel patch bounds are outside the bitmap");
-        return false;
-    }
-
-    const auto patchWidth = static_cast<std::size_t>(bounds.width);
-    const auto patchHeight = static_cast<std::size_t>(bounds.height);
-    if (patchWidth > std::numeric_limits<std::size_t>::max() / patchHeight
-        || patchWidth * patchHeight != argbPixels.size()) {
-        setError("pixel patch size does not match its bounds");
-        return false;
-    }
-
-    RasterLayer *layer = mutablePixels();
-    bool changed = false;
-    for (int y = 0; y < bounds.height && !changed; ++y) {
-        const std::size_t destinationStart = static_cast<std::size_t>(bounds.origin.y + y)
-            * static_cast<std::size_t>(layer->width)
-            + static_cast<std::size_t>(bounds.origin.x);
-        const std::size_t sourceStart = static_cast<std::size_t>(y) * patchWidth;
-        changed = !std::equal(argbPixels.begin() + static_cast<std::ptrdiff_t>(sourceStart),
-                              argbPixels.begin() + static_cast<std::ptrdiff_t>(sourceStart + patchWidth),
-                              layer->pixels.begin() + static_cast<std::ptrdiff_t>(destinationStart));
-    }
-    if (!changed) {
-        clearError();
-        return true;
-    }
-
-    recordSnapshot();
-    for (int y = 0; y < bounds.height; ++y) {
-        const std::size_t destinationStart = static_cast<std::size_t>(bounds.origin.y + y)
-            * static_cast<std::size_t>(layer->width)
-            + static_cast<std::size_t>(bounds.origin.x);
-        const std::size_t sourceStart = static_cast<std::size_t>(y) * patchWidth;
-        std::copy_n(argbPixels.begin() + static_cast<std::ptrdiff_t>(sourceStart),
-                    patchWidth,
-                    layer->pixels.begin() + static_cast<std::ptrdiff_t>(destinationStart));
-    }
-    noteChange(bounds);
-    clearError();
-    return true;
+    const BitmapPatch patch{bounds, pixels};
+    return replacePatches(std::span(&patch, 1));
 }
-
-bool BitmapEditor::replacePixels(const RasterLayer &replacement)
+bool BitmapEditor::replacePatches(std::span<const BitmapPatch> patches)
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.replacePixels(replacement); });
-    }
-    if (!requireBound()) {
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.replacePatches(patches); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("pixel patches require an idle bound bitmap");
         return false;
     }
-    if (m_strokeActive) {
-        setError("the bitmap cannot be replaced during a brush stroke");
+    auto &edits = journal();
+    return finishEdit(edits.replace(*m_document, m_assetId, patches));
+}
+bool BitmapEditor::replacePixels(const RasterLayer &pixels)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.replacePixels(pixels); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        setError("replacement requires an idle bound bitmap");
         return false;
     }
-    if (!hasValidPixelStorage(replacement)) {
-        setError("replacement raster has invalid dimensions or pixel storage");
-        return false;
-    }
-
-    RasterLayer *layer = mutablePixels();
-    if (layer->width == replacement.width
-        && layer->height == replacement.height
-        && layer->pixels == replacement.pixels) {
-        clearError();
-        return true;
-    }
-
-    const DevicePixelRect priorBounds = bitmapBounds();
-    recordSnapshot();
-    *layer = replacement;
-    noteChange(uniteDevicePixelRects(priorBounds, bitmapBounds()));
-    clearError();
-    return true;
+    auto &edits = journal();
+    return finishEdit(edits.replacePixels(*m_document, m_assetId, pixels));
 }
 
 bool BitmapEditor::beginStroke(DocumentPoint point, double pressure)
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.beginStroke(point, pressure); });
-    }
-    if (!requireBound()) {
-        return false;
-    }
-    if (m_strokeActive) {
-        setError("a brush stroke is already active");
-        return false;
-    }
-    if (!validPoint(point, pressure)) {
-        return false;
-    }
-
-    recordSnapshot(false);
-    resetRasterDabStream(m_dabStream);
-    m_strokeActive = true;
-    m_strokeChanged = false;
-    m_strokeTime = 0.0;
-    return appendStrokePoint(point, pressure, false);
+    return beginStrokeInput(detail::legacyStrokeSample(point, pressure, 1.0 / 120.0));
 }
 
 bool BitmapEditor::continueStroke(DocumentPoint point, double pressure)
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.continueStroke(point, pressure); });
-    }
-    if (!m_strokeActive) {
-        setError("no brush stroke is active");
-        return false;
-    }
-    if (!validPoint(point, pressure)) {
-        return false;
-    }
-    return appendStrokePoint(point, pressure, false);
+    return continueStrokeInput(
+        detail::legacyStrokeSample(point, pressure, m_strokeTime + 1.0 / 120.0));
 }
 
 bool BitmapEditor::endStroke(DocumentPoint point, double pressure)
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.endStroke(point, pressure); });
+    return endStrokeInput(detail::legacyStrokeSample(point, pressure, m_strokeTime + 1.0 / 120.0));
+}
+
+bool BitmapEditor::beginStrokeInput(const StrokePoint &sample)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.beginStrokeInput(sample); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive() || !validInput(sample))
+    {
+        if (m_strokeActive || pixelPreviewActive())
+            setError("an edit preview or brush stroke is already active");
+        return false;
     }
-    if (!m_strokeActive) {
+    auto &edits = journal();
+    edits.begin();
+    const auto priorTime = m_strokeTime;
+    resetRasterDabStream(m_dabStream);
+    m_strokeActive = true;
+    m_strokeChanged = false;
+    m_strokeTime = 0;
+    if (appendStrokePoint(sample, false))
+        return true;
+    const auto failure = m_historyResult;
+    const auto message = m_lastError;
+    (void)edits.cancel(*m_document, m_assetId);
+    m_historyResult = failure;
+    m_strokeActive = false;
+    m_strokeTime = priorTime;
+    resetRasterDabStream(m_dabStream);
+    setError(message);
+    return false;
+}
+
+bool BitmapEditor::continueStrokeInput(const StrokePoint &sample)
+{
+    if (m_file)
+    {
+        return editFile([&](BitmapEditor &editor) { return editor.continueStrokeInput(sample); });
+    }
+    if (!m_strokeActive)
+    {
         setError("no brush stroke is active");
         return false;
     }
-    if (!validPoint(point, pressure)) {
+    if (!validInput(sample))
+    {
         return false;
     }
+    return appendStrokePoint(sample, false);
+}
 
-    const bool appended = appendStrokePoint(point, pressure, true);
-    m_strokeActive = false;
-    resetRasterDabStream(m_dabStream);
-
-    RasterLayer *layer = mutablePixels();
-    if (!m_strokeChanged || (layer && !m_undoHistory.empty()
-                             && layer->width == m_undoHistory.back()->width
-                             && layer->height == m_undoHistory.back()->height
-                             && layer->pixels == m_undoHistory.back()->pixels)) {
-        if (!m_undoHistory.empty()) {
-            m_undoHistory.pop_back();
-        }
-    } else {
-        m_redoHistory.clear();
-        ++m_nextStrokeSeed;
+bool BitmapEditor::endStrokeInput(const StrokePoint &sample)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.endStrokeInput(sample); });
+    if (!m_strokeActive)
+    {
+        setError("no brush stroke is active");
+        return false;
     }
+    if (!validInput(sample) || !appendStrokePoint(sample, true))
+        return false;
+    if (m_strokeChanged)
+        ++m_nextStrokeSeed;
+    auto &edits = journal();
+    m_historyResult = edits.previewAdmission();
+    edits.finish();
+    m_strokeActive = false;
     m_strokeChanged = false;
-    return appended;
+    resetRasterDabStream(m_dabStream);
+    return true;
+}
+
+bool BitmapEditor::advanceStrokeTime(double seconds)
+{
+    if (m_file)
+        return editFile([&](BitmapEditor &editor) { return editor.advanceStrokeTime(seconds); });
+    if (!m_strokeActive)
+    {
+        setError("no brush stroke is active");
+        return false;
+    }
+    if (!requireBound())
+        return false;
+    const auto *raster = m_brush.engineState ? &m_brush.engineState->rasterizer : nullptr;
+    if (!raster || (!raster->airbrushEnabled && !detail::clockCatchUp(*raster)))
+    {
+        setError("active brush has no time-based placement or catch-up");
+        return false;
+    }
+    auto sample = m_dabStream.previousPoint;
+    sample.time = seconds;
+    if (detail::clockCatchUp(*raster))
+        sample.position = m_dabStream.smoothingTarget;
+    return validInput(sample) && appendStrokePoint(sample, false);
+}
+
+bool BitmapEditor::rebaseStrokeTime(double seconds)
+{
+    if (m_file)
+        return editFile([&](BitmapEditor &editor) { return editor.rebaseStrokeTime(seconds); });
+    if (!m_strokeActive)
+    {
+        setError("no brush stroke is active");
+        return false;
+    }
+    if (!requireBound())
+        return false;
+    if (!detail::rebaseStrokeClock(m_dabStream, seconds))
+    {
+        setError("stroke clock must use finite monotonic seconds");
+        return false;
+    }
+    m_strokeTime = seconds;
+    clearError();
+    return true;
 }
 
 void BitmapEditor::cancelStroke()
 {
-    if (m_file) {
-        (void)editFile([](BitmapEditor &editor) { editor.cancelStroke(); return true; });
+    if (m_file)
+    {
+        (void)editFile(
+            [](auto &editor)
+            {
+                editor.cancelStroke();
+                return !editor.strokeActive();
+            });
         return;
     }
-    if (!m_strokeActive) {
+    if (!m_strokeActive)
         return;
-    }
-
-    RasterLayer *layer = mutablePixels();
-    if (layer && !m_undoHistory.empty()) {
-        const bool changed = layer->width != m_undoHistory.back()->width
-            || layer->height != m_undoHistory.back()->height
-            || layer->pixels != m_undoHistory.back()->pixels;
-        *layer = *m_undoHistory.back();
-        m_undoHistory.pop_back();
-        if (changed) {
-            noteChange(bitmapBounds());
-        }
-    }
+    auto &edits = journal();
+    if (!finishEdit(edits.cancel(*m_document, m_assetId)))
+        return;
     resetRasterDabStream(m_dabStream);
     m_strokeActive = false;
     m_strokeChanged = false;
-    clearError();
 }
 
-bool BitmapEditor::strokeActive() const noexcept
-{
-    return m_strokeActive;
-}
+bool BitmapEditor::strokeActive() const noexcept { return m_strokeActive; }
 
 bool BitmapEditor::canUndo() const noexcept
 {
-    return !m_strokeActive && !m_undoHistory.empty() && isBound();
+    return !m_strokeActive && !pixelPreviewActive() && m_journal && m_journal->canUndo() &&
+           isBound();
 }
-
 bool BitmapEditor::canRedo() const noexcept
 {
-    return !m_strokeActive && !m_redoHistory.empty() && isBound();
+    return !m_strokeActive && !pixelPreviewActive() && m_journal && m_journal->canRedo() &&
+           isBound();
 }
-
 bool BitmapEditor::undo()
 {
-    if (m_file) {
-        return editFile([](BitmapEditor &editor) { return editor.undo(); });
-    }
-    if (!canUndo()) {
+    if (m_file)
+        return editFile([](auto &editor) { return editor.undo(); });
+    if (!canUndo())
+    {
         setError("no bitmap edit is available to undo");
         return false;
     }
-
-    RasterLayer *layer = mutablePixels();
-    const DevicePixelRect priorBounds = bitmapBounds();
-    m_redoHistory.push_back(std::make_shared<const RasterLayer>(*layer));
-    *layer = *m_undoHistory.back();
-    m_undoHistory.pop_back();
-    noteChange(uniteDevicePixelRects(priorBounds, bitmapBounds()));
-    clearError();
-    return true;
+    auto &edits = journal();
+    return finishEdit(edits.step(*m_document, m_assetId, false));
 }
-
 bool BitmapEditor::redo()
 {
-    if (m_file) {
-        return editFile([&](BitmapEditor &editor) { return editor.redo(); });
-    }
-    if (!canRedo()) {
+    if (m_file)
+        return editFile([](auto &editor) { return editor.redo(); });
+    if (!canRedo())
+    {
         setError("no bitmap edit is available to redo");
         return false;
     }
-
-    RasterLayer *layer = mutablePixels();
-    const DevicePixelRect priorBounds = bitmapBounds();
-    m_undoHistory.push_back(std::make_shared<const RasterLayer>(*layer));
-    if (m_undoHistory.size() > HistoryLimit) {
-        m_undoHistory.erase(m_undoHistory.begin());
+    auto &edits = journal();
+    return finishEdit(edits.step(*m_document, m_assetId, true));
+}
+RasterHistoryStatistics BitmapEditor::historyStatistics() const noexcept
+{
+    return m_journal ? m_journal->statistics() : RasterHistoryStatistics{};
+}
+std::size_t BitmapEditor::previewStorageBytes() const noexcept
+{
+    return m_journal ? m_journal->previewBytes() : 0;
+}
+bool BitmapEditor::pixelPreviewActive() const noexcept
+{
+    return m_journal && m_journal->pixelPreviewActive();
+}
+std::optional<std::uint32_t> BitmapEditor::pixelPreviewSourceAt(int x, int y) const noexcept
+{
+    const auto current = pixelAt(x, y);
+    if (!current || !pixelPreviewActive())
+        return current;
+    return m_journal->sourcePixel(*m_document, m_assetId, {x, y});
+}
+bool BitmapEditor::beginPixelPreview(std::string_view label)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.beginPixelPreview(label); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("pixel preview requires an idle bound bitmap");
+        return false;
     }
-    *layer = *m_redoHistory.back();
-    m_redoHistory.pop_back();
-    noteChange(uniteDevicePixelRects(priorBounds, bitmapBounds()));
+    auto &edits = journal();
+    return finishEdit(edits.beginPixels(*m_document, m_assetId, label));
+}
+bool BitmapEditor::replacePixelPreview(std::span<const BitmapPatch> patches)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.replacePixelPreview(patches); });
+    if (!requireBound() || !pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("no pixel preview is active");
+        return false;
+    }
+    auto &edits = journal();
+    return finishEdit(edits.replacePixelPreview(*m_document, m_assetId, patches));
+}
+bool BitmapEditor::commitPixelPreview()
+{
+    if (m_file)
+        return editFile([](auto &editor) { return editor.commitPixelPreview(); });
+    if (!requireBound() || !pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("no pixel preview is active");
+        return false;
+    }
+    auto &edits = journal();
+    return finishEdit(edits.commitPixels(*m_document, m_assetId));
+}
+bool BitmapEditor::cancelPixelPreview()
+{
+    if (m_file)
+        return editFile([](auto &editor) { return editor.cancelPixelPreview(); });
+    if (!requireBound() || !pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("no pixel preview is active");
+        return false;
+    }
+    auto &edits = journal();
+    return finishEdit(edits.cancel(*m_document, m_assetId));
+}
+detail::BitmapEditJournal &BitmapEditor::journal()
+{
+    if (!m_journal)
+        m_journal = std::make_shared<detail::BitmapEditJournal>(m_historyLimits);
+    else if (m_journal.use_count() != 1)
+        m_journal = std::make_shared<detail::BitmapEditJournal>(*m_journal);
+    return *m_journal;
+}
+bool BitmapEditor::finishEdit(RasterHistoryResult result)
+{
+    m_historyResult = result;
+    if (!result.ok())
+    {
+        setError(std::string(result.message()));
+        return false;
+    }
+    if (m_journal && !isEmpty(m_journal->dirty))
+        noteChange(m_journal->dirty);
     clearError();
     return true;
 }
 
-std::uint64_t BitmapEditor::revision() const noexcept
-{
-    return m_revision;
-}
+std::uint64_t BitmapEditor::revision() const noexcept { return m_revision; }
 
-DevicePixelRect BitmapEditor::dirtyBounds() const noexcept
-{
-    return m_dirtyBounds;
-}
+DevicePixelRect BitmapEditor::dirtyBounds() const noexcept { return m_dirtyBounds; }
 
-void BitmapEditor::clearDirtyBounds() noexcept
-{
-    m_dirtyBounds = {};
-}
+void BitmapEditor::clearDirtyBounds() noexcept { m_dirtyBounds = {}; }
 
-const std::string &BitmapEditor::lastError() const noexcept
-{
-    return m_lastError;
-}
+const std::string &BitmapEditor::lastError() const noexcept { return m_lastError; }
 
 RasterAsset *BitmapEditor::rasterAsset() noexcept
 {
-    if (!m_document || m_assetId.empty()
-        || (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))) {
+    if (!m_document || m_assetId.empty() ||
+        (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())))
+    {
         return nullptr;
     }
-    if (isSemanticMaskAsset(*m_document, m_assetId)) { return nullptr; }
+    if (isSemanticMaskAsset(*m_document, m_assetId))
+    {
+        return nullptr;
+    }
     Asset *asset = findAsset(*m_document, m_assetId);
     return asset ? std::get_if<RasterAsset>(asset) : nullptr;
 }
 
 const RasterAsset *BitmapEditor::rasterAsset() const noexcept
 {
-    if (!m_document || m_assetId.empty()
-        || (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))) {
+    if (!m_document || m_assetId.empty() ||
+        (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())))
+    {
         return nullptr;
     }
-    if (isSemanticMaskAsset(*m_document, m_assetId)) { return nullptr; }
+    if (isSemanticMaskAsset(*m_document, m_assetId))
+    {
+        return nullptr;
+    }
     const Asset *asset = findAsset(std::as_const(*m_document), m_assetId);
     return asset ? std::get_if<RasterAsset>(asset) : nullptr;
 }
@@ -559,7 +592,8 @@ RasterLayer *BitmapEditor::mutablePixels() noexcept
 
 bool BitmapEditor::requireBound()
 {
-    if (!isBound()) {
+    if (!isBound())
+    {
         setError("no valid raster asset is bound");
         return false;
     }
@@ -568,8 +602,22 @@ bool BitmapEditor::requireBound()
 
 bool BitmapEditor::validPoint(DocumentPoint point, double pressure)
 {
-    if (!isFinitePoint(point) || !inUnitRange(pressure)) {
-        setError("stroke position and pressure must be finite and pressure must be within zero and one");
+    if (!isFinitePoint(point) || !inUnitRange(pressure))
+    {
+        setError(
+            "stroke position and pressure must be finite and pressure must be within zero and one");
+        return false;
+    }
+    return true;
+}
+
+bool BitmapEditor::validInput(const StrokePoint &sample)
+{
+    if (!validPoint(sample.position, sample.pressure))
+        return false;
+    if (!detail::validStrokeSample(sample) || (m_strokeActive && sample.time < m_strokeTime))
+    {
+        setError("stroke sample must be finite, normalized and use monotonic seconds");
         return false;
     }
     return true;
@@ -590,17 +638,19 @@ BrushState BitmapEditor::brushState() const
     rasterizer.flowEnabled = m_brush.flowEnabled;
     rasterizer.hardness = m_brush.hardness;
     rasterizer.hardnessEnabled = m_brush.hardnessEnabled;
-    rasterizer.blendMode = m_brush.eraser
-        ? RasterBlendMode::DestinationOut
-        : m_brush.engineState ? m_brush.engineState->rasterizer.blendMode : RasterBlendMode::SourceOver;
+    rasterizer.blendMode = m_brush.eraser        ? RasterBlendMode::DestinationOut
+                           : m_brush.engineState ? m_brush.engineState->rasterizer.blendMode
+                                                 : RasterBlendMode::SourceOver;
 
     BrushDynamics dynamics;
     dynamics.pressureToSize = 1.0;
     dynamics.pressureToFlow = 1.0;
     dynamics.pressureToOpacity = 1.0;
     dynamics.pressureToOpacityEnabled = m_brush.pressureToOpacityEnabled;
-    return {std::move(rasterizer), m_brush.engineState ? m_brush.engineState->dynamics : std::move(dynamics),
-        m_brush.engineState ? m_brush.engineState->material : BrushMaterial{}, m_nextStrokeSeed};
+    return {std::move(rasterizer),
+            m_brush.engineState ? m_brush.engineState->dynamics : std::move(dynamics),
+            m_brush.engineState ? m_brush.engineState->material : BrushMaterial{},
+            m_nextStrokeSeed};
 }
 
 DevicePixelRect BitmapEditor::bitmapBounds() const noexcept
@@ -609,94 +659,180 @@ DevicePixelRect BitmapEditor::bitmapBounds() const noexcept
     return layer ? DevicePixelRect{{0, 0}, layer->width, layer->height} : DevicePixelRect{};
 }
 
-void BitmapEditor::recordSnapshot(bool clearRedo)
-{
-    const RasterLayer *layer = pixels();
-    if (!layer) {
-        return;
-    }
-    m_undoHistory.push_back(std::make_shared<const RasterLayer>(*layer));
-    if (m_undoHistory.size() > HistoryLimit) {
-        m_undoHistory.erase(m_undoHistory.begin());
-    }
-    if (clearRedo) {
-        m_redoHistory.clear();
-    }
-}
-
 void BitmapEditor::noteChange(DevicePixelRect bounds)
 {
-    if (isEmpty(bounds)) {
+    if (isEmpty(bounds))
+    {
         return;
     }
-    recordDocumentChange(*m_document);
     m_dirtyBounds = uniteDevicePixelRects(m_dirtyBounds, bounds);
     ++m_revision;
 }
 
-bool BitmapEditor::appendStrokePoint(DocumentPoint point, double pressure, bool finish)
+bool BitmapEditor::appendStrokePoint(const StrokePoint &sample, bool finish)
 {
-    RasterLayer *layer = mutablePixels();
-    if (!layer) {
-        setError("bound raster asset became unavailable");
+    if (!requireBound())
+        return false;
+    const BrushState state = brushState();
+    auto nextStream = m_dabStream;
+    auto &edits = journal();
+    const auto bounds = bitmapBounds();
+    const detail::BitmapEditSource source{edits, *m_document, m_assetId, CanvasOrigin{}};
+    const RasterSourceSampler sampler{&source,
+                                      &detail::sampleBitmapEditSource,
+                                      {source.origin.x, source.origin.y},
+                                      bounds.width,
+                                      bounds.height};
+    try
+    {
+        auto dabs = appendRasterDabs(nextStream, sample, state, finish);
+        auto samples =
+            projectBrushDabs(dabs, state.rasterizer, RasterProjection{}, sampler, state.material);
+        std::erase_if(samples,
+                      [&](const auto &value)
+                      {
+                          return value.position.x < bounds.origin.x ||
+                                 value.position.y < bounds.origin.y ||
+                                 std::int64_t(value.position.x) >=
+                                     std::int64_t(bounds.origin.x) + bounds.width ||
+                                 std::int64_t(value.position.y) >=
+                                     std::int64_t(bounds.origin.y) + bounds.height;
+                      });
+        if (!samples.empty() &&
+            !finishEdit(edits.preview(*m_document, m_assetId, samples, state.rasterizer.blendMode)))
+            return false;
+        m_dabStream = std::move(nextStream);
+        m_strokeTime = sample.time;
+        m_strokeChanged = edits.strokeChanged();
+    }
+    catch (const std::bad_alloc &)
+    {
+        m_historyResult = {RasterHistoryCode::BudgetExceeded};
+        setError(std::string(m_historyResult.message()));
         return false;
     }
-
-    m_strokeTime += 1.0 / 120.0;
-    StrokePoint strokePoint;
-    strokePoint.position = point;
-    strokePoint.pressure = pressure;
-    strokePoint.time = m_strokeTime;
-
-    const BrushState state = brushState();
-    const std::vector<BrushDab> dabs = appendRasterDabs(m_dabStream,
-                                                        strokePoint,
-                                                        state,
-                                                        finish);
-    if (dabs.empty()) {
-        clearError();
-        return true;
-    }
-
-    const RasterProjection projection{};
-    const std::vector<RasterSample> samples = projectBrushDabs(dabs,
-                                                               state.rasterizer,
-                                                               projection,
-                                                               state.material);
-    if (!samples.empty()) {
-        paintRasterSamples(*layer, samples);
-        const DevicePixelRect projectedBounds = deviceBoundsForBrushDabsUnion(
-            dabs, state.rasterizer, projection);
-        const DevicePixelRect clippedBounds = intersectDevicePixelRects(bitmapBounds(),
-                                                                         projectedBounds);
-        if (!isEmpty(clippedBounds)) {
-            m_strokeChanged = true;
-            noteChange(clippedBounds);
-        }
+    catch (const std::logic_error &error)
+    {
+        setError(error.what());
+        return false;
     }
     clearError();
     return true;
 }
 
-void BitmapEditor::setError(std::string message)
-{
-    m_lastError = std::move(message);
-}
+void BitmapEditor::setError(std::string message) { m_lastError = std::move(message); }
 
 bool BitmapEditor::editFile(const std::function<bool(BitmapEditor &)> &edit)
 {
-    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+    static_assert(std::is_nothrow_move_assignable_v<BitmapEditor>);
+    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())
+    {
+        m_historyResult = {RasterHistoryCode::Conflict};
+        setError("the working-file binding is no longer valid");
+        return false;
+    }
+    DocumentFile *file = m_file;
+    if (!file->beginBitmapEdit(m_fileGeneration))
+    {
+        const auto code = file->lastResult().code;
+        m_historyResult = {code == DocumentFileCode::Conflict ? RasterHistoryCode::Conflict :
+                            code == DocumentFileCode::LimitExceeded ? RasterHistoryCode::BudgetExceeded :
+                            RasterHistoryCode::WriteRejected};
+        try { setError(file->lastResult().message); } catch (...) { clearError(); }
+        return false;
+    }
+    bool accepted = false, fallback = false;
+    {
+        auto finish = [&](DocumentFile *owner) noexcept { owner->endBitmapEdit(accepted); };
+        std::unique_ptr<DocumentFile, decltype(finish)> guard(file, finish);
+        try
+        {
+            BitmapEditor working = *this;
+            working.m_file = nullptr;
+            working.clearError();
+            auto &edits = working.journal(); // Detach COW state before exposing the port.
+            detail::BitmapCommitPort port{file,
+                [](void *context, const detail::PreparedBitmapChange &change,
+                   RasterHistoryCode &rejection, bool &useDraftFallback)
+                {
+                    auto *owner = static_cast<DocumentFile *>(context);
+                    if (owner->commitBitmapEdit(change, useDraftFallback)) return true;
+                    if (!useDraftFallback)
+                    {
+                        const auto code = owner->lastResult().code;
+                        rejection = code == DocumentFileCode::Conflict ? RasterHistoryCode::Conflict :
+                                    code == DocumentFileCode::LimitExceeded ? RasterHistoryCode::BudgetExceeded :
+                                    RasterHistoryCode::WriteRejected;
+                    }
+                    return false;
+                }};
+            edits.setCommitPort(&port);
+            bool ok = false;
+            try { ok = edit(working); }
+            catch (...) { edits.setCommitPort(nullptr); throw; }
+            edits.setCommitPort(nullptr);
+            fallback = port.useDraftFallback;
+            if (ok)
+            {
+                working.m_file = file;
+                *this = std::move(working); // Statically checked noexcept after durable commit.
+                accepted = true;
+            }
+            else if (!fallback)
+            {
+                m_historyResult = working.m_historyResult.ok()
+                                      ? RasterHistoryResult{RasterHistoryCode::WriteRejected}
+                                      : working.m_historyResult;
+                try { setError(working.lastError().empty() ? file->lastResult().message : working.lastError()); }
+                catch (...) { clearError(); }
+            }
+        }
+        catch (const std::bad_alloc &)
+        {
+            m_historyResult = {RasterHistoryCode::BudgetExceeded};
+            clearError();
+        }
+        catch (const std::exception &error)
+        {
+            m_historyResult = {RasterHistoryCode::WriteRejected};
+            try { setError(error.what()); } catch (...) { clearError(); }
+        }
+        catch (...)
+        {
+            m_historyResult = {RasterHistoryCode::WriteRejected};
+            clearError();
+        }
+    }
+    if (fallback) return editFileDraft(edit);
+    return accepted;
+#else
+    return editFileDraft(edit);
+#endif
+}
+
+bool BitmapEditor::editFileDraft(const std::function<bool(BitmapEditor &)> &edit)
+{
+    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())
+    {
+        m_historyResult = {RasterHistoryCode::Conflict};
         setError("the working-file binding is no longer valid");
         return false;
     }
     BitmapEditor working = *this;
     working.m_file = nullptr;
     working.clearError();
-    const auto result = m_file->edit([&](Document &draft) {
-        working.m_document = &draft;
-        return edit(working);
-    });
-    if (!result.ok()) {
+    const auto result = m_file->edit(
+        [&](Document &draft)
+        {
+            working.m_document = &draft;
+            return edit(working);
+        });
+    if (!result.ok())
+    {
+        m_historyResult = working.m_historyResult.ok()
+                              ? RasterHistoryResult{RasterHistoryCode::WriteRejected}
+                              : working.m_historyResult;
         setError(working.lastError().empty() ? result.message : working.lastError());
         return false;
     }
@@ -706,9 +842,6 @@ bool BitmapEditor::editFile(const std::function<bool(BitmapEditor &)> &edit)
     return true;
 }
 
-void BitmapEditor::clearError() noexcept
-{
-    m_lastError.clear();
-}
+void BitmapEditor::clearError() noexcept { m_lastError.clear(); }
 
 } // namespace iiSharedCanvas

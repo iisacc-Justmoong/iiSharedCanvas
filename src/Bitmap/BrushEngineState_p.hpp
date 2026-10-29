@@ -11,6 +11,14 @@ inline std::vector<std::string> validateEngineState(const BrushState &s) {
     p.stroke.spacing = s.rasterizer.spacing; p.stroke.spacingRatio = s.rasterizer.spacingRatio;
     p.stroke.warmupDistance = s.rasterizer.warmupDistance; p.stroke.taperMinimum = s.rasterizer.taperMinimum;
     p.stroke.warmupTaperShape = s.rasterizer.warmupTaperShape; p.stroke.airbrushRate = s.rasterizer.airbrushRate;
+    p.stroke.airbrushEnabled = s.rasterizer.airbrushEnabled;
+    p.stroke.smoothingEnabled = s.rasterizer.smoothingEnabled;
+    p.stroke.smoothing = s.rasterizer.smoothing;
+    p.stroke.smoothingMode = s.rasterizer.smoothingMode;
+    p.stroke.smoothingRadius = s.rasterizer.smoothingRadius;
+    p.stroke.smoothingCatchUp = s.rasterizer.smoothingCatchUp;
+    p.stroke.smoothingCatchUpRate = s.rasterizer.smoothingCatchUpRate;
+    p.stroke.smoothingCatchUpOnEnd = s.rasterizer.smoothingCatchUpOnEnd;
     return validateBrushPreset(p);
 }
 }

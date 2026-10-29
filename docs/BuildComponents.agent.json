@@ -1,0 +1,197 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:e52e16fe39b2a370db307d2fe990556ce5fd6e77c24e942606412eff86cc2e57",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/BuildComponents.md",
+    "sha256": "4abeeab8ba1e44c22fea7bc1c2c969431f3cb89efb0f751fb048a3113f091c2b",
+    "bytes": 1903,
+    "line_count": 34,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Processing and presentation components",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Processing and presentation components\n",
+      "level": 1,
+      "title": "Processing and presentation components"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "The SDK exports separate CMake components:\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "table",
+      "start_line": 5,
+      "end_line": 8,
+      "raw": "| Component | Target | Responsibilities |\n| --- | --- | --- |\n| Core | `iiSharedCanvas::Core` | Document values, edits, validation, codecs, persistence, processing, and CPU rendering |\n| Quick | `iiSharedCanvas::Quick` | Qt Quick items and their asynchronous presentation adapter; depends on Core |\n",
+      "columns": [
+        "Component",
+        "Target",
+        "Responsibilities"
+      ],
+      "rows": [
+        [
+          "Core",
+          "`iiSharedCanvas::Core`",
+          "Document values, edits, validation, codecs, persistence, processing, and CPU rendering"
+        ],
+        [
+          "Quick",
+          "`iiSharedCanvas::Quick`",
+          "Qt Quick items and their asynchronous presentation adapter; depends on Core"
+        ]
+      ]
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 14,
+      "raw": "The existing `iiSharedCanvas::iiSharedCanvas` library combines the components\navailable in the installation. Existing source consumers keep their full\npresentation surface. Backend consumers request `COMPONENTS Core` and include\n`iiSharedCanvasCore.h` or specific headers. Core does not discover or link Qt\nQuick or QML. The four command-line tools also link Core only.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "fenced_code",
+      "start_line": 16,
+      "end_line": 19,
+      "raw": "```cmake\nfind_package(iiSharedCanvas CONFIG REQUIRED COMPONENTS Core)\ntarget_link_libraries(worker PRIVATE iiSharedCanvas::Core)\n```\n",
+      "language": "cmake",
+      "code": "find_package(iiSharedCanvas CONFIG REQUIRED COMPONENTS Core)\ntarget_link_libraries(worker PRIVATE iiSharedCanvas::Core)\n",
+      "closed": true
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 29,
+      "raw": "`IISHAREDCANVAS_BUILD_QUICK=OFF` produces a backend-only installation. Core still\nuses Qt Core for the existing file/authorship adapters and Qt Gui for raster,\nvector, font, and PDF codecs. This boundary removes presentation dependencies;\nit does not claim that those remaining codecs have been converted to native\nstandard C++. Implementations live in the additional Core and Quick libraries.\nThe legacy macOS dylib re-exports both libraries to preserve existing public\nsymbol lookup. New source consumers retain the old complete CMake target;\nbackend consumers explicitly select Core. Prebuilt binaries on other platforms\nmust be relinked for the split package; their binary compatibility is unverified.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 34,
+      "raw": "Document formats and public C++ document values are unchanged. Header and\nlibrary versions must match across a process, including iiSocietyHelper.\nThe standalone Core consumer builds with Qt QML and Quick discovery disabled,\nround-trips an IISC document and its metadata, and renders the restored pixels.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Processing and presentation components",
+      "anchor": "processing-and-presentation-components",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000011",
+        "line": 29,
+        "text": "must be relinked for the split package; their binary compatibility is unverified.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 32,
+        "text": "library versions must match across a process, including iiSocietyHelper.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": [
+      {
+        "block_id": "b000005",
+        "columns": [
+          "Component",
+          "Target",
+          "Responsibilities"
+        ],
+        "rows": [
+          [
+            "Core",
+            "`iiSharedCanvas::Core`",
+            "Document values, edits, validation, codecs, persistence, processing, and CPU rendering"
+          ],
+          [
+            "Quick",
+            "`iiSharedCanvas::Quick`",
+            "Qt Quick items and their asynchronous presentation adapter; depends on Core"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

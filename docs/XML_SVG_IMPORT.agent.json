@@ -1,0 +1,236 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:8c364e40a6a5156682390ccdb33bace0cb5c7a42ede0df815d328daf80e09835",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/XML_SVG_IMPORT.md",
+    "sha256": "100a0971fdb8a699cb7564b392426a11bca67b6130ae0ce8c53bdd41d4b3b072",
+    "bytes": 5874,
+    "line_count": 75,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "iiXml을 조합한 제한적 SVG 가져오기",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# iiXml을 조합한 제한적 SVG 가져오기\n",
+      "level": 1,
+      "title": "iiXml을 조합한 제한적 SVG 가져오기"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 13,
+      "raw": "`example/XmlSvgDecoder.h/.cpp`는 애플리케이션이 iiSharedCanvas의 네이티브\n벡터 모델, `iiXml::Native`와 `iiCompression::iiCompression`을 조합하는 예시다.\n`decodeCanvasSvg`는 메모리에\n있는 SVG 바이트, 호출자가 선택한 에셋 ID와 `MediaLimits`를 받아 독립적인\n`VectorAsset`을 반환한다. 파일 읽기, 문서 삽입과 저장은 호출자가 맡는다.\n캔버스 라이브러리가 이 두 SDK를 직접 찾거나 링크하지는 않는다.\n이 어댑터는 저장소의 예시 소스이며 설치된 캔버스 라이브러리의 함수가 아니다.\n애플리케이션이 예시를 빌드하거나 자체 구현을 제공한다.\n두 예시의 숫자 파싱은 표준 라이브러리의 부동소수점 `from_chars` 지원을\n필요로 한다. 여기서의 macOS 실행 검증은 현재 시스템에 한정되며 이전 macOS\n배포 대상이나 다른 플랫폼에서의 실행을 보장하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 21,
+      "raw": "이 예시는 네이티브 `encodeSvg`가 내보내는 SVG와 gzip SVGZ의 경로, 뷰포트,\n단색 채우기·획과 알파를 편집 가능한 값으로 되돌린다. 경로 명령은 대문자\n`M`, `L`, `Q`, `C`, `Z`, 채우기는 even-odd, 획의 끝과 연결은 round이다.\n원점이 0이고 크기가 출력 뷰포트와 같은 `viewBox`만 지원한다. 입력 식별자는\n비어 있지 않은 UTF-8이어야 하며 NUL을 포함할 수 없다.\n캔버스의 8비트 알파로 표현할 수 없는 불투명도는 반올림하여 내용을 바꾸지 않고\n거부한다. 자체 내보내기의 알파 값 256단계는 모두 복원할 수 있다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 34,
+      "raw": "변환, 그룹, 텍스트, 도형 요소, 그라디언트, 비정규 경로 명령과\n외부 참조 등 다른 SVG 표현은 지원하지 않으며 일부 경로만 반환하지 않는다.\nDTD와 처리 명령도 거부한다. 따라서 이 예시는 기존 Qt SVG 가져오기를 완전히\n대체하지 않는다. SVGZ는 완전한 gzip 멤버 하나만 허용하며 잘림·체크섬 오류·\n뒤따르는 바이트와 이어 붙인 멤버를 거부한다. 압축 입력은 `maxInputBytes`,\n압축 해제된 XML은 `maxDecodedBytes`를 따른다. 입력 바이트·뷰포트 픽셀·XML\n깊이·경로 명령과 논리적 벡터 저장량을 제한한다. XML 파서와 검증 과정의 임시\n버퍼 및 할당자 오버헤드는\n`maxDecodedBytes`를 포함한 프로세스 전체 메모리 상한이 아니다.\nXML 요소당 속성은 최대 16개이며 이벤트 수는 `2 * maxVectorCommands + 32`로\n제한한다. 일반 SVG의 개별 XML 텍스트 항목은 입력과 디코딩 바이트 한도 중\n작은 값을, SVGZ의 해제된 XML 텍스트 항목은 디코딩 바이트 한도를 따른다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 40,
+      "raw": "`tests/native-svg-consumer`는 Qt 검색을 끄고 각각 스테이징된\n`iiSharedCanvasNative`, `iiXmlNative`, `iiCompression` 패키지를 조합한다.\n출력 SVG/SVGZ를 다시 읽어\n편집 가능한 명령과 렌더된 픽셀·알파를 비교하고, 지원하지 않는 요소, 잘못된\n수치, 외부 엔티티, 유효하지 않은 ID와 자원 한도를 검사한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "## 명시적인 SVG 비트맵 가져오기\n",
+      "level": 2,
+      "title": "명시적인 SVG 비트맵 가져오기"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 51,
+      "raw": "`example/GuiSvgRasterizer.h/.cpp`는 애플리케이션이 iiXml, iiCompression,\niiGUI 및 네이티브 캔버스를 조합하는 별도 예시다. `rasterizeGuiSvg`는\n메모리의 SVG 또는 SVGZ와 출력 크기를 받아 단일 `RasterAsset`을 만든다.\n결과에는 경로와 그라디언트가 픽셀로 변환되어 편집 가능한 벡터 정보가\n남지 않는다는 경고가 포함된다. 파일 읽기와 저장은 호출자의 책임이다.\n이 예시도 설치된 캔버스 라이브러리의 함수가 아니며 PDF는 처리하지 않는다.\n픽셀은 비선행 알파 ARGB이며, 래스터화 과정의 8비트 반올림과 경계\n안티앨리어싱에 따라 원래 부동소수점 불투명도와 정확히 같지는 않을 수 있다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 53,
+      "end_line": 62,
+      "raw": "입력은 명시적 양수 `width`·`height`를 가진 SVG, 그룹, `rect`, `path`,\n`defs`의 `linearGradient`와 `stop`으로 제한한다. 경로는 M/L/H/V/Q/T/C/S/Z의\n대문자·소문자 명령과 반복을 허용한다. 단색 및 로컬 선형 그라디언트 채우기와\n획, even-odd·nonzero 채우기, 제한된 불투명도 및 획 속성을 처리한다.\n단색은 `#RGB`, `#RRGGBB`와 코드에 명시된 기본 색 이름만 허용한다.\n좌표는 유한해야 하며 절대값이 10억을 넘으면 거부한다. 변환, 원호, 다른\n도형, 스타일시트, 텍스트, 이미지, 클립, 마스크, 필터, 애니메이션, 외부\n참조와 알려지지 않은 요소·속성은 거부한다. 없는 그라디언트 참조도 거부한다.\n지원 범위 밖의 일반 SVG와 PDF 페이지의 기존 Qt 래스터화 기능을 대체했다고\n간주하지 않는다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 72,
+      "raw": "압축 입력은 `maxInputBytes`, SVGZ 확장 결과는 `maxDecodedBytes`를 따른다.\niiGUI는 확장된 SVG 입력을 1 MiB, 출력 한 변을 8192 픽셀, 출력 전체를\n64 Mi 픽셀로 제한한다. SVGZ는 압축 해제 중에도 1 MiB 한도를 적용한다.\n호출자의 픽셀·프레임·디코딩 바이트·XML 깊이·경로\n명령 한도도 적용한다. XML 요소당 속성은 최대 16개, 이벤트는 최대 100,000개다.\n일반 SVG의 개별 텍스트 항목 한도는 입력과 디코딩 한도 중 작은 값이고 SVGZ는\n디코딩 한도다. 디코딩 바이트 한도는 결과 픽셀이나 압축 해제 데이터의 논리적\n크기이며 XML·래스터화 임시 버퍼와 할당자 오버헤드를 포함한 전체 프로세스\n메모리 상한이 아니다. 실패하면 부분 픽셀을 반환하지 않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 74,
+      "end_line": 75,
+      "raw": "`tests/native-svg-raster-consumer`는 Qt 검색을 끄고 설치 패키지를 조합해\n그라디언트, 직선 경로, 투명도, SVGZ 픽셀과 거부·한도 조건을 검증한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "iiXml을 조합한 제한적 SVG 가져오기",
+      "anchor": "iixml을-조합한-제한적-svg-가져오기",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "명시적인 SVG 비트맵 가져오기",
+      "anchor": "명시적인-svg-비트맵-가져오기",
+      "start_line": 42
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 13,
+        "text": "배포 대상이나 다른 플랫폼에서의 실행을 보장하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 24,
+        "text": "외부 참조 등 다른 SVG 표현은 지원하지 않으며 일부 경로만 반환하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 26,
+        "text": "대체하지 않는다. SVGZ는 완전한 gzip 멤버 하나만 허용하며 잘림·체크섬 오류·",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 49,
+        "text": "이 예시도 설치된 캔버스 라이브러리의 함수가 아니며 PDF는 처리하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 62,
+        "text": "간주하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 72,
+        "text": "메모리 상한이 아니다. 실패하면 부분 픽셀을 반환하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

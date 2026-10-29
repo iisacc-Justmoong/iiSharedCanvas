@@ -1,0 +1,222 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:eff058e358b8fd18d04eb03cab22bc73acfaf4207b76d35150b453d01a6e413e",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/FRAME_OVERLAY.md",
+    "sha256": "e4386a01784c45b664dd3961b066f39587d725fbb8815b5081a1a93bc499ba06",
+    "bytes": 5114,
+    "line_count": 66,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "프레임 픽셀 오버레이",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 프레임 픽셀 오버레이\n",
+      "level": 1,
+      "title": "프레임 픽셀 오버레이"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 6,
+      "raw": "iiSharedCanvas Native 0.35.14의 `FrameBitmapOverlay`는 동기 렌더 호출 동안 한\n래스터 또는 청크 자산의 최종 ARGB 타일을 원본 샘플 대신 제공한다. 여러 자산을\n한 호출에 전달할 수 있다. 오버레이는 문서 모델이나 파일에 저장하지 않으며\n렌더링 자체는 원본 픽셀, 캔버스 영역과 저작 리비전을 바꾸지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 8,
+      "end_line": 13,
+      "raw": "각 타일은 원점이 `BitmapPreviewTileSide`(64)의 배수인 64×64 행 우선 픽셀\n뷰이다. 이력과 렌더러는 같은 공개 상수를 사용한다. 유한 래스터에서는\n자산 로컬 좌표, 청크 자산에서는 레이어 변환 전의 청크 격자 좌표다. 한 자산에서\n같은 타일을 중복하거나 같은 자산을 두 번 지정할 수 없다. 없는 자산, 래스터가\n아닌 자산, 잘못된 크기·정렬·픽셀 수 또는 중복은 `InvalidOverlay`로 거부한다.\n타일이 없는 위치는 원본 자산을 읽고, 청크가 없는 위치의 원본은 투명하다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "fenced_code",
+      "start_line": 15,
+      "end_line": 21,
+      "raw": "```cpp\nauto tiles = history.stagedPixelPreviewTiles();\nconst std::array overlays{iiSharedCanvas::FrameBitmapOverlay{\"paint\", tiles}};\nauto image = iiSharedCanvas::renderFrameRegion(\n    document, frame, region, outputExtent,\n    iiSharedCanvas::RasterSampling::Smooth, overlays);\n```\n",
+      "language": "cpp",
+      "code": "auto tiles = history.stagedPixelPreviewTiles();\nconst std::array overlays{iiSharedCanvas::FrameBitmapOverlay{\"paint\", tiles}};\nauto image = iiSharedCanvas::renderFrameRegion(\n    document, frame, region, outputExtent,\n    iiSharedCanvas::RasterSampling::Smooth, overlays);\n",
+      "closed": true
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 26,
+      "raw": "타일과 자산 ID는 호출자가 소유한다. 모든 픽셀 뷰와 ID는 렌더 호출이 끝날 때까지\n살아 있고 변경되지 않아야 한다. 이력의 다음 변경 호출 또는 소멸 이후 이전 타일\n뷰를 재사용해서는 안 된다. 이 동기 API는 작업자를 시작하거나 수명을 연장하지\n않는다. 병렬 호출에서는 문서와 뷰를 변경하지 않는 책임이 호출자에게 있다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 28,
+      "end_line": 33,
+      "raw": "`renderFrame`, `renderFrameRegion`, `renderFrameTiles`, `renderFrameLayerTiles`,\n`renderFrameLayers`, `renderArtboardRegion`의 오버레이 오버로드가 있다. 기존\n오버로드는 기존 의미를 유지한다. 같은 자산을 여러 레이어가 참조하면 각 참조에\n같은 대체 픽셀과 해당 레이어 변환이 적용된다. 유한 래스터는 자산 경계에서\n잘리며 무한 캔버스는 아직 할당되지 않은 청크도 렌더한다. 해당 청크의 전체 빈\n픽셀 배열을 만들지 않는다. 투명 대체 픽셀은 기존 픽셀을 제거한다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 42,
+      "raw": "대체는 최근접·부드러운 샘플링 전, 레이어 필터 전, 래스터 마스크의 feather와\n마스크 스택 계산 전에 적용된다. 즉 마스크 자산도 동일한 방식으로 오버레이할 수\n있다. 필터를 사용하는 기존 경로는 유한 래스터 전체를 복사하고 처리할 수 있으며,\n오버레이는 이 비용을 없애지 않는다. 청크 오버레이는 기존 청크와 임시 청크의\n인덱스를 만들고 각 청크를 순서대로 합성하므로 동시 출력 버퍼는 청크 수만큼\n쌓이지 않는다. 전체 할당량과 계산량은 청크와 출력 영역 수에 의존하며, 오버레이\n없는 기존 경로에는 이 개선이 적용되지 않는다. 이러한 비용은 RSS 또는 지연 시간의\n상한을 보장하지 않는다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 47,
+      "raw": "64개의 32×32 청크와 256×256 출력을 사용하는 회귀 표본에서 순차 합성 전후의\n동시 일반 C++ `new`·`new[]` 할당은 각각 17,318,920바이트와 528,392바이트였다.\n호출 스레드에서 측정한 한 사례이며 정렬 할당·C 할당·다른 스레드·전체 RSS는\n포함하지 않는다. 처리 시간과 전체 화면 성능의 보장은 아니다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 49,
+      "end_line": 55,
+      "raw": "`renderFrame`의 영역은 여전히 원본 문서의 뷰 영역이다. 무한 캔버스의 임시 확장\n영역을 보려면 호출자가 `stagedPixelPreviewRegion()` 등을 사용해 원하는 영역을\n`renderFrameRegion` 또는 타일 요청으로 전달한다. 현재 `Grow`의 경계는 레이어의\n이동·회전·확대 변환을 반영하지 않는다. 문서 리비전이 바뀌지 않으므로 앱은\n미리보기 교체·취소 시 변경 영역을 레이어 변환과 필터 영향을 고려해 화면 캐시에서\n별도로 무효화해야 한다. 입력, 캐시 정책, 장시간 획과 앱 연결은 이 API에 포함되지\n않는다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 66,
+      "raw": "`FrameOverlayRenderTest`는 이력에서 빌린 실제 타일의 투명 지우기와 원본 보존,\n공유 자산·변환·축소 샘플링·마스크·필터, 음수 및 미할당 청크, 입력 거부를\n독립적으로 편집하거나 확정한 기준 문서의 렌더 출력과 대조하고 32비트 좌표\n양 끝을 검사한다. 별도\n`FrameOverlayRender8KTest`는 두 8K 자산과 feather 마스크를 사용한 작은 영역의\n렌더·원본 전체 픽셀 보존·호출 스레드 C++ 할당을 검사하며, 할당되지 않은\n4096×4096 청크도 작은 영역으로 렌더한다. `FrameOverlayRenderManyChunksTest`는\n다수의 표시 청크를 포함한 미리보기의 동시 C++ 할당과 픽셀 출력을 검사한다.\n`FrameOverlayFileTest`는 파일에 바인딩된 미리보기 렌더 중 다른 리더의 내용과\n리비전 보존, 한 번의 확정 및 Undo/Redo를 검사한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "프레임 픽셀 오버레이",
+      "anchor": "프레임-픽셀-오버레이",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000009",
+        "line": 25,
+        "text": "뷰를 재사용해서는 안 된다. 이 동기 API는 작업자를 시작하거나 수명을 연장하지",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 42,
+        "text": "상한을 보장하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 47,
+        "text": "포함하지 않는다. 처리 시간과 전체 화면 성능의 보장은 아니다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 52,
+        "text": "이동·회전·확대 변환을 반영하지 않는다. 문서 리비전이 바뀌지 않으므로 앱은",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 54,
+        "text": "별도로 무효화해야 한다. 입력, 캐시 정책, 장시간 획과 앱 연결은 이 API에 포함되지",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

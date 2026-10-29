@@ -1,0 +1,263 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:8ba27875876abb77c3f7191f3cb827027b7c1062aaec9037c626c738f2f213a6",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/BITMAP_WET_BRUSH.md",
+    "sha256": "19954bd23a8b922acba8fa4054436dc6d777c0adea1f99845321539f51a5743c",
+    "bytes": 3002,
+    "line_count": 23,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "비트맵 Mixer와 Smudge의 샘플링",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 비트맵 Mixer와 Smudge의 샘플링\n",
+      "level": 1,
+      "title": "비트맵 Mixer와 Smudge의 샘플링"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "iiSharedCanvas 0.33.1은 유한·청크 편집기의 브러시 투영에 `RasterSourceSampler`를 연결한다. iiPaintEngine 0.5.3 이상이 필요하다. 공개 객체 배치와 IISC 1.22 형식은 바뀌지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## 소스 정책\n",
+      "level": 2,
+      "title": "소스 정책"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "샘플링 대상은 **바인딩된 래스터 자산의 획 시작 픽셀**이다. 다른 레이어의 합성 결과, 레이어 마스크·클리핑·표시 변환을 자동으로 읽지 않는다. 활성 프레임의 자산 선택과 문서→자산 입력 좌표 변환은 소비자가 담당한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "기존 픽셀 이력에 잡아 둔 읽기 전용 스냅샷을 빌리므로 별도의 전체 소스 복사를 추가하지 않는다. 현재 획의 미리보기는 소스로 되먹이지 않는다. 동일한 위치·시간 궤적을 다른 입력 빈도로 나누어도 같은 배경 표본을 사용한다. 새 획은 직전 확정 픽셀을 새로운 소스로 잡는다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "유한 편집기는 자산 내부 좌표를 사용한다. 청크 편집기는 현재 캔버스 원점과 크기를 샘플러 경계로 제공하고, 콜백의 내부 좌표를 월드 좌표로 옮겨 정렬된 원본 청크에서 읽는다. 음수 좌표도 바닥 나눗셈으로 해석한다. 없는 청크와 범위 밖 픽셀은 투명이다. 청크를 읽기 위해 새로 할당하거나 수정하지 않는다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "## 도구 의미\n",
+      "level": 2,
+      "title": "도구 의미"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "Mixer와 물감이 있는 Smudge는 iiPaintEngine의 픽셀 혼합 근사식을 사용한다. Wetness·Mix·Pickup·Deposit 등은 해당 모드에 맞는 엔진 필드로 전달되어야 한다. UI 파라미터의 도구별 활성·단위 결정은 별도 계약이다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "`Smudge + deposit=0`은 전경색을 넣지 않고 원본 픽셀을 끌어오는 모드이다. 투명한 대상으로 파랑을 절반 강도로 이동하면 alpha=128의 파랑이 된다. 소스가 모두 비어 있거나 Pickup=0인 빈 대상은 새 색을 만들지 않는다. 투명 RGB가 섞이는 테두리를 방지하며, 기존 불투명 영역을 투명 소스로 깎는 유체 이동까지 제공하는 모델은 아니다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "읽기·투영이 끝난 후 현재 획의 픽셀 타일 누적에 반영한다. 선택 마스크·대형 문서 이력·물리 유체 시뮬레이션·합성 레이어 샘플링을 이 연결만으로 완료했다고 해석하지 않는다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "## 검사\n",
+      "level": 2,
+      "title": "검사"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "`BitmapWetBrushTest`는 빨강/파랑의 Mixer 결과, Wetness·Mix·Pickup의 결과 차이, 투명 경계의 파랑 alpha, 빈 소스, 이벤트 분할, 유한/청크·음수 원점의 동일성, 취소·Undo/Redo와 다른 자산 보존을 검사한다. 색 검사 표본은 획의 불투명도 상한까지 중첩하여 기존 재질 유량 감쇠와 소스 혼합색을 구분한다. 단일 dab의 최종 alpha는 재질·Flow·Opacity의 영향을 추가로 받는다. 파일 바인딩의 확정·Undo/Redo·재열기 후 픽셀도 검사한다. 설치 소비자는 새 exported target과 설치 헤더·라이브러리만 사용한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "비트맵 Mixer와 Smudge의 샘플링",
+      "anchor": "비트맵-mixer와-smudge의-샘플링",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "소스 정책",
+      "anchor": "소스-정책",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "도구 의미",
+      "anchor": "도구-의미",
+      "start_line": 13
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "검사",
+      "anchor": "검사",
+      "start_line": 21
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000009",
+        "line": 9,
+        "text": "기존 픽셀 이력에 잡아 둔 읽기 전용 스냅샷을 빌리므로 별도의 전체 소스 복사를 추가하지 않는다. 현재 획의 미리보기는 소스로 되먹이지 않는다. 동일한 위치·시간 궤적을 다른 입력 빈도로 나누어도 같은 배경 표본을 사용한다. 새 획은 직전 확정 픽셀을 새로운 소스로 잡는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 11,
+        "text": "유한 편집기는 자산 내부 좌표를 사용한다. 청크 편집기는 현재 캔버스 원점과 크기를 샘플러 경계로 제공하고, 콜백의 내부 좌표를 월드 좌표로 옮겨 정렬된 원본 청크에서 읽는다. 음수 좌표도 바닥 나눗셈으로 해석한다. 없는 청크와 범위 밖 픽셀은 투명이다. 청크를 읽기 위해 새로 할당하거나 수정하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 19,
+        "text": "읽기·투영이 끝난 후 현재 획의 픽셀 타일 누적에 반영한다. 선택 마스크·대형 문서 이력·물리 유체 시뮬레이션·합성 레이어 샘플링을 이 연결만으로 완료했다고 해석하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

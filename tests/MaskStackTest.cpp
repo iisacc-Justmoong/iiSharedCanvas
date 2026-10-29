@@ -1,4 +1,5 @@
 #include <iiSharedCanvas.h>
+#include <iiFileProviderNative.h>
 #include <filesystem>
 #include <iostream>
 #include <limits>
@@ -46,8 +47,10 @@ int main() {
     check(!editor.setLayerAppearance("layer",invalid).ok() && editor.revision()==revision,"duplicate IDs rejected atomically");
     invalid=a(d); invalid.maskStack[0].combine=static_cast<MaskCombineMode>(99);
     check(!editor.setLayerAppearance("layer",invalid).ok(),"unknown combine rejected");
-    const auto path=std::filesystem::path(IISHAREDCANVAS_TEST_OUTPUT_DIR)/"mask-stack.iisc";
-    std::filesystem::create_directories(path.parent_path()); std::filesystem::remove(path);
+    const std::filesystem::path parent(IISHAREDCANVAS_TEST_OUTPUT_DIR);
+    iiFileProvider::native::TemporaryDirectory temporary(parent);
+    if (!temporary.isValid()) { std::cerr << "cannot reserve test directory\n"; return 1; }
+    const auto path=temporary.path()/"mask-stack.iisc";
     DocumentFile file; check(file.create(path.string(),d).ok(),"working file created");
     DocumentEditor bound(file); auto changed=a(d); changed.maskStack[0].name="Renamed"; changed.maskStack[0].mask.featherRadius=0.4;
     check(bound.setLayerAppearance("layer",changed).ok(),"file bound stack commit");
@@ -55,6 +58,6 @@ int main() {
     check(!bound.setLayerAppearance("layer",invalid).ok() && file.revision()==committed,"invalid edit preserves durable revision");
     file.close(); check(file.open(path.string()).ok(),"working file reopened");
     if(file.document()) { check(layerProperties(file.document()->layers[0]).appearance==changed,"stack file persistence"); check(renderFrame(*file.document(),0).ok(),"reopened file renders"); }
-    file.close(); std::filesystem::remove(path);
+    file.close();
     return failures ? 1 : 0;
 }

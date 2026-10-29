@@ -1,4 +1,5 @@
 #include <iiSharedCanvas.h>
+#include <iiFileProviderNative.h>
 #include <array>
 #include <algorithm>
 #include <cmath>
@@ -270,8 +271,10 @@ int main()
     {
         auto d = document(); appearance(d).rasterMask = bitmapMask(d);
         appearance(d).filters.emplace_back(); appearance(d).filters[0].operation = ColorAdjustment{.exposure = 1};
-        const auto output = std::filesystem::path{IISHAREDCANVAS_TEST_OUTPUT_DIR} / "layer-compositing.iisc";
-        std::filesystem::create_directories(output.parent_path()); std::filesystem::remove(output);
+        const std::filesystem::path parent(IISHAREDCANVAS_TEST_OUTPUT_DIR);
+        iiFileProvider::native::TemporaryDirectory temporary(parent);
+        if (!temporary.isValid()) { std::cerr << "cannot reserve test directory\n"; return 1; }
+        const auto output = temporary.path() / "layer-compositing.iisc";
         DocumentFile file; expect(file.create(output.string(), d).ok(), "create persisted appearance document");
         DocumentEditor editor(file); auto a = appearance(d); a.rasterMask->density = 0.25;
         expect(editor.setLayerAppearance("layer", a).ok(), "file-bound appearance commits synchronously");
@@ -282,7 +285,7 @@ int main()
         expect(file.document() && layerProperties(file.document()->layers[0]).appearance.rasterMask->density == 0.25,
             "mask/filter state must be durable");
         if (file.document()) expect(renderFrame(*file.document(),0).ok(), "persisted appearance renders");
-        file.close(); std::filesystem::remove(output);
+        file.close();
     }
     return failures == 0 ? 0 : 1;
 }

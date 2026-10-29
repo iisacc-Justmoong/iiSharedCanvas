@@ -12,12 +12,12 @@ struct NativeStorageFailure final:std::runtime_error {
     DocumentFileCode code;
 };
 template<class T> T sqlValue(sql::Result<T> result) {
-    if(!result) throw NativeStorageFailure(result.error().code==sql::Code::busy?DocumentFileCode::Conflict:
+    if(!result) throw NativeStorageFailure((result.error().code==sql::Code::busy || result.error().code==sql::Code::conflict)?DocumentFileCode::Conflict:
         result.error().code==sql::Code::limit_exceeded?DocumentFileCode::LimitExceeded:DocumentFileCode::IoError,result.error().message);
     return std::move(*result);
 }
 inline void sqlValue(sql::Result<void> result) {
-    if(!result) throw NativeStorageFailure(result.error().code==sql::Code::busy?DocumentFileCode::Conflict:
+    if(!result) throw NativeStorageFailure((result.error().code==sql::Code::busy || result.error().code==sql::Code::conflict)?DocumentFileCode::Conflict:
         result.error().code==sql::Code::limit_exceeded?DocumentFileCode::LimitExceeded:DocumentFileCode::IoError,result.error().message);
 }
 class NativeStatement;

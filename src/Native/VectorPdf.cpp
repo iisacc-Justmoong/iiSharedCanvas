@@ -1,4 +1,5 @@
 #include "Media_p.hpp"
+#include "VectorPdf_p.hpp"
 #include <iiSDKCore/Core/Text/Number.h>
 #include <algorithm>
 #include <cmath>
@@ -7,6 +8,12 @@
 #include <type_traits>
 
 namespace iiSharedCanvas::media_detail {
+std::string pdfNumber(double value){
+    if(!std::isfinite(value))throw std::invalid_argument("Nonfinite PDF coordinate");
+    auto text=ii::core::format_decimal(value);const auto exponent=text.find_first_of("eE");if(exponent==text.npos)return text;
+    const auto power=std::stoi(text.substr(exponent+1));text.resize(exponent);const bool minus=text.starts_with('-');if(minus)text.erase(0,1);auto dot=text.find('.');if(dot==text.npos)dot=text.size();else text.erase(dot,1);const auto position=std::int64_t(dot)+power;
+    if(position<=0)text="0."+std::string(std::size_t(-position),'0')+text;else if(std::size_t(position)>=text.size())text+=std::string(std::size_t(position)-text.size(),'0');else text.insert(std::size_t(position),1,'.');return (minus?"-":"")+text;
+}
 PdfBounds vectorBounds(const VectorAsset& asset){
     double left=0,top=0,right=asset.viewport.width,bottom=asset.viewport.height;
     for(const auto& path:asset.paths){
@@ -23,9 +30,7 @@ PdfBounds vectorBounds(const VectorAsset& asset){
     return {left,top,right-left,bottom-top};
 }
 std::vector<std::uint8_t> vectorPdf(const VectorAsset& asset,PdfBounds bounds,std::uint64_t limit){
-    const auto number=[](double value){if(!std::isfinite(value))throw std::invalid_argument("Nonfinite PDF coordinate");auto text=ii::core::format_decimal(value);const auto exponent=text.find_first_of("eE");if(exponent==text.npos)return text;
-        const auto power=std::stoi(text.substr(exponent+1));text.resize(exponent);const bool minus=text.starts_with('-');if(minus)text.erase(0,1);auto dot=text.find('.');if(dot==text.npos)dot=text.size();else text.erase(dot,1);const auto position=std::int64_t(dot)+power;
-        if(position<=0)text="0."+std::string(std::size_t(-position),'0')+text;else if(std::size_t(position)>=text.size())text+=std::string(std::size_t(position)-text.size(),'0');else text.insert(std::size_t(position),1,'.');return (minus?"-":"")+text;};
+    const auto number=&pdfNumber;
     std::string stream;
     const auto append=[&](std::string_view value){if(stream.size()>limit||value.size()>limit-stream.size())throw std::length_error("Vector PDF exceeds its byte budget");stream+=value;};
     append("q\n1 0 0 -1 "+number(-bounds.x)+" "+number(bounds.h+bounds.y)+" cm\n1 J 1 j\n");

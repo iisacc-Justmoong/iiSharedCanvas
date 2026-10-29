@@ -1,10 +1,13 @@
 #pragma once
 
+#include "Bitmap/BitmapEdit.h"
 #include "Document/Document.h"
 #include "iiSharedCanvas/Export.h"
 
 #include <cstddef>
+#include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace iiSharedCanvas {
@@ -17,6 +20,7 @@ enum class FrameRenderStatus {
     AssetResolutionFailed,
     LayerOutOfRange,
     ArtboardNotFound,
+    InvalidOverlay,
 };
 
 struct FrameRenderResult {
@@ -33,6 +37,16 @@ struct FrameRenderResult {
 
 // Presentation policy, never persisted in the document or applied to source assets.
 enum class RasterSampling { Nearest, Smooth };
+
+// A borrowed, synchronous view of final asset pixels. Each tile is a
+// BitmapPreviewTileSide square row-major tile aligned to that grid, in finite
+// asset or chunk-grid space.
+// Missing tiles sample the original asset. One asset may appear only once;
+// tiles must not repeat. Views must remain alive and unmodified for the call.
+struct FrameBitmapOverlay {
+    std::string_view assetId;
+    std::span<const BitmapPreviewTile> tiles;
+};
 
 struct FrameRenderTileRequest {
     CanvasRegion region;
@@ -94,6 +108,8 @@ struct FrameLayerBatchRenderResult {
 
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrame(const Document &document,
                                                      FrameIndex frame);
+IISHAREDCANVAS_EXPORT FrameRenderResult renderFrame(const Document &document,
+    FrameIndex frame, std::span<const FrameBitmapOverlay> overlays);
 // Only this artboard's background and owned artwork; loose/other artwork is excluded.
 IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboard(
     const Document &document, FrameIndex frame, const std::string &artboardId);
@@ -105,6 +121,10 @@ IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboardRegion(
     const Document &document, FrameIndex frame, const std::string &artboardId,
     CanvasRegion region, CanvasExtent outputExtent,
     RasterSampling sampling = RasterSampling::Nearest);
+IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboardRegion(
+    const Document &document, FrameIndex frame, const std::string &artboardId,
+    CanvasRegion region, CanvasExtent outputExtent, RasterSampling sampling,
+    std::span<const FrameBitmapOverlay> overlays);
 // Finite requests stay inside documentViewRegion. Infinite requests can sample
 // any bounded world region without editing the persisted origin or extent.
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
@@ -118,19 +138,35 @@ IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
     CanvasRegion region,
     CanvasExtent outputExtent,
     RasterSampling sampling);
+IISHAREDCANVAS_EXPORT FrameRenderResult renderFrameRegion(
+    const Document &document, FrameIndex frame, CanvasRegion region,
+    CanvasExtent outputExtent, RasterSampling sampling,
+    std::span<const FrameBitmapOverlay> overlays);
 IISHAREDCANVAS_EXPORT FrameTileRenderResult renderFrameTiles(
     const Document &document,
     FrameIndex frame,
     const std::vector<FrameRenderTileRequest> &requests);
+IISHAREDCANVAS_EXPORT FrameTileRenderResult renderFrameTiles(
+    const Document &document, FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests,
+    std::span<const FrameBitmapOverlay> overlays);
 IISHAREDCANVAS_EXPORT FrameLayerTileRenderResult renderFrameLayerTiles(
     const Document &document,
     FrameIndex frame,
     std::size_t layerIndex,
     const std::vector<FrameRenderTileRequest> &requests);
+IISHAREDCANVAS_EXPORT FrameLayerTileRenderResult renderFrameLayerTiles(
+    const Document &document, FrameIndex frame, std::size_t layerIndex,
+    const std::vector<FrameRenderTileRequest> &requests,
+    std::span<const FrameBitmapOverlay> overlays);
 IISHAREDCANVAS_EXPORT FrameLayerBatchRenderResult renderFrameLayers(
     const Document &document,
     FrameIndex frame,
     const std::vector<FrameRenderTileRequest> &requests);
+IISHAREDCANVAS_EXPORT FrameLayerBatchRenderResult renderFrameLayers(
+    const Document &document, FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests,
+    std::span<const FrameBitmapOverlay> overlays);
 IISHAREDCANVAS_EXPORT FrameTileRenderResult composeFrameLayers(
     const FrameLayerBatchRenderResult &layers);
 

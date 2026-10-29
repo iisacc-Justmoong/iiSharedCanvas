@@ -1,0 +1,55 @@
+# Run the default-directory contract across independent CMake configure calls.
+if(NOT IS_DIRECTORY "${BUILD_ROOT}" OR NOT IS_DIRECTORY "${WORK_DIR}")
+    message(FATAL_ERROR "Existing build and resource work directories are required")
+endif()
+file(REAL_PATH "${BUILD_ROOT}" _build_root)
+file(REAL_PATH "${WORK_DIR}" _work_root)
+string(RANDOM LENGTH 24 ALPHABET 0123456789abcdef _nonce)
+set(_driver "${_build_root}/workdir-reconfigure-${_nonce}")
+set(_fixture "${_work_root}/workdir-reconfigure-${_nonce}")
+if(EXISTS "${_driver}" OR IS_SYMLINK "${_driver}" OR
+   EXISTS "${_fixture}" OR IS_SYMLINK "${_fixture}")
+    message(FATAL_ERROR "Refusing an existing reconfiguration fixture")
+endif()
+file(MAKE_DIRECTORY "${_driver}/source" "${_fixture}/resources")
+file(WRITE "${_driver}/source/CMakeLists.txt" [=[
+cmake_minimum_required(VERSION 3.31)
+project(WorkDirReconfigureProbe NONE)
+include("${HELPER}")
+iisc_configure_test_work_dir(work "${RESOURCE_ROOT}")
+message(STATUS "DRIVER_WORK_DIR=${work}")
+]=])
+set(_args -S "${_driver}/source" -B "${_driver}/source/build"
+    "-DHELPER=${SOURCE}/cmake/iiSharedCanvasTestWorkDir.cmake"
+    "-DRESOURCE_ROOT=${_fixture}/resources")
+execute_process(COMMAND "${CMAKE_COMMAND}" ${_args}
+    RESULT_VARIABLE _first_result OUTPUT_VARIABLE _first_out ERROR_VARIABLE _first_err)
+if(NOT _first_result EQUAL 0 OR NOT _first_out MATCHES "DRIVER_WORK_DIR=([^\r\n]+)")
+    message(FATAL_ERROR "Initial configure failed: ${_first_out} ${_first_err}")
+endif()
+set(_first "${CMAKE_MATCH_1}")
+include("${SOURCE}/cmake/iiSharedCanvasTestWorkDir.cmake")
+iisc_test_work_dir(_first_checked "${_fixture}/resources" "${_first}")
+file(REMOVE_RECURSE "${_first_checked}")
+execute_process(COMMAND "${CMAKE_COMMAND}" ${_args}
+    RESULT_VARIABLE _second_result OUTPUT_VARIABLE _second_out ERROR_VARIABLE _second_err)
+if(NOT _second_result EQUAL 0 OR NOT _second_out MATCHES "DRIVER_WORK_DIR=([^\r\n]+)")
+    message(FATAL_ERROR "Configure after cleanup failed: ${_second_out} ${_second_err}")
+endif()
+set(_second "${CMAKE_MATCH_1}")
+iisc_test_work_dir(_second_checked "${_fixture}/resources" "${_second}")
+if(_first_checked STREQUAL _second_checked)
+    message(FATAL_ERROR "Cleanup must produce a fresh generated directory")
+endif()
+execute_process(COMMAND "${CMAKE_COMMAND}" ${_args}
+    "-DIISC_TEST_WORK_DIR=${_fixture}/resources/.iisacc-missing-explicit"
+    RESULT_VARIABLE _missing_result OUTPUT_VARIABLE _missing_out ERROR_VARIABLE _missing_err)
+if(_missing_result EQUAL 0 OR NOT _missing_err MATCHES "Test work directory must be an existing absolute directory"
+   OR NOT IS_DIRECTORY "${_second_checked}")
+    message(FATAL_ERROR "Explicit missing directory was not safely rejected: ${_missing_out} ${_missing_err}")
+endif()
+if(IS_SYMLINK "${_driver}" OR IS_SYMLINK "${_fixture}")
+    message(FATAL_ERROR "Reconfiguration fixture was replaced by a link")
+endif()
+file(REMOVE_RECURSE "${_driver}" "${_fixture}")
+message(STATUS "TEST_WORK_DIR_RECONFIGURE_OK")

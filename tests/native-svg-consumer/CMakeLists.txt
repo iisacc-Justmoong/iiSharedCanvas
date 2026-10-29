@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.31)
+project(NativeCanvasSvgConsumer LANGUAGES CXX)
+
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt5 ON)
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt6 ON)
+find_package(iiSharedCanvasNative CONFIG REQUIRED)
+find_package(iiXmlNative 0.1 CONFIG REQUIRED)
+find_package(iiCompression 0.1 CONFIG REQUIRED)
+if(TARGET Qt6::Core OR TARGET Qt5::Core)
+    message(FATAL_ERROR "The installed SVG consumer imported Qt")
+endif()
+
+add_executable(xml-svg-consumer ../NativeXmlSvgTest.cpp ../../example/XmlSvgDecoder.cpp)
+target_include_directories(xml-svg-consumer PRIVATE ../../example)
+target_link_libraries(xml-svg-consumer PRIVATE iiSharedCanvas::Native iiXml::Native iiCompression::iiCompression)
+enable_testing()
+add_test(NAME NativeSvgConsumer.XmlCanvasSvg COMMAND xml-svg-consumer)

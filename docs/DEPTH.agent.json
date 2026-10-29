@@ -1,0 +1,364 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:e7884320f53138706743a459f69b299f758fc22c433eeeb837a082ca8eb0f2ac",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/DEPTH.md",
+    "sha256": "234db17bf08ddfe6c012a1ae3df572a8d70154a68dae6f90031afefd7ff7ed67",
+    "bytes": 6661,
+    "line_count": 53,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "깊이 ControlNet 레이어 ( 0.15.0 / 네이티브 형식 1.9 )",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"depth-controlnet-layers-0150--native-format-19\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 깊이 ControlNet 레이어 ( 0.15.0 / 네이티브 형식 1.9 )\n",
+      "level": 1,
+      "title": "깊이 ControlNet 레이어 ( 0.15.0 / 네이티브 형식 1.9 )"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "`DepthLayer`는 `DepthAsset`가 지원하는 전용 `LayerRole::ControlNet` / `ControlNetKind::Depth` 레이어입니다. 그 표현은 비트맵입니다. `StaticSource`는 매 프레임마다 하나의 깊이 필드를 보유하고, `KeyframedSource`는 기존 타임라인 프레임/홀드 및 레이어 범위 규칙을 통해 다른 필드를 선택합니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "html",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "<a id=\"value-contract\"></a>\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 가치 계약\n",
+      "level": 2,
+      "title": "가치 계약"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "깊이는 **정규화된 근접도**로 작성되었으며, 거리 측정치나 계산된 역거리 공식이 아닙니다. `0` 는 비어있는/열린 공간을 의미하며, `1` 는 캔버스 카메라와의 접촉을 의미합니다. 양수 중간 값은 점유된 공간을 나타내며, 값이 클수록 카메라에 더 가깝습니다. 영원 평면 기하학은 영에서 없고 추가적인 알 수 없는 값 센티넬도 없습니다. 카메라 보정, 클리핑 평면, 단위, 깊이 추정 모델, 또는 시점 재구정이 암시되지 않습니다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "`DepthAsset`는 ID가 양수인 `CanvasExtent viewport`를 포함하며, 정확히 `width * height` 유한 `double` 값을 행 순서로 정렬합니다. 도메인은 [0,1]입니다. 좌표 주소 네이티브 자산 픽셀 (x 오른쪽, y 아래). 범위 밖의 값, NaN /infinity, 크기가 일치하지 않는 경우, 누락된 자산 및 잘못된 출처 유형은 트랜잭션 방식으로 거부됩니다. 투명도를 사용하여 빈 공간을 인코딩하지 마십시오.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "네이티브 필드는 IEEE 바이너리64 정밀도를 유지합니다. `depthRasterPreview` 와 `renderDepthControlMap` 맵은 모든 RGB 채널에서 `round(value * 255)` 에 매핑되며, 알파 255를 포함합니다. 따라서 0 = 불투명한 검정, 0.5 = RGB ( 128,128,128 ), 1 = 불투명한 흰색입니다. 이것은 직접적인 선형 수치 인코딩입니다: 제어 출력에 sRGB 감마, 프레임별 최소/최대 정규화, 반전, 보간 또는 알파 블렌딩이 적용되지 않습니다. 매우 작은 양의 값은 RGB8 에서 검정으로 양자화될 수 있습니다; 출력의 원래 `values` 와 `occupiedPixels` (값이 0 보다 큼) 은 완전히 비어 있는 공간과 구별을 유지합니다. 정밀도가 필요한 소비자는 미리보기에서 깊이를 복구하는 대신 `values` 를 사용해야 합니다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "html",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "<a id=\"editing-and-output\"></a>\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "## 편집 및 출력\n",
+      "level": 2,
+      "title": "편집 및 출력"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "fenced_code",
+      "start_line": 21,
+      "end_line": 34,
+      "raw": "```cpp\nDocument document;\ndocument.extent = {2, 2};\nDocumentEditor editor(document);\nauto assetResult = editor.insertDepthAsset(\n    {\"depth.frame0\", {2, 2}, {0.0, 0.25, 0.5, 1.0}});\nDepthLayer layer;\nlayer.properties = {\"depth.layer\", \"Depth\"};\nlayer.source = StaticSource{\"depth.frame0\"};\nauto layerResult = editor.insertDepthLayer(layer);\nauto editResult = editor.setDepthSample(\"depth.frame0\", 1, 0, 0.375);\nauto map = renderDepthControlMap(document, \"depth.layer\", 0);\n// 데이터를 사용하기 전에 편집 결과와 map.ok()를 확인한다.\n```\n",
+      "language": "cpp",
+      "code": "Document document;\ndocument.extent = {2, 2};\nDocumentEditor editor(document);\nauto assetResult = editor.insertDepthAsset(\n    {\"depth.frame0\", {2, 2}, {0.0, 0.25, 0.5, 1.0}});\nDepthLayer layer;\nlayer.properties = {\"depth.layer\", \"Depth\"};\nlayer.source = StaticSource{\"depth.frame0\"};\nauto layerResult = editor.insertDepthLayer(layer);\nauto editResult = editor.setDepthSample(\"depth.frame0\", 1, 0, 0.375);\nauto map = renderDepthControlMap(document, \"depth.layer\", 0);\n// 데이터를 사용하기 전에 편집 결과와 map.ok()를 확인한다.\n",
+      "closed": true
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "대량 편집에는 `replaceDepthAsset`를, 개별 픽셀에는 `setDepthSample`를 사용하십시오. 각 편집은 다른 문서 작업과 동일한 검증, 롤백, 리비전 및 파일 바인드 트랜잭션 규칙을 사용합니다. 공유 소스 자산 편집은 이를 참조하는 모든 레이어/프레임을 업데이트합니다; 독립적인 콘텐츠가 필요할 경우 먼저 별도의 자산을 삽입하십시오. 컬러 `BitmapEditor` 브러시는 깊이 자산을 바인딩할 수 없습니다. 기본으로 생성된 필드는 값의 크기를 명시적으로 지정해야 합니다; 빈 캔버스의 경우 0.0를 입력하십시오.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "동적 깊이를 위해 `insertDepthLayer(layer, {{0,\"a\"},{1,\"b\"}})`와 `KeyframedSource{}` 또는 `setKeyframedSource`를 사용하십시오. 프레임 소스는 서로 다른 네이티브 범위를 가질 수 있으며, 내보낸 지도 차원은 선택된 자산의 차원입니다. 프레임 변경 시 시간 보간이나 자동 깊이 정규화가 발생하지 않습니다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "`ControlNetSettings` 는 시맨틱 섹먼트와 자세와 공유됩니다. 제어 맵은 `enabled`, 타임라인 경계 및 레이어 프레임 범위를 존중합니다. 표시 가시성, 불투명도, 블렌드 모드 및 변환은 네이티브 제어 값을 변경하지 않습니다. 일반 아트웍 구성은 레이어를 제외하며, 명시적인 레이어 미리보기는 사용 가능하고 표시 변환을 사용할 수 있습니다. 출력은 최대 16 Mi 픽셀로 기본 설정되며, RGB, 스칼라 및 점유율 버퍼 할당 전에 예산이 확인됩니다 (13 바이트/샘플, 할당기 오버헤드 제외). `depthRasterPreview` 는 유효하지 않은 데이터/한계에 대해 예외를 던지고, `renderDepthControlMap` 는 메시지를 보고합니다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "html",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "<a id=\"persistence-and-interchange\"></a>\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "## 지속성 및 교환\n",
+      "level": 2,
+      "title": "지속성 및 교환"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "패키지 0.15.0는 공개 변형 레이아웃(6 자산 및 6 레이어 변형)을 변경하므로 소비자는 재구성해야 합니다. 네이티브 형식 1.9는 자산 태그 5, 키프레임이 적용된 콘텐츠 태그 3, 레이어‐롤 태그 3를 추가합니다. 이전 형식은 깊이를 버리기보다 거부합니다. 기존 1.0 – 1.8 문서는 여전히 읽을 수 있습니다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "깊이 자산은 id, i32 너비, i32 높이, u64 샘플 수, 그 다음 행 우선 리틀 엔디안 f64 샘플을 저장합니다. 깊이 레이어는 일반 속성/소스 및 ControlNet 활성화/ modelId / modelRevision / conditioningScale / guidanceStart / guidanceEnd 필드를 운동 전에 사용합니다. 개수, 입력 바이트 사용 가능 여부, 주소 공간 및 전역 `SerializationLimits::maximumDepthSamples` (모든 자산에 대한 기본 64 Mi 샘플) 은 할당 전에 확인됩니다. 문서 검증에서 인코딩/디코딩 시 유효하지 않은 값이 거부됩니다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "스냅샷과 SQLite 작업 파일 경로는 모두 정확한 값을 유지합니다. 작업 파일은 변경된 자산을 기록하고 변경되지 않은 레코드를 재사용합니다; 스키마 버전은 1로 유지됩니다. PSD와 타임라인 교환은 지원되지 않는 ControlNet 콘텐츠를 거부하며, 타임라인 패키지에 포함된 고아 깊이 자산을 포함합니다. 이 스칼라 계약에 의해 외부 모델 호환성이나 생성된 이미지 품질이 주장되지 않습니다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 52,
+      "end_line": 53,
+      "raw": "자세한 레이어 및 개체 필드는 다음을 통해 원자적으로 편집할 수도 있습니다.\n모든 동적 소스 상태를 포함하는 [공통 매개변수 API](CONTROLNET_PARAMETERS.md).\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "깊이 ControlNet 레이어 ( 0.15.0 / 네이티브 형식 1.9 )",
+      "anchor": "깊이-controlnet-레이어--0150--네이티브-형식-19-",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "가치 계약",
+      "anchor": "가치-계약",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "편집 및 출력",
+      "anchor": "편집-및-출력",
+      "start_line": 19
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "지속성 및 교환",
+      "anchor": "지속성-및-교환",
+      "start_line": 44
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000039",
+        "label": "공통 매개변수 API",
+        "target": "CONTROLNET_PARAMETERS.md",
+        "kind": "relative",
+        "line": 53
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

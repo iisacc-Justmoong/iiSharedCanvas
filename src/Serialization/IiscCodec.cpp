@@ -345,7 +345,7 @@ IiscError trackString(const std::string &value,
 }
 
 IiscError checkDocumentLimits(const Document &document,
-                              const SerializationLimits &limits)
+                              const SerializationLimits &limits, LimitTotals *output = nullptr)
 {
     if (document.artboards.size() > limits.maximumArtboards
         || document.artboards.size() > std::numeric_limits<std::uint32_t>::max())
@@ -850,6 +850,7 @@ IiscError checkDocumentLimits(const Document &document,
                 if (auto e=track(*s); e.code!=IiscErrorCode::None) return e;
         }
     }
+    if (output) *output = totals;
     return {};
 }
 
@@ -961,12 +962,18 @@ void writeLayerAppearance(ByteWriter &writer, const LayerAppearance &a, FormatVe
     }
 }
 
-void writeRaster(ByteWriter &writer, const RasterLayer &raster, bool compress = true)
+void writeRaster(ByteWriter &writer, const RasterLayer &raster, bool compress = true,
+                 bool descriptorOnly = false)
 {
     writer.writeI32(raster.width);
     writer.writeI32(raster.height);
     writer.writeU64(raster.pixels.size());
 
+    if (descriptorOnly) {
+        writer.writeU8(static_cast<std::uint8_t>(RasterEncoding::RawArgb32));
+        writer.writeU64(static_cast<std::uint64_t>(raster.pixels.size()) * 4U);
+        return;
+    }
     std::uint64_t runCount = 0;
     std::uint32_t priorPixel = 0;
     std::uint32_t priorRunLength = 0;
@@ -1039,13 +1046,13 @@ void writeVector(ByteWriter &writer, const VectorAsset &vector)
 }
 
 void writeChunkedRaster(ByteWriter &writer, const ChunkedRasterAsset &chunked,
-                        bool compress = true)
+                        bool compress = true, bool descriptorOnly = false)
 {
     writer.writeU32(static_cast<std::uint32_t>(chunked.chunks.size()));
     for (const RasterChunk &chunk : chunked.chunks) {
         writer.writeI32(chunk.column);
         writer.writeI32(chunk.row);
-        writeRaster(writer, chunk.pixels, compress);
+        writeRaster(writer, chunk.pixels, compress, descriptorOnly);
     }
 }
 
@@ -1200,6 +1207,9 @@ bool unchangedAsset(const Asset &asset, const Document *previous)
     if (!prior || prior->index() != asset.index()) {
         return false;
     }
+    // A same-document comparison has the identical live asset on both sides.
+    // Avoid traversing raster/video payloads when only document metadata changes.
+    if (prior == &asset) return true;
     if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
         const auto &old = std::get<MlsdAsset>(*prior);
         return mlsd->viewport.width==old.viewport.width && mlsd->viewport.height==old.viewport.height && mlsd->segments==old.segments;
@@ -1265,9 +1275,35 @@ bool unchangedAsset(const Asset &asset, const Document *previous)
     return false;
 }
 
+void writeDocumentHeader(ByteWriter &writer, const Document &document, bool workingRecord,
+                         std::optional<CanvasRegion> canvas = {})
+{
+    if (workingRecord) {
+        writer.writeU16(document.formatVersion.major);
+        writer.writeU16(document.formatVersion.minor);
+        writer.writeI32(document.infiniteCanvas.chunkSize);
+    }
+    const auto region = canvas.value_or(canvasRegion(document));
+    writer.writeI32(region.extent.width);
+    writer.writeI32(region.extent.height);
+    if (document.formatVersion.minor >= 1) {
+        writer.writeU8(document.canvasMode == CanvasMode::Infinite ? 1U : 0U);
+        if (document.canvasMode == CanvasMode::Infinite) {
+            writer.writeI32(region.origin.x);
+            writer.writeI32(region.origin.y);
+            writer.writeI32(document.infiniteCanvas.chunkSize);
+        }
+    }
+    writer.writeU32(document.timeline.frameRate.numerator);
+    writer.writeU32(document.timeline.frameRate.denominator);
+    writer.writeU32(document.timeline.frameCount);
+    writer.writeU32(static_cast<std::uint32_t>(document.assets.size()));
+}
+
 void writePayload(ByteWriter &writer, const Document &document,
                   std::vector<detail::DocumentRecord> *records = nullptr,
-                  const Document *previous = nullptr)
+                  const Document *previous = nullptr, bool separateRasters = false,
+                  std::string_view forceAsset = {})
 {
     const auto record = [&](detail::RecordKind kind, std::string id = {},
                             std::uint32_t position = 0) {
@@ -1275,30 +1311,11 @@ void writePayload(ByteWriter &writer, const Document &document,
             records->push_back({kind, std::move(id), position, writer.takeBytes()});
         }
     };
-    if (records) {
-        writer.writeU16(document.formatVersion.major);
-        writer.writeU16(document.formatVersion.minor);
-        writer.writeI32(document.infiniteCanvas.chunkSize);
-    }
-    writer.writeI32(document.extent.width);
-    writer.writeI32(document.extent.height);
-    if (document.formatVersion.minor >= 1) {
-        writer.writeU8(document.canvasMode == CanvasMode::Infinite ? 1U : 0U);
-        if (document.canvasMode == CanvasMode::Infinite) {
-            writer.writeI32(document.infiniteCanvas.origin.x);
-            writer.writeI32(document.infiniteCanvas.origin.y);
-            writer.writeI32(document.infiniteCanvas.chunkSize);
-        }
-    }
-    writer.writeU32(document.timeline.frameRate.numerator);
-    writer.writeU32(document.timeline.frameRate.denominator);
-    writer.writeU32(document.timeline.frameCount);
-
-    writer.writeU32(static_cast<std::uint32_t>(document.assets.size()));
+    writeDocumentHeader(writer, document, records != nullptr);
     record(detail::RecordKind::Header);
     std::uint32_t assetPosition = 0;
     for (const Asset &asset : document.assets) {
-        if (records && unchangedAsset(asset, previous)) {
+        if (records && assetId(asset)!=forceAsset && unchangedAsset(asset, previous)) {
             records->push_back({detail::RecordKind::Asset, assetId(asset), assetPosition++, std::nullopt});
             continue;
         }
@@ -1309,7 +1326,7 @@ void writePayload(ByteWriter &writer, const Document &document,
         writer.writeU8(kind);
         writer.writeString(assetId(asset));
         if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
-            writeRaster(writer, raster->pixels, !records);
+            writeRaster(writer, raster->pixels, !records, separateRasters);
         } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
             writer.writeI32(mlsd->viewport.width); writer.writeI32(mlsd->viewport.height);
             writer.writeU32(static_cast<std::uint32_t>(mlsd->segments.size()));
@@ -1381,7 +1398,7 @@ void writePayload(ByteWriter &writer, const Document &document,
             writer.writeU32(static_cast<std::uint32_t>(video->frames.size()));
             for (const auto &frame : video->frames) { writeRaster(writer, frame, !records); }
         } else {
-            writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset), !records);
+            writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset), !records, separateRasters);
         }
         record(detail::RecordKind::Asset, assetId(asset), assetPosition++);
     }
@@ -1510,7 +1527,10 @@ void writePayload(ByteWriter &writer, const Document &document,
         for (std::size_t index = 0; index < document.audioAssets.size(); ++index) {
             const AudioAsset &asset = document.audioAssets[index];
             const AudioAsset *prior = previous ? findAudioAsset(*previous, asset.id) : nullptr;
-            if (records && prior && *prior == asset) {
+            // The live document is also used as the previous value for
+            // metadata-only file transactions. Identity proves the audio
+            // payload unchanged without scanning every PCM sample.
+            if (records && prior && (prior == &asset || *prior == asset)) {
                 records->push_back({detail::RecordKind::AudioAsset, asset.id,
                                    static_cast<std::uint32_t>(index), std::nullopt});
                 continue;
@@ -1594,10 +1614,11 @@ class DocumentReader final {
 
 public:
     DocumentReader(ByteReader &reader, const SerializationLimits &limits,
-                   bool workingFile = false)
+                   bool workingFile = false,
+                   const detail::WorkingRasterReader *rasterReader = nullptr)
         : m_reader(reader),
           m_limits(limits),
-          m_workingFile(workingFile)
+          m_workingFile(workingFile), m_rasterReader(rasterReader)
     {
     }
 
@@ -1634,7 +1655,7 @@ public:
             const std::uint8_t kind = m_reader.readU8();
             const std::string id = readString();
             if (kind == 0) {
-                document.assets.emplace_back(RasterAsset{id, readRaster()});
+                document.assets.emplace_back(RasterAsset{id, readRaster(id)});
             } else if (kind == 1) {
                 document.assets.emplace_back(readVector(id));
             } else if (kind == 2 && version.minor >= 1) {
@@ -2030,7 +2051,8 @@ private:
         }
     }
 
-    RasterLayer readRaster()
+    RasterLayer readRaster(std::string_view asset = {},
+                           std::optional<CanvasOrigin> chunk = {})
     {
         const std::int32_t width = m_reader.readI32();
         const std::int32_t height = m_reader.readI32();
@@ -2054,6 +2076,14 @@ private:
             m_reader.fail(IiscErrorCode::InvalidData, "working-file rasters must use fixed raw storage");
         }
         const std::uint64_t encodedByteCount = m_reader.readU64();
+        if (m_rasterReader && !asset.empty()) {
+            if (encoding != RasterEncoding::RawArgb32 || encodedByteCount != expectedPixels * 4U)
+                m_reader.fail(IiscErrorCode::InvalidData, "invalid tiled raster descriptor");
+            auto raster = (*m_rasterReader)(asset, width, height, chunk);
+            if (raster.width != width || raster.height != height || raster.pixels.size() != expectedPixels)
+                m_reader.fail(IiscErrorCode::InvalidData, "tile reader returned mismatched raster geometry");
+            return raster;
+        }
         const std::uint64_t encodedOffset = m_reader.offset();
         ByteReader encoded(m_reader.readBytes(encodedByteCount), encodedOffset);
 
@@ -2181,7 +2211,9 @@ private:
                  "raster chunk");
         chunked.chunks.reserve(chunkCount);
         for (std::uint32_t index = 0; index < chunkCount; ++index) {
-            chunked.chunks.push_back({m_reader.readI32(), m_reader.readI32(), readRaster()});
+            const auto column = m_reader.readI32();
+            const auto row = m_reader.readI32();
+            chunked.chunks.push_back({column, row, readRaster(chunked.id, CanvasOrigin{column, row})});
         }
         return chunked;
     }
@@ -2795,14 +2827,67 @@ private:
     ByteReader &m_reader;
     const SerializationLimits &m_limits;
     bool m_workingFile = false;
+    const detail::WorkingRasterReader *m_rasterReader = nullptr;
     LimitTotals m_totals;
     std::vector<PendingKeyframe> m_pendingKeyframes;
 };
 
 } // namespace
 
+detail::WorkingResourceResult detail::workingResourceTotals(const Document &document,
+                                                              SerializationLimits limits)
+{
+    limits.maximumTotalRasterPixels = std::min(limits.maximumTotalRasterPixels,
+                                               limits.maximumContainerBytes / 4);
+    LimitTotals totals;
+    auto error = checkDocumentLimits(document, limits, &totals);
+    if (error.code != IiscErrorCode::None) return {{}, std::move(error)};
+    const auto authorshipBytes = document.formatVersion.minor >= 5
+        ? authorshipDump(document.authorship).size() : 0;
+    return {{totals.rasterPixels, totals.rasterChunks, totals.stringBytes, authorshipBytes}, {}};
+}
+
+std::vector<std::uint8_t> detail::encodeWorkingAuthorship(const std::string &json)
+{
+    ByteWriter writer;
+    writer.writeString(json);
+    return writer.takeBytes();
+}
+
+std::vector<std::uint8_t> detail::encodeWorkingHeader(const Document &document,
+                                                       std::optional<CanvasRegion> canvas)
+{
+    ByteWriter writer;
+    writeDocumentHeader(writer, document, true, canvas);
+    return writer.takeBytes();
+}
+
+std::vector<std::uint8_t> detail::encodeWorkingChunkDescriptor(
+    std::string_view assetId, std::span<const CanvasOrigin> chunks, int chunkSize)
+{
+    ByteWriter writer;
+    writer.writeU8(2);
+    writer.writeString(std::string(assetId));
+    writer.writeU32(static_cast<std::uint32_t>(chunks.size()));
+    const auto pixels = std::uint64_t(chunkSize) * chunkSize;
+    for (const auto chunk : chunks) {
+        writer.writeI32(chunk.x); writer.writeI32(chunk.y);
+        writer.writeI32(chunkSize); writer.writeI32(chunkSize);
+        writer.writeU64(pixels);
+        writer.writeU8(static_cast<std::uint8_t>(RasterEncoding::RawArgb32));
+        writer.writeU64(pixels * 4);
+    }
+    return writer.takeBytes();
+}
+
+bool detail::workingAssetUnchanged(const Asset &asset, const Document *previous)
+{
+    return unchangedAsset(asset, previous);
+}
+
 detail::RecordEncodeResult detail::encodeDocumentRecords(
-    const Document &document, const Document *previous, SerializationLimits limits)
+    const Document &document, const Document *previous, SerializationLimits limits, bool separateRasters,
+    std::string_view forceAsset)
 {
     const ValidationResult validation = validate(document);
     if (!validation.ok()) {
@@ -2819,13 +2904,17 @@ detail::RecordEncodeResult detail::encodeDocumentRecords(
     }
     RecordEncodeResult result;
     ByteWriter writer;
-    writePayload(writer, document, &result.records, previous);
+    writePayload(writer, document, &result.records, previous, separateRasters, forceAsset);
     return result;
 }
 
 IiscDecodeResult detail::decodeDocumentRecords(
-    const std::vector<DocumentRecord> &records, SerializationLimits limits)
+    const std::vector<DocumentRecord> &records, SerializationLimits limits,
+    const WorkingRasterReader &rasterReader)
 {
+    if (rasterReader)
+        limits.maximumTotalRasterPixels = std::min(limits.maximumTotalRasterPixels,
+                                                   limits.maximumContainerBytes / 4);
     try {
         const auto invalid = [](const char *message) {
             throw DecodeFailure(IiscErrorCode::InvalidData, 0, message);
@@ -2940,7 +3029,7 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if ((version.minor >= 22) != sawPublicationMetadata)
             invalid("working-file publication metadata does not match the document version");
         const auto storedChunkSize = bytes.readI32();
-        DocumentReader reader(bytes, limits, true);
+        DocumentReader reader(bytes, limits, true, rasterReader ? &rasterReader : nullptr);
         Document document = reader.read(version);
         if (document.canvasMode == CanvasMode::Infinite
             && document.infiniteCanvas.chunkSize != storedChunkSize) {

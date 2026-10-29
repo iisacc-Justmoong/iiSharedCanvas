@@ -1,5 +1,7 @@
 #include "Bitmap/ChunkedBitmapEditor.h"
+#include "Bitmap/BitmapEditJournal_p.h"
 #include "Bitmap/BrushEngineState_p.hpp"
+#include "Bitmap/StrokeSample_p.hpp"
 #include "File/DocumentFile.h"
 
 #include <Layer/RasterLayer.h>
@@ -9,10 +11,13 @@
 #include <cmath>
 #include <limits>
 #include <map>
+#include <stdexcept>
 #include <utility>
 
-namespace iiSharedCanvas {
-namespace {
+namespace iiSharedCanvas
+{
+namespace
+{
 
 bool inUnitRange(double value) noexcept
 {
@@ -26,52 +31,31 @@ std::int32_t floorDivision(std::int32_t value, std::int32_t divisor) noexcept
     return remainder < 0 ? quotient - 1 : quotient;
 }
 
-bool sameChunks(const std::vector<RasterChunk> &first,
-                const std::vector<RasterChunk> &second) noexcept
-{
-    if (first.size() != second.size()) {
-        return false;
-    }
-    for (std::size_t index = 0; index < first.size(); ++index) {
-        const RasterChunk &left = first[index];
-        const RasterChunk &right = second[index];
-        if (left.column != right.column
-            || left.row != right.row
-            || left.pixels.width != right.pixels.width
-            || left.pixels.height != right.pixels.height
-            || left.pixels.pixels != right.pixels.pixels) {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool chunkLess(const RasterChunk &chunk,
-               const std::pair<std::int32_t, std::int32_t> &coordinate) noexcept
-{
-    return chunk.row < coordinate.second
-        || (chunk.row == coordinate.second && chunk.column < coordinate.first);
-}
-
 } // namespace
 
-ChunkedBitmapEditor::ChunkedBitmapEditor(Document &document, const std::string &assetId)
+ChunkedBitmapEditor::ChunkedBitmapEditor(Document &document, const std::string &assetId,
+                                         RasterHistoryLimits limits)
+    : m_historyLimits(limits)
 {
     bind(document, assetId);
 }
 
-ChunkedBitmapEditor::ChunkedBitmapEditor(DocumentFile &file, const std::string &assetId)
+ChunkedBitmapEditor::ChunkedBitmapEditor(DocumentFile &file, const std::string &assetId,
+                                         RasterHistoryLimits limits)
+    : m_historyLimits(limits)
 {
     bind(file, assetId);
 }
 
 bool ChunkedBitmapEditor::bind(DocumentFile &file, const std::string &assetId)
 {
-    if (!file.isOpen()) {
+    if (!file.isOpen())
+    {
         setError("no working file is open");
         return false;
     }
-    if (!bind(*file.boundDocument(), assetId)) {
+    if (!bind(*file.boundDocument(), assetId))
+    {
         return false;
     }
     m_file = &file;
@@ -81,8 +65,16 @@ bool ChunkedBitmapEditor::bind(DocumentFile &file, const std::string &assetId)
 
 bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
 {
+    if (pixelPreviewActive() && isBound())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("resolve the pixel preview before changing its binding");
+        return false;
+    }
+
     ChunkedRasterAsset *candidate = findChunkedRasterAsset(document, assetId);
-    if (!candidate || document.canvasMode != CanvasMode::Infinite) {
+    if (!candidate || document.canvasMode != CanvasMode::Infinite)
+    {
         setError(candidate ? "chunked raster requires an infinite canvas"
                            : "chunked raster asset was not found");
         return false;
@@ -93,8 +85,8 @@ bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
     m_fileGeneration = 0;
     m_assetId = assetId;
     resetRasterDabStream(m_dabStream);
-    m_undoHistory.clear();
-    m_redoHistory.clear();
+    m_journal = std::make_shared<detail::BitmapEditJournal>(m_historyLimits);
+    m_historyResult = {};
     m_dirtyBounds = {};
     m_revision = 0;
     m_nextStrokeSeed = 1;
@@ -107,13 +99,19 @@ bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
 
 void ChunkedBitmapEditor::unbind() noexcept
 {
+    if (pixelPreviewActive() && isBound())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        return;
+    }
+
     m_document = nullptr;
     m_file = nullptr;
     m_fileGeneration = 0;
     m_assetId.clear();
     resetRasterDabStream(m_dabStream);
-    m_undoHistory.clear();
-    m_redoHistory.clear();
+    m_journal.reset();
+    m_historyResult = {};
     m_dirtyBounds = {};
     m_revision = 0;
     m_strokeTime = 0.0;
@@ -124,38 +122,34 @@ void ChunkedBitmapEditor::unbind() noexcept
 
 bool ChunkedBitmapEditor::isBound() const noexcept
 {
-    return m_document
-        && m_document->canvasMode == CanvasMode::Infinite
-        && asset() != nullptr;
+    return m_document && m_document->canvasMode == CanvasMode::Infinite && asset() != nullptr;
 }
 
-const std::string &ChunkedBitmapEditor::boundAssetId() const noexcept
-{
-    return m_assetId;
-}
+const std::string &ChunkedBitmapEditor::boundAssetId() const noexcept { return m_assetId; }
 
-const BitmapBrush &ChunkedBitmapEditor::brush() const noexcept
-{
-    return m_brush;
-}
+const BitmapBrush &ChunkedBitmapEditor::brush() const noexcept { return m_brush; }
 
 bool ChunkedBitmapEditor::setBrush(const BitmapBrush &value)
 {
-    if (value.engineState) {
+    if (value.engineState)
+    {
         const auto errors = detail::validateEngineState(*value.engineState);
-        if (!errors.empty()) { setError(errors.front()); return false; }
+        if (!errors.empty())
+        {
+            setError(errors.front());
+            return false;
+        }
     }
-    if (m_strokeActive) {
+    if (m_strokeActive)
+    {
         setError("brush settings cannot change during an active stroke");
         return false;
     }
-    if (!std::isfinite(value.size) || value.size <= 0.0 || value.size > 4096.0
-        || !inUnitRange(value.opacity)
-        || !inUnitRange(value.flow)
-        || !inUnitRange(value.hardness)
-        || !std::isfinite(value.spacing) || value.spacing < 0.0 || value.spacing > 4096.0
-        || !std::isfinite(value.spacingRatio)
-        || value.spacingRatio < 0.0 || value.spacingRatio > 4.0) {
+    if (!std::isfinite(value.size) || value.size <= 0.0 || value.size > 4096.0 ||
+        !inUnitRange(value.opacity) || !inUnitRange(value.flow) || !inUnitRange(value.hardness) ||
+        !std::isfinite(value.spacing) || value.spacing < 0.0 || value.spacing > 4096.0 ||
+        !std::isfinite(value.spacingRatio) || value.spacingRatio < 0.0 || value.spacingRatio > 4.0)
+    {
         setError("brush values are outside the supported finite range");
         return false;
     }
@@ -165,270 +159,358 @@ bool ChunkedBitmapEditor::setBrush(const BitmapBrush &value)
 }
 
 std::optional<std::uint32_t> ChunkedBitmapEditor::pixelAt(std::int32_t x,
-                                                           std::int32_t y) const noexcept
+                                                          std::int32_t y) const noexcept
 {
     const ChunkedRasterAsset *bound = asset();
-    if (!bound || !contains(x, y)) {
+    if (!bound || !contains(x, y))
+    {
         return std::nullopt;
     }
     const std::int32_t size = m_document->infiniteCanvas.chunkSize;
     const std::int32_t column = floorDivision(x, size);
     const std::int32_t row = floorDivision(y, size);
     const RasterChunk *chunk = findRasterChunk(*bound, column, row);
-    if (!chunk) {
+    if (!chunk)
+    {
         return 0x00000000U;
     }
-    return rasterLayerPixelAt(chunk->pixels,
-                              {x - column * size, y - row * size});
+    return rasterLayerPixelAt(chunk->pixels, {x - column * size, y - row * size});
 }
 
 bool ChunkedBitmapEditor::clear()
 {
-    if (m_file) {
-        return editFile([&](ChunkedBitmapEditor &editor) { return editor.clear(); });
-    }
-    if (!requireBound() || m_strokeActive) {
-        if (m_strokeActive) {
-            setError("clear cannot run during a brush stroke");
-        }
+    if (m_file)
+        return editFile([](auto &editor) { return editor.clear(); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        setError("clear requires an idle bound chunked bitmap");
         return false;
     }
-    ChunkedRasterAsset *bound = asset();
-    if (bound->chunks.empty()) {
-        clearError();
-        return true;
-    }
-    recordSnapshot();
-    bound->chunks.clear();
-    const CanvasOrigin origin = canvasOrigin(*m_document);
-    noteChange({{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
-    clearError();
-    return true;
+    auto &edits = journal();
+    return finishEdit(edits.clear(*m_document, m_assetId));
 }
-
 bool ChunkedBitmapEditor::replaceRegion(CanvasOrigin origin, const RasterLayer &pixels)
 {
-    if (m_file) {
-        return editFile([&](ChunkedBitmapEditor &editor) { return editor.replaceRegion(origin, pixels); });
-    }
-    if (!requireBound() || m_strokeActive) {
-        if (m_strokeActive) {
-            setError("the chunked bitmap cannot be replaced during a brush stroke");
-        }
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.replaceRegion(origin, pixels); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        setError("replacement requires an idle bound chunked bitmap");
         return false;
     }
-    if (origin.x != canvasOrigin(*m_document).x
-        || origin.y != canvasOrigin(*m_document).y
-        || pixels.width != m_document->extent.width
-        || pixels.height != m_document->extent.height
-        || pixels.width <= 0 || pixels.height <= 0
-        || static_cast<std::uint64_t>(pixels.width) * pixels.height != pixels.pixels.size()) {
-        setError("replacement raster must exactly cover the allocated infinite canvas region");
+    auto &edits = journal();
+    return finishEdit(edits.replaceRegion(*m_document, m_assetId, origin, pixels));
+}
+bool ChunkedBitmapEditor::replacePatches(std::span<const BitmapPatch> patches)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.replacePatches(patches); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("pixel patches require an idle bound chunked bitmap");
         return false;
     }
-
-    ChunkedRasterAsset replacement{m_assetId, {}};
-    const std::int32_t chunkSize = m_document->infiniteCanvas.chunkSize;
-    for (std::int32_t localY = 0; localY < pixels.height; ++localY) {
-        for (std::int32_t localX = 0; localX < pixels.width; ++localX) {
-            const std::uint32_t argb = rasterLayerPixelAt(pixels, {localX, localY});
-            if (argb == 0x00000000U) {
-                continue;
-            }
-            const std::int32_t worldX = origin.x + localX;
-            const std::int32_t worldY = origin.y + localY;
-            const std::int32_t column = floorDivision(worldX, chunkSize);
-            const std::int32_t row = floorDivision(worldY, chunkSize);
-            auto position = std::lower_bound(replacement.chunks.begin(),
-                                             replacement.chunks.end(),
-                                             std::pair{column, row},
-                                             chunkLess);
-            if (position == replacement.chunks.end()
-                || position->column != column || position->row != row) {
-                position = replacement.chunks.insert(
-                    position,
-                    RasterChunk{column, row,
-                                makeRasterLayer(chunkSize, chunkSize, 0x00000000U)});
-            }
-            position->pixels.pixels[static_cast<std::size_t>(worldY - row * chunkSize)
-                                        * static_cast<std::size_t>(chunkSize)
-                                    + static_cast<std::size_t>(worldX - column * chunkSize)] = argb;
-        }
-    }
-
-    ChunkedRasterAsset *bound = asset();
-    if (sameChunks(bound->chunks, replacement.chunks)) {
-        clearError();
-        return true;
-    }
-    recordSnapshot();
-    bound->chunks = std::move(replacement.chunks);
-    noteChange({{origin.x, origin.y}, pixels.width, pixels.height});
-    clearError();
-    return true;
+    auto &edits = journal();
+    return finishEdit(edits.replace(*m_document, m_assetId, patches));
 }
 
 bool ChunkedBitmapEditor::beginStroke(DocumentPoint point, double pressure)
 {
-    if (m_file) {
-        return editFile([&](ChunkedBitmapEditor &editor) { return editor.beginStroke(point, pressure); });
-    }
-    if (!requireBound() || m_strokeActive || !validPoint(point, pressure)) {
-        if (m_strokeActive) {
-            setError("a brush stroke is already active");
-        }
-        return false;
-    }
-    recordSnapshot(false);
-    resetRasterDabStream(m_dabStream);
-    m_strokeActive = true;
-    m_strokeChanged = false;
-    m_strokeTime = 0.0;
-    return appendStrokePoint(point, pressure, false);
+    return beginStrokeInput(detail::legacyStrokeSample(point, pressure, 1.0 / 120.0));
 }
 
 bool ChunkedBitmapEditor::continueStroke(DocumentPoint point, double pressure)
 {
-    if (m_file) {
-        return editFile([&](ChunkedBitmapEditor &editor) { return editor.continueStroke(point, pressure); });
-    }
-    if (!m_strokeActive) {
-        setError("no brush stroke is active");
-        return false;
-    }
-    return validPoint(point, pressure) && appendStrokePoint(point, pressure, false);
+    return continueStrokeInput(
+        detail::legacyStrokeSample(point, pressure, m_strokeTime + 1.0 / 120.0));
 }
 
 bool ChunkedBitmapEditor::endStroke(DocumentPoint point, double pressure)
 {
-    if (m_file) {
-        return editFile([&](ChunkedBitmapEditor &editor) { return editor.endStroke(point, pressure); });
+    return endStrokeInput(detail::legacyStrokeSample(point, pressure, m_strokeTime + 1.0 / 120.0));
+}
+
+bool ChunkedBitmapEditor::beginStrokeInput(const StrokePoint &sample)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.beginStrokeInput(sample); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive() || !validInput(sample))
+    {
+        if (m_strokeActive || pixelPreviewActive())
+            setError("an edit preview or brush stroke is already active");
+        return false;
     }
-    if (!m_strokeActive) {
+    auto &edits = journal();
+    edits.begin(m_document);
+    const auto priorTime = m_strokeTime;
+    resetRasterDabStream(m_dabStream);
+    m_strokeActive = true;
+    m_strokeChanged = false;
+    m_strokeTime = 0;
+    if (appendStrokePoint(sample, false))
+        return true;
+    const auto failure = m_historyResult;
+    const auto message = m_lastError;
+    (void)edits.cancel(*m_document, m_assetId);
+    m_historyResult = failure;
+    m_strokeActive = false;
+    m_strokeTime = priorTime;
+    resetRasterDabStream(m_dabStream);
+    setError(message);
+    return false;
+}
+
+bool ChunkedBitmapEditor::continueStrokeInput(const StrokePoint &sample)
+{
+    if (m_file)
+    {
+        return editFile([&](ChunkedBitmapEditor &editor)
+                        { return editor.continueStrokeInput(sample); });
+    }
+    if (!m_strokeActive)
+    {
         setError("no brush stroke is active");
         return false;
     }
-    if (!validPoint(point, pressure)) {
+    return validInput(sample) && appendStrokePoint(sample, false);
+}
+
+bool ChunkedBitmapEditor::endStrokeInput(const StrokePoint &sample)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.endStrokeInput(sample); });
+    if (!m_strokeActive)
+    {
+        setError("no brush stroke is active");
         return false;
     }
-    const bool appended = appendStrokePoint(point, pressure, true);
-    m_strokeActive = false;
-    resetRasterDabStream(m_dabStream);
-    ChunkedRasterAsset *bound = asset();
-    if (!m_strokeChanged || (bound && !m_undoHistory.empty()
-                             && sameChunks(bound->chunks, *m_undoHistory.back()))) {
-        if (!m_undoHistory.empty()) {
-            m_undoHistory.pop_back();
-        }
-    } else {
-        m_redoHistory.clear();
+    if (!validInput(sample) || !appendStrokePoint(sample, true))
+        return false;
+    if (m_strokeChanged)
         ++m_nextStrokeSeed;
-    }
+    auto &edits = journal();
+    m_historyResult = edits.previewAdmission();
+    edits.finish();
+    m_strokeActive = false;
     m_strokeChanged = false;
-    return appended;
+    resetRasterDabStream(m_dabStream);
+    return true;
+}
+
+bool ChunkedBitmapEditor::advanceStrokeTime(double seconds)
+{
+    if (m_file)
+        return editFile([&](ChunkedBitmapEditor &editor)
+                        { return editor.advanceStrokeTime(seconds); });
+    if (!m_strokeActive)
+    {
+        setError("no brush stroke is active");
+        return false;
+    }
+    if (!requireBound())
+        return false;
+    const auto *raster = m_brush.engineState ? &m_brush.engineState->rasterizer : nullptr;
+    if (!raster || (!raster->airbrushEnabled && !detail::clockCatchUp(*raster)))
+    {
+        setError("active brush has no time-based placement or catch-up");
+        return false;
+    }
+    auto sample = m_dabStream.previousPoint;
+    sample.time = seconds;
+    if (detail::clockCatchUp(*raster))
+        sample.position = m_dabStream.smoothingTarget;
+    return validInput(sample) && appendStrokePoint(sample, false);
+}
+
+bool ChunkedBitmapEditor::rebaseStrokeTime(double seconds)
+{
+    if (m_file)
+        return editFile([&](ChunkedBitmapEditor &editor)
+                        { return editor.rebaseStrokeTime(seconds); });
+    if (!m_strokeActive)
+    {
+        setError("no brush stroke is active");
+        return false;
+    }
+    if (!requireBound())
+        return false;
+    if (!detail::rebaseStrokeClock(m_dabStream, seconds))
+    {
+        setError("stroke clock must use finite monotonic seconds");
+        return false;
+    }
+    m_strokeTime = seconds;
+    clearError();
+    return true;
 }
 
 void ChunkedBitmapEditor::cancelStroke()
 {
-    if (m_file) {
-        (void)editFile([](ChunkedBitmapEditor &editor) { editor.cancelStroke(); return true; });
+    if (m_file)
+    {
+        (void)editFile(
+            [](auto &editor)
+            {
+                editor.cancelStroke();
+                return !editor.strokeActive();
+            });
         return;
     }
-    if (!m_strokeActive) {
+    if (!m_strokeActive)
         return;
-    }
-    ChunkedRasterAsset *bound = asset();
-    if (bound && !m_undoHistory.empty()) {
-        bound->chunks = *m_undoHistory.back();
-        m_undoHistory.pop_back();
-        const CanvasOrigin origin = canvasOrigin(*m_document);
-        noteChange({{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
-    }
+    auto &edits = journal();
+    if (!finishEdit(edits.cancel(*m_document, m_assetId)))
+        return;
     resetRasterDabStream(m_dabStream);
     m_strokeActive = false;
     m_strokeChanged = false;
-    clearError();
 }
 
-bool ChunkedBitmapEditor::strokeActive() const noexcept
-{
-    return m_strokeActive;
-}
+bool ChunkedBitmapEditor::strokeActive() const noexcept { return m_strokeActive; }
 
 bool ChunkedBitmapEditor::canUndo() const noexcept
 {
-    return !m_strokeActive && !m_undoHistory.empty() && isBound();
+    return !m_strokeActive && !pixelPreviewActive() && m_journal && m_journal->canUndo() &&
+           isBound();
 }
-
 bool ChunkedBitmapEditor::canRedo() const noexcept
 {
-    return !m_strokeActive && !m_redoHistory.empty() && isBound();
+    return !m_strokeActive && !pixelPreviewActive() && m_journal && m_journal->canRedo() &&
+           isBound();
 }
-
 bool ChunkedBitmapEditor::undo()
 {
-    if (m_file) {
-        return editFile([](ChunkedBitmapEditor &editor) { return editor.undo(); });
-    }
-    if (!canUndo()) {
-        setError("no chunked bitmap edit is available to undo");
+    if (m_file)
+        return editFile([](auto &editor) { return editor.undo(); });
+    if (!canUndo())
+    {
+        setError("no bitmap edit is available to undo");
         return false;
     }
-    ChunkedRasterAsset *bound = asset();
-    m_redoHistory.push_back(std::make_shared<const std::vector<RasterChunk>>(bound->chunks));
-    bound->chunks = *m_undoHistory.back();
-    m_undoHistory.pop_back();
-    const CanvasOrigin origin = canvasOrigin(*m_document);
-    noteChange({{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
-    clearError();
-    return true;
+    auto &edits = journal();
+    return finishEdit(edits.step(*m_document, m_assetId, false));
 }
-
 bool ChunkedBitmapEditor::redo()
 {
-    if (m_file) {
-        return editFile([&](ChunkedBitmapEditor &editor) { return editor.redo(); });
-    }
-    if (!canRedo()) {
-        setError("no chunked bitmap edit is available to redo");
+    if (m_file)
+        return editFile([](auto &editor) { return editor.redo(); });
+    if (!canRedo())
+    {
+        setError("no bitmap edit is available to redo");
         return false;
     }
-    ChunkedRasterAsset *bound = asset();
-    m_undoHistory.push_back(std::make_shared<const std::vector<RasterChunk>>(bound->chunks));
-    if (m_undoHistory.size() > HistoryLimit) {
-        m_undoHistory.erase(m_undoHistory.begin());
+    auto &edits = journal();
+    return finishEdit(edits.step(*m_document, m_assetId, true));
+}
+RasterHistoryStatistics ChunkedBitmapEditor::historyStatistics() const noexcept
+{
+    return m_journal ? m_journal->statistics() : RasterHistoryStatistics{};
+}
+std::size_t ChunkedBitmapEditor::previewStorageBytes() const noexcept
+{
+    return m_journal ? m_journal->previewBytes() : 0;
+}
+bool ChunkedBitmapEditor::pixelPreviewActive() const noexcept
+{
+    return m_journal && m_journal->pixelPreviewActive();
+}
+std::optional<std::uint32_t> ChunkedBitmapEditor::pixelPreviewSourceAt(int x, int y) const noexcept
+{
+    if (m_journal && m_journal->stagedPixelGrowth() && isBound() &&
+        x >= -1000000000 && x < 1000000000 && y >= -1000000000 && y < 1000000000)
+        return m_journal->sourcePixel(*m_document, m_assetId, {x, y});
+    const auto current = pixelAt(x, y);
+    if (!current || !pixelPreviewActive())
+        return current;
+    return m_journal->sourcePixel(*m_document, m_assetId, {x, y});
+}
+bool ChunkedBitmapEditor::beginPixelPreview(std::string_view label)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.beginPixelPreview(label); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("pixel preview requires an idle bound bitmap");
+        return false;
     }
-    bound->chunks = *m_redoHistory.back();
-    m_redoHistory.pop_back();
-    const CanvasOrigin origin = canvasOrigin(*m_document);
-    noteChange({{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
+    auto &edits = journal();
+    return finishEdit(edits.beginPixels(*m_document, m_assetId, label));
+}
+bool ChunkedBitmapEditor::replacePixelPreview(std::span<const BitmapPatch> patches)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.replacePixelPreview(patches); });
+    if (!requireBound() || !pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("no pixel preview is active");
+        return false;
+    }
+    auto &edits = journal();
+    return finishEdit(edits.replacePixelPreview(*m_document, m_assetId, patches));
+}
+bool ChunkedBitmapEditor::commitPixelPreview()
+{
+    if (m_file)
+        return editFile([](auto &editor) { return editor.commitPixelPreview(); });
+    if (!requireBound() || !pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("no pixel preview is active");
+        return false;
+    }
+    auto &edits = journal();
+    return finishEdit(edits.commitPixels(*m_document, m_assetId));
+}
+bool ChunkedBitmapEditor::cancelPixelPreview()
+{
+    if (m_file)
+        return editFile([](auto &editor) { return editor.cancelPixelPreview(); });
+    if (!requireBound() || !pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("no pixel preview is active");
+        return false;
+    }
+    auto &edits = journal();
+    return finishEdit(edits.cancel(*m_document, m_assetId));
+}
+detail::BitmapEditJournal &ChunkedBitmapEditor::journal()
+{
+    if (!m_journal)
+        m_journal = std::make_shared<detail::BitmapEditJournal>(m_historyLimits);
+    else if (m_journal.use_count() != 1)
+        m_journal = std::make_shared<detail::BitmapEditJournal>(*m_journal);
+    return *m_journal;
+}
+bool ChunkedBitmapEditor::finishEdit(RasterHistoryResult result)
+{
+    m_historyResult = result;
+    if (!result.ok())
+    {
+        setError(std::string(result.message()));
+        return false;
+    }
+    if (m_journal && !isEmpty(m_journal->dirty))
+        noteChange(m_journal->dirty);
     clearError();
     return true;
 }
 
-std::uint64_t ChunkedBitmapEditor::revision() const noexcept
-{
-    return m_revision;
-}
+std::uint64_t ChunkedBitmapEditor::revision() const noexcept { return m_revision; }
 
-DevicePixelRect ChunkedBitmapEditor::dirtyBounds() const noexcept
-{
-    return m_dirtyBounds;
-}
+DevicePixelRect ChunkedBitmapEditor::dirtyBounds() const noexcept { return m_dirtyBounds; }
 
-void ChunkedBitmapEditor::clearDirtyBounds() noexcept
-{
-    m_dirtyBounds = {};
-}
+void ChunkedBitmapEditor::clearDirtyBounds() noexcept { m_dirtyBounds = {}; }
 
-const std::string &ChunkedBitmapEditor::lastError() const noexcept
-{
-    return m_lastError;
-}
+const std::string &ChunkedBitmapEditor::lastError() const noexcept { return m_lastError; }
 
 ChunkedRasterAsset *ChunkedBitmapEditor::asset() noexcept
 {
-    if (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())) {
+    if (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))
+    {
         return nullptr;
     }
     return m_document ? findChunkedRasterAsset(*m_document, m_assetId) : nullptr;
@@ -436,17 +518,17 @@ ChunkedRasterAsset *ChunkedBitmapEditor::asset() noexcept
 
 const ChunkedRasterAsset *ChunkedBitmapEditor::asset() const noexcept
 {
-    if (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())) {
+    if (m_file && (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()))
+    {
         return nullptr;
     }
-    return m_document
-        ? findChunkedRasterAsset(std::as_const(*m_document), m_assetId)
-        : nullptr;
+    return m_document ? findChunkedRasterAsset(std::as_const(*m_document), m_assetId) : nullptr;
 }
 
 bool ChunkedBitmapEditor::requireBound()
 {
-    if (!isBound()) {
+    if (!isBound())
+    {
         setError("no valid chunked raster asset is bound");
         return false;
     }
@@ -455,12 +537,25 @@ bool ChunkedBitmapEditor::requireBound()
 
 bool ChunkedBitmapEditor::validPoint(DocumentPoint point, double pressure)
 {
-    if (!std::isfinite(point.x) || !std::isfinite(point.y) || !inUnitRange(pressure)
-        || point.x < std::numeric_limits<std::int32_t>::min()
-        || point.x > std::numeric_limits<std::int32_t>::max()
-        || point.y < std::numeric_limits<std::int32_t>::min()
-        || point.y > std::numeric_limits<std::int32_t>::max()) {
+    if (!std::isfinite(point.x) || !std::isfinite(point.y) || !inUnitRange(pressure) ||
+        point.x < std::numeric_limits<std::int32_t>::min() ||
+        point.x > std::numeric_limits<std::int32_t>::max() ||
+        point.y < std::numeric_limits<std::int32_t>::min() ||
+        point.y > std::numeric_limits<std::int32_t>::max())
+    {
         setError("stroke position must use finite supported coordinates and unit pressure");
+        return false;
+    }
+    return true;
+}
+
+bool ChunkedBitmapEditor::validInput(const StrokePoint &sample)
+{
+    if (!validPoint(sample.position, sample.pressure))
+        return false;
+    if (!detail::validStrokeSample(sample) || (m_strokeActive && sample.time < m_strokeTime))
+    {
+        setError("stroke sample must be finite, normalized and use monotonic seconds");
         return false;
     }
     return true;
@@ -481,142 +576,223 @@ BrushState ChunkedBitmapEditor::brushState() const
     rasterizer.flowEnabled = m_brush.flowEnabled;
     rasterizer.hardness = m_brush.hardness;
     rasterizer.hardnessEnabled = m_brush.hardnessEnabled;
-    rasterizer.blendMode = m_brush.eraser
-        ? RasterBlendMode::DestinationOut
-        : m_brush.engineState ? m_brush.engineState->rasterizer.blendMode : RasterBlendMode::SourceOver;
+    rasterizer.blendMode = m_brush.eraser        ? RasterBlendMode::DestinationOut
+                           : m_brush.engineState ? m_brush.engineState->rasterizer.blendMode
+                                                 : RasterBlendMode::SourceOver;
     BrushDynamics dynamics;
     dynamics.pressureToSize = 1.0;
     dynamics.pressureToFlow = 1.0;
     dynamics.pressureToOpacity = 1.0;
     dynamics.pressureToOpacityEnabled = m_brush.pressureToOpacityEnabled;
-    return {std::move(rasterizer), m_brush.engineState ? m_brush.engineState->dynamics : std::move(dynamics),
-        m_brush.engineState ? m_brush.engineState->material : BrushMaterial{}, m_nextStrokeSeed};
+    return {std::move(rasterizer),
+            m_brush.engineState ? m_brush.engineState->dynamics : std::move(dynamics),
+            m_brush.engineState ? m_brush.engineState->material : BrushMaterial{},
+            m_nextStrokeSeed};
 }
 
 bool ChunkedBitmapEditor::contains(std::int32_t x, std::int32_t y) const noexcept
 {
-    if (!m_document) {
+    if (!m_document)
+    {
         return false;
     }
     const CanvasOrigin origin = canvasOrigin(*m_document);
-    return x >= origin.x && y >= origin.y
-        && static_cast<std::int64_t>(x) < static_cast<std::int64_t>(origin.x) + m_document->extent.width
-        && static_cast<std::int64_t>(y) < static_cast<std::int64_t>(origin.y) + m_document->extent.height;
-}
-
-RasterChunk &ChunkedBitmapEditor::ensureChunk(std::int32_t column, std::int32_t row)
-{
-    ChunkedRasterAsset *bound = asset();
-    auto position = std::lower_bound(bound->chunks.begin(), bound->chunks.end(),
-                                     std::pair{column, row}, chunkLess);
-    if (position == bound->chunks.end()
-        || position->column != column || position->row != row) {
-        const std::int32_t size = m_document->infiniteCanvas.chunkSize;
-        position = bound->chunks.insert(
-            position,
-            RasterChunk{column, row, makeRasterLayer(size, size, 0x00000000U)});
-    }
-    return *position;
-}
-
-void ChunkedBitmapEditor::recordSnapshot(bool clearRedo)
-{
-    const ChunkedRasterAsset *bound = asset();
-    if (!bound) {
-        return;
-    }
-    m_undoHistory.push_back(std::make_shared<const std::vector<RasterChunk>>(bound->chunks));
-    if (m_undoHistory.size() > HistoryLimit) {
-        m_undoHistory.erase(m_undoHistory.begin());
-    }
-    if (clearRedo) {
-        m_redoHistory.clear();
-    }
+    return x >= origin.x && y >= origin.y &&
+           static_cast<std::int64_t>(x) <
+               static_cast<std::int64_t>(origin.x) + m_document->extent.width &&
+           static_cast<std::int64_t>(y) <
+               static_cast<std::int64_t>(origin.y) + m_document->extent.height;
 }
 
 void ChunkedBitmapEditor::noteChange(DevicePixelRect bounds)
 {
-    if (isEmpty(bounds)) {
+    if (isEmpty(bounds))
+    {
         return;
     }
-    recordDocumentChange(*m_document);
     m_dirtyBounds = uniteDevicePixelRects(m_dirtyBounds, bounds);
     ++m_revision;
 }
 
-bool ChunkedBitmapEditor::appendStrokePoint(DocumentPoint point,
-                                             double pressure,
-                                             bool finish)
+bool ChunkedBitmapEditor::appendStrokePoint(const StrokePoint &sample, bool finish)
 {
-    m_strokeTime += 1.0 / 120.0;
-    StrokePoint strokePoint;
-    strokePoint.position = point;
-    strokePoint.pressure = pressure;
-    strokePoint.time = m_strokeTime;
-
+    if (!requireBound())
+        return false;
     const BrushState state = brushState();
-    const std::vector<BrushDab> dabs = appendRasterDabs(m_dabStream,
-                                                        strokePoint,
-                                                        state,
-                                                        finish);
-    if (dabs.empty()) {
-        clearError();
-        return true;
-    }
-
-    const std::vector<RasterSample> samples = projectBrushDabs(
-        dabs, state.rasterizer, RasterProjection{}, state.material);
-    const std::int32_t chunkSize = m_document->infiniteCanvas.chunkSize;
-    std::map<std::pair<std::int32_t, std::int32_t>, std::vector<RasterSample>> byChunk;
-    DevicePixelRect changedBounds{};
-    for (RasterSample sample : samples) {
-        if (!contains(sample.position.x, sample.position.y)) {
-            continue;
+    auto nextStream = m_dabStream;
+    auto &edits = journal();
+    const auto bounds = DevicePixelRect{{canvasOrigin(*m_document).x, canvasOrigin(*m_document).y},
+                                        m_document->extent.width,
+                                        m_document->extent.height};
+    const auto sourceOrigin = edits.strokeCanvasGrowth() ? CanvasOrigin{-1000000000, -1000000000}
+                                                          : canvasOrigin(*m_document);
+    const detail::BitmapEditSource source{edits, *m_document, m_assetId, sourceOrigin};
+    const RasterSourceSampler sampler{&source,
+                                      &detail::sampleBitmapEditSource,
+                                      {source.origin.x, source.origin.y},
+                                      edits.strokeCanvasGrowth() ? 2000000000 : bounds.width,
+                                      edits.strokeCanvasGrowth() ? 2000000000 : bounds.height};
+    try
+    {
+        auto dabs = appendRasterDabs(nextStream, sample, state, finish);
+        auto samples =
+            projectBrushDabs(dabs, state.rasterizer, RasterProjection{}, sampler, state.material);
+        if (edits.strokeCanvasGrowth() && std::ranges::any_of(samples, [](const auto &value) {
+                return value.position.x < -1000000000 || value.position.y < -1000000000 ||
+                       value.position.x >= 1000000000 || value.position.y >= 1000000000;
+            }))
+        {
+            m_historyResult = {RasterHistoryCode::InvalidArgument};
+            setError("brush samples exceed the supported canvas range");
+            return false;
         }
-        const std::int32_t column = floorDivision(sample.position.x, chunkSize);
-        const std::int32_t row = floorDivision(sample.position.y, chunkSize);
-        changedBounds = uniteDevicePixelRects(changedBounds,
-                                               {{sample.position.x, sample.position.y}, 1, 1});
-        sample.position.x -= column * chunkSize;
-        sample.position.y -= row * chunkSize;
-        byChunk[{column, row}].push_back(sample);
+        if (!edits.strokeCanvasGrowth()) std::erase_if(samples,
+                      [&](const auto &value)
+                      {
+                          return value.position.x < bounds.origin.x ||
+                                 value.position.y < bounds.origin.y ||
+                                 std::int64_t(value.position.x) >=
+                                     std::int64_t(bounds.origin.x) + bounds.width ||
+                                 std::int64_t(value.position.y) >=
+                                     std::int64_t(bounds.origin.y) + bounds.height;
+                      });
+        if (!samples.empty() &&
+            !finishEdit(edits.preview(*m_document, m_assetId, samples, state.rasterizer.blendMode)))
+            return false;
+        m_dabStream = std::move(nextStream);
+        m_strokeTime = sample.time;
+        m_strokeChanged = edits.strokeChanged();
     }
-    for (auto &[coordinate, localSamples] : byChunk) {
-        RasterChunk &chunk = ensureChunk(coordinate.first, coordinate.second);
-        paintRasterSamples(chunk.pixels, localSamples);
+    catch (const std::bad_alloc &)
+    {
+        m_historyResult = {RasterHistoryCode::BudgetExceeded};
+        setError(std::string(m_historyResult.message()));
+        return false;
     }
-    if (!byChunk.empty()) {
-        m_strokeChanged = true;
-        noteChange(changedBounds);
+    catch (const std::logic_error &error)
+    {
+        setError(error.what());
+        return false;
     }
     clearError();
     return true;
 }
 
-void ChunkedBitmapEditor::setError(std::string message)
-{
-    m_lastError = std::move(message);
-}
+void ChunkedBitmapEditor::setError(std::string message) { m_lastError = std::move(message); }
 
-void ChunkedBitmapEditor::clearError() noexcept
-{
-    m_lastError.clear();
-}
+void ChunkedBitmapEditor::clearError() noexcept { m_lastError.clear(); }
 
 bool ChunkedBitmapEditor::editFile(const std::function<bool(ChunkedBitmapEditor &)> &edit)
 {
-    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration()) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+    static_assert(std::is_nothrow_move_assignable_v<ChunkedBitmapEditor>);
+    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())
+    {
+        m_historyResult = {RasterHistoryCode::Conflict};
+        setError("the working-file binding is no longer valid");
+        return false;
+    }
+    DocumentFile *file = m_file;
+    if (!file->beginBitmapEdit(m_fileGeneration))
+    {
+        const auto code = file->lastResult().code;
+        m_historyResult = {code == DocumentFileCode::Conflict ? RasterHistoryCode::Conflict :
+                            code == DocumentFileCode::LimitExceeded ? RasterHistoryCode::BudgetExceeded :
+                            RasterHistoryCode::WriteRejected};
+        try { setError(file->lastResult().message); } catch (...) { clearError(); }
+        return false;
+    }
+    bool accepted = false, fallback = false;
+    {
+        auto finish = [&](DocumentFile *owner) noexcept { owner->endBitmapEdit(accepted); };
+        std::unique_ptr<DocumentFile, decltype(finish)> guard(file, finish);
+        try
+        {
+            ChunkedBitmapEditor working = *this;
+            working.m_file = nullptr;
+            working.clearError();
+            auto &edits = working.journal(); // Detach COW state before exposing the port.
+            detail::BitmapCommitPort port{file,
+                [](void *context, const detail::PreparedBitmapChange &change,
+                   RasterHistoryCode &rejection, bool &useDraftFallback)
+                {
+                    auto *owner = static_cast<DocumentFile *>(context);
+                    if (owner->commitBitmapEdit(change, useDraftFallback)) return true;
+                    if (!useDraftFallback)
+                    {
+                        const auto code = owner->lastResult().code;
+                        rejection = code == DocumentFileCode::Conflict ? RasterHistoryCode::Conflict :
+                                    code == DocumentFileCode::LimitExceeded ? RasterHistoryCode::BudgetExceeded :
+                                    RasterHistoryCode::WriteRejected;
+                    }
+                    return false;
+                }};
+            edits.setCommitPort(&port);
+            bool ok = false;
+            try { ok = edit(working); }
+            catch (...) { edits.setCommitPort(nullptr); throw; }
+            edits.setCommitPort(nullptr);
+            fallback = port.useDraftFallback;
+            if (ok)
+            {
+                working.m_file = file;
+                *this = std::move(working); // Statically checked noexcept after durable commit.
+                accepted = true;
+            }
+            else if (!fallback)
+            {
+                m_historyResult = working.m_historyResult.ok()
+                                      ? RasterHistoryResult{RasterHistoryCode::WriteRejected}
+                                      : working.m_historyResult;
+                try { setError(working.lastError().empty() ? file->lastResult().message : working.lastError()); }
+                catch (...) { clearError(); }
+            }
+        }
+        catch (const std::bad_alloc &)
+        {
+            m_historyResult = {RasterHistoryCode::BudgetExceeded};
+            clearError();
+        }
+        catch (const std::exception &error)
+        {
+            m_historyResult = {RasterHistoryCode::WriteRejected};
+            try { setError(error.what()); } catch (...) { clearError(); }
+        }
+        catch (...)
+        {
+            m_historyResult = {RasterHistoryCode::WriteRejected};
+            clearError();
+        }
+    }
+    if (fallback) return editFileDraft(edit);
+    return accepted;
+#else
+    return editFileDraft(edit);
+#endif
+}
+
+bool ChunkedBitmapEditor::editFileDraft(const std::function<bool(ChunkedBitmapEditor &)> &edit)
+{
+    if (!m_file->isOpen() || m_fileGeneration != m_file->bindingGeneration())
+    {
+        m_historyResult = {RasterHistoryCode::Conflict};
         setError("the working-file binding is no longer valid");
         return false;
     }
     ChunkedBitmapEditor working = *this;
     working.m_file = nullptr;
     working.clearError();
-    const auto result = m_file->edit([&](Document &draft) {
-        working.m_document = &draft;
-        return edit(working);
-    });
-    if (!result.ok()) {
+    const auto result = m_file->edit(
+        [&](Document &draft)
+        {
+            working.m_document = &draft;
+            return edit(working);
+        });
+    if (!result.ok())
+    {
+        m_historyResult = working.m_historyResult.ok()
+                              ? RasterHistoryResult{RasterHistoryCode::WriteRejected}
+                              : working.m_historyResult;
         setError(working.lastError().empty() ? result.message : working.lastError());
         return false;
     }

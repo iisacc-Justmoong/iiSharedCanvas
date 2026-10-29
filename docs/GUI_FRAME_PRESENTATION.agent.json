@@ -1,0 +1,163 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:524e4d5e92b0e0ee008955f45e353c9a942d398b63dddae99d6994fef6a6c7cc",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/GUI_FRAME_PRESENTATION.md",
+    "sha256": "245bfdcfb78fbfe157ce963a50412d1545994bc77905ed3c24a1a42423b88e3c",
+    "bytes": 2162,
+    "line_count": 28,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "iiGUI를 조합한 프레임 이미지 예시",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# iiGUI를 조합한 프레임 이미지 예시\n",
+      "level": 1,
+      "title": "iiGUI를 조합한 프레임 이미지 예시"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 6,
+      "raw": "`example/GuiFramePresenter.h/.cpp`는 애플리케이션에서 네이티브 캔버스의\n`FrameRenderResult`와 iiGUI의 `RasterImage`를 조합하는 예시다. 설치된 캔버스\n라이브러리의 함수가 아니며, 애플리케이션이 이 예시를 빌드하거나 같은 경계를\n자체 구현한다. 캔버스 모듈에 iiGUI를 직접 링크하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 8,
+      "end_line": 12,
+      "raw": "`toGuiCanvasFrame`은 성공한 프레임의 원점과 픽셀을 받아 분리된 불변 GUI 이미지와\n원점을 반환한다. 캔버스의 비선행 알파 ARGB32를 iiGUI의 비선행 알파 RGBA8로\n변환하며 알파가 0인 픽셀의 RGB 바이트도 보존한다. 소스 프레임과 문서를 수정하지\n않고, 반환 후 원본이 변해도 GUI 이미지는 독립적이다. 실패한 렌더, 유효하지 않은\n크기나 픽셀 수, 예산 초과는 이미지를 반환하지 않는다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 14,
+      "end_line": 19,
+      "raw": "기본 한도는 iiGUI의 16 Mi 픽셀이고 호출자가 최대 64 Mi 픽셀을 명시적으로\n허용할 수 있다. 한 변은 최대 8192 픽셀이다. 입력 프레임의 저장 공간과 별도로\nRGBA 이미지 버퍼가 필요하며, 이 한도는 프로세스 전체 메모리 한도가 아니다.\n프레임 원점은 보존하지만 축소된 영역의 문서 좌표 변환은 추론하지 않는다.\n애플리케이션은 요청한 영역과 출력 크기를 함께 보관해 표시 위치와 입력 좌표를\n계산해야 한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 24,
+      "raw": "이미지를 위젯에 설정하고 주 스레드로 결과를 전달하는 일, 화면 갱신, 확대·이동,\n입력·필압, 접근성 및 장치별 실제 동작은 호출자가 맡는다. 이 예시는 프레임 픽셀의\n전달 경계이며 Qt Quick `CanvasItem` 또는 `BitmapItem` 전체를 대체하지 않는다.\n화면의 샘플링과 합성은 iiGUI의 표시 정책을 따른다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 28,
+      "raw": "`tests/native-svg-raster-consumer`의 독립 설치 소비자는 Qt 검색을 끄고 직접 만든\nARGB 픽셀과 실제 캔버스 렌더 결과, 원점, 알파, 소스 분리, 오류 및 크기 한도를\n검증한다. 이 검사는 실제 OS 창이나 펜 장치의 런타임 검증이 아니다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "iiGUI를 조합한 프레임 이미지 예시",
+      "anchor": "iigui를-조합한-프레임-이미지-예시",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 6,
+        "text": "자체 구현한다. 캔버스 모듈에 iiGUI를 직접 링크하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 12,
+        "text": "크기나 픽셀 수, 예산 초과는 이미지를 반환하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 17,
+        "text": "프레임 원점은 보존하지만 축소된 영역의 문서 좌표 변환은 추론하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 19,
+        "text": "계산해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 23,
+        "text": "전달 경계이며 Qt Quick `CanvasItem` 또는 `BitmapItem` 전체를 대체하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -1,14 +1,24 @@
 #include "File/IiscInput_p.hpp"
+#include "Document/DocumentCommit_p.hpp"
 #include "Native/Storage_p.hpp"
 #include <iiFileProviderNative.h>
 #include <iiFileProviderPresentation.h>
 #include <mutex>
 
 namespace iiSharedCanvas::detail {
+// The backup file is exclusively owned by the reader. Transfer its validated
+// document to the detached result before closing it, without copying pixels.
+class IiscInputAccess final {
+public:
+    static void take(DocumentFile& file, Document& output) {
+        PreparedDocumentCommit(output, *file.boundDocument()).commit();
+        file.close();
+    }
+};
 namespace {
 namespace provider=iiFileProvider::native;
 std::string utf8(const std::filesystem::path& path){const auto text=path.u8string();return {text.begin(),text.end()};}
-void backupWorkingFile(const std::filesystem::path& path,const std::filesystem::path& backup,SerializationLimits limits){
+void backupWorkingFile(const std::filesystem::path& path,const std::filesystem::path& backup,SerializationLimits limits,int backupTimeoutMs){
     provider::SourceAccess access(path);std::lock_guard sourceLock(access);
     auto total=std::filesystem::file_size(path);
     for(const auto suffix:{"-wal","-journal","-shm"}){
@@ -23,20 +33,32 @@ void backupWorkingFile(const std::filesystem::path& path,const std::filesystem::
     }
     NativeDatabase source(utf8(path),true);source.execute("PRAGMA query_only=ON; PRAGMA trusted_schema=OFF");
     NativeTransaction transaction(&source,false);provider::File::create(backup,{});
-    NativeDatabase destination(utf8(backup));source.backupTo(destination,limits.maximumContainerBytes);transaction.commit();
+    NativeDatabase destination(utf8(backup));source.backupTo(destination,limits.maximumContainerBytes,backupTimeoutMs);transaction.commit();
 }
 }
 Document loadIiscDocumentReadOnly(const std::string& path,const std::string& parent,SerializationLimits limits){
+    return loadIiscDocumentReadOnly(path,parent,limits,DefaultNativeSnapshotTimeoutMs);
+}
+Document loadIiscDocumentReadOnly(const std::string& path,const std::string& parent,SerializationLimits limits,int backupTimeoutMs){
     const auto input=std::filesystem::u8path(path);const auto size=std::filesystem::file_size(input);
     if(!size)throw IiscInputFailure(DocumentFileCode::CorruptFile,"Native input is empty");
     if(size>limits.maximumContainerBytes)throw IiscInputFailure(DocumentFileCode::LimitExceeded,"Native input exceeds byte budget");
     auto reader=provider::File::openRead(input);const auto prefix=reader->read(16);
     if(prefix==std::string("SQLite format 3\0",16)){
-        reader.reset();provider::TemporaryDirectory temporary(std::filesystem::u8path(parent));
-        const auto backup=temporary.path()/"source.iisc";backupWorkingFile(input,backup,limits);
+        // The OS temp directory may have a symlinked ancestor (macOS /var).
+        // Resolve the caller-selected parent once; FileProvider still checks
+        // the actual backup path and its lease without following links.
+        reader.reset();
+        const auto canonicalParent=std::filesystem::canonical(std::filesystem::u8path(parent));
+        provider::TemporaryDirectory temporary(canonicalParent);
+        const auto backup=temporary.path()/"source.iisc";
+        try { backupWorkingFile(input,backup,limits,backupTimeoutMs); }
+        catch(const NativeStorageFailure& error) { throw IiscInputFailure(error.code,error.what()); }
         DocumentFile file;const auto opened=file.open(utf8(backup),limits);
         if(!opened.ok() || !file.document())throw IiscInputFailure(opened.code,opened.message);
-        return *file.document();
+        Document detached;
+        IiscInputAccess::take(file,detached);
+        return detached;
     }
     if(!prefix.starts_with(std::string("IISC\r\n\x1a\n",8)))
         throw IiscInputFailure(DocumentFileCode::UnsupportedFormat,"Input is not a native canvas snapshot or working file");

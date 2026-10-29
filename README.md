@@ -1,8 +1,152 @@
 # iiSharedCanvas
 
-[Windows 빌드 및 실행](docs/WindowsBuildAndRun.md)
+[Windows build and execution](docs/WindowsBuildAndRun.md)
 
-Package release: **0.32.0** (2026-10-22). Native format 1.22 embeds common
+The Qt-free `iiSharedCanvas::Native` package also exports PCM16 WAV I/O,
+the decoded Camera RAW model and validation, and bounded document previews.
+Its `AsyncFrameRenderQueue` accepts an application-owned executor, coalesces
+requests, and delivers independently rendered layers and composite tiles without
+Qt; wakeups run on executor threads and the application owns UI dispatch.
+The application-owned [iiGUI frame example](docs/GUI_FRAME_PRESENTATION.md)
+converts rendered pixels into an immutable display image. Widget integration,
+input and the full Qt Quick editor replacement remain application work.
+The native package exports its editable path model as SVG or gzip SVGZ, and
+exports timeline pages to PDF with vector paths and transparent raster content.
+Non-normal blends and layer appearances require explicit page rasterization.
+An application-owned iiXml and iiCompression example imports the editable
+SVG/SVGZ subset emitted by the native exporter; general editable SVG import
+remains a legacy capability.
+See [the canonical SVG adapter](docs/XML_SVG_IMPORT.md) for its strict limits.
+An additional application-owned iiGUI example rasterizes a restricted SVG/SVGZ
+subset, including linear gradients, and reports the loss of vector editability.
+It does not yet replace general SVG or PDF rasterization.
+WAV publication does not overwrite an existing file; previews read snapshots
+or committed working-file content without editing the source. The RAW model is
+not a proprietary camera-file decoder. See [Native](docs/NATIVE.md).
+The native package also exposes `upgradeIiscFile` and installs `iisc-upgrade`;
+they preserve the snapshot or working-file storage kind and reject existing
+output files. Current in-place upgrades are no-ops.
+Native `iisc-import` and `iisc-export-psd` use the supported layered PSD and
+OpenRaster subset without Qt. They preserve the input and reject existing
+outputs unless PSD overwrite is explicitly requested.
+The native timeline interchange API publishes FCP XML, FCPXML, PNG and WAV
+media, a manifest, and a source snapshot as a new directory using iiFileProvider
+Native 0.11.1 or later. The native `iisc-export-timeline` command accepts a
+snapshot or working file and provides the same non-overwriting export.
+For video, the native `VideoFrameDecoder` interface lets applications inject a
+codec and convert bounded, display-oriented frames into a video asset or
+dynamic bitmap document. A codec implementation and file I/O remain the
+application's responsibility. The `example/VisualCodecVideoDecoder` adapter
+composes iiVisualCodec 0.4.2 for a limited set of square-pixel, constant-rate
+video, including canonical right-angle display matrices; see [the decoder
+contract](docs/VIDEO_FRAME_DECODER.md) for its limits.
+The matching `VideoFrameEncoder` lets applications encode a selected rendered
+frame range; the iiVisualCodec example supports lossless FFV1 and explicit
+alpha matting for opaque codecs. Audio is omitted with a warning. See [the
+encoder contract](docs/VIDEO_FRAME_ENCODER.md) for its limits.
+The [Qt migration status](docs/QT_MIGRATION.md) records the remaining feature
+and SDK-independence work; the legacy Qt API remains the default for now.
+
+Package release: **0.35.14** (2026-10-28). Native `DocumentHistory` provides a
+staged final-pixel preview: borrowed tiles and optional infinite-canvas growth
+remain separate from the owner until one synchronous commit. Cancel leaves the
+document revision unchanged. Synchronous frame, layer, tile, region and
+artboard-region render calls can apply borrowed replacement tiles before
+transforms, filters and masks. Application input and cache invalidation remain
+the consumer's responsibility. See [frame overlays](docs/FRAME_OVERLAY.md).
+Growth
+uses untransformed chunk coordinates and does not infer a referring layer's
+transform. See
+[document history](docs/DOCUMENT_HISTORY.md) for ownership and failure rules.
+Native `DocumentHistory` can also opt a
+chunked infinite-canvas stroke into automatic growth. Changed pixels, allocated
+chunks and the expanded canvas region share one undo entry; cancellation and
+undo restore the prior region. Current working files commit the header and
+touched tiles together. Existing strokes remain clipped by default. See
+[document history](docs/DOCUMENT_HISTORY.md) for bounds, failure and recovery.
+Native `DocumentHistory` can remove
+a static raster, chunked-raster or vector layer together with its unshared asset,
+and can change the rational frame rate and frame count as one validated command.
+Existing references, frames, motion and audio are never silently discarded.
+The current working-file timing path commits the header and authorship without
+copying image or audio payloads. The bounded asset snapshot can reject a large
+high-entropy deletion; there is no disk spill. See
+[document history](docs/DOCUMENT_HISTORY.md) for the complete contract.
+Native `DocumentHistory` also owns
+a streaming finite or chunked bitmap stroke alongside its other ordered
+commands. Samples and stationary brush-clock ticks update the live result;
+finishing publishes one bounded undo entry and cancellation restores its source
+while preserving redo. Working-file increments and cancellation are durable
+transactions, so callers must resolve interruptions and handle errors explicitly.
+See [document history](docs/DOCUMENT_HISTORY.md) for the session contract and
+remaining application integration. Native `DocumentHistory` can also create
+a static layer and its new raster, chunked raster or vector asset as one
+reversible command. Its lossless, budgeted asset snapshot stores runs for
+uniform raster areas and rejects over-budget content before publication. It
+does not spill history to disk; highly detailed imports can exceed the budget.
+See [document history](docs/DOCUMENT_HISTORY.md) for conflict, memory and file
+transaction boundaries. Native `DocumentHistory` also records
+layer insertion, keyframed insertion and deletion alongside bitmap and layer
+property edits in the same undo/redo sequence. It retains layer metadata and
+frame-owned asset references; referenced assets remain in the document. See
+[document history](docs/DOCUMENT_HISTORY.md) for conflict, budget, transactional
+and application-adoption limits. Native working-file layer insertion,
+keyframed insertion, deletion and reordering commit structural records without
+copying raster or audio assets. Layer deletion retains the referenced assets and
+removes the layer's frame keys. Legacy working files use the existing migration
+path; see [layer file edits](docs/LAYER_FILE_EDITS.md) for transactional limits.
+Raster and vector masks are sampled
+at native resolution through bounded, shared region tiles, including their
+Gaussian feather halos. Large referenced masks no longer require a full mask
+copy and coverage plane for a small render request. See
+[mask region rendering](docs/MASK_REGIONS.md) for limits, compatibility and costs.
+Native `DocumentHistory` coordinates
+bitmap patches and supported layer changes in one ordered, budgeted undo/redo
+history for memory documents and working files. Pixel preview sessions expose
+their original source, replace the entire visible result, and publish one history
+entry only on commit. Live working-file previews are durable per replacement;
+staged previews are not written until commit. Callers must explicitly resolve
+the session and handle interrupted recovery. It does not automatically track
+edits made outside the coordinator or group commands across assets. See
+[document history](docs/DOCUMENT_HISTORY.md) for ownership, conflict detection,
+logical budget accounting, failure behavior, and remaining application work.
+Bitmap editors use bounded region history
+and atomic multi-patch edits through iiPaintEngine 0.5.4. Undo preserves finite
+asset dimensions and sparse chunk presence; brush previews retain touched pixel
+tiles instead of complete asset snapshots. The default history policy rejects
+over-budget commands before publication. Explicit eviction reports its count.
+Rebuild consumers that used older editor layouts; IISC remains 1.22. See
+[bitmap region history](docs/BITMAP_HISTORY.md) for budgets, conflict handling,
+file-transaction boundaries and remaining full-document operations. Native file-bound
+same-size bitmap edits commit touched tiles directly, without cloning the document;
+see [file-bound bitmap regions](docs/BITMAP_FILE_REGIONS.md) for limits and fallbacks.
+Native working-file snapshots transfer their validated decoded pixels to the detached
+result without an additional full-document copy; the temporary file, complete decode
+and prior caller output still consume resources. The SQLite backup default is five
+minutes and Native callers can supply a positive timeout in milliseconds; it does not
+bound opening, decoding or validation. `iisc-working verify` and `upgrade-storage
+--dry-run` expose the same option. See [working-file tiles](docs/WORKING_FILE_TILES.md).
+File-bound layer name, visibility, opacity, transform and blend edits update the
+layer record and authorship without copying raster assets. See
+[layer file edits](docs/LAYER_FILE_EDITS.md) for transactional boundaries and fallbacks.
+
+In 0.33.2, bitmap editors added an explicit
+monotonic stroke clock for stationary airbrush and pulled-string catch-up.
+Rebasing excludes suspended time without emitting paint or revising the document.
+See [stroke clocks](docs/BITMAP_CLOCK.md).
+
+In 0.33.1, mixer and smudge began reading the bound asset's
+stroke-start pixels through iiPaintEngine 0.5.3. Negative origins and chunk
+boundaries share the same source coordinates; unloaded smudge preserves empty
+content and transferred alpha. See [wet brush sampling](docs/BITMAP_WET_BRUSH.md).
+
+In 0.33.0, bitmap editors added measured
+`StrokePoint` samples with tilt, stylus rotation, custom dynamics and monotonic
+seconds. Sparse runtime pixel tiles retain stroke opacity across input events.
+Editor layouts changed: rebuild consumers for ABI 0.33. The canonical format
+remains 1.22 and stores pixels, never input paths. See [bitmap input](docs/BITMAP_INPUT.md).
+
+In 0.32.0, native format 1.22 added common
 publication metadata in the same `.iisc` file: title, description, ordered
 canvas captions and alternative text, cover and typed publication settings.
 Both snapshots and working files preserve it without a companion document.
@@ -523,7 +667,7 @@ and validates foreign entry paths without extracting them.
 
 ## Dependency
 
-The direct project dependencies are iiPaintEngine 0.5.1, SQLite 3.26 or newer,
+The direct project dependencies are iiPaintEngine 0.5.4, SQLite 3.26 or newer,
 zlib 1.2.9 or newer, and libzip 1.7.3 or newer (CMake target `libzip::zip`).
 SQLite is a private implementation dependency for durable working files;
 [the review](docs/DEPENDENCIES.md) covers maintenance, public-domain licensing,
@@ -598,11 +742,12 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.32.0 with SOVERSION 0.32 and exact-version
-CMake package matching. Consumers must rebuild against the new installed
-package to adopt the publication metadata model. The canonical snapshot model is version 1.22;
+The current C++ package version is 0.35.14 with SOVERSION 0.35. The legacy CMake
+package matches exact versions; Native accepts compatible patches within the
+same minor version. Consumers must rebuild against 0.34 or later to use the new editor
+layouts. The canonical snapshot model is version 1.22;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
-schema 1 is identified separately by its SQLite header and application id.
+schema 2 has its own SQLite header and application id and can read schema 1.
 
 For a tested host install, including an installed-package consumer check:
 
@@ -973,3 +1118,16 @@ content examples are in [FOUR_LAYER_TYPES.md](docs/FOUR_LAYER_TYPES.md).
 Native layer composition in 0.30.0 adds a persistent `LayerAppearance`, 27 blend modes, pixel/vector/filter masks, ordered non-destructive effect and color-adjustment stacks, clipping chains and split Blend If. The native model is IISC 1.20. See [Layer compositing](docs/LAYER_COMPOSITING.md) and [the evidence comparison](docs/PHOTOSHOP_LAYER_COMPARISON.md) for semantics, verification and the exact Photoshop/interchange boundaries. The GUI adapter now declares Qt dependencies directly; iiPaintEngine 0.5.1 remains a standard-C++23 bitmap library.
 
 `DocumentFile::readRevision(path, revision)` inspects the committed working-file revision through a read-only iiFileProvider connection without adopting an authoring document or changing journal mode. Errors preserve the output; serialized IISC snapshots have no stored revision. Storage/schema inspection does not validate the document payload.
+
+### Native working-file tiles and agent interface (0.35.0)
+
+The Qt-free Native package stores editable bitmap pixels in independently checked tiles (private working storage v2), while preserving canonical IISC 1.22 and reading existing v1 working files. `DocumentFile::readStorageInfo`, `storageVersion`, and `upgradeStorage` expose inspection and explicit migration. The installed `iisc-working inspect|verify|upgrade-storage PATH` CLI emits JSON and supports a source-preserving `--dry-run`. See [the storage contract](docs/WORKING_FILE_TILES.md) for integrity, limits, compatibility, and the remaining full-draft cost of general edits.
+
+<!-- workspace-docs:readme:start -->
+## Documentation entry points
+
+- Human overview: this English `README.md`.
+- Agent instructions: [AGENT.md](AGENT.md).
+- Human documentation: [documentation index](docs/README.md).
+- Structured agent documentation: [agent index](docs/agent-index.json).
+<!-- workspace-docs:readme:end -->

@@ -1,0 +1,584 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:dabe487301e03a6b6d5a63be959a4c4ff7650423b022f77cc93329c4d8426ffb",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/PSD_EXPORT.md",
+    "sha256": "57065d46d994b60913252712347482cd5dc262f5669380fcd68df714b8874975",
+    "bytes": 12892,
+    "line_count": 66,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "PSD 편집 가능한 벡터 소스를 포함한 내보내기",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"psd-export-with-editable-vector-sources\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# PSD 편집 가능한 벡터 소스를 포함한 내보내기\n",
+      "level": 1,
+      "title": "PSD 편집 가능한 벡터 소스를 포함한 내보내기"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "`encodePsd(document, options)` 는 PSD 바이트를 반환하며, `exportPsd(document, path, options)` 는 기존 미디어 파일 어댑터를 통해 원자적으로 그들을 씁니다. `PsdExportOptions` 는 `overwrite` , `limits` , 및 `maxLayers` 를 포함합니다. PSD 출력은 버전 1, 8비트 RGB 와 병합된 투명성 채널을 가집니다. 파일은 한계가 설정된 미만 2 GiB 입니다; 30,000 픽셀보다 큰 차원은 PSB 를 필요로 하며, 이 작성기는 이를 생성하지 않습니다. PSD 는 명시적으로 sRGB ICC 프로필과 72dpi 해상도를 운반하며, 다른 애플리케이션의 작업 프로필에 의존하지 않습니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "전체 네이티브 문서는 변환 전에 검증됩니다. 소스 자산, 레이어, 타임라인 및 파일 바인딩은 절대 수정되지 않습니다. 공개 모델 필드는 네이티브 캔버스 데이터로 유지되며, Photoshop 디스크립터는 출력 어댑터에만 존재하고 다른 문서 모델이 되지 않습니다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "html",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "<a id=\"first-frame-and-layer-contract\"></a>\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "## 첫 번째 프레임 및 레이어 계약\n",
+      "level": 2,
+      "title": "첫 번째 프레임 및 레이어 계약"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "작업자는 정확히 0프레임만큼 샘플링합니다. 나중에 프레임, 타이밍, 프레임 속도 정보 및 타임라인 구조는 Photoshop 애니메이션에 인코딩되지 않으며, 누락은 경고로 반환됩니다. 0 를 포함하는 프레임 범위를 가진 레이어는 출력에서 누락되며, 경고가 표시됩니다. 프레임 0 에 적합한 레이어가 없으면 PSD 에 투명 `(Empty frame 0)` 플레이스홀더 레이어 하나가 할당되며, 경고가 표시됩니다. 원본 문서에는 변경이 없으며, 플레이스홀더는 `maxLayers` 에 포함됩니다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "이진 레이어 순서는 아래에서 위로 유지됩니다. Unicode 레이어 이름, 가시성, 일반/곱하기/스크린/오버레이 블렌딩 및 레이어 불투명도는 유지됩니다. 불투명도는 1 바이트로 양자화되며, 양자화는 경고로 보고되고, 병합된 미리보기는 동일한 양자화 값을 사용합니다. 숨겨진 레이어는 여전히 소스 픽셀 또는 벡터 소스와 래스터 캐시를 포함합니다. 무효한 UTF-8 또는 임베드된 널 레이어 이름은 출력 발행 전에 실패합니다. 네이티브 Stable Diffusion 메타데이터는 보존되지 않으며, 누락은 경고로 표시됩니다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "선형 변환이 항등이고 정수 평행 이동이 정확히 표현 가능한 비트맵은 원래 픽셀 크기·straight ARGB·완전 투명 픽셀의 RGB 값·부호 있는 위치를 유지한다. 캔버스 밖의 픽셀도 유지한다. 다른 비트맵 변환과 청크형 래스터 저장소는 네이티브 렌더러로 변환을 구운 canvasRegion 크기의 캐시를 만든다. 이 클리핑과 별도 편집 가능한 비트맵 변환의 손실은 고지한다. 무한 캔버스는 고정된 `canvasRegion` 뷰포트를 내보내며 이 경우도 경고한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "html",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "<a id=\"vector-layers-are-embedded-pdf-smart-objects\"></a>\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "## 벡터 레이어는 PDF 스마트 오브젝트가 내장되어 있습니다.\n",
+      "level": 2,
+      "title": "벡터 레이어는 PDF 스마트 오브젝트가 내장되어 있습니다."
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "네이티브 `StaticVectorLayer` 또는 `DynamicVectorLayer` 는 평평해진 비트맵 로만 되지 않습니다. 선택된 프레임-0   `VectorAsset` 은 기존 Qt   `QPdfWriter` 와 기존 네이티브 경로- `QPainterPath` 변환을 사용하여 한 페이지 벡터 PDF 에 페인팅됩니다. 고정 채우기, 선, 곡선, 개별 페인트 알파, 짝-홀 채우기, 그리고 둥근 캡/결합은 PDF 그리기 작업으로 유지됩니다. 래스터 이미지는 PDF 에 감싸지지 않습니다. 이 PDF 기능에는 초기화된 `QGuiApplication` 이 필요합니다; 부재는 인수 오류로 보고됩니다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "각 벡터 기록에는 `PlLd` 배치 객체 기록과 `SoLd` 스마트 객체 설명자가 포함됩니다. 전역 `lnk2` 블록에는 내장된 `liFD` 버전-2 PDF 페이로드가 포함되어 있습니다. UUID 참조는 설명자를 내보내기 기계의 경로에 연결하는 것이 아니라 실제 내장된 페이로드에 연결합니다. PDF 소스는 외부 링크된 파일이 아니며 사이드카 파일이 필요 없습니다. 임베딩된 Unicode 파일명은 저장된 카운트에 종료 UTF-16 널 코드 단위를 포함하며, Adobe 작성된 링크된 기록과 일치합니다; Photoshop 아니면 `.pdf` 접미사의 마지막 문자를 잘라냅니다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "변환되지 않은 PDF 페이지는 네이티브 벡터 뷰포트 와 모든 경로의 범위를 포함하며, 스트로크 너비를 위해 확장됩니다. 범위는 보수적으로 바깥쪽으로 정수 점으로 반올림됩니다. 따라서 `VectorAsset::viewport` 밖의 경로는 아무런 알림 없이 잘라지지 않습니다. PDF 페이지는 정확히 매칭된 72dpi 점 기하학을 사용하며, 배치된 사각형은 원래 네이티브 아핀 변환을 4 소스 페이지 모서리에 적용하고 캔버스 기원을 뺍니다. 스마트 오브젝트는 PDF MediaBox 자르기 ( `Crop = 3` )를 선택하므로 소스를 다시 열면 페이지를 더 작은 페인팅된 콘텐츠 경계 상자로 잘라내지 않습니다. 레이어 불투명도는 PDF 또는 래스터 캐시에 버닝되지 않으며, PSD 레이어 메타데이터로 유지됩니다. 14,400 축당 점보다 큰 소스 페이지, 비유한 범위 또는 퇴화된 스마트 오브젝트 변환은 명시적으로 거부됩니다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "래스터 캐시 픽셀은 숨겨진 벡터 레이어를 포함하여 고정된 캔버스 뷰포트 전체를 네이티브 렌더러로 렌더링하여 생성한다. 이는 PSD 리더에서 즉시 표시할 외형을 제공하며 내장 PDF는 편집 가능한 전체 벡터 소스와 배치를 보존한다. 이후 편집도 Smart Object 편집으로 유지된다. Photoshop 네이티브 도형 레이어로 변환하는 것도 아니며 PDF 경로가 iisc 객체 모델을 유지한다는 주장도 아니다. 다른 애플리케이션이 내장 PDF를 다시 래스터화한 뒤의 안티앨리어싱은 저장된 네이티브 렌더러 캐시와 다를 수 있다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "엄격한 초기 PSD 임포트러는 스마트 오브젝트를 의도적으로 거부합니다. 따라서 평범한 비트맵 PSDs 는 왕복 변환 를 통해 `decodeLayeredDocument` 하지만, 내보낸 벡터 PSD 는 하위 소비 측 스마트 오브젝트 인식 애플리케이션을 위한 것이며, 네이티브 벡터 임포트 왕복 변환 가 아닙니다. `.iisc` 를 편집 가능한 원본으로 유지하세요.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "html",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "<a id=\"bounds-and-failure-behavior\"></a>\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "heading",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "## 경계와 실패 행동\n",
+      "level": 2,
+      "title": "경계와 실패 행동"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "레이어 카운트는 `maxLayers`와 PSD의 서명된 16-비트 레이어 카운트 필드에 의해 한계가 설정된입니다. 픽셀 치수, 소스 래스터, 명령 카운트, Unicode 이름 및 원시 채널 출력 하한은 렌더링 전에 확인됩니다. 렌더링은 선택된 자산과 하나의 정적 레이어만 포함하는 임시 문서를 사용합니다; 숨김 레이어 지원은 이후 또는 관련 없는 자산을 복사하지 않습니다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "해독된 작업 메모리 추정치는 8 전체 캔버스 ARGB 버퍼, 가장 큰 선택된 자산 복사, 보수적인 벡터 평탄화 임시 파일, 레이어 기록 성장, 복사/해시된 ID 와 이름 변환 저장 공간을 예약합니다. 분할된 래스터 추정치는 또한 소스 청크당 2 전체 캔버스 조각을 추가로 청구하며, 교차하지 않는 청크를 보수적으로 포함합니다. 동시에 유지된 모든 내장 PDF 는 남은 `maxDecodedBytes` 예산에 맞아야 합니다. PDF 출력 자체는 기존 한계가 설정된 `QBuffer` 를 사용하며, 총 PSD 바이트는 `maxOutputBytes` 와 PSD 파일 크기 상한 중 작은 값을 사용합니다. 이는 콘텐츠 및 어댑터 버퍼 한계이며, 할로케이터 오버헤드나 Qt / zlib 내부의 피크 프로세스 RSS 에 대한 보장은 아닙니다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "오류가 빈 인코딩 바이트를 반환합니다. 할당 및 컨테이너 크기 실패는 `LimitExceeded`가 됩니다. 파일 내보내기는 기존 목적지 검증, 원자적 게시 및 기본 무오버라이트 계약을 사용하며, 여기에는 `.iisc` /database 작업 파일을 교체하는 것을 방지하는 보호가 포함됩니다. API는 외부 변환기를 절대 실행하지 않으며, 연결된 소스 경로에 접근하거나 종속성을 다운로드하지 않습니다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "`PsdExportTest` 는 생성된 이진 엔벨로프, 기록, 채널 길이, 배치된 쿼드 및 연결된 PDF 페이로드를 독립적으로 읽습니다. 이는 평범한 비트맵 왕복 변환, 정확한 렌더러 출력, 숨겨진 픽셀, Unicode 이름, 첫 프레임 샘플링, 프레임 범위 누락, 빈 프레임 플레이스홀더, 아핀 비트맵 캐시, 편집 가능한 벡터 페이로드, 뷰포트 뷰포트 벡터/스트로크 범위, 리소스 한계, 소스 불변성 및 원자적 파일 대체를 포함합니다. 독립적인 리더 검증을 위해 `build/test-output/export-smartobject.psd` 도 작성합니다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "html",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "<a id=\"source-format-review\"></a>\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "heading",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "## 소스 형식 검토\n",
+      "level": 2,
+      "title": "소스 형식 검토"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 49,
+      "end_line": 52,
+      "raw": "이 어댑터는 [Adobe Photoshop 파일 형식 사양](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/)를 따릅니다. 스마트 객체 필드 상호 운용성은 기본과 비교하여 확인되었습니다.\n[psd-tools 배치/스마트 디스크립터 리더](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/tagged_blocks.py),\n[임베디드 링크드 데이터 리더](https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/linked_layer.py), 그리고 [ag-psd 링크드 데이터 작성기](https://github.com/Agamnentzar/ag-psd/blob/master/src/additionalInfo.ts). 그들의 소스는 라이브러리에 복사되지 않습니다. 작성기는 검토된 Qt PDF 와 기존 네이티브 렌더링 의존성을 재사용하며, PSD / PDF 런타임 라이브러리는 추가되지 않습니다. 실제 Adobe 애플리케이션 수인은 바이너스 파싱과 별개의 검증 단계이며, 이 형식 테스트들만으로는 암시되지 않습니다. MediaBox 컷 값은 개발자가 기록한 값과 교차 확인되었습니다.\n[Adobe UXP PDF -import action](https://forums.creativeclouddeveloper.com/t/crop-pdf-import/9146); 바이너리 형식 사양은 이러한 크롭 값을 열거하지 않습니다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "선택형 독립 개발 오라클은 `psd-tools` 과 `pypdf` ( 런타임 의존성이 아님) 을 사용하며, `build/psd-oracle-packages` 에 설치한 후 `PYTHONPATH=build/psd-oracle-packages python3 -B tests/verify_psd_export.py build/consumer/installed-frame-zero.psd` 를 실행합니다. 그 픽스처 는 설치된 패키지 소비자가 생성하며, 스마트 오브젝트 링크, 설명자, PDF 벡터 페인팅, 캐시된 픽셀 및 병합된 첫 프레임 출력을 독립적으로 확인합니다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "html",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "<a id=\"verified-application-check-2026-09-03\"></a>\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "heading",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "## 인증된 애플리케이션 확인 ( 2026-09-03 )\n",
+      "level": 2,
+      "title": "인증된 애플리케이션 확인 ( 2026-09-03 )"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "paragraph",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "검증 호스트에서 Photoshop 2026 는 생성된 픽셀 레이어 PSD 와 `build/test-output/export-smartobject.psd` 를 모두 열었습니다. 벡터 레이어는 전체 `vector-0.pdf` 파일 이름을 가진 임베디드 스마트 오브젝트로 나타났습니다. 편집 내용은 구성된 PDF 애플리케이션 (미리보기) 에 내장된 한 페이지 PDF 를 열었습니다. 문서들은 저장하지 않고 닫혔습니다. 이는 애플리케이션 수인과 내장 소스 해결을 확인하며, Photoshop 편집/저장 왕복 변환 또는 편집 후 동일한 래스터화를 확인하지 않습니다.\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "최종 릴리스 빌드가 모든 28 CTest 테스트와 단계적 설치 및 독립 실행형 설치 패키지 사용량을 모두 통과했습니다. 설치된 소비자용 `installed-frame-zero.psd`는 또한 독립적인 `psd-tools` / `pypdf` 오라클을 통과했으며, 여기에는 네이티브 PDF 벡터 연산자와 정확한 1프레임 픽셀이 포함됩니다.\n"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000061",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "네이티브 `VideoLayer` 또는 `LayerProperties::motion`(패키지 0.11.0)는 현재 `UnsupportedFeature`를 반환합니다. 이렇게 하면 지원되는 PSD 스냅샷으로 비디오나 보간된 움직임을 잘못 표현하는 것을 방지합니다. 편집 가능한 콘텐츠를 유지하려면 `.iisc`를 사용하고, 렌더링된 출력에는 `exportVideo`를 사용하십시오. 기존 자산 전환 키 스냅샷은 계속 지원됩니다.\n"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "PSD 편집 가능한 벡터 소스를 포함한 내보내기",
+      "anchor": "psd-편집-가능한-벡터-소스를-포함한-내보내기",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "첫 번째 프레임 및 레이어 계약",
+      "anchor": "첫-번째-프레임-및-레이어-계약",
+      "start_line": 11
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "벡터 레이어는 PDF 스마트 오브젝트가 내장되어 있습니다.",
+      "anchor": "벡터-레이어는-pdf-스마트-오브젝트가-내장되어-있습니다",
+      "start_line": 21
+    },
+    {
+      "block_id": "b000035",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "경계와 실패 행동",
+      "anchor": "경계와-실패-행동",
+      "start_line": 35
+    },
+    {
+      "block_id": "b000047",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "소스 형식 검토",
+      "anchor": "소스-형식-검토",
+      "start_line": 47
+    },
+    {
+      "block_id": "b000055",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "인증된 애플리케이션 확인 ( 2026-09-03 )",
+      "anchor": "인증된-애플리케이션-확인--2026-09-03-",
+      "start_line": 58
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000049",
+        "label": "Adobe Photoshop 파일 형식 사양",
+        "target": "https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/",
+        "kind": "external",
+        "line": 49
+      },
+      {
+        "block_id": "b000049",
+        "label": "psd-tools 배치/스마트 디스크립터 리더",
+        "target": "https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/tagged_blocks.py",
+        "kind": "external",
+        "line": 50
+      },
+      {
+        "block_id": "b000049",
+        "label": "임베디드 링크드 데이터 리더",
+        "target": "https://github.com/psd-tools/psd-tools/blob/main/src/psd_tools/psd/linked_layer.py",
+        "kind": "external",
+        "line": 51
+      },
+      {
+        "block_id": "b000049",
+        "label": "ag-psd 링크드 데이터 작성기",
+        "target": "https://github.com/Agamnentzar/ag-psd/blob/master/src/additionalInfo.ts",
+        "kind": "external",
+        "line": 51
+      },
+      {
+        "block_id": "b000049",
+        "label": "Adobe UXP PDF -import action",
+        "target": "https://forums.creativeclouddeveloper.com/t/crop-pdf-import/9146",
+        "kind": "external",
+        "line": 52
+      },
+      {
+        "block_id": "b000063",
+        "label": "Native layer compositing",
+        "target": "LAYER_COMPOSITING.md",
+        "kind": "relative",
+        "line": 66
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

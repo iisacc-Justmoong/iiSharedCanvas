@@ -1,4 +1,5 @@
 #include <iiSharedCanvas.h>
+#include <iiFileProviderNative.h>
 
 #include <filesystem>
 #include <iostream>
@@ -31,8 +32,10 @@ int main() {
     expect(decoded.ok(), "full-resolution raster snapshot must decode");
     expect(std::get<RasterAsset>(decoded.document.assets.front()).pixels.pixels == checker.pixels,
            ".iisc must preserve every source pixel before resampling");
-    const auto path = std::filesystem::path(IISHAREDCANVAS_TEST_OUTPUT_DIR) / "sampling.iisc";
-    std::filesystem::remove(path);
+    const std::filesystem::path parent(IISHAREDCANVAS_TEST_OUTPUT_DIR);
+    iiFileProvider::native::TemporaryDirectory temporary(parent);
+    if (!temporary.isValid()) { std::cerr << "cannot reserve test directory\n"; return 1; }
+    const auto path = temporary.path() / "sampling.iisc";
     DocumentFile file;
     expect(file.create(path.string(), decoded.document).ok(), "working .iisc must create");
     file.close();

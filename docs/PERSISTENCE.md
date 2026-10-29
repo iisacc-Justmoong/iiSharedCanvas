@@ -1,5 +1,7 @@
 <a id="write-through-document-files"></a>
 
+Native 0.35.0의 현재 작업 저장 형식은 **2**이며 [타일 저장 계약](WORKING_FILE_TILES.md)을 따른다. 아래 스키마 1 설명과 과거 버전별 확장은 Qt API 및 기존 작업 파일의 계약이다. 정규 IISC 문서 형식은 현재 1.22이며 작업 저장 형식과 독립적이다.
+
 # 쓰기 문서 파일
 
 <a id="authoring-contract"></a>
@@ -68,7 +70,7 @@ not replace SQLite's cross-process locks or alter persistence/conflict behavior.
 
 ## 물리 작업 파일 형식, 스키마 1
 
-작동 중인 `.iisc` 파일은 SQLite의 `SQLite format 3\0` 헤더로 시작하고, `application_id=0x49495343`와 `user_version=1`를 포함하며, 정확히 이 2 애플리케이션 테이블을 포함합니다. 스키마 버전은 캔버스 모델의 `FormatVersion`(현재 1.20)와 독립적입니다. 알 수 없는 ID/버전/스키마 객체, 잘못된 레코드 ID/순서, 실패한 체크섬, 잘못된 참조 및 구성된 리소스 제한 위반 안전하게 거부한다.
+작동 중인 `.iisc` 파일은 SQLite의 `SQLite format 3\0` 헤더로 시작하고, `application_id=0x49495343`와 `user_version=1`를 포함하며, 정확히 이 2 애플리케이션 테이블을 포함합니다. 스키마 버전은 캔버스 모델의 `FormatVersion`(현재 1.22)와 독립적입니다. 알 수 없는 ID/버전/스키마 객체, 잘못된 레코드 ID/순서, 실패한 체크섬, 잘못된 참조 및 구성된 리소스 제한 위반 안전하게 거부한다.
 
 `canvas_state`는 한 행을 포함합니다 ( `singleton=1` , non negative signed-64-bit `revision` ). `canvas_records`는 내부 rowid와 `kind`, `id`, `position`, `data` 및 `digest` 열을 가지고 있으며, 이는 `(kind,id)`에서 고유합니다. 데이터는 BLOB이며, 다이제스트는 해당 BLOB의 SHA-256입니다. 포지션은 0기반 주문이며, 해당 종류 내에 있습니다. 레코드 ID는 SQL 텍스트 값에 바인딩되며, 절대 SQL 구문이나 파일 시스템 경로에 연결되지 않습니다.
 
@@ -190,3 +192,7 @@ test is compiled and run against the installed package by
 ## 게시 메타데이터의 단일 파일 보존
 
 0.32.0의 `Document::publicationMetadata`는 스키마 1의 `PublicationMetadata` 레코드로 `.iisc` 내부에 저장된다. `DocumentEditor`의 설정/삭제는 미디어를 다시 기록하지 않는 동기 트랜잭션이며, 별도 JSON 동반 파일을 만들지 않는다. 바이너리 스냅샷에도 동일한 데이터가 포함된다. [전체 계약](PUBLICATION_METADATA.md).
+
+## 네이티브 작업 저장 형식 2
+
+Native 0.35.0은 편집 가능한 비트맵의 픽셀을 독립 타일로 저장한다. 기존 작업 형식 1은 읽기·무변경 열기를 유지하고, 명시적인 `upgradeStorage()` 또는 첫 실제 변경에서 원자적으로 옮긴다. 정규 IISC 형식은 1.22를 유지한다. 타일·무결성·API·에이전트 CLI 및 남은 전체 임시 문서 사본 비용은 [네이티브 작업 파일 타일 계약](WORKING_FILE_TILES.md)에 명시했다.

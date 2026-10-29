@@ -1,0 +1,170 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:51b8fb79cc7462bb912f36e1e27f9d7ecf2b0aa63b3f6cc895c62cdf096302b7",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "example/README.md",
+    "sha256": "0e2b5a7ae0cd2ab067a4958061e53ef0786846d19198a04c0aa28aeedd3274c3",
+    "bytes": 1993,
+    "line_count": 32,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "iiSharedCanvas native examples",
+    "role": "overview",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# iiSharedCanvas native examples\n",
+      "level": 1,
+      "title": "iiSharedCanvas native examples"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "The runnable contracts and examples are maintained in [`tests/`](../tests/). Build them in the repository `build/` directory. Use the installed native SDK kit documented in `docs/`; the Congregation integration uses C++23 and contains no Qt runtime.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 9,
+      "raw": "`VisualCodecVideoDecoder.h/.cpp` shows how an application can compose the\nnative frame-decoder interface with iiVisualCodec 0.4.2. It handles canonical\nright-angle display matrices while rejecting other display or timing normalization; see\n[the video decoder contract](../docs/VIDEO_FRAME_DECODER.md) for its limits and\nthe installed-package integration test.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 15,
+      "raw": "`VisualCodecVideoEncoder.h/.cpp` composes the matching native frame-encoder\ninterface with iiVisualCodec's in-memory video codec. It preserves alpha with\nFFV1 and explicitly mattes alpha for opaque codecs. See [the video encoder\ncontract](../docs/VIDEO_FRAME_ENCODER.md) for memory, cancellation, and format\nlimits.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 20,
+      "raw": "`GuiFramePresenter.h/.cpp` converts a detached native canvas frame to an\nimmutable iiGUI image while preserving straight alpha and the frame origin.\nThe application owns widget updates, input and scheduling; this does not replace\nthe complete Qt Quick editor. See [the frame presentation contract](../docs/GUI_FRAME_PRESENTATION.md).\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 26,
+      "raw": "`XmlSvgDecoder.h/.cpp` shows an application composing the native canvas with\niiXml and iiCompression to recover the editable paths emitted by the native\nSVG/SVGZ exporter. It\nrejects constructs outside that narrow subset. See [the SVG adapter\ncontract](../docs/XML_SVG_IMPORT.md) and its installed-package consumer test.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 28,
+      "end_line": 32,
+      "raw": "`GuiSvgRasterizer.h/.cpp` demonstrates explicit bitmap import using iiGUI,\niiXml and iiCompression. It supports a restricted SVG/SVGZ subset, warns that\nthe result is flattened, and rejects unsupported constructs. It does not\nrasterize PDF. See the same [SVG contract](../docs/XML_SVG_IMPORT.md) for\nthe exact supported syntax, resource limits and installed-consumer test.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "iiSharedCanvas native examples",
+      "anchor": "iisharedcanvas-native-examples",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "`tests/`",
+        "target": "../tests/",
+        "kind": "relative",
+        "line": 3
+      },
+      {
+        "block_id": "b000005",
+        "label": "the video decoder contract",
+        "target": "../docs/VIDEO_FRAME_DECODER.md",
+        "kind": "relative",
+        "line": 8
+      },
+      {
+        "block_id": "b000009",
+        "label": "the frame presentation contract",
+        "target": "../docs/GUI_FRAME_PRESENTATION.md",
+        "kind": "relative",
+        "line": 20
+      },
+      {
+        "block_id": "b000013",
+        "label": "SVG contract",
+        "target": "../docs/XML_SVG_IMPORT.md",
+        "kind": "relative",
+        "line": 31
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

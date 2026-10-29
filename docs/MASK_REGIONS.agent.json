@@ -1,0 +1,243 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:acfcf83fbdad5d55428789028e513532ee8ee2c6e279048016af7cf8e635ef90",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/MASK_REGIONS.md",
+    "sha256": "f82e39b519da6a6a3e83580a41c23d7ecccb96dc31ddbc6e939eeaf69539b55a",
+    "bytes": 4162,
+    "line_count": 54,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "마스크 영역 렌더링",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 마스크 영역 렌더링\n",
+      "level": 1,
+      "title": "마스크 영역 렌더링"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 8,
+      "raw": "iiSharedCanvas 0.35.6은 `renderFrameRegion`, `renderFrameTiles`,\n`renderFrameLayerTiles`, `renderFrameLayers`, `renderArtboardRegion`에서 래스터,\n벡터, 필터 마스크와 순서가 있는 마스크 스택을 자산 원래 해상도로 샘플링한다.\n8K×8K를 포함하는 참조 마스크의 픽셀 수만으로 문서를 거부하지 않는다.\n자산의 양수 크기·완전한 픽셀 저장, 참조 종류, 유한하고 역변환 가능한 변환,\n0..128의 feather sigma, 밀도·외부 커버리지 범위, 스택 ID와 항목 수는 계속 검증한다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 16,
+      "raw": "래스터 마스크에 feather가 없으면 요청된 픽셀을 원본에서 직접 읽는다. feather가\n있거나 벡터 마스크이면 마스크 좌표에서 필요한 64×64 타일을 계산한다. 벡터는\n해당 타일과 후광에 필요한 직사각형만 흰색 커버리지로 래스터화한다. Gaussian은\n원본 마스크 픽셀의 3 sigma 후광을 사용해 가로·세로 순서로 계산하고 자산 밖은\n`outsideCoverage`를 사용한다. 변환, 반전, 밀도와 Smooth 샘플링의 순서는 기존\n의미를 유지한다. 영역마다 계산하더라도 인접 출력 타일의 feather 경계가 같아야\n한다. 역변환에서 좌표가 유한 범위를 벗어나면 외부 커버리지를 사용한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "heading",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "## 메모리와 비용\n",
+      "level": 2,
+      "title": "메모리와 비용"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 20,
+      "end_line": 27,
+      "raw": "한 레이어를 한 번 렌더링할 때 마스크들끼리 64×64 배정밀도 타일 최대 32개를\n공유한다. 이 캐시의 픽셀 데이터는 최대 1 MiB이며, 추가로 마스크별 Gaussian\n커널과 한 타일의 계산용 후광이 필요하다. 최대 sigma 128의 후광은 축마다 최대\n384픽셀이다. 벡터 후광의 일시 래스터는 최대 832×832 픽셀이고, 가로 패스에는\n최대 64×832개의 배정밀도 값이 필요하다. 마스크 스택은 화면의 32×32 블록으로\n순서대로 합성한다. 이 수치는 마스크 처리의 구성 요소이며 출력 이미지,\n벡터 경로·할당자, 문서 자산, 다른 레이어, 필터, SQLite 또는 프로세스 RSS의\n상한이 아니다. 같은 레이어를 병렬 요청하면 각 호출에 별도 캐시가 있다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 33,
+      "raw": "작은 화면 영역의 마스크 비용은 전체 마스크 크기가 아니라 실제 접근한 타일과\n후광에 좌우된다. 큰 sigma, 큰 출력, 축소 또는 심한 변환, 복잡한 벡터, 긴\n마스크 스택은 많은 타일을 다시 계산할 수 있다. 이는 CPU 렌더링이며 GPU 가속,\n시간 상한, 취소와 진행률을 보장하지 않는다. 비파괴 필터는 별도 경로에서 원본\n전체를 처리할 수 있어 마스크의 영역 처리만으로 대형 필터 비용이 해결되지는 않는다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "## 저장과 호환성\n",
+      "level": 2,
+      "title": "저장과 호환성"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 42,
+      "raw": "정규 IISC 필드와 형식 버전은 1.22 그대로이다. 0.35.6은 이전에 자원 한도로\n거부하던 큰 마스크도 유효하다고 판단한다. 따라서 새 버전에서 저장한 큰 마스크\n문서는 같은 형식이라도 0.35.5 이하 검증기에서 열리지 않을 수 있다. 내보내기,\n교환 형식, 고정밀 색상, 앱의 도구 연결 및 이력 저장을 새로 지원한다는 뜻은 아니다.\n파일 바인딩 미리보기의 저장·중단 복구 조건은 [문서 공통 이력](DOCUMENT_HISTORY.md)을\n따른다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "## 검증 범위\n",
+      "level": 2,
+      "title": "검증 범위"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 54,
+      "raw": "변경 전 설치본의 래스터·벡터·스택·필터 마스크, 변환, 반전, 밀도, 외부 영역,\n세 feather 값과 두 샘플링 정책을 조합한 24개 픽셀 기준을 보존한다. 비트 단위\n해시는 변경 전 기준을 만든 AppleClang·macOS arm64에서 비교하며, 다른 플랫폼에서는\n부동소수점 구현 차이로 이 해시를 강제하지 않는다. 모든 플랫폼에서 분할 타일과\n전체 결과의 일치, 32개 타일 캐시보다 긴 feather 마스크 스택의 합성과 캐시 교체,\n역변환 범위 초과, 8K 래스터·벡터·스택의 작은 영역, 마스크 편집·Undo, C++ 호출\n스레드 할당량과 실제 파일 왕복을 검사한다.\n측정에서 SQLite C 할당, 다른 스레드와 RSS는 제외된다. 플랫폼별 실행 및 앱의\n실시간 수락은 별도이다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "마스크 영역 렌더링",
+      "anchor": "마스크-영역-렌더링",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000007",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "메모리와 비용",
+      "anchor": "메모리와-비용",
+      "start_line": 18
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "저장과 호환성",
+      "anchor": "저장과-호환성",
+      "start_line": 35
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "검증 범위",
+      "anchor": "검증-범위",
+      "start_line": 44
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 6,
+        "text": "8K×8K를 포함하는 참조 마스크의 픽셀 수만으로 문서를 거부하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 32,
+        "text": "시간 상한, 취소와 진행률을 보장하지 않는다. 비파괴 필터는 별도 경로에서 원본",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 49,
+        "text": "부동소수점 구현 차이로 이 해시를 강제하지 않는다. 모든 플랫폼에서 분할 타일과",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000015",
+        "label": "문서 공통 이력",
+        "target": "DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 41
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

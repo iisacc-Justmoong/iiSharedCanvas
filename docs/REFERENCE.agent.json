@@ -1,0 +1,498 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:94fb8c2a6321b7f97986dd50066d8a49534168172844034b44e2ae6ea89f28c1",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/REFERENCE.md",
+    "sha256": "9c9913388ae480f735a6dd94e6ad87f047436b5b5453d023dee8811682418bf7",
+    "bytes": 6758,
+    "line_count": 67,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "참조 조건화 레이어",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"reference-conditioning-layer\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 참조 조건화 레이어\n",
+      "level": 1,
+      "title": "참조 조건화 레이어"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "패키지 0.22.0는 네이티브 레퍼런스 자산/레이어 변형을 도입합니다. 소비자는 재구성해야 합니다; 스냅샷 모델은 1.16이며 SQLite 작업 파일 스키마는 1로 유지됩니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "html",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "<a id=\"meaning\"></a>\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 의미\n",
+      "level": 2,
+      "title": "의미"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 12,
+      "raw": "레퍼런스 레이어는 이미지와 레퍼런스 애플리케이션 계약을 추론 어댑터에 제공합니다. 원본 확장은 [레퍼런스 전용 어텐션 컨트롤](https://github.com/Mikubill/sd-webui-controlnet/discussions/1236)와\n[AdaIN / attention+ AdaIN](https://github.com/Mikubill/sd-webui-controlnet/discussions/1280). 이러한 모드들은 전용 ControlNet 체크포인트를 로드할 필요가 없습니다. `control.modelId`는 선택 사항이며 비어 있을 수 있습니다; 모델명이 만들어지거나 다운로드되지 않았습니다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "레이어는 SDK 의 ControlNet 조건부 계열에 속하므로 선택, 활성화/가중치/가이드, 타임라인, 지속성 및 내보내기 계약을 공유합니다. 그것은 임베딩이나 학습된 특징 맵 대신 RGB 참조 픽셀을 저장합니다. 그것은 주의 후크, AdaIN , IP -어댑터, 얼굴 신원 매칭, 스타일 추출, VAE 인코딩 또는 모델 추론을 구현하지 않습니다. 소비하는 어댑터는 요청된 모드를 명시적으로 지원해야 하며, 아무런 알림 없이 다른 조건부 기법을 대체해서는 안 됩니다. 모델별 지원 및 유효한 충실도 동작 ( CFG /control-mode 상호작용 포함) 은 어댑터 책임으로 남습니다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "html",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "<a id=\"objects\"></a>\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "## 객체\n",
+      "level": 2,
+      "title": "객체"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "`ReferenceColor { uint8_t red, green, blue }`는 RGB8를 저장합니다. `ReferenceAsset { id, viewport, colors }`는 양의 치수와 정확히 width*height 행-주요 색상을 보유하고 있습니다. 그것의 네이티브 해상도는 문서 캔버스와 다를 수 있습니다. 모든 채널이 정확히 보존됩니다; 불투명한 검은색은 유효한 참조 내용입니다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "`ReferenceSettings`에는 다음이 포함됩니다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "table",
+      "start_line": 24,
+      "end_line": 27,
+      "raw": "|필드|계약|\n| --- | --- |\n|모드|주의(기본값), AdaIN, 또는 AttentionAdaIN|\n| styleFidelity |유한 [0,1], 기본값 0.5; 어댑터에서 요청된 참조 스타일 충실도|\n",
+      "columns": [
+        "필드",
+        "계약"
+      ],
+      "rows": [
+        [
+          "모드",
+          "주의(기본값), AdaIN, 또는 AttentionAdaIN"
+        ],
+        [
+          "styleFidelity",
+          "유한 [0,1], 기본값 0.5; 어댑터에서 요청된 참조 스타일 충실도"
+        ]
+      ]
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "주의는 `reference_only`, AdaIN에서 `reference_adain`로, 그리고 AttentionAdaIN에서 `reference_adain+attn`로 매핑됩니다. Fidelity는 불투명도, RGB 필터 또는 픽셀 블렌드가 아닙니다. 알 수 없는 열거형 값, NaN /infinite 충실도 및 범위를 벗어나는 값이 유효하지 않습니다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "`ReferenceLayer { properties, source, control, reference }` 는 공통 ControlNet 설정과 참조 전용 설정을 모두 소유합니다. 역할은 ControlNet 이며, 종류는 Reference 입니다. 이는 라인 제어 레이어가 아닙니다. StaticSource 는 StaticBitmap 를 생성하고, KeyframedSource 는 DynamicBitmap 를 생성합니다. 정수 프레임 소스 변경은 유지 방식만 사용하는 로만 유지되며 0프레임부터 시작합니다. 참조 설정은 레이어 전체에 적용되며, 이미지 콘텐츠 변경은 키프레임 를 통해만 이루어집니다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "html",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "<a id=\"editing-and-output\"></a>\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "## 편집 및 출력\n",
+      "level": 2,
+      "title": "편집 및 출력"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "`makeReferenceAsset(id, opaqueRaster, maxPixels=16Mi)`는 크기 조정, 자르기, 색상 정규화 또는 특징 추출 없이 네이티브 RGB를 복사합니다. 투명 입력은 거부되므로 호출자는 합성 배경을 선택합니다. 잘못된 입력은 invalid_argument를 발생시킵니다; 출력 예산을 초과하면 할당 전에 length_error를 발생시킵니다. 집계 구조는 준비된 RGB 이미지를 직접 지원합니다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "insertReferenceAsset, replaceReferenceAsset, insertReferenceLayer, setReferenceSample 및 setReferenceSettings를 DocumentEditor를 통해 사용하십시오. 일반적인 setKeyframedSource와 setControlNetSettings도 적용됩니다. 잘못된 편집은 상태/수정을 유지합니다. 파일에 바인드된 편집은 동기식으로 커밋되며, 레이어 설정 중 하나를 변경하면 변경되지 않은 이미지 레코드가 재사용됩니다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "`referenceRasterPreview`  불투명한  RGB  픽셀을 반환합니다. `renderReferenceControlMap` 는 픽셀을 반환하며, 정확한 색상, `reference` 설정, `control` 설정 및 메시지/확인 상태를 반환합니다. 현재 프레임 이미지를 선택하며 활성화/프레임 범위/타임라인을 준수합니다. 가시성, 불투명도, 아핀 변환 및 운동 표시는 조건을 변경하지 않습니다. 스타일 충실도는 RGB 를 내보낼 때 절대 변경하지 않습니다. 두 출력 모두 16 Mi 픽셀 할당 예산으로 기본값입니다. 직접 미리보기는 invalid_argument 또는 length_error 를 발생시키며, 문서 내보내기는 ok 가 아닌 결과를 반환합니다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "fenced_code",
+      "start_line": 43,
+      "end_line": 56,
+      "raw": "```cpp\nDocument doc;\ndoc.extent = {2,1};\nDocumentEditor editor(doc);\nRasterLayer input = {2,1,{0xffbb8844,0xff226699}};\nauto assetResult = editor.insertReferenceAsset(makeReferenceAsset(\"reference\",input));\nReferenceLayer layer;\nlayer.properties = {\"reference-layer\", \"Style reference\"};\nlayer.source = StaticSource{\"reference\"};\nlayer.reference = {ReferenceMode::AttentionAdaIN,0.7};\nauto layerResult = editor.insertReferenceLayer(layer);\nauto output = renderReferenceControlMap(doc,\"reference-layer\",0);\n// 편집 결과/output.ok()를 확인하고 출력 픽셀과 설정을 어댑터에 전달한다.\n```\n",
+      "language": "cpp",
+      "code": "Document doc;\ndoc.extent = {2,1};\nDocumentEditor editor(doc);\nRasterLayer input = {2,1,{0xffbb8844,0xff226699}};\nauto assetResult = editor.insertReferenceAsset(makeReferenceAsset(\"reference\",input));\nReferenceLayer layer;\nlayer.properties = {\"reference-layer\", \"Style reference\"};\nlayer.source = StaticSource{\"reference\"};\nlayer.reference = {ReferenceMode::AttentionAdaIN,0.7};\nauto layerResult = editor.insertReferenceLayer(layer);\nauto output = renderReferenceControlMap(doc,\"reference-layer\",0);\n// 편집 결과/output.ok()를 확인하고 출력 픽셀과 설정을 어댑터에 전달한다.\n",
+      "closed": true
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "일반 아트워크/ CanvasItem / PDF 구성은 레이어를 제외합니다; 각 레이어별 명시적인 미리보기가 제공됩니다. PSD와 타임라인 교환은 지원되지 않는 참조 의미를 거부하며, 타임라인 패키지의 고아 참조 자산을 포함합니다. BitmapEditor는 이 전용 데이터 유형을 바인딩할 수 없습니다. 네이티브 스냅샷 및 작업 파일은 RGB, 프레임 참조, 설정 객체 및 정확한 바이너리64의 충실도를 보존합니다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "html",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "<a id=\"verification\"></a>\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "heading",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "## 검증\n",
+      "level": 2,
+      "title": "검증"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "ReferenceTest는 정확한 RGB, 불투명한 가져오기, 타입이 지정된 static/dynamic 소스, 모든 3 모드 왕복, 트랜잭션 롤백을 포함한 충실도 경계 및 모드 거부, 잘못된 체크섬 수정 모드/값/태그/카운트 데이터, 직렬화/출력 예산, 작업 파일 재개 및 설정 전용 레코드 재사용을 포함합니다. 설치된 소비자는 동일한 계약을 실행합니다. 실제 참조 기반 생성은 테스트되지 않았습니다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 66,
+      "end_line": 67,
+      "raw": "자세한 레이어 및 개체 필드는 다음을 통해 원자적으로 편집할 수도 있습니다.\n모든 동적 소스 상태를 포함하는 [공통 매개변수 API](CONTROLNET_PARAMETERS.md).\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "참조 조건화 레이어",
+      "anchor": "참조-조건화-레이어",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "의미",
+      "anchor": "의미",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "객체",
+      "anchor": "객체",
+      "start_line": 18
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "편집 및 출력",
+      "anchor": "편집-및-출력",
+      "start_line": 35
+    },
+    {
+      "block_id": "b000045",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "검증",
+      "anchor": "검증",
+      "start_line": 62
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000013",
+        "line": 14,
+        "text": "레이어는 SDK 의 ControlNet 조건부 계열에 속하므로 선택, 활성화/가중치/가이드, 타임라인, 지속성 및 내보내기 계약을 공유합니다. 그것은 임베딩이나 학습된 특징 맵 대신 RGB 참조 픽셀을 저장합니다. 그것은 주의 후크, AdaIN , IP -어댑터, 얼굴 신원 매칭, 스타일 추출, VAE 인코딩 또는 모델 추론을 구현하지 않습니다. 소비하는 어댑터는 요청된 모드를 명시적으로 지원해야 하며, 아무런 알림 없이 다른 조건부 기법을 대체해서는 안 됩니다. 모델별 지원 및 유효한 충실도 동작 ( CFG /control-mode 상호작용 포함) 은 어댑터 책임으로 남습니다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000011",
+        "label": "레퍼런스 전용 어텐션 컨트롤",
+        "target": "https://github.com/Mikubill/sd-webui-controlnet/discussions/1236",
+        "kind": "external",
+        "line": 11
+      },
+      {
+        "block_id": "b000011",
+        "label": "AdaIN / attention+ AdaIN",
+        "target": "https://github.com/Mikubill/sd-webui-controlnet/discussions/1280",
+        "kind": "external",
+        "line": 12
+      },
+      {
+        "block_id": "b000049",
+        "label": "공통 매개변수 API",
+        "target": "CONTROLNET_PARAMETERS.md",
+        "kind": "relative",
+        "line": 67
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000023",
+        "columns": [
+          "필드",
+          "계약"
+        ],
+        "rows": [
+          [
+            "모드",
+            "주의(기본값), AdaIN, 또는 AttentionAdaIN"
+          ],
+          [
+            "styleFidelity",
+            "유한 [0,1], 기본값 0.5; 어댑터에서 요청된 참조 스타일 충실도"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -1,0 +1,327 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:304b56bd8ec5df49922c28a87c94796cbab934e6a048a365e863b8e5cdd02dde",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/PIXEL_PREVIEW.md",
+    "sha256": "8f65278d5c497db610c0a8d132e6c83228d44625527fa985f2ea45162574b3c4",
+    "bytes": 5338,
+    "line_count": 66,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "최종 픽셀 미리보기 세션",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 최종 픽셀 미리보기 세션\n",
+      "level": 1,
+      "title": "최종 픽셀 미리보기 세션"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "0.34.1의 BitmapEditor와 ChunkedBitmapEditor는 외부 작성기가 계산한 최종 ARGB32\n결과를 반복해서 교체할 수 있다. 하위 모듈은 도구·입력 궤적·원시 점·재생 명령을\n소유하지 않는다. iiBrushTools와 같은 상위 작성기는 호출마다 결과를 계산하고\n`BitmapPatch`의 빌린 표본만 동기적으로 전달한다. 공개 편집기 멤버 배치와 ABI 0.34,\n정규 문서 IISC 1.22를 유지한다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 세션과 교체\n",
+      "level": 2,
+      "title": "세션과 교체"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 16,
+      "raw": "`beginPixelPreview(label)`로 시작하고 `replacePixelPreview(patches)`에 현재 결과\n전체를 전달한다. 각 갱신은 이전 갱신의 덧칠이 아니다. 새 결과에서 빠진 이전 영역은\n세션 시작 픽셀로 돌아가므로 짧아진 획·테이퍼·보정된 경로가 잔상을 남기지 않는다.\nARGB32 값은 최종 합성 결과이며 alpha를 재적용하지 않는다. 좌표와 비중첩 조건은\n[영역 편집](BITMAP_HISTORY.md)과 같다. 빈 배치는 현재 미리보기 전체를 원본으로\n돌리고, 결과가 무변경이면 시작 전 Redo도 보존한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 21,
+      "raw": "`pixelPreviewSourceAt(x,y)`는 활성 세션에서 시작 픽셀을 읽는다. 아직 건드리지 않은\n위치는 현재 원본을 읽으며, 비활성 상태에서는 일반 pixelAt과 같다. 범위 밖·닫힌 파일·\n바인딩 세대 불일치는 값이 없다. 상위 작성기는 이를 소스 샘플러로 사용하여 반복 계산의\n피드백 혼색을 방지한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 30,
+      "raw": "`commitPixelPreview()`는 현재 결과의 단일 이력 명령을 확정하고 캐시를 해제한다.\n별도 픽셀 쓰기나 문서 리비전을 추가하지 않는다. 마지막 성공한 최종 결과의\n채택 비용·이력 제거 수·Redo 폐기 수를 lastHistoryResult에 반환한다. 실패한 중간 갱신의\n오류로 이를 대체하지 않는다. 확정 결과의 changed는 원본과 다른 최종 명령이 있는지이며\n확정 호출 자체가 픽셀을 다시 썼다는 뜻은 아니다. `cancelPixelPreview()`는 원본과\n시작 전 Undo/Redo를 복원한다. 활성 여부는 `pixelPreviewActive()`로 읽는다.\n중첩 시작, 일반 픽셀 쓰기, 다른 브러시 시작과 사용자 Undo/Redo는 세션 중 거부한다.\n파라미터 등 호출자 작성 상태는 문서 밖에서 변경하고 결과를 재계산한다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 32,
+      "end_line": 36,
+      "raw": "활성 상태의 정상 바인딩은 bind/unbind로 폐기할 수 없다. 먼저 확정 또는 취소한다.\nunbind는 기존 noexcept void API이므로 거부 시 바인딩을 유지하며 lastHistoryResult에\nInvalidArgument를 남긴다. 이미 무효화된 파일 바인딩은 해제하거나 다시 바인딩할 수 있다.\n편집기 객체 파괴 전에 세션을 명시적으로 해결할 책임은 호출자에게 있다. 소멸자에서\n외부 문서 수명이나 실패 가능한 저장 작업을 추정하여 실행하지 않는다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "## 한도와 실패\n",
+      "level": 2,
+      "title": "한도와 실패"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 40,
+      "end_line": 44,
+      "raw": "원본·최종 픽셀은 64×64 타일로 보관하고 새 후보를 완전히 준비한 뒤 게시한다.\n이전 갱신에서 사라진 영역도 복구를 위해 세션 종료까지 보관한다. 새 입력이 차지하는\n타일의 합집합을 먼저 계산하여 픽셀 캐시 한도를 넘으면 원본·최종 타일 할당 전에 거부한다. 전체 자산 사본이나\n브러시 누적 부동소수 버퍼는 만들지 않는다. previewStorageBytes는 이 픽셀 타일과\n청크 존재의 논리 비용이며, 이력 커서·문자열·할당자·임시 후보·프로세스 RSS는 제외한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 49,
+      "raw": "입력 크기·캐시 비용·이력 한도 초과, 중복, 무효 범위·표본 수와 외부 픽셀/기하 충돌은\n이전 가시 결과·세션·커서를 보존한다. 실패한 갱신 후 재시도하거나 취소할 수 있다.\n외부 변경을 덮어쓰는 취소는 Conflict로 거부하며 세션을 활성 상태로 유지한다.\n기존 RasterHistoryLimits의 Reject/EvictOldest 정책은 원본 시작 커서에서 판단한다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "## 파일과 수락 경계\n",
+      "level": 2,
+      "title": "파일과 수락 경계"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 53,
+      "end_line": 57,
+      "raw": "미리보기는 바인딩된 문서 픽셀을 실제로 바꾼다. 가시 결과가 바뀔 때 문서/저작 리비전이\n증가하고 파일 바인딩에서는 동기 저장된다. 취소는 역편집으로 원본 픽셀을 복원하며\n이미 기록된 저작 시각·단조 리비전을 과거로 되돌리지 않는다. 시작·동일 갱신·확정 자체는\n문서를 바꾸지 않는다. 종료 전 일반 파일 닫기는 호출자 워크플로우에서 해결해야 한다.\n파일이 닫힌 뒤 이전 세션의 쓰기·소스 접근을 허용하지 않는다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 61,
+      "raw": "이 API는 DocumentFile의 전체 임시 문서 복사·전체 자산 인코딩, 일반 구조 이력 또는\n앱의 전체 Undo 순서를 교체한 것이 아니다. 실제 앱은 동결된 설치 계약을 별도 단계에서\n채택한다. Native의 계약 검사, 설치 소비자와 범위별 계측을 함께 기록한다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 66,
+      "raw": "할당 실패 주입은 기존 가시 미리보기에서 새 결과로 교체하는 중에도 문서·캐시·커서를\n검사한다. 별도 작은 예산 검사는 입력 한 픽셀이 필요한 전체 타일 캐시보다 작더라도\n예산을 넘는 픽셀 버퍼를 먼저 할당하지 않는지 확인한다. 8K 검사와 독립 설치 소비자는\n원본 대조·한 명령 Undo·전체 획 재계산의 교체를 검사한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "최종 픽셀 미리보기 세션",
+      "anchor": "최종-픽셀-미리보기-세션",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "세션과 교체",
+      "anchor": "세션과-교체",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "한도와 실패",
+      "anchor": "한도와-실패",
+      "start_line": 38
+    },
+    {
+      "block_id": "b000021",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "파일과 수락 경계",
+      "anchor": "파일과-수락-경계",
+      "start_line": 51
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 5,
+        "text": "소유하지 않는다. iiBrushTools와 같은 상위 작성기는 호출마다 결과를 계산하고",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 14,
+        "text": "ARGB32 값은 최종 합성 결과이며 alpha를 재적용하지 않는다. 좌표와 비중첩 조건은",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 24,
+        "text": "별도 픽셀 쓰기나 문서 리비전을 추가하지 않는다. 마지막 성공한 최종 결과의",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000011",
+        "line": 26,
+        "text": "오류로 이를 대체하지 않는다. 확정 결과의 changed는 원본과 다른 최종 명령이 있는지이며",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 36,
+        "text": "외부 문서 수명이나 실패 가능한 저장 작업을 추정하여 실행하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 56,
+        "text": "문서를 바꾸지 않는다. 종료 전 일반 파일 닫기는 호출자 워크플로우에서 해결해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 57,
+        "text": "파일이 닫힌 뒤 이전 세션의 쓰기·소스 접근을 허용하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000007",
+        "label": "영역 편집",
+        "target": "BITMAP_HISTORY.md",
+        "kind": "relative",
+        "line": 15
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

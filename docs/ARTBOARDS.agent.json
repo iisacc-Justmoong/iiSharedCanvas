@@ -1,0 +1,701 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:bb16f4ac62f8938060154254a87baf4b77dcd430f8836e5be0ddcff57932bab3",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/ARTBOARDS.md",
+    "sha256": "f29834190c4c56d2f8d0cd314eb48d40db5b7349fb573c633d0bbc13549704b0",
+    "bytes": 10781,
+    "line_count": 170,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Artboards (0.27.0, native format 1.18)",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Artboards (0.27.0, native format 1.18)\n",
+      "level": 1,
+      "title": "Artboards (0.27.0, native format 1.18)"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "An artboard is an independent rectangular canvas group in one `Document` and one\n`.iisc` file. This follows the Photoshop artboard concept: owned artwork is clipped\nto the board, boards can have different sizes and positions, and loose artwork\nremains outside board ownership. Boards cannot contain other boards. No Qt types,\nUI selection state, or product-specific workflow enter the persisted artboard model.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## Model and coordinates\n",
+      "level": 2,
+      "title": "Model and coordinates"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 16,
+      "raw": "`Document::artboards` is a bottom-to-top ordered vector of `Artboard` aggregates.\nEach board stores a stable nonempty `id`, UTF-8 `name`, `CanvasRegion region`,\n`backgroundArgb` (white by default; alpha zero is transparent), and `visible`.\nNegative world positions and overlapping rectangles are allowed. Extents must be\npositive; rectangle endpoints and the complete view must fit signed 32-bit geometry.\nArtboard ids have their own namespace, separate from layer and asset ids.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 24,
+      "raw": "`LayerProperties::artboardId` is optional. When present it must reference an existing\nboard, and the layer's base transform and motion are local to that board's origin.\nWithout membership, the layer uses world coordinates and is not board-clipped.\nAll existing spatial asset and layer kinds use the same ownership and clipping\ncontract. Nonspatial IP-Adapter data retains ownership but contributes no pixels.\nBoards share the document timeline, authorship and asset pool. They do not introduce\nindependent frame rates, nested documents, or another persistence owner.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 30,
+      "raw": "`canvasOrigin` / `canvasRegion` retain their existing allocated-canvas meaning, which\nis needed for sparse raster editing. `documentViewRegion` returns the union of that\nregion and every board, including hidden boards so visibility does not move the\ncamera. Invalid or overflowing union geometry yields an empty region; validation\nrejects it. `renderFrame` and `CanvasItem` use this complete workspace region.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "## Validated editing\n",
+      "level": 2,
+      "title": "Validated editing"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "Use `DocumentEditor` for both memory and file-bound edits:\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "table",
+      "start_line": 36,
+      "end_line": 47,
+      "raw": "| API | Behavior |\n| --- | --- |\n| `insertArtboard(board, index)` | Insert an empty group; default index appends. |\n| `setArtboardName(id, name)` | Rename the display name, preserving the stable id. |\n| `setArtboardRegion(id, region)` | Move/resize the board; local artwork moves with it and is cropped to the new extent. Sources are not resampled or scaled. |\n| `setArtboardBackground(id, argb)` | Set an opaque, translucent or transparent background. |\n| `setArtboardVisible(id, visible)` | Hide/show both background and owned content. |\n| `moveArtboard(id, index)` | Change bottom-to-top group order. |\n| `setLayerArtboard(layerId, optionalId)` | Reparent while preserving world placement at every motion frame; `nullopt` detaches to the loose stack. |\n| `duplicateArtboard(id, newId, origin, index)` | Clone the board, all owned layers, all referenced source states and keyframes, preserving editable independence. |\n| `removeArtboard(id, KeepLayers)` | Default: detach its layers while preserving world placement. |\n| `removeArtboard(id, DeleteLayers)` | Remove owned visual/conditioning layers and their keyframes. |\n",
+      "columns": [
+        "API",
+        "Behavior"
+      ],
+      "rows": [
+        [
+          "`insertArtboard(board, index)`",
+          "Insert an empty group; default index appends."
+        ],
+        [
+          "`setArtboardName(id, name)`",
+          "Rename the display name, preserving the stable id."
+        ],
+        [
+          "`setArtboardRegion(id, region)`",
+          "Move/resize the board; local artwork moves with it and is cropped to the new extent. Sources are not resampled or scaled."
+        ],
+        [
+          "`setArtboardBackground(id, argb)`",
+          "Set an opaque, translucent or transparent background."
+        ],
+        [
+          "`setArtboardVisible(id, visible)`",
+          "Hide/show both background and owned content."
+        ],
+        [
+          "`moveArtboard(id, index)`",
+          "Change bottom-to-top group order."
+        ],
+        [
+          "`setLayerArtboard(layerId, optionalId)`",
+          "Reparent while preserving world placement at every motion frame; `nullopt` detaches to the loose stack."
+        ],
+        [
+          "`duplicateArtboard(id, newId, origin, index)`",
+          "Clone the board, all owned layers, all referenced source states and keyframes, preserving editable independence."
+        ],
+        [
+          "`removeArtboard(id, KeepLayers)`",
+          "Default: detach its layers while preserving world placement."
+        ],
+        [
+          "`removeArtboard(id, DeleteLayers)`",
+          "Remove owned visual/conditioning layers and their keyframes."
+        ]
+      ]
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 49,
+      "end_line": 54,
+      "raw": "Duplication generates layer ids as `newId + \":\" + oldLayerId` and source ids as\n`newId + \":asset:\" + oldAssetId`. Each unique source is copied once, so sharing\nwithin the duplicate is preserved; edits to copied pixels/geometry do not affect\nthe original. Collisions fail atomically. Source assets remain in the document\nafter deletion: existing explicit `removeAsset` handles unreferenced asset cleanup.\nAudio remains document-wide and is not duplicated or deleted with an artboard.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 56,
+      "end_line": 59,
+      "raw": "Rejected edits preserve the document, format version, editor revision, authorship\nand durable file state. Equivalent edits are no-ops. A real board/membership edit\nupgrades legacy documents to 1.18. File-bound edits commit synchronously through\n`DocumentFile`; no additional save method is required.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "fenced_code",
+      "start_line": 61,
+      "end_line": 76,
+      "raw": "```cpp\nusing namespace iiSharedCanvas;\nDocument document;\ndocument.extent = {1280, 720};\nDocumentEditor editor(document);\nauto first = editor.insertArtboard({\"desktop\", \"Desktop\", {{0, 0}, {1280, 720}}});\nauto second = editor.insertArtboard({\"phone\", \"Phone\", {{1400, 0}, {390, 844}}});\n// Check each DocumentEditResult before subsequent work.\nLayerProperties layer;\nlayer.id = \"phone-background\";\nlayer.artboardId = \"phone\"; // A newly inserted layer starts in board-local coordinates.\nauto source = editor.insertRasterAsset(\"background\", makeRasterLayer(390, 844, 0xff202020U));\nauto inserted = editor.insertLayer(StaticBitmapLayer{layer, StaticSource{\"background\"}});\nauto phone = renderArtboard(document, 0, \"phone\"); // 390 x 844 pixels, world origin (1400, 0).\nauto overview = renderFrame(document, 0);         // Complete side-by-side workspace.\n```\n",
+      "language": "cpp",
+      "code": "using namespace iiSharedCanvas;\nDocument document;\ndocument.extent = {1280, 720};\nDocumentEditor editor(document);\nauto first = editor.insertArtboard({\"desktop\", \"Desktop\", {{0, 0}, {1280, 720}}});\nauto second = editor.insertArtboard({\"phone\", \"Phone\", {{1400, 0}, {390, 844}}});\n// Check each DocumentEditResult before subsequent work.\nLayerProperties layer;\nlayer.id = \"phone-background\";\nlayer.artboardId = \"phone\"; // A newly inserted layer starts in board-local coordinates.\nauto source = editor.insertRasterAsset(\"background\", makeRasterLayer(390, 844, 0xff202020U));\nauto inserted = editor.insertLayer(StaticBitmapLayer{layer, StaticSource{\"background\"}});\nauto phone = renderArtboard(document, 0, \"phone\"); // 390 x 844 pixels, world origin (1400, 0).\nauto overview = renderFrame(document, 0);         // Complete side-by-side workspace.\n",
+      "closed": true
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "heading",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "## Rendering and adapters\n",
+      "level": 2,
+      "title": "Rendering and adapters"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 80,
+      "end_line": 88,
+      "raw": "`sampleLayerAt` returns world-space transforms, including board origin and board\nvisibility after local motion evaluation. Individual layer tiles clip to their\nown board. `renderFrameLayers` retains original layer indices and includes detached\nboard composition metadata; `composeFrameLayers` composes each board background\nand owned layer stack into an isolated group, then composites boards in document\norder. Loose artwork is above all boards in its existing bottom-to-top layer order.\nControlNet layers remain excluded from final artwork while their spatial preview\ntiles obey the same clip. Background and clip masks cover the rectangular output\npixel footprint, including scaled tile requests.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 90,
+      "end_line": 93,
+      "raw": "`renderArtboard(document, frame, id)` returns only that board's background and\nowned artwork at its native extent. The overload with `outputExtent` and\n`RasterSampling` supports a scaled board view. Loose artwork and other boards are\nexcluded even if they overlap. Hidden boards produce transparent output.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 95,
+      "end_line": 99,
+      "raw": "The parallel `AsyncFrameRenderer` carries the same board metadata into composition.\n`CanvasItem` exposes complete workspace dimensions/origin, shows the grouped\ncomposed tiles, and maps brush input through the world-space sampled transform.\nHost code can edit boards through `CanvasItem::editDocument`. UI selection,\nboard handles, labels and property panels belong to consuming applications.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 100,
+      "end_line": 100,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 101,
+      "end_line": 106,
+      "raw": "`exportBitmapFrame` and `exportVideo` flatten the complete workspace using its\nactual output dimensions. To export one board as an image, call `renderArtboard`\nthen `exportBitmap(result.pixels, ...)`. PSD artboard tags, AI documents, multipage\nartboard PDF, and layered timeline interchange are not implemented by this change.\nExisting PSD/PDF/timeline exporters reject board documents with `UnsupportedFeature`\ninstead of discarding ownership, backgrounds or clipping.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 107,
+      "end_line": 107,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "heading",
+      "start_line": 108,
+      "end_line": 108,
+      "raw": "## Persistence, limits and compatibility\n",
+      "level": 2,
+      "title": "Persistence, limits and compatibility"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 109,
+      "end_line": 109,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 110,
+      "end_line": 114,
+      "raw": "Snapshot format 1.18 adds a membership flag/string immediately after each layer's\nblend mode and appends the artboard collection after authorship. Each board stores\nid/name, i32 x/y/width/height, u32 ARGB and bool visible. Pre-1.18 documents decode\nwith empty board collections and absent memberships and retain canonical bytes on\nre-encoding. Encoding artboards with an older model version is rejected.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 115,
+      "end_line": 115,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 116,
+      "end_line": 120,
+      "raw": "SQLite schema stays 1. Record kinds 10/11 store the board count and individual board\nrecords; layer records store membership. Stable record ids and positions allow\nrenames, resizes, background edits and order changes without rewriting source\nassets. Existing checksums and atomic transactions protect all affected records.\nVersion/record-count/record-identity mismatches fail closed.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 121,
+      "end_line": 121,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 122,
+      "end_line": 125,
+      "raw": "`SerializationLimits::maximumArtboards` defaults to 65,536. Board extents obey\n`maximumCanvasPixels`; names/ids/membership strings share the existing UTF-8 and\naggregate string budgets. Decode checks counts and remaining payload before\nallocation. The package ABI changes to 0.27: consumers must rebuild against 0.27.0.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 126,
+      "end_line": 126,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "heading",
+      "start_line": 127,
+      "end_line": 127,
+      "raw": "## Verification\n",
+      "level": 2,
+      "title": "Verification"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 128,
+      "end_line": 128,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 129,
+      "end_line": 138,
+      "raw": "`ArtboardTest` covers independent geometry, negative origins, clipping/backgrounds,\nnative and scaled renders, dynamic content, legacy canonical bytes, resource limits,\ninvalid references, no-op/rejected edits, clone independence, removal policies,\nfile-bound incremental persistence/reopen and asynchronous composition.\n`CanvasItemRenderTest` covers workspace presentation and board-local brush input.\n`VideoCodecTest` exports a workspace with negative artboard origins and a transparent\ngap through the real FFmpeg encoder, then probes its complete dimensions and checks\nevery decoded frame against native rendering (skipped only when FFmpeg is unavailable).\nThe standalone installed consumer runs `InstalledArtboard` against packaged headers\nand the installed library, without source-tree include paths.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 139,
+      "end_line": 139,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 140,
+      "end_line": 141,
+      "raw": "Reference semantics: [Adobe Photoshop artboards](https://helpx.adobe.com/photoshop/desktop/create-manage-layers/layout-design-tools/get-started-artboards.html)\nand [Adobe Illustrator artboards](https://helpx.adobe.com/illustrator/desktop/create-manage-artboards/add-edit-artboards/introduction-to-artboards.html).\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "heading",
+      "start_line": 142,
+      "end_line": 142,
+      "raw": "# Cropped isolated rendering (0.31.4)\n",
+      "level": 1,
+      "title": "Cropped isolated rendering (0.31.4)"
+    },
+    {
+      "id": "b000049",
+      "kind": "blank",
+      "start_line": 143,
+      "end_line": 143,
+      "raw": "\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "paragraph",
+      "start_line": 144,
+      "end_line": 147,
+      "raw": "`renderArtboardRegion(document, frame, artboardId, region, outputExtent, sampling)`\nrenders only the requested world-space region within the identified artboard.\nThe result origin is `region.origin`. A native-size crop uses `Nearest` by\ndefault; `Smooth` is an explicit presentation option for scaled output.\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "blank",
+      "start_line": 148,
+      "end_line": 148,
+      "raw": "\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "paragraph",
+      "start_line": 149,
+      "end_line": 152,
+      "raw": "The region must be positive and wholly contained by that artboard, including\nwhen its origin is negative. Invalid geometry, output size or sampling policy\nreturns `InvalidRegion`; missing artboards and invalid frames retain their typed\nerrors. No raster output is allocated before validation succeeds.\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "blank",
+      "start_line": 153,
+      "end_line": 153,
+      "raw": "\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "paragraph",
+      "start_line": 154,
+      "end_line": 159,
+      "raw": "Composition uses only this artboard's authored visibility, background and owned\nlayers. Other overlapping artboards and loose artwork are excluded. Layer order,\ntransforms, frame ranges, dynamic assets, raster/vector masks, filters, clipping\nand world-coordinate Dissolve behavior use the same native renderer as\n`renderArtboard`. Full-artboard rendering delegates to this path and validates\nthe document once. The operation never mutates the input document.\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "blank",
+      "start_line": 160,
+      "end_line": 160,
+      "raw": "\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "paragraph",
+      "start_line": 161,
+      "end_line": 164,
+      "raw": "Only requested output pixels are allocated by the composition. A source-wide\nfilter or source/mask preparation can still require native source-sized work;\nthis API is not a constant-time guarantee or an asynchronous owner. Consumers\nmust schedule potentially expensive analysis independently of their UI thread.\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "blank",
+      "start_line": 165,
+      "end_line": 165,
+      "raw": "\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "paragraph",
+      "start_line": 166,
+      "end_line": 170,
+      "raw": "The native and installed-package region tests compare every pixel of small\nmixed compositions with the full native artboard oracle, including negative\norigins, overlapping boards, loose artwork, masks, vectors, nontrivial transforms,\npartial/dynamic timing and Dissolve. A 32768 by 32768 artboard separately verifies\nthat a corner request produces exactly one output pixel.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Artboards (0.27.0, native format 1.18)",
+      "anchor": "artboards-0270-native-format-118",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Model and coordinates",
+      "anchor": "model-and-coordinates",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Validated editing",
+      "anchor": "validated-editing",
+      "start_line": 32
+    },
+    {
+      "block_id": "b000025",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Rendering and adapters",
+      "anchor": "rendering-and-adapters",
+      "start_line": 78
+    },
+    {
+      "block_id": "b000035",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Persistence, limits and compatibility",
+      "anchor": "persistence-limits-and-compatibility",
+      "start_line": 108
+    },
+    {
+      "block_id": "b000043",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Verification",
+      "anchor": "verification",
+      "start_line": 127
+    },
+    {
+      "block_id": "b000048",
+      "parent_id": null,
+      "level": 1,
+      "title": "Cropped isolated rendering (0.31.4)",
+      "anchor": "cropped-isolated-rendering-0314",
+      "start_line": 142
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000007",
+        "line": 14,
+        "text": "Negative world positions and overlapping rectangles are allowed. Extents must be",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 15,
+        "text": "positive; rectangle endpoints and the complete view must fit signed 32-bit geometry.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 18,
+        "text": "`LayerProperties::artboardId` is optional. When present it must reference an existing",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000009",
+        "line": 23,
+        "text": "Boards share the document timeline, authorship and asset pool. They do not introduce",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000019",
+        "line": 51,
+        "text": "within the duplicate is preserved; edits to copied pixels/geometry do not affect",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 59,
+        "text": "`DocumentFile`; no additional save method is required.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000041",
+        "line": 125,
+        "text": "allocation. The package ABI changes to 0.27: consumers must rebuild against 0.27.0.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000052",
+        "line": 149,
+        "text": "The region must be positive and wholly contained by that artboard, including",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000054",
+        "line": 159,
+        "text": "the document once. The operation never mutates the input document.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000056",
+        "line": 164,
+        "text": "must schedule potentially expensive analysis independently of their UI thread.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000047",
+        "label": "Adobe Photoshop artboards",
+        "target": "https://helpx.adobe.com/photoshop/desktop/create-manage-layers/layout-design-tools/get-started-artboards.html",
+        "kind": "external",
+        "line": 140
+      },
+      {
+        "block_id": "b000047",
+        "label": "Adobe Illustrator artboards",
+        "target": "https://helpx.adobe.com/illustrator/desktop/create-manage-artboards/add-edit-artboards/introduction-to-artboards.html",
+        "kind": "external",
+        "line": 141
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000017",
+        "columns": [
+          "API",
+          "Behavior"
+        ],
+        "rows": [
+          [
+            "`insertArtboard(board, index)`",
+            "Insert an empty group; default index appends."
+          ],
+          [
+            "`setArtboardName(id, name)`",
+            "Rename the display name, preserving the stable id."
+          ],
+          [
+            "`setArtboardRegion(id, region)`",
+            "Move/resize the board; local artwork moves with it and is cropped to the new extent. Sources are not resampled or scaled."
+          ],
+          [
+            "`setArtboardBackground(id, argb)`",
+            "Set an opaque, translucent or transparent background."
+          ],
+          [
+            "`setArtboardVisible(id, visible)`",
+            "Hide/show both background and owned content."
+          ],
+          [
+            "`moveArtboard(id, index)`",
+            "Change bottom-to-top group order."
+          ],
+          [
+            "`setLayerArtboard(layerId, optionalId)`",
+            "Reparent while preserving world placement at every motion frame; `nullopt` detaches to the loose stack."
+          ],
+          [
+            "`duplicateArtboard(id, newId, origin, index)`",
+            "Clone the board, all owned layers, all referenced source states and keyframes, preserving editable independence."
+          ],
+          [
+            "`removeArtboard(id, KeepLayers)`",
+            "Default: detach its layers while preserving world placement."
+          ],
+          [
+            "`removeArtboard(id, DeleteLayers)`",
+            "Remove owned visual/conditioning layers and their keyframes."
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

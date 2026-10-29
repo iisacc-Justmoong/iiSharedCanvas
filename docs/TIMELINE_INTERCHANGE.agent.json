@@ -1,0 +1,760 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:ea9555b1731594425f3a46a3b150ebb26b8379e5fb1b373abda90164824db3b1",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/TIMELINE_INTERCHANGE.md",
+    "sha256": "73bf4fa5ebfd73b3e4abae47f87eedb54c15fee60d0ad02c65099041dd60309c",
+    "bytes": 14575,
+    "line_count": 91,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "편집 가능한 타임라인 교환",
+    "role": "history",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"editable-timeline-interchange\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 편집 가능한 타임라인 교환\n",
+      "level": 1,
+      "title": "편집 가능한 타임라인 교환"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 13,
+      "raw": "Qt 없는 `iiSharedCanvas::Native`도 `Timeline/TimelineInterchange.h`의 공개 API를\n제공한다. iiFileProvider Native 0.11.1 이상의 배타적 디렉터리 게시와 자체\nXML 생성기를 사용하며, `NativeTimelineInterchangeTest`는 별도 JSON·XML 파서,\nPCM 샘플, PNG, 소스 스냅샷과 동시 게시 충돌을 검사한다. 네이티브\n`iisc-export-timeline`은 `--name`, `--`, 스냅샷과 SQLite 작업 파일을 지원한다.\n무한 캔버스의 음수 원점은 매니페스트에 기록하고 현재 캔버스 영역을 미디어로\n내보낸다. 영역 밖의 콘텐츠가 잘린다는 경고를 반환한다.\n아래의 과거 편집기 검증은 해당 시점의 기존 구현에\n대한 결과이며 새 네이티브 구현의 편집기 수락을 뜻하지 않는다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "`exportTimelineInterchange(document, directory, options)` 는 네이티브 캔버스 타임라인을 비디오 편집기에 가져오기 위해 새로운 로컬 패키지를 생성합니다. 그것은 전체 `Document::timeline` 를 내보내며, PSD 프레임-0 프로젝션이 아닙니다. 그것은 다른 애플리케이션에 네이티브 `.iisc` 가져오기 플러그인을 설치하지 않습니다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "table",
+      "start_line": 17,
+      "end_line": 24,
+      "raw": "|파일|목적|\n| --- | --- |\n| `timeline.xml` |레거시 파이널 컷 프로 XML 프리미어 및 리졸브 타임라인|\n| `timeline.fcpxml` |Final Cut Pro 및 호환 편집기용 FCPXML 타임라인|\n| `media/*.png` |독립적으로 렌더링된 직선 알파 레이어 상태|\n| `media/*.wav` |PCM16 소스 오디오, 독립적으로 편집 가능한 오디오 트랙|\n| `manifest.json` |시각 전용 패키지용 버전 1; 버전 2는 오디오 매핑을 추가합니다.|\n| `source.iisc` |Canonical 네이티브 스냅샷이 원본 편집 가능한 데이터를 유지합니다|\n",
+      "columns": [
+        "파일",
+        "목적"
+      ],
+      "rows": [
+        [
+          "`timeline.xml`",
+          "레거시 파이널 컷 프로 XML 프리미어 및 리졸브 타임라인"
+        ],
+        [
+          "`timeline.fcpxml`",
+          "Final Cut Pro 및 호환 편집기용 FCPXML 타임라인"
+        ],
+        [
+          "`media/*.png`",
+          "독립적으로 렌더링된 직선 알파 레이어 상태"
+        ],
+        [
+          "`media/*.wav`",
+          "PCM16 소스 오디오, 독립적으로 편집 가능한 오디오 트랙"
+        ],
+        [
+          "`manifest.json`",
+          "시각 전용 패키지용 버전 1; 버전 2는 오디오 매핑을 추가합니다."
+        ],
+        [
+          "`source.iisc`",
+          "Canonical 네이티브 스냅샷이 원본 편집 가능한 데이터를 유지합니다"
+        ]
+      ]
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "적절한 XML 를 가져오되, `source.iisc` 나 PNG 파일을 개별적으로 가져오지 마십시오. 패키지는 모든 레이어를 단일 영화 또는 이미지 시퀀스로 평탄화하지 않습니다. XML 참조는 완료된 대상 디렉터리를 가리키는 퍼센트 인코딩된 절대 로컬 파일 URL 을 사용하며, 임시 경로를 사용하지 않습니다. 패키지를 해당 위치에 유지하고, 이동한 후 편집기에서 미디어를 다시 연결하거나 새 위치에서 다시 생성하십시오. 네트워크 참조나 외부 코덱은 사용되지 않습니다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "html",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "<a id=\"preserved-editing-structure\"></a>\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "## 보존된 편집 구조\n",
+      "level": 2,
+      "title": "보존된 편집 구조"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "각 네이티브 레이어는 하단에서 상단으로의 트랙 하나 또는 연결된 레인으로 변환되며, 숨겨진 레이어도 포함됩니다. 각 유지 키 간격은 별도로 잘라낼 수 있는 클립으로 변환됩니다. 포함된 네이티브 `LayerFrameRange` 엔드포인트는 오차 하나 차이 변경 없이 배제된 클립 끝으로 변환됩니다. 반복된 참조는 PNG 미디어를 재사용하지만 모든 키 컷을 유지합니다. 시퀀스 지속 시간, 유리한 프레임 속도, 레이어 이름, 가시성, 불투도 및 지원되는 합성 는 XML 에 표시됩니다. PNG 는 레이어 불투도나 레이어 블렌드 적용을 포함하지 않으며, 대상 편집기가 해당 속성을 적용합니다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "SourceOver, Multiply, Screen 및 Overlay는 지원되는 블렌드 모드입니다. 편집기 색상 관리, 블렌드 구현 및 버전별 XML 변환은 외관에 영향을 줄 수 있으며, 스키마 유효성만으로는 애플리케이션 수락을 보장하지 않습니다. 아래의 [XML 세부 정보와](TIMELINE_XML.md) 및 검증 기록을 확인하십시오.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "레거시 XML는 정수 프레임 레이트와 1000/1001를 곱한 지원 명목 프레임 레이트를 나타낸다. 두 출력 모두 프레임 레이트를 정확히 표현해야 하며 지원하지 않는 프레임 레이트는 부분 패키지를 발행하지 않고 실패한다. 프레임 레이트는 변환 전에 약분한다. 이 어댑터는 동영상 어댑터의 4096와 달리 `limits.maxFrames`의 기본값으로 1,000,000를 사용하며, 유지 클립은 프레임마다 미디어를 생성하지 않는다. 다른 미디어 제한은 공통 기본값을 유지한다. 호출자는 제한을 명시적으로 조정할 수 있다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "html",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "<a id=\"deliberate-boundaries\"></a>\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "heading",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "## 경계 설정\n",
+      "level": 2,
+      "title": "경계 설정"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "벡터 레이어는 독립적인 클립으로 유지되지만, NLE 재생을 위해 투명 PNG 로 렌더링됩니다. 수정 가능한 벡터 경로는 `source.iisc` 에 유지되며, 네이티브 NLE 벡터 객체나 PSD 스마트 객체로 변환되지 않습니다. 공간 변환은 전체 캔버스 PNG 에 버닝되며, 타이밍과 합성 는 별도로 유지됩니다. 원본 캔버스 영역이 출력 프레임을 정의하며, 해당 영역 바깥의 무한 캔버스 콘텐츠는 클립 픽셀에 포함되지 않습니다. 이 변환은 경고 메시지를 반환합니다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 45,
+      "raw": "별도의 메모리 내 `TimelineProject`는 영구 캔버스 문서와 독립적으로 유지됩니다. 이 어댑터는 설명된 캔버스 오디오 트랙 하위 집합을 내보냅니다.\n[AUDIO_TIMELINE .md](AUDIO_TIMELINE.md). 임의의 `TimelineProject` 영화 클립, 전환, 자동화 또는 효과를 매핑하지 않습니다. 네이티브 형식 1.4는 `Document::audioAssets`와 `Document::audioTracks`를 유지합니다; 작업 파일 스키마 1는 유지되며, 패키지 API는 0.9.0버전입니다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "html",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "<a id=\"limits-and-publishing\"></a>\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "heading",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "## 제한 및 출판\n",
+      "level": 2,
+      "title": "제한 및 출판"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "`TimelineInterchangeOptions` 에 중립적인 시퀀스 이름 ( `iisc Timeline` ),  `MediaLimits` ,  `maxLayers` ( 4096 ) 및  `maxClips` ( 65536 ) 이 포함되어 있습니다. 차원은 축당  16384 픽셀 및 구성된 픽셀 예산으로 제한됩니다. 출력 바이트는 소스 스냅샷을 포함한 모든 패키지 파일에 걸쳐 청구됩니다. 소스 복사,  XML /manifest 및  PNG 변환, 벡터 테셀레이션, 그리고 네이티브 섹션별 렌더링 조각은 보수적인 디코딩 메모리 프리플라이트를 가집니다. 시퀀스 이름과 출력 경로는 텍스트 변환 전에 예산이 확인되며; 사용하지 않는 네이티브 자산과 중첩된 메타데이터도 스냅샷  직렬화 전에 확인됩니다. 이는  한계가 설정된 어댑터이며, 임의의 호스트 할당이 고정된 피크  RSS 와 같다는 보장이 아닙니다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 52,
+      "end_line": 52,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "기존 경로, 디렉터리 및 대상 심볼릭 링크는 항상 거부됩니다; 의도적으로 덮어쓰기 옵션이 없습니다. 대상 부모 디렉터리는 이미 존재해야 합니다. 프라이빗 형제 임시 디렉터리는 하나의 독점 디렉터리 이름 변경이 이를 게시하기 전에 완전한 출력을 보유합니다. 실패 시 해당 프라이빗 디렉터리만 정리되며, 기존 대상과 입력 문서는 그대로 유지됩니다. 독점 게시는 현재  macOS ,  Linux 와  `renameat2` 를 지원하며, 다른 플랫폼은  Windows ; 다른 플랫폼은  안전하게 거부한다 합니다. 이는 원자적 가시성을 보장하며, 전원 손실 내구성 보장이 아닙니다. 이름은 유효한 UTF-8/XML 텍스트여야 합니다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "The CLI 는 공유 읽기 전용 백업 로더를 사용하여 네이티브 표준 스냅샷과 라이브 SQLite 작업 파일을 수락합니다; [CLI 사용](TIMELINE_INTERCHANGE_CLI.md)을 참조하세요.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "html",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "<a id=\"verification\"></a>\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "heading",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "## 검증\n",
+      "level": 2,
+      "title": "검증"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "테스트는 독립적으로 두 XML 구조를 파싱하며, 모든 클립을 실제 PNG 로 매핑하고, 애니메이션된 픽스처 의 모든 프레임을 재구성하며, 네이티브 렌더링과 픽셀을 비교합니다. 그들은 숨겨진 레이어, Unicode 이름, 반복된 상태, 프레임 범위, 유리 비율, 소스 보존, 리소스 한계, 실패 정리 및 충돌을 다룹니다. 설치된 패키지 소비자는 동일한 공개 API 를 실행합니다. The 읽기 전용 `tests/verify_timeline_interchange.py` 개발 오라클은 Python 의 표준 라이브러리만 사용합니다. 그것은 독립적으로 두 XML 파일을 매니페스트와 비교하고, PNG 참조를 해결하고 해시하며, `--fcpxml-roundtrip FILE` 로 최종 컷 애플리케이션의 재수출을 선택적으로 확인합니다. Python 의존성이 라이브러리나 설치된 도구에 추가되지 않습니다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "html",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "<a id=\"application-check-2026-09-03\"></a>\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 64,
+      "end_line": 64,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "heading",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "### 응용 프로그램 확인 ( 2026-09-03 )\n",
+      "level": 3,
+      "title": "응용 프로그램 확인 ( 2026-09-03 )"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "최종 컷 프로는 생성된 1280x720, 24 프레임 속도, 5초 패키지를 `build/` 하에 있는 별도의 테스트 라이브러리에 가져왔습니다. 타임라인은 3 개의 레이어를 유지했습니다: 5초의 배경, 3 개의 1 초짜리 별도 클립이 1s/2s/3s 에 있는 키드 레이어, 그리고 5초의 비활성화 숨김 레이어입니다. 인스펙터는 키드 클립의 편집 가능한 불투명도 50% 를 보여주었습니다. 최종 컷은 프로젝트를 FCPXML 1.14 로 내보냈고, 독립적인 오라클은 동일한 레이어 레인, 클립 타이밍, 이름, 가시성, 불투명도, 미디어 식별 및 프레임 속도를 확인했습니다. 테스트 라이브러리가 닫혔으며, 사용자 프로젝트는 삭제되지 않았거나 수정되지 않았습니다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "생성한 두 XML 방언은 Apple DTD 검사도 통과했다. 이 호스트에는 애플리케이션 수준 검증을 위한 Premiere와 Resolve가 없었다. 해당 가져오기 경로는 공개된 XML 지원을 기준으로 구현하고 구문/구조를 독립적으로 검사했으며, 실제 애플리케이션 통과를 주장하지 않는다. 단일 프레임 노출·모든 합성 모드·모든 편집기/버전·목표 색상의 픽셀 단위로 정확한 출력은 여전히 애플리케이션별 수락 행렬이 필요하다. 이 검증은 변경된 편집기 프로젝트를 `.iisc`로 다시 가져오는 것을 의미하지 않는다.\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "html",
+      "start_line": 71,
+      "end_line": 71,
+      "raw": "<a id=\"persisted-audio-tracks-090\"></a>\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "heading",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "## 지속 오디오 트랙 ( 0.9.0 )\n",
+      "level": 2,
+      "title": "지속 오디오 트랙 ( 0.9.0 )"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "`Document::audioTracks` 은 독립적인 `AudioTrackLayer` 값을 포함하며, 정렬된 겹치지 않는 클립을 가지며, 다른 트랙은 서로 겹칠 수 있습니다. XML 출력 모두 간격, 클립 위치/지속 시간, 음소거/활성화 상태, 소스 핸들 및 결합된 트랙 + 클립 게인을 유지합니다. PCM16  mono/stereo  WAV  미디어는 손실 압축 또는 리샘플링 없이 기록됩니다. 레거시 XML 는 스테레오를 위해 채널별 연결된 오디오 트랙을 사용하며, FCPXML 는 음의 레인을 위해 오디오 자산 클립 하나를 사용합니다. 수신 편집자의 편집 가능한 클립 게인으로 트랙 및 클립 게인 합계를 추적하고 클립; 그들의 개별 값은 소스에 유지됩니다.\n"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 76,
+      "end_line": 76,
+      "raw": "\n"
+    },
+    {
+      "id": "b000061",
+      "kind": "paragraph",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "2 버전의 `audioTracks` 만이 추가됩니다. 각 클립은 `sourceOffsetSamples` (네이티브), `mediaOffsetSamples` (XML), `mediaTrimSamples` (WAV) 원시 이동, 및 `sampleFrameCount` 를 소수 문자열로 기록하여 JSON 이중 정밀도 손실을 피합니다. 샘플 오프셋은 채널별 샘플 프레임을 의미합니다. 레거시 XML 가 편집 프레임 레이트에서 소스 오프셋을 정확히 표현할 수 없을 때, WAV 는 정확한 프레임 정렬을 위해 필요한 최소한의 앞쪽 샘플만 생략합니다. 그것은 모든 뒤쪽 소스 핸들을 유지하며, 전체 원본은 항상 `source.iisc` 에 저장됩니다. 오프셋 매핑은 정확합니다: 네이티브 = mediaTrimSamples + mediaOffsetSamples 입니다. 동일한 자산과 원점에 대한 반복 참조는 하나의 WAV 를 재사용합니다. 채널 믹스, 정규화, 게인 베이킹, 재생 엔진 또는 오디오 DSP 가 도입되지 않습니다.\n"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 79,
+      "end_line": 79,
+      "raw": "오디오 자산, 트랙, 클립 메타데이터, WAV 데이터 및 네이티브 PCM 스냅샷은 모두 패키지 제한에 포함됩니다. `maxLayers`는 시각 트랙과 오디오 트랙을 함께 계산합니다; `maxClips`는 두 종류를 모두 계산합니다. 실패는 부분 패키지를 절대 게시하지 않습니다.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "\n"
+    },
+    {
+      "id": "b000065",
+      "kind": "html",
+      "start_line": 81,
+      "end_line": 81,
+      "raw": "<a id=\"audio-application-check-2026-09-05\"></a>\n"
+    },
+    {
+      "id": "b000066",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "heading",
+      "start_line": 83,
+      "end_line": 83,
+      "raw": "### 오디오 애플리케이션 확인 ( 2026-09-05 )\n",
+      "level": 3,
+      "title": "오디오 애플리케이션 확인 ( 2026-09-05 )"
+    },
+    {
+      "id": "b000068",
+      "kind": "blank",
+      "start_line": 84,
+      "end_line": 84,
+      "raw": "\n"
+    },
+    {
+      "id": "b000069",
+      "kind": "paragraph",
+      "start_line": 85,
+      "end_line": 85,
+      "raw": "`build/audio-finalcut-validation/` 하에 있는 전용 파이널 컷 프로 테스트 라이브러리는 1280x720, 24 프레임 속도, 5초 오디오 패키지를 가져왔습니다. 3 스테레오 클립은 네이티브 2트랙 레일에 0s, 1s, 3s에 나타났습니다. 오디오 인스펙터는 처음 클립의 편집 가능한 -9 dB 조합 게인과 스테레오 채널 구성을 표시했습니다. 파이널 컷은 FCPXML 1.14 를 다시 내보냈으며, 독립적인 오라클은 파이널 컷이 미디어를 라이브러리에 복사한 후 두 레일, 모든 클립과 소스 타이밍, 뮤트/활성화 상태, 게인, 채널 수 및 동일한 WAV 바이트를 모두 확인했습니다. 테스트 라이브러리는 검증 후 닫혔습니다. 최종 컷 정규화된 사용자 정의 메타데이터와 역할 이름을 분리했으며, 원본 레이블과 편집 값은 `source.iisc` 및 매니페스트에서 여전히 권위 있는 것으로 유지됩니다. 빈 오디오 트랙은 클립이 있을 때까지 FCPXML 레인 객체가 없습니다.\n"
+    },
+    {
+      "id": "b000070",
+      "kind": "blank",
+      "start_line": 86,
+      "end_line": 86,
+      "raw": "\n"
+    },
+    {
+      "id": "b000071",
+      "kind": "paragraph",
+      "start_line": 87,
+      "end_line": 87,
+      "raw": "생성된 XML 포맷은 모두 게시된 DTD를 통과했습니다. PNG /audio 픽스처 혼합물이 30000/1001 프레임률에서도 독립적인 오라클을 통과했으며, 정확한 단일 샘플 WAV 원점 이동이 포함되었습니다; 이 픽스처 는 최종 컷에서 가져오지 않았습니다. 프리미어 프로와 DaVinci 리졸브가 이 호스트에 설치되어 있지 않으므로 해당 편집자에 대한 오디오 애플리케이션 수락은 확인되지 않았습니다. 신규 릴리스 빌드, 모든 36 CTest 체크, 스테이지 설치 및 독립형 0.9.0 패키지 소비자가 통과했습니다.\n"
+    },
+    {
+      "id": "b000072",
+      "kind": "blank",
+      "start_line": 88,
+      "end_line": 88,
+      "raw": "\n"
+    },
+    {
+      "id": "b000073",
+      "kind": "paragraph",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "원본 비디오 자산이나 0.11.0 에서 도입된 속성 운동 키는 패키지 게시 전에 `UnsupportedFeature` 를 반환하며, 편집 가능한 타이밍과 보간은 `.iisc` 1.6 에 있으며, `exportVideo` 가 이를 렌더링합니다. 기존 비트맵 /vector hold-key 및 오디오 트랙 교환은 변경되지 않았습니다.\n"
+    },
+    {
+      "id": "b000074",
+      "kind": "blank",
+      "start_line": 90,
+      "end_line": 90,
+      "raw": "\n"
+    },
+    {
+      "id": "b000075",
+      "kind": "paragraph",
+      "start_line": 91,
+      "end_line": 91,
+      "raw": "See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "편집 가능한 타임라인 교환",
+      "anchor": "편집-가능한-타임라인-교환",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "보존된 편집 구조",
+      "anchor": "보존된-편집-구조",
+      "start_line": 30
+    },
+    {
+      "block_id": "b000025",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "경계 설정",
+      "anchor": "경계-설정",
+      "start_line": 40
+    },
+    {
+      "block_id": "b000033",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "제한 및 출판",
+      "anchor": "제한-및-출판",
+      "start_line": 49
+    },
+    {
+      "block_id": "b000043",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "검증",
+      "anchor": "검증",
+      "start_line": 59
+    },
+    {
+      "block_id": "b000049",
+      "parent_id": "b000043",
+      "level": 3,
+      "title": "응용 프로그램 확인 ( 2026-09-03 )",
+      "anchor": "응용-프로그램-확인--2026-09-03-",
+      "start_line": 65
+    },
+    {
+      "block_id": "b000057",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "지속 오디오 트랙 ( 0.9.0 )",
+      "anchor": "지속-오디오-트랙--090-",
+      "start_line": 73
+    },
+    {
+      "block_id": "b000067",
+      "parent_id": "b000057",
+      "level": 3,
+      "title": "오디오 애플리케이션 확인 ( 2026-09-05 )",
+      "anchor": "오디오-애플리케이션-확인--2026-09-05-",
+      "start_line": 83
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 13,
+        "text": "대한 결과이며 새 네이티브 구현의 편집기 수락을 뜻하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 36,
+        "text": "레거시 XML는 정수 프레임 레이트와 1000/1001를 곱한 지원 명목 프레임 레이트를 나타낸다. 두 출력 모두 프레임 레이트를 정확히 표현해야 하며 지원하지 않는 프레임 레이트는 부분 패키지를 발행하지 않고 실패한다. 프레임 레이트는 변환 전에 약분한다. 이 어댑터는 동영상 어댑터의 4096와 달리 `limits.maxFrames`의 기본값으로 1,000,000를 사용하며, 유지 클립은 프레임마다 미디어를 생성하지 않는다. 다른 미디어 제한은 공통 기본값을 유지한다. 호출자는 제한을 명시적으로 조정할 수 있다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000053",
+        "line": 69,
+        "text": "생성한 두 XML 방언은 Apple DTD 검사도 통과했다. 이 호스트에는 애플리케이션 수준 검증을 위한 Premiere와 Resolve가 없었다. 해당 가져오기 경로는 공개된 XML 지원을 기준으로 구현하고 구문/구조를 독립적으로 검사했으며, 실제 애플리케이션 통과를 주장하지 않는다. 단일 프레임 노출·모든 합성 모드·모든 편집기/버전·목표 색상의 픽셀 단위로 정확한 출력은 여전히 애플리케이션별 수락 행렬이 필요하다. 이 검증은 변경된 편집기 프로젝트를 `.iisc`로 다시 가져오는 것을 의미하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000019",
+        "label": "XML 세부 정보와",
+        "target": "TIMELINE_XML.md",
+        "kind": "relative",
+        "line": 34
+      },
+      {
+        "block_id": "b000029",
+        "label": "AUDIO_TIMELINE .md",
+        "target": "AUDIO_TIMELINE.md",
+        "kind": "relative",
+        "line": 45
+      },
+      {
+        "block_id": "b000039",
+        "label": "CLI 사용",
+        "target": "TIMELINE_INTERCHANGE_CLI.md",
+        "kind": "relative",
+        "line": 55
+      },
+      {
+        "block_id": "b000075",
+        "label": "Native layer compositing",
+        "target": "LAYER_COMPOSITING.md",
+        "kind": "relative",
+        "line": 91
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000009",
+        "columns": [
+          "파일",
+          "목적"
+        ],
+        "rows": [
+          [
+            "`timeline.xml`",
+            "레거시 파이널 컷 프로 XML 프리미어 및 리졸브 타임라인"
+          ],
+          [
+            "`timeline.fcpxml`",
+            "Final Cut Pro 및 호환 편집기용 FCPXML 타임라인"
+          ],
+          [
+            "`media/*.png`",
+            "독립적으로 렌더링된 직선 알파 레이어 상태"
+          ],
+          [
+            "`media/*.wav`",
+            "PCM16 소스 오디오, 독립적으로 편집 가능한 오디오 트랙"
+          ],
+          [
+            "`manifest.json`",
+            "시각 전용 패키지용 버전 1; 버전 2는 오디오 매핑을 추가합니다."
+          ],
+          [
+            "`source.iisc`",
+            "Canonical 네이티브 스냅샷이 원본 편집 가능한 데이터를 유지합니다"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

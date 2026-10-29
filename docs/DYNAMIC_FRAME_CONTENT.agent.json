@@ -1,0 +1,410 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:c6a52780d54723d63ed8a1ce82e0d0bf70ca142e258a3a760cda014ec880ced2",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/DYNAMIC_FRAME_CONTENT.md",
+    "sha256": "31fba16d73d1304007eef43c23925ac61ff398e3d42e4f57667592bc6b171e9e",
+    "bytes": 6724,
+    "line_count": 117,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Dynamic frame content (0.27.1)",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Dynamic frame content (0.27.1)\n",
+      "level": 1,
+      "title": "Dynamic frame content (0.27.1)"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 8,
+      "raw": "One dynamic bitmap layer can contain different native pixels at every integer\nframe. One dynamic vector layer can contain different native viewport dimensions,\npath commands, geometry, fills and strokes at every frame. Content changes are\nindependent of interpolated layer transform/opacity motion. This uses the existing\n`Frame`, `Keyframe`, `KeyframedSource`, `RasterAsset` and `VectorAsset` model; no new\ndocument format or external frame files are required.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "## Frame ownership and sampling\n",
+      "level": 2,
+      "title": "Frame ownership and sampling"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 12,
+      "end_line": 16,
+      "raw": "Each `Document::frames` entry owns the `{layerId, assetId}` keys at its exact frame.\n`KeyframedSource::frameIndices` is the derived increasing index of those owners.\nThe first content key is required at frame zero, and all keys must be inside the\ndocument timeline. Different dynamic layers may share the same frame owner while\nretaining separate content references.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 18,
+      "end_line": 23,
+      "raw": "`resolveAssetAt`, synchronous/parallel rendering and `CanvasItem` select the last\ncontent key at or before the requested frame (hold sampling). A key at every frame\nprovides frame-by-frame content. Missing keys intentionally repeat the previous\ncontent until the next key; pixel/path data is not interpolated. Each layer keeps\nits bitmap or vector kind across all content states. A bitmap layer cannot switch\nto vector data inside the same track.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 29,
+      "raw": "Distinct content keys can deliberately reference one shared asset. Editing that\nasset affects every reference. To make each frame independently editable, give\neach frame its own key and asset id. Hidden or out-of-range layers retain their\nstored keys; layer visibility/frame ranges only control presentation. Artboard\nownership and clipping apply identically to every dynamic state.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "## Atomic content authoring\n",
+      "level": 2,
+      "title": "Atomic content authoring"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "The two typed overloads return the existing `DocumentEditResult`:\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "fenced_code",
+      "start_line": 35,
+      "end_line": 40,
+      "raw": "```cpp\nDocumentEditResult DocumentEditor::setDynamicFrameContent(\n    const std::string &layerId, FrameIndex frame, RasterAsset content);\nDocumentEditResult DocumentEditor::setDynamicFrameContent(\n    const std::string &layerId, FrameIndex frame, VectorAsset content);\n```\n",
+      "language": "cpp",
+      "code": "DocumentEditResult DocumentEditor::setDynamicFrameContent(\n    const std::string &layerId, FrameIndex frame, RasterAsset content);\nDocumentEditResult DocumentEditor::setDynamicFrameContent(\n    const std::string &layerId, FrameIndex frame, VectorAsset content);\n",
+      "closed": true
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 42,
+      "end_line": 46,
+      "raw": "They append the supplied native asset and insert or replace the exact-frame key in\none validated edit. This removes the intermediate asset-only commit previously\nneeded when using `insertRasterAsset`/`insertVectorAsset` and keyframe methods\nseparately. The derived source index, authorship and editor revision update once.\nFile-bound edits commit one synchronous `DocumentFile` transaction before returning.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 48,
+      "end_line": 55,
+      "raw": "The target must already be a valid dynamic layer of the matching content kind.\nStatic sources return `SourceNotKeyframed`; missing layers return `LayerNotFound`;\nkind mismatches return `AssetKindMismatch`; frame indices outside the timeline\nreturn `IndexOutOfRange`. The supplied id must be nonempty and absent from the asset\npool. An existing id returns `DuplicateAssetId`, including an id already selected\nat that frame. For replacement, pass a fresh id such as `paint-12-revision-2`; this\nensures other frames and layers are never implicitly overwritten. The old asset\nremains in the pool until explicit `removeAsset` cleanup.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 61,
+      "raw": "Each successful call creates a new state/reference and counts as a real edit even\nwhen the supplied pixels or paths equal prior content. Use `setKeyframeAsset` to\nreuse an existing asset without copying it, `BitmapEditor`/`replaceRasterPixels` to\nedit a known raster asset, and `replaceVectorData`/path methods to edit a known\nvector asset. Those asset-oriented APIs retain intentional sharing semantics.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 66,
+      "raw": "Malformed payloads, invalid keys and serialization-limit/storage failures preserve\nthe document, all earlier assets, frame owners, source index, authorship, editor\nrevision and durable file contents. Memory rollback copies only frame references\nand indices, never existing raster/video payloads. No Qt types enter this API.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "fenced_code",
+      "start_line": 68,
+      "end_line": 86,
+      "raw": "```cpp\nusing namespace iiSharedCanvas;\nDocument document;\ndocument.extent = {640, 480};\ndocument.timeline = {{24, 1}, 24};\nDocumentEditor editor(document);\n// Check every result before proceeding to dependent work.\nauto seed = editor.insertRasterAsset(\"paint-0\", makeRasterLayer(640, 480, 0xffff0000U));\nauto layer = editor.insertDynamicLayer({\"paint\", \"Animated painting\"},\n    LayerRepresentation::Bitmap, {{0, \"paint-0\"}});\nfor (FrameIndex frame = 1; frame < document.timeline.frameCount; ++frame) {\n    RasterAsset content{\"paint-\" + std::to_string(frame),\n                        makeRasterLayer(640, 480, 0xff000000U | frame)};\n    auto result = editor.setDynamicFrameContent(\"paint\", frame, std::move(content));\n    if (!result.ok()) { /* handle result.code / result.message */ break; }\n}\nauto rendered = renderFrame(document, 12); // Exact frame-12 pixels.\n// The same call with VectorAsset writes native geometry, not a raster preview.\n```\n",
+      "language": "cpp",
+      "code": "using namespace iiSharedCanvas;\nDocument document;\ndocument.extent = {640, 480};\ndocument.timeline = {{24, 1}, 24};\nDocumentEditor editor(document);\n// Check every result before proceeding to dependent work.\nauto seed = editor.insertRasterAsset(\"paint-0\", makeRasterLayer(640, 480, 0xffff0000U));\nauto layer = editor.insertDynamicLayer({\"paint\", \"Animated painting\"},\n    LayerRepresentation::Bitmap, {{0, \"paint-0\"}});\nfor (FrameIndex frame = 1; frame < document.timeline.frameCount; ++frame) {\n    RasterAsset content{\"paint-\" + std::to_string(frame),\n                        makeRasterLayer(640, 480, 0xff000000U | frame)};\n    auto result = editor.setDynamicFrameContent(\"paint\", frame, std::move(content));\n    if (!result.ok()) { /* handle result.code / result.message */ break; }\n}\nauto rendered = renderFrame(document, 12); // Exact frame-12 pixels.\n// The same call with VectorAsset writes native geometry, not a raster preview.\n",
+      "closed": true
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 87,
+      "end_line": 87,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "heading",
+      "start_line": 88,
+      "end_line": 88,
+      "raw": "## Persistence and verification\n",
+      "level": 2,
+      "title": "Persistence and verification"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 90,
+      "end_line": 95,
+      "raw": "Native snapshot format is 1.19 with explicit layer type tags. Existing serialization already stores every\nasset's complete pixels or paths and every frame-owned reference. Working-file\nrecords persist a new/changed content key and its fresh asset without rewriting\nall other frame payloads. Existing limits, checksums and transactions continue to\napply. Package version is 0.28.0 with ABI/SOVERSION 0.28; rebuild consumers against\nthe exact package version.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 96,
+      "end_line": 96,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 97,
+      "end_line": 100,
+      "raw": "CTest prepends the selected build/package directory to `DYLD_LIBRARY_PATH` on\nmacOS or `LD_LIBRARY_PATH` on Unix, preserving other dependency paths. Source-tree\ntests and staged/host consumer tests therefore exercise the selected package even\nwhen the host shell forces an older installation with the same ABI library name.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 101,
+      "end_line": 101,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 102,
+      "end_line": 108,
+      "raw": "`DynamicFrameContentTest` authors 24 consecutive frames through the public APIs.\nEvery bitmap frame has a distinct exact color; every vector frame has distinct\npaint and changing path geometry. It compares all output pixels, verifies native\nasset identities/geometry, snapshot canonical round trips, one-frame edits leaving\nevery other frame unchanged, reverse-order asynchronous rendering, sparse hold\nboundaries, typed failures, one-revision edits, incremental working-file writes,\nclose/reopen and durable rollback on serialization-budget failure.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 109,
+      "end_line": 109,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 110,
+      "end_line": 113,
+      "raw": "`CanvasItemRenderTest` checks actual bitmap/vector presentation and complete cached\npixels while scrubbing forwards and backwards. The standalone\n`InstalledDynamicFrameContent` test repeats the content, persistence and rendering\nchecks against packaged headers and the installed library.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 114,
+      "end_line": 114,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 115,
+      "end_line": 117,
+      "raw": "The dynamic layer alternatives are `DynamicBitmapLayer` and `DynamicVectorLayer`,\nwith separate `DynamicBitmapContent` and `DynamicVectorContent` types. See\n[FOUR_LAYER_TYPES.md](FOUR_LAYER_TYPES.md) for static/dynamic conversion and migration.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Dynamic frame content (0.27.1)",
+      "anchor": "dynamic-frame-content-0271",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Frame ownership and sampling",
+      "anchor": "frame-ownership-and-sampling",
+      "start_line": 10
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Atomic content authoring",
+      "anchor": "atomic-content-authoring",
+      "start_line": 31
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Persistence and verification",
+      "anchor": "persistence-and-verification",
+      "start_line": 88
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 8,
+        "text": "document format or external frame files are required.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 14,
+        "text": "The first content key is required at frame zero, and all keys must be inside the",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 48,
+        "text": "The target must already be a valid dynamic layer of the matching content kind.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 51,
+        "text": "return `IndexOutOfRange`. The supplied id must be nonempty and absent from the asset",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000021",
+        "line": 54,
+        "text": "ensures other frames and layers are never implicitly overwritten. The old asset",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000025",
+        "line": 66,
+        "text": "and indices, never existing raster/video payloads. No Qt types enter this API.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000039",
+        "label": "FOUR_LAYER_TYPES.md",
+        "target": "FOUR_LAYER_TYPES.md",
+        "kind": "relative",
+        "line": 117
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -26,9 +26,22 @@ MediaIoResult checkDestination(const std::string& path,bool overwrite,std::files
     if(!localPath(path))return error(MediaIoCode::InvalidArgument,"A local UTF-8 destination path is required");
     std::error_code ec;absolute=std::filesystem::absolute(std::filesystem::u8path(path),ec);
     if(ec)return error(MediaIoCode::IoError,ec.message());
+    auto extension=absolute.extension().u8string();
+    for(auto& character:extension)
+        if(character>=u8'A'&&character<=u8'Z')character=char8_t(character+(u8'a'-u8'A'));
+    if(extension==u8".iisc")return error(MediaIoCode::InvalidArgument,"Media exports must not replace canvas files");
     const auto status=std::filesystem::symlink_status(absolute,ec);
     if(ec&&ec!=std::errc::no_such_file_or_directory)return error(MediaIoCode::IoError,ec.message());
-    if(std::filesystem::exists(status)&&(!overwrite||!std::filesystem::is_regular_file(status)))return error(MediaIoCode::AlreadyExists,"Destination already exists or is not a regular file");
+    if(std::filesystem::is_symlink(status))return error(MediaIoCode::IoError,"Media destination must not be a symbolic link");
+    if(std::filesystem::exists(status)){
+        if(!std::filesystem::is_regular_file(status))return error(MediaIoCode::IoError,"Media destination must be a regular file");
+        if(!overwrite)return error(MediaIoCode::AlreadyExists,"Destination already exists");
+        try{
+            const auto header=iiFileProvider::native::File::openRead(absolute)->read(16);
+            if(header.starts_with("SQLite format 3")||header.starts_with(std::string_view("IISC\r\n\x1a\n",8)))
+                return error(MediaIoCode::InvalidArgument,"Media exports must not replace canvas or database files");
+        }catch(const std::exception& failure){return ioError(failure);}
+    }
     return {};
 }
 MediaBytesResult readFile(const std::string& path,const MediaLimits& limits){

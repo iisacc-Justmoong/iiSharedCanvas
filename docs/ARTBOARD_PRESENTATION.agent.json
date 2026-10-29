@@ -1,0 +1,156 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:7414cdde180e75155b76f2b2b7a54183797c2ae9acc1f089029ffa34333fa24c",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/ARTBOARD_PRESENTATION.md",
+    "sha256": "7578fc2d4d12c2339b0cb27e7f5e7d09195540792a9826d1ea0b6ade28d5eedf",
+    "bytes": 2781,
+    "line_count": 42,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Artboard presentation focus (0.29.0)",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Artboard presentation focus (0.29.0)\n",
+      "level": 1,
+      "title": "Artboard presentation focus (0.29.0)"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "`CanvasItem::renderArtboardId` controls the visible composition of the Qt Quick\nadapter without changing its bound document. It is a writable `QString` QML\nproperty with `renderArtboardIdChanged` notification. C++ callers use\n`renderArtboardId()` and `setRenderArtboardId(const QString &)`. The default empty\nstring renders the complete document, including loose artwork.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 15,
+      "raw": "A nonempty stable artboard ID renders only that artboard's existing background\nand owned visible artwork. Other artboards and loose layers are excluded even\nwhen their persisted regions overlap. Hidden artboards and hidden owned layers\nremain hidden. An unknown ID produces a transparent composition while preserving\ndocument readiness; it does not set an editing error. Clearing the ID restores\nthe full composition. The value is retained across document binding, so a host\nmust select an ID present in the newly bound document or clear the focus.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 22,
+      "raw": "Focus is presentation state. It changes the adapter's immutable worker snapshot,\ntile caches and asynchronous presentation generation. It does not increment the\ndocument revision, rewrite visibility or geometry in the source document, modify\nselection, cancel brush input, reset undo, or persist an extra `.iisc` field.\nRepeated assignment of the same value does not emit a notification or schedule\nanother render. An old in-flight render cannot overwrite a newer focus.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 24,
+      "end_line": 29,
+      "raw": "The workspace origin, dimensions, pan, zoom and input mapping continue to use the\ncomplete document. Pixels outside the focused region are transparent. A complete\n`framePixels()` compatibility tile retains the complete workspace dimensions,\nincluding those transparent pixels; large tiled workspaces may still return null.\nHosts choose their own layout, cropping and navigation without moving artboards.\nChanging focus does not select a layer or restrict editing to a particular board.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 35,
+      "raw": "The existing snapshot copy retains asset and frame references and hides excluded\ncontent only in that detached render snapshot. Frame changes, document refresh,\nbrush commits and undo rebuild the snapshot using the current focus. This keeps\nall native artwork, blend modes, clipping and timeline sampling on the existing\nrenderer and at the display's physical texture resolution.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 42,
+      "raw": "`iiSharedCanvas.CanvasItemArtboardFocus` verifies overlapping and loose content,\nbackgrounds, workspace coordinates, property reflection and notification, missing\nIDs, rapid focus changes, document immutability, brush input, selection and undo,\nframe scrubbing and document replacement. The standalone installed-package suite\nruns the same contract against the selected installed library. These offscreen\ntests verify renderer pixels; they do not claim a native window capture.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Artboard presentation focus (0.29.0)",
+      "anchor": "artboard-presentation-focus-0290",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 15,
+        "text": "must select an ID present in the newly bound document or clear the focus.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 42,
+        "text": "tests verify renderer pixels; they do not claim a native window capture.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

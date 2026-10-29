@@ -1,4 +1,5 @@
 #include "Document/DocumentEditor.h"
+#include "Document/CanvasRegion_p.hpp"
 #include "File/DocumentFile.h"
 
 #include "Validation/Validation.h"
@@ -24,21 +25,6 @@ std::optional<ValidationIssue> firstValidationIssue(const Document &document)
 std::size_t insertionIndex(std::size_t requested, std::size_t size) noexcept
 {
     return requested == AppendDocumentIndex ? size : requested;
-}
-
-std::int64_t floorToMultiple(std::int64_t value, std::int64_t step) noexcept
-{
-    const std::int64_t remainder = value % step;
-    return remainder < 0 ? value - remainder - step : value - remainder;
-}
-
-std::int64_t ceilToMultiple(std::int64_t value, std::int64_t step) noexcept
-{
-    const std::int64_t remainder = value % step;
-    if (remainder == 0) {
-        return value;
-    }
-    return remainder > 0 ? value - remainder + step : value - remainder;
 }
 
 template<typename Value>
@@ -365,56 +351,20 @@ DocumentEditResult DocumentEditor::ensureInfiniteCanvasRegion(CanvasRegion regio
                       "requested canvas region must have a positive extent");
     }
 
-    const std::int64_t requestedRight = static_cast<std::int64_t>(region.origin.x)
-        + region.extent.width;
-    const std::int64_t requestedBottom = static_cast<std::int64_t>(region.origin.y)
-        + region.extent.height;
-    const CanvasOrigin currentOrigin = m_document->infiniteCanvas.origin;
-    const std::int64_t currentRight = static_cast<std::int64_t>(currentOrigin.x)
-        + m_document->extent.width;
-    const std::int64_t currentBottom = static_cast<std::int64_t>(currentOrigin.y)
-        + m_document->extent.height;
-    const std::int64_t chunkSize = m_document->infiniteCanvas.chunkSize;
-
-    const std::int64_t nextLeft = floorToMultiple(
-        std::min<std::int64_t>(currentOrigin.x, region.origin.x), chunkSize);
-    const std::int64_t nextTop = floorToMultiple(
-        std::min<std::int64_t>(currentOrigin.y, region.origin.y), chunkSize);
-    const std::int64_t nextRight = ceilToMultiple(
-        std::max(currentRight, requestedRight), chunkSize);
-    const std::int64_t nextBottom = ceilToMultiple(
-        std::max(currentBottom, requestedBottom), chunkSize);
-    const std::int64_t nextWidth = nextRight - nextLeft;
-    const std::int64_t nextHeight = nextBottom - nextTop;
-    if (nextLeft < std::numeric_limits<std::int32_t>::min()
-        || nextTop < std::numeric_limits<std::int32_t>::min()
-        || nextRight > std::numeric_limits<std::int32_t>::max()
-        || nextBottom > std::numeric_limits<std::int32_t>::max()
-        || nextWidth <= 0
-        || nextHeight <= 0
-        || nextWidth > std::numeric_limits<std::int32_t>::max()
-        || nextHeight > std::numeric_limits<std::int32_t>::max()) {
+    const auto next = detail::expandedCanvasRegion(canvasRegion(*m_document), region,
+                                                    m_document->infiniteCanvas.chunkSize);
+    if (!next) {
         return reject(DocumentEditCode::InvalidArgument, "region",
                       "requested canvas region exceeds the supported coordinate range");
     }
-
-    if (nextLeft == currentOrigin.x
-        && nextTop == currentOrigin.y
-        && nextWidth == m_document->extent.width
-        && nextHeight == m_document->extent.height) {
+    if (*next == canvasRegion(*m_document)) {
         return unchanged();
     }
 
     const InfiniteCanvas priorCanvas = m_document->infiniteCanvas;
     const CanvasExtent priorExtent = m_document->extent;
-    m_document->infiniteCanvas.origin = {
-        static_cast<std::int32_t>(nextLeft),
-        static_cast<std::int32_t>(nextTop),
-    };
-    m_document->extent = {
-        static_cast<std::int32_t>(nextWidth),
-        static_cast<std::int32_t>(nextHeight),
-    };
+    m_document->infiniteCanvas.origin = next->origin;
+    m_document->extent = next->extent;
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         m_document->infiniteCanvas = priorCanvas;
         m_document->extent = priorExtent;
@@ -2170,7 +2120,11 @@ DocumentEditResult DocumentEditor::insertDynamicLayer(
 DocumentEditResult DocumentEditor::insertLayer(Layer layer, std::size_t index)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerStructureFile(false, [&](DocumentEditor &editor) {
+#else
         return editFile([&](DocumentEditor &editor) {
+#endif
             return editor.insertLayer(std::move(layer), index);
         });
     }
@@ -2217,7 +2171,11 @@ DocumentEditResult DocumentEditor::insertKeyframedLayer(
     std::size_t index)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerStructureFile(true, [&](DocumentEditor &editor) {
+#else
         return editFile([&](DocumentEditor &editor) {
+#endif
             return editor.insertKeyframedLayer(std::move(layer), std::move(keyframes), index);
         });
     }
@@ -2367,9 +2325,15 @@ DocumentEditResult DocumentEditor::setLayerName(const std::string &id,
                                                 std::string name)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerFile(id, [&](DocumentEditor &editor) {
+            return editor.setLayerName(id, std::move(name));
+        });
+#else
         return editFile([&](DocumentEditor &editor) {
             return editor.setLayerName(id, std::move(name));
         });
+#endif
     }
     if (!requireValidDocument()) {
         return m_lastResult;
@@ -2390,9 +2354,15 @@ DocumentEditResult DocumentEditor::setLayerName(const std::string &id,
 DocumentEditResult DocumentEditor::setLayerVisible(const std::string &id, bool visible)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerFile(id, [&](DocumentEditor &editor) {
+            return editor.setLayerVisible(id, visible);
+        });
+#else
         return editFile([&](DocumentEditor &editor) {
             return editor.setLayerVisible(id, visible);
         });
+#endif
     }
     if (!requireValidDocument()) {
         return m_lastResult;
@@ -2413,9 +2383,15 @@ DocumentEditResult DocumentEditor::setLayerVisible(const std::string &id, bool v
 DocumentEditResult DocumentEditor::setLayerOpacity(const std::string &id, double opacity)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerFile(id, [&](DocumentEditor &editor) {
+            return editor.setLayerOpacity(id, opacity);
+        });
+#else
         return editFile([&](DocumentEditor &editor) {
             return editor.setLayerOpacity(id, opacity);
         });
+#endif
     }
     if (!requireValidDocument()) {
         return m_lastResult;
@@ -2442,9 +2418,15 @@ DocumentEditResult DocumentEditor::setLayerTransform(const std::string &id,
                                                      AffineTransform transform)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerFile(id, [&](DocumentEditor &editor) {
+            return editor.setLayerTransform(id, transform);
+        });
+#else
         return editFile([&](DocumentEditor &editor) {
             return editor.setLayerTransform(id, transform);
         });
+#endif
     }
     if (!requireValidDocument()) {
         return m_lastResult;
@@ -2471,9 +2453,15 @@ DocumentEditResult DocumentEditor::setLayerBlendMode(const std::string &id,
                                                      RasterBlendMode blendMode)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerFile(id, [&](DocumentEditor &editor) {
+            return editor.setLayerBlendMode(id, blendMode);
+        });
+#else
         return editFile([&](DocumentEditor &editor) {
             return editor.setLayerBlendMode(id, blendMode);
         });
+#endif
     }
     if (!requireValidDocument()) {
         return m_lastResult;
@@ -2636,7 +2624,11 @@ DocumentEditResult DocumentEditor::moveLayer(const std::string &id,
                                              std::size_t destinationIndex)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerStructureFile(false, [&](DocumentEditor &editor) {
+#else
         return editFile([&](DocumentEditor &editor) {
+#endif
             return editor.moveLayer(id, destinationIndex);
         });
     }
@@ -2662,7 +2654,11 @@ DocumentEditResult DocumentEditor::moveLayer(const std::string &id,
 DocumentEditResult DocumentEditor::removeLayer(const std::string &id)
 {
     if (m_file) {
+#ifdef IISHAREDCANVAS_NATIVE_API
+        return editLayerStructureFile(true, [&](DocumentEditor &editor) {
+#else
         return editFile([&](DocumentEditor &editor) {
+#endif
             return editor.removeLayer(id);
         });
     }
@@ -3065,6 +3061,51 @@ DocumentEditResult DocumentEditor::editFile(
     m_lastResult = std::move(working.m_lastResult);
     return m_lastResult;
 }
+
+#ifdef IISHAREDCANVAS_NATIVE_API
+DocumentEditResult DocumentEditor::editLayerFile(
+    const std::string &layerId,
+    const std::function<DocumentEditResult(DocumentEditor &)> &edit)
+{
+    if (!isBound())
+        return reject(DocumentEditCode::NotBound, "file", "the working-file binding is no longer valid");
+    DocumentEditor working = *this;
+    working.m_file = nullptr;
+    working.m_lastResult = {};
+    bool fallback = false;
+    const auto result = m_file->editLayerPropertiesImpl(layerId, [&](Document &document) {
+        working.m_document = &document;
+        return edit(working).ok();
+    }, fallback);
+    if (fallback) return editFile(edit);
+    if (!working.m_lastResult.ok()) return m_lastResult = std::move(working.m_lastResult);
+    if (!result.ok()) return reject(DocumentEditCode::PersistenceFailed, "file", result.message);
+    m_revision = working.m_revision;
+    m_lastResult = std::move(working.m_lastResult);
+    return m_lastResult;
+}
+
+DocumentEditResult DocumentEditor::editLayerStructureFile(
+    bool changesFrames, const std::function<DocumentEditResult(DocumentEditor &)> &edit)
+{
+    if (!isBound())
+        return reject(DocumentEditCode::NotBound, "file", "the working-file binding is no longer valid");
+    DocumentEditor working = *this;
+    working.m_file = nullptr;
+    working.m_lastResult = {};
+    bool fallback = false;
+    const auto result = m_file->editLayerStructureImpl([&](Document &document) {
+        working.m_document = &document;
+        return edit(working).ok();
+    }, changesFrames, fallback);
+    if (fallback) return editFile(edit);
+    if (!working.m_lastResult.ok()) return m_lastResult = std::move(working.m_lastResult);
+    if (!result.ok()) return reject(DocumentEditCode::PersistenceFailed, "file", result.message);
+    m_revision = working.m_revision;
+    m_lastResult = std::move(working.m_lastResult);
+    return m_lastResult;
+}
+#endif
 
 DocumentEditResult DocumentEditor::unchanged()
 {

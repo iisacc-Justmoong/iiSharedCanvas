@@ -81,10 +81,8 @@ std::string validateMask(const Document &document, const std::optional<LayerMask
     const double determinant = t.m11 * t.m22 - t.m12 * t.m21;
     if (!std::isfinite(determinant) || determinant == 0) return "mask transform must be invertible";
     const auto extent = raster ? CanvasExtent{raster->pixels.width, raster->pixels.height} : vector->viewport;
-    const auto padding = std::int64_t(std::ceil(mask->featherRadius * 3));
-    const auto width = std::int64_t(extent.width) + 2 * padding, height = std::int64_t(extent.height) + 2 * padding;
-    if (width <= 0 || height <= 0 || width * height > 16LL * 1024 * 1024)
-        return "feathered mask exceeds the 16-million-pixel processing budget";
+    if (extent.width <= 0 || extent.height <= 0)
+        return "mask asset extent must be positive";
     return {};
 }
 
@@ -101,7 +99,6 @@ std::string validateAppearance(const Document &document, const Layer &layer, std
     if (auto error = validateMask(document, a.filterMask, false); !error.empty()) return error;
     if (a.maskStack.size() > 4096) return "mask stack exceeds 4096 operands";
     std::unordered_set<std::string> maskIds;
-    std::uint64_t stackPixels = 0;
     for (const auto &entry : a.maskStack) {
         if (entry.id.empty() || !maskIds.insert(entry.id).second) return "mask stack IDs must be nonempty and unique";
         if (static_cast<unsigned>(entry.combine) > static_cast<unsigned>(MaskCombineMode::Replace))
@@ -109,11 +106,6 @@ std::string validateAppearance(const Document &document, const Layer &layer, std
         const auto *asset = findAsset(document, entry.mask.assetId);
         const bool vector = asset && std::holds_alternative<VectorAsset>(*asset);
         if (auto error = validateMask(document, entry.mask, vector); !error.empty()) return error;
-        const auto extent = vector ? std::get<VectorAsset>(*asset).viewport
-            : CanvasExtent{std::get<RasterAsset>(*asset).pixels.width, std::get<RasterAsset>(*asset).pixels.height};
-        const auto pad = std::uint64_t(std::ceil(entry.mask.featherRadius * 3));
-        stackPixels += (std::uint64_t(extent.width) + 2 * pad) * (std::uint64_t(extent.height) + 2 * pad);
-        if (stackPixels > 64ULL * 1024 * 1024) return "mask stack exceeds the 64-million-pixel processing budget";
     }
     for (const auto &filter : a.filters) {
         if (!unitValue(filter.opacity) || !isSupportedLayerBlendMode(filter.blendMode))

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <exception>
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -38,6 +39,7 @@ const char *codeName(DocumentFileCode code)
     case DocumentFileCode::EditRejected: return "EditRejected";
     case DocumentFileCode::Conflict: return "Conflict";
     case DocumentFileCode::IoError: return "IoError";
+    case DocumentFileCode::InvalidArgument: return "InvalidArgument";
     }
     return "UnknownError";
 }
@@ -82,10 +84,10 @@ int upgrade(const std::vector<std::string> &arguments)
     return 0;
 }
 } // namespace
-int main(int argc, char **argv)
+int runUpgradeCli(const std::vector<std::string> &arguments)
 {
     try {
-        return upgrade({argv + 1, argv + argc});
+        return upgrade(arguments);
     } catch (const std::exception &failure) {
         std::cerr << "iisc-upgrade: IoError: " << failure.what() << '\n';
     } catch (...) {
@@ -93,3 +95,24 @@ int main(int argc, char **argv)
     }
     return 1;
 }
+#if defined(_WIN32) && defined(IISHAREDCANVAS_NATIVE_API)
+int wmain(int argc, wchar_t **argv)
+{
+    try {
+        std::vector<std::string> arguments;
+        for (int i = 1; i < argc; ++i) {
+            const auto value = std::filesystem::path(argv[i]).u8string();
+            arguments.emplace_back(value.begin(), value.end());
+        }
+        return runUpgradeCli(arguments);
+    } catch (const std::exception &failure) {
+        std::cerr << "iisc-upgrade: InvalidArgument: " << failure.what() << '\n';
+        return 2;
+    }
+}
+#else
+int main(int argc, char **argv)
+{
+    return runUpgradeCli({argv + 1, argv + argc});
+}
+#endif

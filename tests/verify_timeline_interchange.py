@@ -11,7 +11,8 @@ import io
 import json
 import math
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 import xml.etree.ElementTree as ET
 import wave
 
@@ -29,7 +30,7 @@ def seconds(value):
 def local_file(value):
     url = urlparse(value)
     assert url.scheme == "file" and url.netloc in ("", "localhost"), value
-    return Path(unquote(url.path))
+    return Path(url2pathname(url.path))
 
 
 def main():

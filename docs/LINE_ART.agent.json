@@ -1,0 +1,350 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:44d9fc6053c780204e97e940196d3d89ce440ffba162978a78e33b874bd0d2f7",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/LINE_ART.md",
+    "sha256": "f45593d860be5e1376a01c0a457d286fd276363d1be67ca7a3551e98a290df83",
+    "bytes": 6317,
+    "line_count": 51,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "라인 아트 ControlNet 레이어 ( 0.16.0 / 네이티브 형식 1.10 )",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "html",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "<a id=\"line-art-controlnet-layers-0160--native-format-110\"></a>\n"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "heading",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "# 라인 아트 ControlNet 레이어 ( 0.16.0 / 네이티브 형식 1.10 )\n",
+      "level": 1,
+      "title": "라인 아트 ControlNet 레이어 ( 0.16.0 / 네이티브 형식 1.10 )"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "`LineArtLayer`는 전용 `LayerRole::ControlNet` / `ControlNetKind::LineArt` 레이어입니다. 이는 `LineArtAsset`를 참조하며, 그 ID와 양의 뷰포트 차원 및 행장부호 `std::vector<double> coverage`가 작성된 선 이미지를 설명합니다. 소스는 [0,1]에 있는 너비 *의 유한 샘플을 정확히 포함해야 합니다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "html",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "<a id=\"ink-and-background\"></a>\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "## 잉크와 배경\n",
+      "level": 2,
+      "title": "잉크와 배경"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "커버리지 0는 깨끗한 흰색 배경이며, 1는 전체 검은색 잉크입니다. 중간값은 부분적인 잉크 커버리지/라인 강도를 나타내며, 안티앨리어싱된 가장자리와 부드러운 윤곽을 유지합니다. 이는 거리, 클래스 마스크, 혹은 입력 브러시 움직임 목록이 아니라 라인아트 필드입니다. 채워진 어두운 영역은 합법이며, 가장자리 감지, 얇아짐, 임계값 설정, 자동 역전, 감마 변환 또는 프레임당 정규화는 수행되지 않습니다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "네이티브 커버리지는 이진64 정밀도를 유지합니다. `lineArtRasterPreview` 와 `renderLineArtControlMap` 은 `round((1 - coverage) * 255)` 를 각 RGB8 채널에 대해 255로 계산합니다. 커버리지 0/0.5/1 는 따라서 흰색/128-회색/검은색을 생성합니다. 빈 영역은 불투명한 흰색이며, 투명하지 않습니다. 매우 작은 양의 커버리지는 흰색으로 반올림될 수 있으므로, 제어 결과에도 원래 `coverage` 와 `inkPixels` (커버리리 > 0) 가 함께 포함됩니다. 이것들은 미리보기 양자화와 독립적으로 약한 작성된 줄을 독립적으로 유지합니다. `inkPixels` 를 임계값 처리된 에지 맵으로 해석하지 마십시오.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "html",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "<a id=\"staticdynamic-editing\"></a>\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "## 정적/동적 편집\n",
+      "level": 2,
+      "title": "정적/동적 편집"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "fenced_code",
+      "start_line": 19,
+      "end_line": 32,
+      "raw": "```cpp\nDocument document;\ndocument.extent = {2, 2};\nDocumentEditor editor(document);\nauto assetResult = editor.insertLineArtAsset(\n    {\"lines.frame0\", {2, 2}, {0.0, 0.5, 1.0, 0.0}});\nLineArtLayer layer;\nlayer.properties = {\"lines\", \"Line Art\"};\nlayer.source = StaticSource{\"lines.frame0\"};\nauto layerResult = editor.insertLineArtLayer(layer);\nauto editResult = editor.setLineArtSample(\"lines.frame0\", 1, 0, 0.75);\nauto map = renderLineArtControlMap(document, \"lines\", 0);\n// 출력을 사용하기 전에 연산 결과와 map.ok()를 확인한다.\n```\n",
+      "language": "cpp",
+      "code": "Document document;\ndocument.extent = {2, 2};\nDocumentEditor editor(document);\nauto assetResult = editor.insertLineArtAsset(\n    {\"lines.frame0\", {2, 2}, {0.0, 0.5, 1.0, 0.0}});\nLineArtLayer layer;\nlayer.properties = {\"lines\", \"Line Art\"};\nlayer.source = StaticSource{\"lines.frame0\"};\nauto layerResult = editor.insertLineArtLayer(layer);\nauto editResult = editor.setLineArtSample(\"lines.frame0\", 1, 0, 0.75);\nauto map = renderLineArtControlMap(document, \"lines\", 0);\n// 출력을 사용하기 전에 연산 결과와 map.ok()를 확인한다.\n",
+      "closed": true
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "정적 콘텐츠는 타임라인 전체에 걸쳐 하나의 자산을 유지합니다. 동적 콘텐츠는 `KeyframedSource{}`와 `insertLineArtLayer(layer, {{0,\"a\"},{1,\"b\"}})` 또는 `setKeyframedSource`를 사용합니다; 참조 샘플링은 기존 유지 방식만 사용하는 타임라인 규칙을 따릅니다. 이것들은 `StaticBitmap` 및 `DynamicBitmap`에 매핑됩니다. 각 프레임 자산은 고유한 네이티브 차원을 가지고 있습니다. 시간 보간은 도입되지 않습니다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "`setLineArtSample` 를 개별 픽셀에 사용하고 `replaceLineArtAsset` 를 대량 업데이트에 사용하십시오. 모든 편집은 원자적으로 유효성 검사와 롤백을 수행하며, 수정 사항 및 파일 단위의 트랜잭션도 포함됩니다. 여러 프레임/레이어에 의해 공유되는 자산은 모든 참조에 대해 변경되며, 독립적인 편집이 필요한 경우 별도의 자산을 생성하십시오. 새로 크기 조정된 커버리리 배열에 0.0 를 채워 빈 흰색 필드를 생성합니다. `BitmapEditor` 는 이 형식의 스칼라 자산을 바인딩할 수 없습니다. 새 도메인 코드는 Qt 의존성이 없으며, 미리보기는 기존 렌더링 스택을 재사용합니다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 38,
+      "end_line": 38,
+      "raw": "제어 출력은 `ControlNetSettings::enabled`, 타임라인 및 프레임 범위를 따르며, 표시 가시성, 불투명도, 변환 및 블렌딩을 무시합니다. 일반적인 아트웍 구성은 ControlNet 레이어를 제외하며, 명시적인 레이어 미리보기는 여전히 사용 가능합니다. 출력 할당 기본값은 최대 16 Mi 픽셀 ( RGB8, 이진64 커버리지 및 u8 존재: 할당기 오버헤드 이전 13 바이트/샘플) 입니다. `lineArtRasterPreview` 는 잘못된 입력 또는 예산 위반에 대해 invalid_argument / length_error 를 던지며, `renderLineArtControlMap` 는 오류 메시지를 반환합니다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 39,
+      "end_line": 39,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "html",
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "<a id=\"files-and-boundaries\"></a>\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "heading",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "## 파일 및 경계\n",
+      "level": 2,
+      "title": "파일 및 경계"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "패키지 0.16.0 는 7 자산 및 레이어 대안을 가지며, 소비자의 재빌드를 요구합니다. 포맷 1.10 는 자산 태그 6, 키프레임이 적용된 콘텐츠 태그 4, 레이어 역할 태그 4를 추가합니다. 자산은 id, i32 너비/높이, u64 개수 및 리틀엔디안 f64 커버리지를 저장합니다. 레이어는 일반적인 운동 데이터 이전에 공유 ControlNet 활성화/ modelId / modelRevision /스케일/가이드 필드를 저장합니다. 이전 포맷은 라인 아트를 거부하며, 기존 1.0 – 1.9 데이터는 읽을 수 있습니다. 알 수 없는 태그와 잘못된 소스 종류 안전하게 거부한다 입니다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "`SerializationLimits::maximumLineArtSamples`는 모든 자산에 대해 64 Mi 샘플로 기본값으로 설정됩니다. 카운트, 사용 가능한 바이트 및 주소 공간 경계는 할당 전에 확인됩니다. 스냅샷 및 SQLite 작업 파일 편집은 원본 범위를 유지하고, 변경되지 않은 레코드를 재사용하며, SQLite 스키마 1를 유지합니다. PSD와 타임라인 교환은 지원되지 않는 ControlNet 의미 체계를 거부하고, 타임라인 패키지의 고아 라인아트 자산을 포함하며, 아무런 알림 없이를 평탄화하거나 폐기하는 대신 이를 비활성화합니다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 47,
+      "end_line": 47,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 48,
+      "end_line": 48,
+      "raw": "이 API는 저작된 컨디셔닝 데이터를 제공합니다. 이미지-라인 주석자를 실행하거나 벡터를 추적하거나 확산 모델을 실행하거나 특정 모델의 입력 규칙과의 호환성을 주장하지 않습니다. 정규 출력은 흰색 바탕에 검은 잉크이며, 모델별 변환은 명시적인 소비자 어댑터에 해당합니다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 51,
+      "raw": "자세한 레이어 및 개체 필드는 다음을 통해 원자적으로 편집할 수도 있습니다.\n모든 동적 소스 상태를 포함하는 [공통 매개변수 API](CONTROLNET_PARAMETERS.md).\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000003",
+      "parent_id": null,
+      "level": 1,
+      "title": "라인 아트 ControlNet 레이어 ( 0.16.0 / 네이티브 형식 1.10 )",
+      "anchor": "라인-아트-controlnet-레이어--0160--네이티브-형식-110-",
+      "start_line": 3
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "잉크와 배경",
+      "anchor": "잉크와-배경",
+      "start_line": 9
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "정적/동적 편집",
+      "anchor": "정적동적-편집",
+      "start_line": 17
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "파일 및 경계",
+      "anchor": "파일-및-경계",
+      "start_line": 42
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000037",
+        "label": "공통 매개변수 API",
+        "target": "CONTROLNET_PARAMETERS.md",
+        "kind": "relative",
+        "line": 51
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

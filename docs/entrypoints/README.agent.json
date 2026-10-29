@@ -1,0 +1,3708 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:7d20e20504abac33fdc1842f536e63f711ed98e60ec60f3f33fb7bd052b1c8e5",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "README.md",
+    "sha256": "3f7e397d6ea407f8de29de87ecd2263a587a8ab52937f8058e4c212210893ab8",
+    "bytes": 68491,
+    "line_count": 1133,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "iiSharedCanvas",
+    "role": "overview",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# iiSharedCanvas\n",
+      "level": 1,
+      "title": "iiSharedCanvas"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "[Windows build and execution](docs/WindowsBuildAndRun.md)\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 48,
+      "raw": "The Qt-free `iiSharedCanvas::Native` package also exports PCM16 WAV I/O,\nthe decoded Camera RAW model and validation, and bounded document previews.\nIts `AsyncFrameRenderQueue` accepts an application-owned executor, coalesces\nrequests, and delivers independently rendered layers and composite tiles without\nQt; wakeups run on executor threads and the application owns UI dispatch.\nThe application-owned [iiGUI frame example](docs/GUI_FRAME_PRESENTATION.md)\nconverts rendered pixels into an immutable display image. Widget integration,\ninput and the full Qt Quick editor replacement remain application work.\nThe native package exports its editable path model as SVG or gzip SVGZ, and\nexports timeline pages to PDF with vector paths and transparent raster content.\nNon-normal blends and layer appearances require explicit page rasterization.\nAn application-owned iiXml and iiCompression example imports the editable\nSVG/SVGZ subset emitted by the native exporter; general editable SVG import\nremains a legacy capability.\nSee [the canonical SVG adapter](docs/XML_SVG_IMPORT.md) for its strict limits.\nAn additional application-owned iiGUI example rasterizes a restricted SVG/SVGZ\nsubset, including linear gradients, and reports the loss of vector editability.\nIt does not yet replace general SVG or PDF rasterization.\nWAV publication does not overwrite an existing file; previews read snapshots\nor committed working-file content without editing the source. The RAW model is\nnot a proprietary camera-file decoder. See [Native](docs/NATIVE.md).\nThe native package also exposes `upgradeIiscFile` and installs `iisc-upgrade`;\nthey preserve the snapshot or working-file storage kind and reject existing\noutput files. Current in-place upgrades are no-ops.\nNative `iisc-import` and `iisc-export-psd` use the supported layered PSD and\nOpenRaster subset without Qt. They preserve the input and reject existing\noutputs unless PSD overwrite is explicitly requested.\nThe native timeline interchange API publishes FCP XML, FCPXML, PNG and WAV\nmedia, a manifest, and a source snapshot as a new directory using iiFileProvider\nNative 0.11.1 or later. The native `iisc-export-timeline` command accepts a\nsnapshot or working file and provides the same non-overwriting export.\nFor video, the native `VideoFrameDecoder` interface lets applications inject a\ncodec and convert bounded, display-oriented frames into a video asset or\ndynamic bitmap document. A codec implementation and file I/O remain the\napplication's responsibility. The `example/VisualCodecVideoDecoder` adapter\ncomposes iiVisualCodec 0.4.2 for a limited set of square-pixel, constant-rate\nvideo, including canonical right-angle display matrices; see [the decoder\ncontract](docs/VIDEO_FRAME_DECODER.md) for its limits.\nThe matching `VideoFrameEncoder` lets applications encode a selected rendered\nframe range; the iiVisualCodec example supports lossless FFV1 and explicit\nalpha matting for opaque codecs. Audio is omitted with a warning. See [the\nencoder contract](docs/VIDEO_FRAME_ENCODER.md) for its limits.\nThe [Qt migration status](docs/QT_MIGRATION.md) records the remaining feature\nand SDK-independence work; the legacy Qt API remains the default for now.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 50,
+      "end_line": 131,
+      "raw": "Package release: **0.35.14** (2026-10-28). Native `DocumentHistory` provides a\nstaged final-pixel preview: borrowed tiles and optional infinite-canvas growth\nremain separate from the owner until one synchronous commit. Cancel leaves the\ndocument revision unchanged. Synchronous frame, layer, tile, region and\nartboard-region render calls can apply borrowed replacement tiles before\ntransforms, filters and masks. Application input and cache invalidation remain\nthe consumer's responsibility. See [frame overlays](docs/FRAME_OVERLAY.md).\nGrowth\nuses untransformed chunk coordinates and does not infer a referring layer's\ntransform. See\n[document history](docs/DOCUMENT_HISTORY.md) for ownership and failure rules.\nNative `DocumentHistory` can also opt a\nchunked infinite-canvas stroke into automatic growth. Changed pixels, allocated\nchunks and the expanded canvas region share one undo entry; cancellation and\nundo restore the prior region. Current working files commit the header and\ntouched tiles together. Existing strokes remain clipped by default. See\n[document history](docs/DOCUMENT_HISTORY.md) for bounds, failure and recovery.\nNative `DocumentHistory` can remove\na static raster, chunked-raster or vector layer together with its unshared asset,\nand can change the rational frame rate and frame count as one validated command.\nExisting references, frames, motion and audio are never silently discarded.\nThe current working-file timing path commits the header and authorship without\ncopying image or audio payloads. The bounded asset snapshot can reject a large\nhigh-entropy deletion; there is no disk spill. See\n[document history](docs/DOCUMENT_HISTORY.md) for the complete contract.\nNative `DocumentHistory` also owns\na streaming finite or chunked bitmap stroke alongside its other ordered\ncommands. Samples and stationary brush-clock ticks update the live result;\nfinishing publishes one bounded undo entry and cancellation restores its source\nwhile preserving redo. Working-file increments and cancellation are durable\ntransactions, so callers must resolve interruptions and handle errors explicitly.\nSee [document history](docs/DOCUMENT_HISTORY.md) for the session contract and\nremaining application integration. Native `DocumentHistory` can also create\na static layer and its new raster, chunked raster or vector asset as one\nreversible command. Its lossless, budgeted asset snapshot stores runs for\nuniform raster areas and rejects over-budget content before publication. It\ndoes not spill history to disk; highly detailed imports can exceed the budget.\nSee [document history](docs/DOCUMENT_HISTORY.md) for conflict, memory and file\ntransaction boundaries. Native `DocumentHistory` also records\nlayer insertion, keyframed insertion and deletion alongside bitmap and layer\nproperty edits in the same undo/redo sequence. It retains layer metadata and\nframe-owned asset references; referenced assets remain in the document. See\n[document history](docs/DOCUMENT_HISTORY.md) for conflict, budget, transactional\nand application-adoption limits. Native working-file layer insertion,\nkeyframed insertion, deletion and reordering commit structural records without\ncopying raster or audio assets. Layer deletion retains the referenced assets and\nremoves the layer's frame keys. Legacy working files use the existing migration\npath; see [layer file edits](docs/LAYER_FILE_EDITS.md) for transactional limits.\nRaster and vector masks are sampled\nat native resolution through bounded, shared region tiles, including their\nGaussian feather halos. Large referenced masks no longer require a full mask\ncopy and coverage plane for a small render request. See\n[mask region rendering](docs/MASK_REGIONS.md) for limits, compatibility and costs.\nNative `DocumentHistory` coordinates\nbitmap patches and supported layer changes in one ordered, budgeted undo/redo\nhistory for memory documents and working files. Pixel preview sessions expose\ntheir original source, replace the entire visible result, and publish one history\nentry only on commit. Live working-file previews are durable per replacement;\nstaged previews are not written until commit. Callers must explicitly resolve\nthe session and handle interrupted recovery. It does not automatically track\nedits made outside the coordinator or group commands across assets. See\n[document history](docs/DOCUMENT_HISTORY.md) for ownership, conflict detection,\nlogical budget accounting, failure behavior, and remaining application work.\nBitmap editors use bounded region history\nand atomic multi-patch edits through iiPaintEngine 0.5.4. Undo preserves finite\nasset dimensions and sparse chunk presence; brush previews retain touched pixel\ntiles instead of complete asset snapshots. The default history policy rejects\nover-budget commands before publication. Explicit eviction reports its count.\nRebuild consumers that used older editor layouts; IISC remains 1.22. See\n[bitmap region history](docs/BITMAP_HISTORY.md) for budgets, conflict handling,\nfile-transaction boundaries and remaining full-document operations. Native file-bound\nsame-size bitmap edits commit touched tiles directly, without cloning the document;\nsee [file-bound bitmap regions](docs/BITMAP_FILE_REGIONS.md) for limits and fallbacks.\nNative working-file snapshots transfer their validated decoded pixels to the detached\nresult without an additional full-document copy; the temporary file, complete decode\nand prior caller output still consume resources. The SQLite backup default is five\nminutes and Native callers can supply a positive timeout in milliseconds; it does not\nbound opening, decoding or validation. `iisc-working verify` and `upgrade-storage\n--dry-run` expose the same option. See [working-file tiles](docs/WORKING_FILE_TILES.md).\nFile-bound layer name, visibility, opacity, transform and blend edits update the\nlayer record and authorship without copying raster assets. See\n[layer file edits](docs/LAYER_FILE_EDITS.md) for transactional boundaries and fallbacks.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 132,
+      "end_line": 132,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 133,
+      "end_line": 136,
+      "raw": "In 0.33.2, bitmap editors added an explicit\nmonotonic stroke clock for stationary airbrush and pulled-string catch-up.\nRebasing excludes suspended time without emitting paint or revising the document.\nSee [stroke clocks](docs/BITMAP_CLOCK.md).\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 137,
+      "end_line": 137,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 138,
+      "end_line": 141,
+      "raw": "In 0.33.1, mixer and smudge began reading the bound asset's\nstroke-start pixels through iiPaintEngine 0.5.3. Negative origins and chunk\nboundaries share the same source coordinates; unloaded smudge preserves empty\ncontent and transferred alpha. See [wet brush sampling](docs/BITMAP_WET_BRUSH.md).\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 142,
+      "end_line": 142,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 143,
+      "end_line": 147,
+      "raw": "In 0.33.0, bitmap editors added measured\n`StrokePoint` samples with tilt, stylus rotation, custom dynamics and monotonic\nseconds. Sparse runtime pixel tiles retain stroke opacity across input events.\nEditor layouts changed: rebuild consumers for ABI 0.33. The canonical format\nremains 1.22 and stores pixels, never input paths. See [bitmap input](docs/BITMAP_INPUT.md).\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 148,
+      "end_line": 148,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 149,
+      "end_line": 154,
+      "raw": "In 0.32.0, native format 1.22 added common\npublication metadata in the same `.iisc` file: title, description, ordered\ncanvas captions and alternative text, cover and typed publication settings.\nBoth snapshots and working files preserve it without a companion document.\nSee [Publication metadata](docs/PUBLICATION_METADATA.md). Consumers passing\n`Document` by value must rebuild for ABI 0.32.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 155,
+      "end_line": 155,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 156,
+      "end_line": 159,
+      "raw": "In 0.31.4, `renderArtboardRegion` renders a bounded\nworld-space crop of one isolated artboard using the native composition pipeline.\nOne-pixel requests retain masks, transforms, dynamic sources, background and\nworld-coordinate blend behavior without allocating the full artboard output.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 160,
+      "end_line": 160,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 161,
+      "end_line": 164,
+      "raw": "In 0.31.3, `DocumentFile::readSnapshot` added a complete,\ndetached native document without modifying its source or imposing preview bounds.\nLegacy snapshots, read-only working files and committed WAL contents share the\nexisting bounded input reader. Failures preserve the caller's prior output.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 165,
+      "end_line": 165,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 166,
+      "end_line": 171,
+      "raw": "Frame navigation reuses the immutable render snapshot without incrementing the\ndocument revision or notifying an edit.\nDynamic bitmap/vector sampling and coalesced seeks are covered by native adapter\nregressions. Detached native transform previews use `refreshPreview()` to redraw\nwithout publishing a document edit; writable file bindings reject that path.\nEarlier versioned feature notes remain historical.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 172,
+      "end_line": 173,
+      "raw": "\n\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 174,
+      "end_line": 178,
+      "raw": "The private media error constructor is inline so independently compiled timeline\nwriter tests do not depend on an unexported DLL symbol on Windows. Its UTF-8\nmessage contract is covered by the timeline XML writer regression test.\nPSD CLI security tests create real Windows symbolic links, not `.lnk` shortcuts;\nWindows Developer Mode or the symbolic-link privilege is required for these fixtures.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 179,
+      "end_line": 179,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 180,
+      "end_line": 186,
+      "raw": "iiSharedCanvas is a C++23 document and authoring foundation for composing\nraster artwork, native vector paths, self-contained video, and interpolated\nmotion graphics on one canvas. It also provides format-neutral decoded Camera RAW authoring\ndata for import pipelines and a format-neutral video-editing timeline model.\nIt is the authoritative canvas standard for iisacc\nproducts; applications adopt its model and format through application-owned\nadapters.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 187,
+      "end_line": 187,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 188,
+      "end_line": 194,
+      "raw": "The repository contains the versioned in-memory model, validation rules,\ndeterministic keyframe evaluation, bounded mixed image/vector/video tile rendering,\nan editable raster-asset boundary, sparse infinite-canvas chunks, asynchronous\nQt Quick scene-graph presentation, CMake package export, canonical `.iisc`\nserialization, write-through document files, and contract tests. Cross-platform\ndevice profiling, partial decode, and hardware power-loss testing remain later\nmilestones.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 195,
+      "end_line": 195,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 196,
+      "end_line": 200,
+      "raw": "Consumer applications do not shape this public contract in parallel. A library\nchange is completed and verified here first; consumers then conform to that\nfixed version through their own bridges. Existing product ViewModels, QML names,\nsession-layer models, and tool conventions are not compatibility requirements\nfor iiSharedCanvas.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 201,
+      "end_line": 201,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 202,
+      "end_line": 202,
+      "raw": "## Write-through authoring\n",
+      "level": 2,
+      "title": "Write-through authoring"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 203,
+      "end_line": 203,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 204,
+      "end_line": 207,
+      "raw": "For read-only thumbnails, `renderDocumentPreview` and `readIiscPreview` return\nbounded, aspect-preserving composed pixels, including legacy snapshots and live\nSQLite/WAL working files. Existing files need no resave. See\n[Document previews](docs/DOCUMENT_PREVIEWS.md) for the public API, limits and tests.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 208,
+      "end_line": 208,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 209,
+      "end_line": 213,
+      "raw": "`DocumentFile` owns a working canvas file. Bind the structural, vector, bitmap,\nchunked-bitmap, or Qt editors to that file: every accepted content change is\nwritten before its editing call returns, including stroke increments, cancel,\nundo, and redo. Changed records and pixel spans are updated transactionally;\nthere is no manual save, delayed autosave, or whole-document dump per edit.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 214,
+      "end_line": 214,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 215,
+      "end_line": 221,
+      "raw": "`CanvasItem::createFile` and `openFile` expose the working-file path to Qt Quick.\n`DocumentFile::edit` covers application-defined aggregate edits with the same\nvalidation and failure rollback. The committed document is const; standalone\n`Document` and pathless canvas creation remain explicitly in-memory APIs.\nWorking files use SQLite, while `encodeIisc` and `decodeIisc` retain the legacy\nbinary snapshot contract for explicit interchange. Existing snapshot files\nare never silently converted or overwritten. See [the persistence contract](docs/PERSISTENCE.md).\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 222,
+      "end_line": 222,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 223,
+      "end_line": 227,
+      "raw": "Working-file transactions and preview snapshots share the source-identity access\nscope provided by iiFileProvider Native 0.8.3 and its 0.7.3 GUI adapter. Only actual\nI/O is coordinated: edit callbacks, rendering and idle connections stay outside\nthe scope. Successful writes enqueue fresh file presentation after releasing it.\nThis supplements SQLite locking and keeps the existing durability/conflict rules.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 228,
+      "end_line": 228,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 229,
+      "end_line": 238,
+      "raw": "The installed `iisc-upgrade drawing.iisc` tool explicitly upgrades either a binary\nsnapshot or a SQLite working file to the current IISC model in place.\n`iisc-upgrade old.iisc new.iisc` keeps the source and creates a new file of the same\nstorage kind. It preserves artwork, animation, metadata and authorship, leaves\ncurrent inputs unchanged, rejects future/corrupt inputs, and never overwrites an\nexplicit output path. Working-file upgrades use `DocumentFile::upgradeFormat()`\nwith the existing transaction and conflict checks. The standard-C++ console tool\ndelegates to the public `upgradeIiscFile(inputPath, outputPath, limits)` API;\nthe existing storage adapter stays inside the file module. No GUI session is required.\nSee [IISC_UPGRADE_CLI.md](docs/IISC_UPGRADE_CLI.md) for usage and failure semantics.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 239,
+      "end_line": 239,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "heading",
+      "start_line": 240,
+      "end_line": 240,
+      "raw": "## Content contract\n",
+      "level": 2,
+      "title": "Content contract"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 241,
+      "end_line": 241,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "table",
+      "start_line": 242,
+      "end_line": 253,
+      "raw": "| Authoring input | Stored render content | Initial behavior |\n| --- | --- | --- |\n| Bitmap image | iiPaintEngine RasterLayer | Static layer |\n| iiPaintEngine brush | Committed ARGB pixels | Static or keyframed raster asset |\n| Infinite raster paint | Committed ARGB pixels in touched world chunks | Static sparse raster layer |\n| Decoded Camera RAW | Unsigned sensor samples plus calibration and capture metadata | Import-side aggregate, not a document layer |\n| Stable Diffusion recipe | Typed generation settings plus exact workflow metadata | Optional document metadata, never render content |\n| Vector path | M/L/Q/C/Z path commands with solid fill or stroke | Static layer |\n| Raster keyframes | Frame-owned raster asset references | Integer-frame hold sampling |\n| Vector keyframes | Frame-owned vector asset references | Integer-frame hold sampling |\n| Video | `VideoAsset` owning constant-rate ARGB frames | Typed `VideoLayer`, rational timing and source trim |\n| Motion graphics | Layer-local transform/opacity keys over any visual layer | Hold, linear or smooth interpolation |\n",
+      "columns": [
+        "Authoring input",
+        "Stored render content",
+        "Initial behavior"
+      ],
+      "rows": [
+        [
+          "Bitmap image",
+          "iiPaintEngine RasterLayer",
+          "Static layer"
+        ],
+        [
+          "iiPaintEngine brush",
+          "Committed ARGB pixels",
+          "Static or keyframed raster asset"
+        ],
+        [
+          "Infinite raster paint",
+          "Committed ARGB pixels in touched world chunks",
+          "Static sparse raster layer"
+        ],
+        [
+          "Decoded Camera RAW",
+          "Unsigned sensor samples plus calibration and capture metadata",
+          "Import-side aggregate, not a document layer"
+        ],
+        [
+          "Stable Diffusion recipe",
+          "Typed generation settings plus exact workflow metadata",
+          "Optional document metadata, never render content"
+        ],
+        [
+          "Vector path",
+          "M/L/Q/C/Z path commands with solid fill or stroke",
+          "Static layer"
+        ],
+        [
+          "Raster keyframes",
+          "Frame-owned raster asset references",
+          "Integer-frame hold sampling"
+        ],
+        [
+          "Vector keyframes",
+          "Frame-owned vector asset references",
+          "Integer-frame hold sampling"
+        ],
+        [
+          "Video",
+          "`VideoAsset` owning constant-rate ARGB frames",
+          "Typed `VideoLayer`, rational timing and source trim"
+        ],
+        [
+          "Motion graphics",
+          "Layer-local transform/opacity keys over any visual layer",
+          "Hold, linear or smooth interpolation"
+        ]
+      ]
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 254,
+      "end_line": 254,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 255,
+      "end_line": 258,
+      "raw": "Brush trajectories, dab sequences, and replay commands are never part of the\niiSharedCanvas format. iiPaintEngine rasterizes brush input immediately, and\niiSharedCanvas receives only the committed pixels. This keeps raster editing\ncompatible with iiPaintEngine's bitmap-only contract.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 259,
+      "end_line": 259,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 260,
+      "end_line": 262,
+      "raw": "Native video and motion are editable, rendered and persisted in `.iisc` 1.6.\nSee [CANVAS_MEDIA.md](docs/CANVAS_MEDIA.md) for the complete model, examples,\nlimits and interchange boundaries.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 263,
+      "end_line": 263,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "heading",
+      "start_line": 264,
+      "end_line": 264,
+      "raw": "## Camera RAW authoring data\n",
+      "level": 2,
+      "title": "Camera RAW authoring data"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 265,
+      "end_line": 265,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 266,
+      "end_line": 270,
+      "raw": "`CameraRawData` is a format-neutral decoded Camera RAW aggregate. It separates\nthe sensor image, color profile, camera identity, lens identity, and capture\nsettings so an importer does not need to force manufacturer tags into a canvas\nlayer. `CameraRawSensorImage` supports one-to-32-bit unsigned CFA, monochrome,\nor interleaved linear RAW samples in canonical row-pixel-plane order.\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 271,
+      "end_line": 271,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "paragraph",
+      "start_line": 272,
+      "end_line": 278,
+      "raw": "The sensor image can retain all eight TIFF-style orientations, an absolute\nactive area and default crop, indexed color channels, a repeating CFA pattern,\na row-column-plane black-level pattern, and scalar or per-plane white levels.\n`CameraRawColorProfile` holds optional as-shot neutral coordinates and any\nnumber of finite XYZ-to-camera calibration matrices. Camera, lens, exposure,\naperture, ISO, focal length, focus distance, and exposure compensation remain\nindependent metadata objects.\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 279,
+      "end_line": 279,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "paragraph",
+      "start_line": 280,
+      "end_line": 286,
+      "raw": "`cameraRawSampleAt`, `cameraRawChannelIndexAt`, `cameraRawBlackLevelAt`, and\n`cameraRawWhiteLevelAt` provide bounds-checked access. CFA and black-level\npatterns start at the active-area origin. `validateCameraRaw` checks dimensions,\nsample counts and ranges, regions, pattern references, calibration cardinality,\nand numeric metadata. File bytes, manufacturer-specific decoding, demosaicing,\nnoise reduction, tone mapping, RGB conversion, and implicit `RasterAsset`\ncreation are deliberately not performed by these data objects.\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 287,
+      "end_line": 287,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "heading",
+      "start_line": 288,
+      "end_line": 288,
+      "raw": "## Stable Diffusion generation metadata\n",
+      "level": 2,
+      "title": "Stable Diffusion generation metadata"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 289,
+      "end_line": 289,
+      "raw": "\n"
+    },
+    {
+      "id": "b000061",
+      "kind": "paragraph",
+      "start_line": 290,
+      "end_line": 298,
+      "raw": "`StableDiffusionMetadata` preserves typed generation parameters without making\nan inference engine part of the canvas. It stores positive and negative\nprompts, output extent, batch size, CLIP skip, and any number of sampling\npasses. Each pass can retain its graph node id, seed, steps, CFG scale, sampler,\nscheduler, denoise strength, and start/end step bounds. Model and VAE resources\nretain role, name, hash, hash type, and URI; LoRA entries retain independent\nmodel and CLIP strengths. Software identity, creation time, an unmodified\nAUTOMATIC1111 parameters string, and namespaced extension values cover common\nround-trip cases without flattening a multi-stage recipe into one sampler.\n"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 299,
+      "end_line": 299,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 300,
+      "end_line": 318,
+      "raw": "`parseStableDiffusionGenerationParameters` reads Stable Diffusion generation-\nparameters text without making a producer or image codec part of the canvas\nmodel. AUTOMATIC1111 is the reference-compatible producer, not the public type\nidentity. The parser keeps the complete source text, multiline positive and\nnegative prompts, and every ordered key/value pair, including duplicate and\nfuture extension keys. JSON-\nquoted values decode commas, colons, escapes, and Unicode for typed access;\n`findStableDiffusionGenerationParameter` follows AUTOMATIC1111's last-value-wins behavior.\nThe common projection maps output size, batch and CLIP settings, base and Hires\nsampler passes, checkpoint/VAE/Hires/refiner resources, software version, and\n10-character SHA-256 prefixes. Unmapped settings remain unique generic extras,\nwhile the raw infotext remains authoritative and byte-exact.\nFloating-point fields use the privately bundled MIT-licensed fast_float 8.2.10\nheader so the Qt-free model can target macOS 12 without libc++'s macOS 26\nfloating-point `from_chars` requirement. Scientific notation and subnormal values remain\nsupported; overflow, underflow, non-finite values, trailing characters,\nleading plus signs, and whitespace inside quoted numeric values are rejected.\nThe generation-parameters test exercises these boundaries under a comma-decimal\ndefault locale as well as the normal parser fixtures.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 319,
+      "end_line": 319,
+      "raw": "\n"
+    },
+    {
+      "id": "b000065",
+      "kind": "paragraph",
+      "start_line": 320,
+      "end_line": 322,
+      "raw": "The text format alone cannot prove which application wrote it. Parsing does\nnot fill `StableDiffusionMetadata::software`; a carrier adapter that has\nverified producer information may set that provenance field explicitly.\n"
+    },
+    {
+      "id": "b000066",
+      "kind": "blank",
+      "start_line": 323,
+      "end_line": 323,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "paragraph",
+      "start_line": 324,
+      "end_line": 333,
+      "raw": "The compatibility boundary follows AUTOMATIC1111's official\n[`parse_generation_parameters`](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/infotext_utils.py),\nincluding the three-field terminal-line test, default CLIP skip of 1, default\n`Automatic` schedule, inherited Hires sampler/scheduler, and Hires step value\nzero meaning the main step count. Its official\n[image metadata implementation](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/images.py)\nplaces this text in PNG `parameters` or an image-format metadata carrier such\nas EXIF `UserComment`. The metadata parser accepts the extracted UTF-8 string\nwithout a codec dependency. The bitmap adapter now extracts PNG text carriers;\nit does not add Pillow or claim generic EXIF `UserComment` extraction.\n"
+    },
+    {
+      "id": "b000068",
+      "kind": "blank",
+      "start_line": 334,
+      "end_line": 334,
+      "raw": "\n"
+    },
+    {
+      "id": "b000069",
+      "kind": "paragraph",
+      "start_line": 335,
+      "end_line": 341,
+      "raw": "ComfyUI `prompt` and `workflow` JSON are stored separately and byte-for-byte as\nUTF-8 strings. This follows ComfyUI's distinction between the API execution\ngraph (`prompt`) and the UI-restoration graph (`workflow`); either may be\npresent independently. `extraPngInfo` preserves extension JSON under\nnon-reserved keys. Validation requires each graph to be a JSON object, each\nextension value to be valid JSON, and keys to be unique, but it never executes\nnodes, downloads models, or treats embedded metadata as trusted input.\n"
+    },
+    {
+      "id": "b000070",
+      "kind": "blank",
+      "start_line": 342,
+      "end_line": 342,
+      "raw": "\n"
+    },
+    {
+      "id": "b000071",
+      "kind": "paragraph",
+      "start_line": 343,
+      "end_line": 349,
+      "raw": "The metadata belongs to the complete `Document`, not to a bitmap or vector\nlayer, because one workflow can produce or refine several canvas assets.\n`validateStableDiffusionMetadata` validates it independently, while\n`validate(Document)` enforces the format boundary. `DocumentEditor` can set or\nclear the recipe atomically and upgrades a legacy document to format 1.2 when\nmetadata is first attached. Rendering ignores the recipe and therefore remains\npixel-identical with or without it.\n"
+    },
+    {
+      "id": "b000072",
+      "kind": "blank",
+      "start_line": 350,
+      "end_line": 350,
+      "raw": "\n"
+    },
+    {
+      "id": "b000073",
+      "kind": "heading",
+      "start_line": 351,
+      "end_line": 351,
+      "raw": "## Video editing timeline data\n",
+      "level": 2,
+      "title": "Video editing timeline data"
+    },
+    {
+      "id": "b000074",
+      "kind": "blank",
+      "start_line": 352,
+      "end_line": 352,
+      "raw": "\n"
+    },
+    {
+      "id": "b000075",
+      "kind": "paragraph",
+      "start_line": 353,
+      "end_line": 360,
+      "raw": "`TimelineProject` is the application-neutral authoring model for a non-linear\nvideo editor. It owns media sources and their original/proxy representations,\ntyped video/audio/subtitle/data streams, any number of sequences, typed tracks\nand clips, transitions, effects and parameter automation, markers, bins, link\ngroups, and independent render profiles. This model is deliberately separate\nfrom `Document::timeline`: the latter remains the compact integer-frame domain\nfor canvas layers, while a video project needs multiple time bases, media\nreferences, audio sample timing, and delivery settings.\n"
+    },
+    {
+      "id": "b000076",
+      "kind": "blank",
+      "start_line": 361,
+      "end_line": 361,
+      "raw": "\n"
+    },
+    {
+      "id": "b000077",
+      "kind": "paragraph",
+      "start_line": 362,
+      "end_line": 372,
+      "raw": "Time values are signed 64-bit ticks interpreted by an explicit positive\n`TimelineTimeBase`. Frame rates are exact rationals, so sequence and delivery\nsettings may independently use 24, 30, 60, 24000/1001, 30000/1001, or\n60000/1001 without persisted floating-point timestamps. Source video timing\nseparately retains constant- or variable-frame-rate mode, nominal/average/\nminimum/maximum rates, and per-sample PTS, optional DTS, duration, keyframe,\nbyte offset, and byte size. Timecode counting, including drop-frame counting,\ndoes not replace media timestamps. Media, nested-sequence, and generated clip\nsources each supply a source time base. With no loop or time map, the rational\nplayback rate must exactly relate source duration to sequence duration; an\nexplicit time map is authoritative and therefore requires a unit playback rate.\n"
+    },
+    {
+      "id": "b000078",
+      "kind": "blank",
+      "start_line": 373,
+      "end_line": 373,
+      "raw": "\n"
+    },
+    {
+      "id": "b000079",
+      "kind": "paragraph",
+      "start_line": 374,
+      "end_line": 383,
+      "raw": "Container and codec identifiers are open strings rather than closed enums.\nCommon technical fields cover container brands, MIME types and extensions;\ncodec profile, level, tag, implementation and bitrate; video extent, pixel\naspect, pixel format, chroma, scan, alpha and HDR color data; and audio sample\nrate, layout, format and loudness. Ordered typed option lists preserve future\nmuxer, decoder, and encoder parameters without changing the public API.\nOriginal, proxy, and optimized representations reuse logical stream ids only\nwhen stream kind, time base, start, and duration are identical; switching a\nrepresentation can therefore change codec or resolution without changing a\nclip's source-trim meaning.\n"
+    },
+    {
+      "id": "b000080",
+      "kind": "blank",
+      "start_line": 384,
+      "end_line": 384,
+      "raw": "\n"
+    },
+    {
+      "id": "b000081",
+      "kind": "paragraph",
+      "start_line": 385,
+      "end_line": 395,
+      "raw": "`validateTimelineProject` fails closed on invalid rationals and numeric values,\nduplicate identities or properties, missing references, stream/track kind\nmismatches, invalid ranges and samples, automation order, transitions, and\nrender profiles. Visual clips require a sequence canvas, audio clips require a\nmix sample rate/layout, transition alignment is checked against its adjacent\ncut, and subtitle image cues must resolve representation attachments.\n`TimelineEditor` is the validated structural mutation API for\nsources, sequences, tracks, clips, and render profiles. It also changes FPS,\ncontainer, and video/audio codecs atomically; a rejected edit preserves both\nthe project and editor revision. An invalid rebind also preserves the existing\nbinding and revision instead of detaching the editor.\n"
+    },
+    {
+      "id": "b000082",
+      "kind": "blank",
+      "start_line": 396,
+      "end_line": 396,
+      "raw": "\n"
+    },
+    {
+      "id": "b000083",
+      "kind": "paragraph",
+      "start_line": 397,
+      "end_line": 400,
+      "raw": "These timeline objects remain standard-library-only authoring data, not a\nsequence renderer or audio mixer. The separate `Video/VideoCodec.h` adapter\nnow probes, decodes and encodes canvas animation using an optional FFmpeg\nruntime. `TimelineProject` is not encoded by `.iisc`; persisted canvas audio uses the smaller `AudioTrackLayer` contract.\n"
+    },
+    {
+      "id": "b000084",
+      "kind": "blank",
+      "start_line": 401,
+      "end_line": 401,
+      "raw": "\n"
+    },
+    {
+      "id": "b000085",
+      "kind": "heading",
+      "start_line": 402,
+      "end_line": 402,
+      "raw": "## Layered document, bitmap, vector and video interchange\n",
+      "level": 2,
+      "title": "Layered document, bitmap, vector and video interchange"
+    },
+    {
+      "id": "b000086",
+      "kind": "blank",
+      "start_line": 403,
+      "end_line": 403,
+      "raw": "\n"
+    },
+    {
+      "id": "b000087",
+      "kind": "paragraph",
+      "start_line": 404,
+      "end_line": 404,
+      "raw": "The installed public API includes real byte/file import and export adapters:\n"
+    },
+    {
+      "id": "b000088",
+      "kind": "blank",
+      "start_line": 405,
+      "end_line": 405,
+      "raw": "\n"
+    },
+    {
+      "id": "b000089",
+      "kind": "table",
+      "start_line": 406,
+      "end_line": 412,
+      "raw": "| Content | Import | Export |\n| --- | --- | --- |\n| Layered document | OpenRaster PNG layers; PSD v1 8-bit RGB pixel layers, with names, order, visibility, opacity, offsets and supported blending | PSD at frame zero; vectors as embedded PDF Smart Objects, bitmaps as pixel layers; native `.iisc` through `DocumentFile::create` or `encodeIisc` |\n| Bitmap | Qt readers: PNG, JPEG, BMP, TIFF, WebP, HEIC, JP2, icons and portable bitmaps; optional extended TGA/QOI/EXR/DPX/HDR/PCX/SGI, PSD composite and DDS | Available Qt writers plus extended TGA/QOI/EXR/DPX/HDR/PCX/SGI; alpha matte and PNG text controls |\n| Editable vector | Solid SVG/SVGZ paths, shapes, transforms, linear/quadratic/cubic segments and arc conversion | Native SVG/SVGZ; PDF with vector paths and separate bitmap drawing |\n| Rasterized vector | Explicit SVG/PDF page rasterization through an installed Qt plugin | Bitmap/frame output at the canvas extent |\n| Canvas animation | FFmpeg local video/animation to a bitmap layer with frame-owned keys | FFV1/Matroska, MP4/H.264 or HEVC, WebM/VP9, MOV/ProRes or Animation, AVI, GIF, APNG and other supported container/encoder combinations |\n",
+      "columns": [
+        "Content",
+        "Import",
+        "Export"
+      ],
+      "rows": [
+        [
+          "Layered document",
+          "OpenRaster PNG layers; PSD v1 8-bit RGB pixel layers, with names, order, visibility, opacity, offsets and supported blending",
+          "PSD at frame zero; vectors as embedded PDF Smart Objects, bitmaps as pixel layers; native `.iisc` through `DocumentFile::create` or `encodeIisc`"
+        ],
+        [
+          "Bitmap",
+          "Qt readers: PNG, JPEG, BMP, TIFF, WebP, HEIC, JP2, icons and portable bitmaps; optional extended TGA/QOI/EXR/DPX/HDR/PCX/SGI, PSD composite and DDS",
+          "Available Qt writers plus extended TGA/QOI/EXR/DPX/HDR/PCX/SGI; alpha matte and PNG text controls"
+        ],
+        [
+          "Editable vector",
+          "Solid SVG/SVGZ paths, shapes, transforms, linear/quadratic/cubic segments and arc conversion",
+          "Native SVG/SVGZ; PDF with vector paths and separate bitmap drawing"
+        ],
+        [
+          "Rasterized vector",
+          "Explicit SVG/PDF page rasterization through an installed Qt plugin",
+          "Bitmap/frame output at the canvas extent"
+        ],
+        [
+          "Canvas animation",
+          "FFmpeg local video/animation to a bitmap layer with frame-owned keys",
+          "FFV1/Matroska, MP4/H.264 or HEVC, WebM/VP9, MOV/ProRes or Animation, AVI, GIF, APNG and other supported container/encoder combinations"
+        ]
+      ]
+    },
+    {
+      "id": "b000090",
+      "kind": "blank",
+      "start_line": 413,
+      "end_line": 413,
+      "raw": "\n"
+    },
+    {
+      "id": "b000091",
+      "kind": "paragraph",
+      "start_line": 414,
+      "end_line": 418,
+      "raw": "`bitmapFormats()` and `videoCapabilities()` report actual runtime support,\nseparately for reading and writing. They do not promise every profile/subtype\nor redistribute optional codecs. Imports return detached assets/documents;\ninsert imported values through `DocumentFile::edit` for immediate durable\nupdates. Exports never substitute for write-through document editing.\n"
+    },
+    {
+      "id": "b000092",
+      "kind": "blank",
+      "start_line": 419,
+      "end_line": 419,
+      "raw": "\n"
+    },
+    {
+      "id": "b000093",
+      "kind": "paragraph",
+      "start_line": 420,
+      "end_line": 425,
+      "raw": "Conversions report losses such as alpha removal, reduced precision, stroke\noutlining, rasterization, resampled video timing and omitted audio. Unsupported\nSVG drawing features fail the complete editable import; they are not silently\ndropped. Defaults protect existing exports and all working `.iisc` files.\nLimits, codec deployment, supported SVG details and examples are specified in\n[MEDIA_IO.md](docs/MEDIA_IO.md).\n"
+    },
+    {
+      "id": "b000094",
+      "kind": "blank",
+      "start_line": 426,
+      "end_line": 426,
+      "raw": "\n"
+    },
+    {
+      "id": "b000095",
+      "kind": "paragraph",
+      "start_line": 427,
+      "end_line": 435,
+      "raw": "`importLayeredDocument(path)` and `decodeLayeredDocument(bytes)` return a\nvalidated native document with separate bitmap layers, not one merged preview.\nUnrepresentable layer semantics fail closed; supported ungrouping and omitted\nmetadata are reported as warnings. `layeredDocumentFormats()` lists only the\nimplemented subset readers and PSD writer. The installed `iisc-import input.ora output.iisc`\ncommand creates a new immediately editable working file and refuses existing\ndestinations. See [LAYERED_IMPORT_CLI.md](docs/LAYERED_IMPORT_CLI.md),\n[OPENRASTER_IMPORT.md](docs/OPENRASTER_IMPORT.md) and\n[PSD_IMPORT.md](docs/PSD_IMPORT.md) for precise format and safety contracts.\n"
+    },
+    {
+      "id": "b000096",
+      "kind": "blank",
+      "start_line": 436,
+      "end_line": 436,
+      "raw": "\n"
+    },
+    {
+      "id": "b000097",
+      "kind": "paragraph",
+      "start_line": 437,
+      "end_line": 446,
+      "raw": "`exportPsd(document, \"/art/output.psd\")` exports native frame zero, retaining\nvectors as embedded vector PDF Smart Objects, names, order, visibility and\nsupported blending. Animation is intentionally reduced to its first frame.\nInteger-translated bitmaps keep their pixels/offsets; other transforms/chunks\nare baked into canvas-clipped pixel layers, with loss warnings.\n`encodePsd(document)` returns bytes without filesystem I/O. Neither\nmutates the native document, and file export refuses existing destinations by\ndefault. See [PSD_EXPORT.md](docs/PSD_EXPORT.md) and\n[PSD_EXPORT_CLI.md](docs/PSD_EXPORT_CLI.md). The strict PSD importer does not\nyet import Smart Objects; keep `.iisc` as the complete editable master.\n"
+    },
+    {
+      "id": "b000098",
+      "kind": "blank",
+      "start_line": 447,
+      "end_line": 447,
+      "raw": "\n"
+    },
+    {
+      "id": "b000099",
+      "kind": "heading",
+      "start_line": 448,
+      "end_line": 448,
+      "raw": "## Data access and structural editing\n",
+      "level": 2,
+      "title": "Data access and structural editing"
+    },
+    {
+      "id": "b000100",
+      "kind": "blank",
+      "start_line": 449,
+      "end_line": 449,
+      "raw": "\n"
+    },
+    {
+      "id": "b000101",
+      "kind": "paragraph",
+      "start_line": 450,
+      "end_line": 453,
+      "raw": "Every persisted field remains directly available through the public aggregate\ntypes in `Document/Document.h`. Stable-id lookup helpers expose typed raster and\nvector/video assets, sparse frames, exact keyframes, collection indices, and every\nstatic or keyframed reference to an asset.\n"
+    },
+    {
+      "id": "b000102",
+      "kind": "blank",
+      "start_line": 454,
+      "end_line": 454,
+      "raw": "\n"
+    },
+    {
+      "id": "b000103",
+      "kind": "paragraph",
+      "start_line": 455,
+      "end_line": 472,
+      "raw": "The ordered artwork stack holds `StaticBitmapLayer | StaticVectorLayer | DynamicBitmapLayer | DynamicVectorLayer` alternatives.\nEach shares `LayerProperties` and owns its distinct named `content` type. Video\nand conditioning retain specialized adapters, while validation\nand `DocumentEditor` reject every cross-type asset reference. Bitmap layers may\nhold only finite or chunked raster assets; vector layers may hold only native\nvector assets; video layers reference one native video asset and add playback trim.\n`LayerProperties::motion` animates every visual layer. `LayerProperties::frameRange` optionally stores an inclusive\n`LayerFrameRange {firstFrame, lastFrame}`. Both boundaries belong to the layer;\nan absent range means that the layer exists throughout the current document\ntimeline. A range limits rendering, not animation storage, so frame-owned\nkeyframes outside it remain valid and become effective again if the range is\nlater extended. `Document::frames` owns the sparse ordered frame records, and\nevery `Frame` directly owns its `{layerId, assetId}` keyframes. A frame may\ntherefore hold raster and vector keys together without either layer owning a\nsecond keyframe collection. `KeyframedSource::frameIndices` is a derived\nsecondary index, not keyframe ownership: it contains the exact increasing set\nof frames that own a key for that layer. Validation rejects every missing,\nextra, duplicate, or out-of-order index entry.\n"
+    },
+    {
+      "id": "b000104",
+      "kind": "blank",
+      "start_line": 473,
+      "end_line": 473,
+      "raw": "\n"
+    },
+    {
+      "id": "b000105",
+      "kind": "paragraph",
+      "start_line": 474,
+      "end_line": 478,
+      "raw": "`Frame::keyframes` uses canonical ascending `layerId` order. Exact lookup and\nhold sampling therefore use binary search over the layer's derived owner-frame\nindex and the selected frame. Direct aggregate authors must update the frame\nowners and derived index together and then call `validate`; `DocumentEditor`\nand `decodeIisc` maintain both sides automatically.\n"
+    },
+    {
+      "id": "b000106",
+      "kind": "blank",
+      "start_line": 479,
+      "end_line": 479,
+      "raw": "\n"
+    },
+    {
+      "id": "b000107",
+      "kind": "paragraph",
+      "start_line": 480,
+      "end_line": 492,
+      "raw": "`DocumentEditor` is the validated structural mutation API. It edits canvas\nextent, frame rate/count, assets, layer properties/order/sources, keyframes, and\nvector path collections. Successful operations keep the complete document\nvalid and increment a monotonic editor revision once. Rejected operations\nreturn a typed code, path, and message without partially changing the document.\nAsset renaming rewrites all references atomically; referenced asset removal is\nrejected instead of cascading silently. An invalid rebind preserves the current\ndocument and revision. `insertKeyframedLayer` inserts an animated layer and all\nof its frame-owned keys as one validated commit. `setLayerFrameRange` sets or\nclears the optional inclusive existence range atomically and upgrades an older\ndocument to format 1.3 only when a range is committed. A rejected range restores\nboth the prior layer and format version. Shrinking `frameCount` is likewise\nrejected if it would exclude an explicit layer boundary or a keyframe.\n"
+    },
+    {
+      "id": "b000108",
+      "kind": "blank",
+      "start_line": 493,
+      "end_line": 493,
+      "raw": "\n"
+    },
+    {
+      "id": "b000109",
+      "kind": "paragraph",
+      "start_line": 494,
+      "end_line": 499,
+      "raw": "`CanvasItem::document()` exposes the bound raw document for C++ inspection.\n`CanvasItem::documentEditor()` exposes the bound structural editor, while\n`CanvasItem::editDocument()` is the preferred callback boundary because it\nrerenders the current frame, repairs selection, and clamps the current frame\nafter a valid timeline shrink. Direct raw edits remain possible, but their\nowner must call `refresh()` and validate the result.\n"
+    },
+    {
+      "id": "b000110",
+      "kind": "blank",
+      "start_line": 500,
+      "end_line": 500,
+      "raw": "\n"
+    },
+    {
+      "id": "b000111",
+      "kind": "paragraph",
+      "start_line": 501,
+      "end_line": 509,
+      "raw": "Derived presentation adapters can capture `renderDocumentSnapshot()` on the\nitem's owner thread. It shares the renderer's detached `shared_ptr<const Document>`;\nit never retains a writable file binding or schedules storage work. Frame, pan\nand zoom changes reuse that value. Content edits, rebinding and artboard render\nfocus invalidate the current cache without changing earlier retained values.\nThe snapshot reflects `renderArtboardId` composition filtering, rather than an\nunfiltered authoring export. An unbound, invalid or closed working-file owner\nreturns an empty pointer. Independent worker consumers must capture their frame\nand any requested output region separately; this method does not render pixels.\n"
+    },
+    {
+      "id": "b000112",
+      "kind": "blank",
+      "start_line": 510,
+      "end_line": 510,
+      "raw": "\n"
+    },
+    {
+      "id": "b000113",
+      "kind": "paragraph",
+      "start_line": 511,
+      "end_line": 512,
+      "raw": "See [docs/API.md](docs/API.md) for the complete data field, lookup, mutation,\nfailure, lifetime, and threading contracts.\n"
+    },
+    {
+      "id": "b000114",
+      "kind": "blank",
+      "start_line": 513,
+      "end_line": 513,
+      "raw": "\n"
+    },
+    {
+      "id": "b000115",
+      "kind": "heading",
+      "start_line": 514,
+      "end_line": 514,
+      "raw": "## Bitmap display and editing\n",
+      "level": 2,
+      "title": "Bitmap display and editing"
+    },
+    {
+      "id": "b000116",
+      "kind": "blank",
+      "start_line": 515,
+      "end_line": 515,
+      "raw": "\n"
+    },
+    {
+      "id": "b000117",
+      "kind": "paragraph",
+      "start_line": 516,
+      "end_line": 523,
+      "raw": "`BitmapEditor` binds to a raster asset by id and mutates that `RasterAsset`\ndirectly. It supports individual pixels, rectangular ARGB patches, whole\n`RasterLayer` replacement, clear, streamed brush/eraser input, dirty bounds,\nand undo/redo. Brush input is rasterized immediately through iiPaintEngine;\nonly the resulting pixels live in the document. One brush gesture is one undo\noperation. The initial history policy retains at most 32 full raster snapshots\nfor predictable behavior; patch-budget optimization remains a measured product\nhardening task.\n"
+    },
+    {
+      "id": "b000118",
+      "kind": "blank",
+      "start_line": 524,
+      "end_line": 524,
+      "raw": "\n"
+    },
+    {
+      "id": "b000119",
+      "kind": "paragraph",
+      "start_line": 525,
+      "end_line": 529,
+      "raw": "`ChunkedBitmapEditor` stores only touched chunks in an infinite canvas. Signed\nworld coordinates select canonical row/column chunks, missing chunks remain\ntransparent, and each brush gesture commits pixels with one sparse undo entry.\nCamera movement changes the allocated world region on chunk boundaries without\nmoving existing chunks or converting the document into one monolithic bitmap.\n"
+    },
+    {
+      "id": "b000120",
+      "kind": "blank",
+      "start_line": 530,
+      "end_line": 530,
+      "raw": "\n"
+    },
+    {
+      "id": "b000121",
+      "kind": "paragraph",
+      "start_line": 531,
+      "end_line": 537,
+      "raw": "`BitmapItem` is a `QQuickPaintedItem` display and input adapter. It can bind an\nexisting document raster asset or create an owned bitmap, renders ARGB pixels\nwithout smoothing, supports zoom and pan, and routes mouse or explicit\npressure-bearing stroke calls into `BitmapEditor`. This displays one selected\nraster asset; it is not the full-document canvas item. If another\nowner mutates a bound document directly, the UI owner must call `refresh()` on\nthe GUI thread.\n"
+    },
+    {
+      "id": "b000122",
+      "kind": "blank",
+      "start_line": 538,
+      "end_line": 538,
+      "raw": "\n"
+    },
+    {
+      "id": "b000123",
+      "kind": "paragraph",
+      "start_line": 539,
+      "end_line": 550,
+      "raw": "`CanvasItem` is the full-document Qt Quick boundary and is registered as\n`SharedCanvas`. It is a `QQuickItem` whose worker renders only visible,\nprefetched 512-texel tiles from an immutable document snapshot. Each visible document layer is an independent asynchronous render unit. The item retains\nthe isolated layer tiles as well as their deterministic bottom-to-top composite.\nQt Quick scene graph textures perform presentation: they present source-over\nlayers independently and use the composed tile fallback for blend modes that\nrequire iiPaintEngine. They\nalso perform smooth scaling, pan, and zoom on the active graphics\nbackend instead of repainting a canvas-sized `QQuickPaintedItem` surface. A host can select a raster document layer and\npaint or erase it in document coordinates while every surrounding raster and\nvector layer remains visible. The item inverts the selected layer transform\nbefore committing pixels and exposes selected-layer undo/redo.\n"
+    },
+    {
+      "id": "b000124",
+      "kind": "blank",
+      "start_line": 551,
+      "end_line": 551,
+      "raw": "\n"
+    },
+    {
+      "id": "b000125",
+      "kind": "paragraph",
+      "start_line": 552,
+      "end_line": 564,
+      "raw": "`createRasterDocument()` creates and selects one transparent raster layer for a\nproduct host that needs an immediately editable canvas. The authoring surface\nalso exposes the brush spacing and feature toggles, three-point pressure curve,\npressure-to-opacity switch, stabilizer strength, tool mode, live-stroke state,\nstroke count, and mouse/tablet input state. Whole-raster replacement accepts an\niiPaintEngine `RasterLayer` directly, so image import does not require a\ntemporary bitmap file. Model edits still commit atomically on the GUI owning\nthread, but frame changes, edits, and `refresh()` schedule coalesced background\nlayer-tile rendering. `rendering`, `renderCompleted`, `residentTileCount`,\n`residentLayerTileCount`, `gpuAccelerated`, and `graphicsBackend` expose that\nruntime state. Camera-only\nchanges update the GPU scene transform immediately and request only missing\nprefetch tiles; they do not advance the document presentation revision.\n"
+    },
+    {
+      "id": "b000126",
+      "kind": "blank",
+      "start_line": 565,
+      "end_line": 565,
+      "raw": "\n"
+    },
+    {
+      "id": "b000127",
+      "kind": "paragraph",
+      "start_line": 566,
+      "end_line": 570,
+      "raw": "`createInfiniteRasterDocument()` creates the sparse equivalent with a small\ninitial allocated region. `ensureInfiniteCanvasRegion()` grows that region\noutwards on chunk boundaries as the host camera reveals new world space. The\nitem exposes the allocated world origin and reports each side's growth so a\nconsumer can resize its visual surface without a visible camera jump.\n"
+    },
+    {
+      "id": "b000128",
+      "kind": "blank",
+      "start_line": 571,
+      "end_line": 571,
+      "raw": "\n"
+    },
+    {
+      "id": "b000129",
+      "kind": "heading",
+      "start_line": 572,
+      "end_line": 572,
+      "raw": "## Native vector editing\n",
+      "level": 2,
+      "title": "Native vector editing"
+    },
+    {
+      "id": "b000130",
+      "kind": "blank",
+      "start_line": 573,
+      "end_line": 573,
+      "raw": "\n"
+    },
+    {
+      "id": "b000131",
+      "kind": "paragraph",
+      "start_line": 574,
+      "end_line": 580,
+      "raw": "`VectorEditor` binds to a vector asset by id and resolves that stable identity\nfor every operation. It creates, inserts, reorders, and removes paths; edits the\nvector viewport and fill/stroke paint; and works on native path commands without\nrasterizing them. Linear segments use `appendLineTo`, while quadratic and cubic\nBezier segments use `appendQuadraticBezierTo` and `appendCubicBezierTo`.\n`setAnchorPoint` moves the endpoint of M/L/Q/C commands and `setControlPoint`\naddresses the one quadratic or two cubic control points.\n"
+    },
+    {
+      "id": "b000132",
+      "kind": "blank",
+      "start_line": 581,
+      "end_line": 581,
+      "raw": "\n"
+    },
+    {
+      "id": "b000133",
+      "kind": "paragraph",
+      "start_line": 582,
+      "end_line": 589,
+      "raw": "Every command edit is performed on a path copy and committed through the\nvalidated `DocumentEditor` replacement boundary. Non-finite coordinates,\nmissing paint, invalid stroke widths, missing assets, wrong content kinds, and\nout-of-range indices therefore fail without partially changing the document or\nadvancing `revision()`. `ClosePath` has no editable anchor, and direct batch\nmutation remains available through the public aggregate followed by\n`validate(document)`. The editor owns no hidden geometry, input trajectory, or\nserialized history.\n"
+    },
+    {
+      "id": "b000134",
+      "kind": "blank",
+      "start_line": 590,
+      "end_line": 590,
+      "raw": "\n"
+    },
+    {
+      "id": "b000135",
+      "kind": "heading",
+      "start_line": 591,
+      "end_line": 591,
+      "raw": "## Mixed frame rendering\n",
+      "level": 2,
+      "title": "Mixed frame rendering"
+    },
+    {
+      "id": "b000136",
+      "kind": "blank",
+      "start_line": 592,
+      "end_line": 592,
+      "raw": "\n"
+    },
+    {
+      "id": "b000137",
+      "kind": "paragraph",
+      "start_line": 593,
+      "end_line": 598,
+      "raw": "`renderFrame(document, frame)` validates the complete document, resolves static\nor hold-sampled raster/vector assets, rasterizes native M/L/Q/C/Z vector paths,\napplies the complete iiPaintEngine affine matrix, clips to the document extent,\nand composites visible layers bottom-to-top. Source-over, multiply, screen, and\noverlay use iiPaintEngine composition semantics. Destination-out remains a\nbrush/eraser operation and is rejected as a document layer blend mode.\n"
+    },
+    {
+      "id": "b000138",
+      "kind": "blank",
+      "start_line": 599,
+      "end_line": 599,
+      "raw": "\n"
+    },
+    {
+      "id": "b000139",
+      "kind": "paragraph",
+      "start_line": 600,
+      "end_line": 607,
+      "raw": "The CPU vector path uses deterministic 4x4 coverage sampling, even-odd fills,\nand round stroke footprints. Raster requests retain nearest sampling by default;\n`RasterSampling::Smooth` enables alpha-correct bilinear enlargement and antialiased\nreduction. `CanvasItem` defaults to smooth presentation with physical-display-aware\nLOD; `smoothRendering = false` restores pixel inspection. See\n[raster sampling](docs/RASTER_SAMPLING.md). A singular transform has an empty footprint. The\nrenderer returns a transparent frame for a valid document with no layers and\nfails closed for invalid documents or out-of-range frames.\n"
+    },
+    {
+      "id": "b000140",
+      "kind": "blank",
+      "start_line": 608,
+      "end_line": 608,
+      "raw": "\n"
+    },
+    {
+      "id": "b000141",
+      "kind": "paragraph",
+      "start_line": 609,
+      "end_line": 628,
+      "raw": "`renderFrameLayerTiles` renders one selected document layer without lower-layer\npixels. `renderFrameLayers` validates once and returns every layer in stable\ndocument order with visibility, opacity, and blend metadata; `composeFrameLayers`\nperforms the separate deterministic composition step. A present layer\n`frameRange` includes both `firstFrame` and `lastFrame`; outside that range the\nisolated layer keeps its identity and order but reports `visible == false`,\nallocates no tiles, and contributes nothing to composition. An absent range\nmeans the layer is eligible for the whole timeline.\n`renderFrameRegion` renders one world region into an explicitly bounded output\nextent. `renderFrameTiles` renders a request batch as a compatibility\nconvenience built on that layer boundary.\n`AsyncFrameRenderer` validates each immutable request snapshot exactly once on\nthe thread pool before dispatching any layer worker. An invalid snapshot returns\nthat preflight error without producing partial layer output; a valid snapshot\nassigns layer work to a bounded number of global thread-pool workers and retains\nboth the isolated batch and its composite. LOD output dimensions may be\nsmaller than the world region, so a tens-of-thousands-pixel canvas never needs\na canvas-sized display allocation. Sparse chunks are culled before temporary\nsurfaces are created, and native vector paths rasterize directly into the tile\noutput instead of allocating their full viewport.\n"
+    },
+    {
+      "id": "b000142",
+      "kind": "blank",
+      "start_line": 629,
+      "end_line": 629,
+      "raw": "\n"
+    },
+    {
+      "id": "b000143",
+      "kind": "heading",
+      "start_line": 630,
+      "end_line": 630,
+      "raw": "## Durable `.iisc` format\n",
+      "level": 2,
+      "title": "Durable `.iisc` format"
+    },
+    {
+      "id": "b000144",
+      "kind": "blank",
+      "start_line": 631,
+      "end_line": 631,
+      "raw": "\n"
+    },
+    {
+      "id": "b000145",
+      "kind": "paragraph",
+      "start_line": 632,
+      "end_line": 637,
+      "raw": "`encodeIisc()` and `decodeIisc()` round-trip every version 1 document field in\na canonical little-endian binary container. Its 32-byte header carries the\nformat version, exact payload size, and CRC-32 checksum. Raster payloads select\nraw ARGB32 or canonical run-length ARGB32, whichever is smaller. Native vector\ncommands and keyframe references remain native data and are never silently\nrasterized.\n"
+    },
+    {
+      "id": "b000146",
+      "kind": "blank",
+      "start_line": 638,
+      "end_line": 638,
+      "raw": "\n"
+    },
+    {
+      "id": "b000147",
+      "kind": "paragraph",
+      "start_line": 639,
+      "end_line": 641,
+      "raw": "Version 1.1 adds finite/infinite canvas mode, an allocated world origin, a\npower-of-two chunk size, and canonical sparse raster assets. Version 1.0 files\ncontinue to decode as finite canvases at origin zero.\n"
+    },
+    {
+      "id": "b000148",
+      "kind": "blank",
+      "start_line": 642,
+      "end_line": 642,
+      "raw": "\n"
+    },
+    {
+      "id": "b000149",
+      "kind": "paragraph",
+      "start_line": 643,
+      "end_line": 647,
+      "raw": "Version 1.2 appends optional Stable Diffusion generation metadata after the\nordered layer stack. Version 1.0 and 1.1 containers remain readable and\ncanonical; they decode without generation metadata. Version 1.2 preserves\ntyped prompt/sampler/model fields, raw ComfyUI graphs, and extension values\nwithout affecting layer rendering.\n"
+    },
+    {
+      "id": "b000150",
+      "kind": "blank",
+      "start_line": 648,
+      "end_line": 648,
+      "raw": "\n"
+    },
+    {
+      "id": "b000151",
+      "kind": "paragraph",
+      "start_line": 649,
+      "end_line": 657,
+      "raw": "Decoding exposes the complete public `Document` aggregate rather than an opaque\nfile handle. Consumers can enumerate bottom-to-top `Layer` variants, distinguish\nthe four concrete bitmap/vector layer types, and inspect identity, name, visibility,\nopacity, transform, blend mode, static references, and sparse frames that\ndirectly own animated layer references.\nImage/pixel assets expose `RasterLayer` dimensions\nand ARGB pixels; native shape assets expose their viewport, ordered paths,\nM/L/Q/C/Z commands and control points, fill, and stroke. See `docs/API.md` for\nfield-level traversal and validated mutation examples.\n"
+    },
+    {
+      "id": "b000152",
+      "kind": "blank",
+      "start_line": 658,
+      "end_line": 658,
+      "raw": "\n"
+    },
+    {
+      "id": "b000153",
+      "kind": "paragraph",
+      "start_line": 659,
+      "end_line": 666,
+      "raw": "The reader checks the full container checksum before parsing, validates UTF-8,\nrejects future versions, unknown tags, truncation, trailing bytes, and\nnon-canonical raster records, and enforces configurable byte, pixel, string,\nmetadata-entry, asset, layer, path, command, and keyframe limits before\nallocation. The binary\ncontainer has no archive entry paths, so ZIP path traversal is structurally\nabsent from the canonical codec. The separate OpenRaster importer uses libzip\nand validates foreign entry paths without extracting them.\n"
+    },
+    {
+      "id": "b000154",
+      "kind": "blank",
+      "start_line": 667,
+      "end_line": 667,
+      "raw": "\n"
+    },
+    {
+      "id": "b000155",
+      "kind": "heading",
+      "start_line": 668,
+      "end_line": 668,
+      "raw": "## Dependency\n",
+      "level": 2,
+      "title": "Dependency"
+    },
+    {
+      "id": "b000156",
+      "kind": "blank",
+      "start_line": 669,
+      "end_line": 669,
+      "raw": "\n"
+    },
+    {
+      "id": "b000157",
+      "kind": "paragraph",
+      "start_line": 670,
+      "end_line": 685,
+      "raw": "The direct project dependencies are iiPaintEngine 0.5.4, SQLite 3.26 or newer,\nzlib 1.2.9 or newer, and libzip 1.7.3 or newer (CMake target `libzip::zip`).\nSQLite is a private implementation dependency for durable working files;\n[the review](docs/DEPENDENCIES.md) covers maintenance, public-domain licensing,\nfootprint, and platform packaging. The API minimum does not pin an old runtime.\nzlib supplies SVGZ/PSD compression and PNG integrity checks; libzip supplies\nbounded OpenRaster ZIP reads. Optional FFmpeg/ffprobe executables are supplied\nby the application; this package neither downloads nor bundles them. Their\nmaintenance, configuration-dependent licensing and footprint are reviewed in\n[DEPENDENCIES.md](docs/DEPENDENCIES.md).\niiPaintEngine's exported CMake\ntarget supplies the standard-C++23 raster types, rasterizer, blend modes and transforms.\niiSharedCanvas explicitly requests Qt Core/Gui/Qml/Quick for its existing adapters. `AsyncFrameRenderer` uses\nQt Core `QPromise`, `QFutureWatcher`, and `QThreadPool`; `CanvasItem` uses the\npublic Qt Quick scene graph texture API. These are already-supplied Qt targets,\nso these rendering features add no further package discovery or runtime.\n"
+    },
+    {
+      "id": "b000158",
+      "kind": "blank",
+      "start_line": 686,
+      "end_line": 686,
+      "raw": "\n"
+    },
+    {
+      "id": "b000159",
+      "kind": "paragraph",
+      "start_line": 687,
+      "end_line": 694,
+      "raw": "[Adobe DNG 1.7.1](https://helpx.adobe.com/camera-raw/desktop/dng-and-file-formats/digital-negative.html)\nis used only as a public semantic reference for common RAW concepts; this\nmodule is not a DNG reader or writer and makes no DNG-compliance claim.\n[LibRaw](https://github.com/LibRaw/LibRaw) was reviewed for proprietary\ncamera-file decoding. Its active camera support and LGPL-2.1/CDDL-1.0 dual\nlicense make it a suitable future decoder adapter, but no decoder was requested\nhere, so its native dependency and distribution surface are not added to the\ncore package.\n"
+    },
+    {
+      "id": "b000160",
+      "kind": "blank",
+      "start_line": 695,
+      "end_line": 695,
+      "raw": "\n"
+    },
+    {
+      "id": "b000161",
+      "kind": "paragraph",
+      "start_line": 696,
+      "end_line": 708,
+      "raw": "[ComfyUI workflow metadata](https://docs.comfy.org/development/api-development/workflow-metadata),\nthe [Workflow API format](https://docs.comfy.org/development/api-development/workflow-api-format),\nand ComfyUI's\n[metadata-writing implementation](https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_api/latest/_ui.py)\ndefine the compatibility reference for `prompt`, `workflow`, KSampler inputs,\nand extension metadata. Metadata is retained as exact JSON text because graph\nnodes and extension payloads are intentionally open-ended.\n[nlohmann/json 3.12.0](https://github.com/nlohmann/json) was reviewed: it is an\nactively maintained MIT-licensed single-header JSON library, but introducing\nits package and install surface solely for syntax checking would expand the\nfixed dependency set. The core therefore uses a bounded standard-library JSON\nsyntax validator and never parses into a graph model, re-emits, normalizes, or\nexecutes the preserved graphs.\n"
+    },
+    {
+      "id": "b000162",
+      "kind": "blank",
+      "start_line": 709,
+      "end_line": 709,
+      "raw": "\n"
+    },
+    {
+      "id": "b000163",
+      "kind": "paragraph",
+      "start_line": 710,
+      "end_line": 717,
+      "raw": "AUTOMATIC1111's\n[infotext parser](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/infotext_utils.py),\n[generation writer](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/processing.py),\n[image metadata carriers](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/images.py),\nand [checkpoint hash implementation](https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/sd_models.py)\nwere reviewed as the compatibility reference. The implemented parser is a\nsmall standard-library text reader; no AUTOMATIC1111 runtime, Python package,\nmodel code, or image codec becomes a dependency.\n"
+    },
+    {
+      "id": "b000164",
+      "kind": "blank",
+      "start_line": 718,
+      "end_line": 718,
+      "raw": "\n"
+    },
+    {
+      "id": "b000165",
+      "kind": "heading",
+      "start_line": 719,
+      "end_line": 719,
+      "raw": "## Build and test\n",
+      "level": 2,
+      "title": "Build and test"
+    },
+    {
+      "id": "b000166",
+      "kind": "blank",
+      "start_line": 720,
+      "end_line": 720,
+      "raw": "\n"
+    },
+    {
+      "id": "b000167",
+      "kind": "fenced_code",
+      "start_line": 721,
+      "end_line": 725,
+      "raw": "~~~sh\ncmake --fresh --preset dev\ncmake --build --preset dev\nctest --preset dev\n~~~\n",
+      "language": "sh",
+      "code": "cmake --fresh --preset dev\ncmake --build --preset dev\nctest --preset dev\n",
+      "closed": true
+    },
+    {
+      "id": "b000168",
+      "kind": "blank",
+      "start_line": 726,
+      "end_line": 726,
+      "raw": "\n"
+    },
+    {
+      "id": "b000169",
+      "kind": "paragraph",
+      "start_line": 727,
+      "end_line": 727,
+      "raw": "The equivalent explicit commands are:\n"
+    },
+    {
+      "id": "b000170",
+      "kind": "blank",
+      "start_line": 728,
+      "end_line": 728,
+      "raw": "\n"
+    },
+    {
+      "id": "b000171",
+      "kind": "fenced_code",
+      "start_line": 729,
+      "end_line": 733,
+      "raw": "~~~sh\ncmake --fresh -S . -B build -DCMAKE_BUILD_TYPE=Debug\ncmake --build build -j4\nctest --test-dir build --output-on-failure -j4\n~~~\n",
+      "language": "sh",
+      "code": "cmake --fresh -S . -B build -DCMAKE_BUILD_TYPE=Debug\ncmake --build build -j4\nctest --test-dir build --output-on-failure -j4\n",
+      "closed": true
+    },
+    {
+      "id": "b000172",
+      "kind": "blank",
+      "start_line": 734,
+      "end_line": 734,
+      "raw": "\n"
+    },
+    {
+      "id": "b000173",
+      "kind": "paragraph",
+      "start_line": 735,
+      "end_line": 743,
+      "raw": "iiPaintEngine is discovered from CMAKE_PREFIX_PATH or, for the local developer\nlayout, from $HOME/.local/SDK/iiPaintEngine.\nThe generated library records the selected iiPaintEngine runtime directory and\nthe standard sibling-install fallback so Debug, Release, and installed\nconsumers resolve the same engine binary.\nThe small `ok()` inspectors on frame-render and IISC codec result aggregates\nare header-inline. Windows shared-library consumers therefore do not depend on\nan unexported member symbol when inspecting a result returned by an exported\noperation.\n"
+    },
+    {
+      "id": "b000174",
+      "kind": "blank",
+      "start_line": 744,
+      "end_line": 744,
+      "raw": "\n"
+    },
+    {
+      "id": "b000175",
+      "kind": "paragraph",
+      "start_line": 745,
+      "end_line": 750,
+      "raw": "The current C++ package version is 0.35.14 with SOVERSION 0.35. The legacy CMake\npackage matches exact versions; Native accepts compatible patches within the\nsame minor version. Consumers must rebuild against 0.34 or later to use the new editor\nlayouts. The canonical snapshot model is version 1.22;\n1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file\nschema 2 has its own SQLite header and application id and can read schema 1.\n"
+    },
+    {
+      "id": "b000176",
+      "kind": "blank",
+      "start_line": 751,
+      "end_line": 751,
+      "raw": "\n"
+    },
+    {
+      "id": "b000177",
+      "kind": "paragraph",
+      "start_line": 752,
+      "end_line": 752,
+      "raw": "For a tested host install, including an installed-package consumer check:\n"
+    },
+    {
+      "id": "b000178",
+      "kind": "blank",
+      "start_line": 753,
+      "end_line": 753,
+      "raw": "\n"
+    },
+    {
+      "id": "b000179",
+      "kind": "fenced_code",
+      "start_line": 754,
+      "end_line": 756,
+      "raw": "~~~sh\n./install.sh\n~~~\n",
+      "language": "sh",
+      "code": "./install.sh\n",
+      "closed": true
+    },
+    {
+      "id": "b000180",
+      "kind": "blank",
+      "start_line": 757,
+      "end_line": 757,
+      "raw": "\n"
+    },
+    {
+      "id": "b000181",
+      "kind": "heading",
+      "start_line": 758,
+      "end_line": 758,
+      "raw": "## Four layer/content types (0.28.0)\n",
+      "level": 2,
+      "title": "Four layer/content types (0.28.0)"
+    },
+    {
+      "id": "b000182",
+      "kind": "blank",
+      "start_line": 759,
+      "end_line": 759,
+      "raw": "\n"
+    },
+    {
+      "id": "b000183",
+      "kind": "paragraph",
+      "start_line": 760,
+      "end_line": 766,
+      "raw": "Artwork has four concrete layer types: `StaticBitmapLayer`, `StaticVectorLayer`,\n`DynamicBitmapLayer`, and `DynamicVectorLayer`. Each owns its corresponding\n`StaticBitmapContent`, `StaticVectorContent`, `DynamicBitmapContent`, or\n`DynamicVectorContent`. Static content references one asset; dynamic content\nindexes frame-selected assets, including a different complete bitmap or vector\npayload on every frame. Timing conversions replace the actual variant\nalternative atomically. See [FOUR_LAYER_TYPES.md](docs/FOUR_LAYER_TYPES.md).\n"
+    },
+    {
+      "id": "b000184",
+      "kind": "blank",
+      "start_line": 767,
+      "end_line": 767,
+      "raw": "\n"
+    },
+    {
+      "id": "b000185",
+      "kind": "paragraph",
+      "start_line": 768,
+      "end_line": 772,
+      "raw": "`layerKind(layer)` returns an optional containing one of exactly four artwork\nkinds. Native video reports dynamic bitmap identity. Specialized spatial\nconditioning keeps its role; nonspatial IP-Adapter tensors report no visual kind.\nNative 1.19 persists explicit type tags and rejects mismatched content. Existing\n1.0–1.18 documents load into the four types and retain canonical legacy bytes.\n"
+    },
+    {
+      "id": "b000186",
+      "kind": "blank",
+      "start_line": 773,
+      "end_line": 773,
+      "raw": "\n"
+    },
+    {
+      "id": "b000187",
+      "kind": "heading",
+      "start_line": 774,
+      "end_line": 774,
+      "raw": "## Source layout\n",
+      "level": 2,
+      "title": "Source layout"
+    },
+    {
+      "id": "b000188",
+      "kind": "blank",
+      "start_line": 775,
+      "end_line": 775,
+      "raw": "\n"
+    },
+    {
+      "id": "b000189",
+      "kind": "paragraph",
+      "start_line": 776,
+      "end_line": 779,
+      "raw": "Public headers and their implementations share module directories under\n`src/`. The source tree does not maintain a separate `include/` directory;\ninstalled packages still place public headers under the platform-standard\ninclude prefix.\n"
+    },
+    {
+      "id": "b000190",
+      "kind": "blank",
+      "start_line": 780,
+      "end_line": 780,
+      "raw": "\n"
+    },
+    {
+      "id": "b000191",
+      "kind": "fenced_code",
+      "start_line": 781,
+      "end_line": 821,
+      "raw": "~~~text\nsrc/\n  iiSharedCanvas.h\n  Bitmap/\n    BitmapEditor.h\n    BitmapEditor.cpp\n    ChunkedBitmapEditor.h\n    ChunkedBitmapEditor.cpp\n  Camera/\n    CameraRaw.h\n    CameraRaw.cpp\n  Document/\n    Document.h\n    Document.cpp\n    DocumentEditor.h\n    DocumentEditor.cpp\n  Metadata/\n    StableDiffusionGenerationParameters.h\n    StableDiffusionGenerationParameters.cpp\n    StableDiffusionMetadata.h\n    StableDiffusionMetadata.cpp\n  QtAdapter/\n    AsyncFrameRenderer.h\n    AsyncFrameRenderer.cpp\n    BitmapItem.h\n    BitmapItem.cpp\n    CanvasItem.h\n    CanvasItem.cpp\n  Render/\n    FrameRenderer.h\n    FrameRenderer.cpp\n  Serialization/\n    IiscCodec.h\n    IiscCodec.cpp\n  Validation/\n    Validation.h\n    Validation.cpp\n  Vector/\n    VectorEditor.h\n    VectorEditor.cpp\n~~~\n",
+      "language": "text",
+      "code": "src/\n  iiSharedCanvas.h\n  Bitmap/\n    BitmapEditor.h\n    BitmapEditor.cpp\n    ChunkedBitmapEditor.h\n    ChunkedBitmapEditor.cpp\n  Camera/\n    CameraRaw.h\n    CameraRaw.cpp\n  Document/\n    Document.h\n    Document.cpp\n    DocumentEditor.h\n    DocumentEditor.cpp\n  Metadata/\n    StableDiffusionGenerationParameters.h\n    StableDiffusionGenerationParameters.cpp\n    StableDiffusionMetadata.h\n    StableDiffusionMetadata.cpp\n  QtAdapter/\n    AsyncFrameRenderer.h\n    AsyncFrameRenderer.cpp\n    BitmapItem.h\n    BitmapItem.cpp\n    CanvasItem.h\n    CanvasItem.cpp\n  Render/\n    FrameRenderer.h\n    FrameRenderer.cpp\n  Serialization/\n    IiscCodec.h\n    IiscCodec.cpp\n  Validation/\n    Validation.h\n    Validation.cpp\n  Vector/\n    VectorEditor.h\n    VectorEditor.cpp\n",
+      "closed": true
+    },
+    {
+      "id": "b000192",
+      "kind": "blank",
+      "start_line": 822,
+      "end_line": 822,
+      "raw": "\n"
+    },
+    {
+      "id": "b000193",
+      "kind": "heading",
+      "start_line": 823,
+      "end_line": 823,
+      "raw": "## Minimal model usage\n",
+      "level": 2,
+      "title": "Minimal model usage"
+    },
+    {
+      "id": "b000194",
+      "kind": "blank",
+      "start_line": 824,
+      "end_line": 824,
+      "raw": "\n"
+    },
+    {
+      "id": "b000195",
+      "kind": "fenced_code",
+      "start_line": 825,
+      "end_line": 860,
+      "raw": "~~~cpp\n#include <iiSharedCanvas.h>\n\nusing namespace iiSharedCanvas;\n\nDocument document;\ndocument.extent = {1920, 1080};\ndocument.timeline = {{24, 1}, 48};\ndocument.assets.emplace_back(\n    RasterAsset{\"frame-0\", makeRasterLayer(1920, 1080)});\ndocument.layers.emplace_back(DynamicBitmapLayer{\n    {\"paint\", \"Paint\", true, 1.0, {}, RasterBlendMode::SourceOver},\n    DynamicBitmapContent{KeyframedSource{{0}}},\n});\ndocument.frames.push_back({0, {{\"paint\", \"frame-0\"}}});\n\nif (!validate(document).ok()) {\n    // Reject before serialization or rendering.\n}\n\nBitmapEditor editor(document, \"frame-0\");\neditor.setPixel(10, 10, 0xffffcc00U);\neditor.beginStroke({20.0, 20.0}, 1.0);\neditor.continueStroke({80.0, 40.0}, 1.0);\neditor.endStroke({80.0, 40.0}, 1.0);\n\nconst FrameRenderResult frame = renderFrame(document, 0);\nif (!frame.ok()) {\n    // Reject the frame and surface frame.message to the host.\n}\n\nconst IiscEncodeResult encoded = encodeIisc(document);\nconst IiscDecodeResult decoded = encoded.ok()\n    ? decodeIisc(encoded.bytes)\n    : IiscDecodeResult{};\n~~~\n",
+      "language": "cpp",
+      "code": "#include <iiSharedCanvas.h>\n\nusing namespace iiSharedCanvas;\n\nDocument document;\ndocument.extent = {1920, 1080};\ndocument.timeline = {{24, 1}, 48};\ndocument.assets.emplace_back(\n    RasterAsset{\"frame-0\", makeRasterLayer(1920, 1080)});\ndocument.layers.emplace_back(DynamicBitmapLayer{\n    {\"paint\", \"Paint\", true, 1.0, {}, RasterBlendMode::SourceOver},\n    DynamicBitmapContent{KeyframedSource{{0}}},\n});\ndocument.frames.push_back({0, {{\"paint\", \"frame-0\"}}});\n\nif (!validate(document).ok()) {\n    // Reject before serialization or rendering.\n}\n\nBitmapEditor editor(document, \"frame-0\");\neditor.setPixel(10, 10, 0xffffcc00U);\neditor.beginStroke({20.0, 20.0}, 1.0);\neditor.continueStroke({80.0, 40.0}, 1.0);\neditor.endStroke({80.0, 40.0}, 1.0);\n\nconst FrameRenderResult frame = renderFrame(document, 0);\nif (!frame.ok()) {\n    // Reject the frame and surface frame.message to the host.\n}\n\nconst IiscEncodeResult encoded = encodeIisc(document);\nconst IiscDecodeResult decoded = encoded.ok()\n    ? decodeIisc(encoded.bytes)\n    : IiscDecodeResult{};\n",
+      "closed": true
+    },
+    {
+      "id": "b000196",
+      "kind": "blank",
+      "start_line": 861,
+      "end_line": 861,
+      "raw": "\n"
+    },
+    {
+      "id": "b000197",
+      "kind": "paragraph",
+      "start_line": 862,
+      "end_line": 866,
+      "raw": "For Qt Quick hosts, call `registerIiSharedCanvasQmlTypes()` before loading the\nengine and import `iiSharedCanvas 1.0`. `Bitmap` is the isolated selected-asset\nitem and `SharedCanvas` is the mixed-document item. Product QML must continue\nto use LVRS for the application UI; this library provides canvas items, not a\nsecond UI framework.\n"
+    },
+    {
+      "id": "b000198",
+      "kind": "blank",
+      "start_line": 867,
+      "end_line": 867,
+      "raw": "\n"
+    },
+    {
+      "id": "b000199",
+      "kind": "paragraph",
+      "start_line": 868,
+      "end_line": 908,
+      "raw": "`iiSharedCanvas.BitmapItemRender` performs an offscreen real render and writes\n`build/test-output/bitmap-item.png`. Pixel assertions verify the original and\nedited ARGB values as well as nearest-neighbor zoom.\n`iiSharedCanvas.FrameRenderer` uses exact pixel assertions for mixed static and\nframe-owned keyframed raster/vector output, transforms, opacity, clipping, and every\nsupported layer blend mode.\n`iiSharedCanvas.CanvasItemRender` constructs `SharedCanvas` through a real QML\nengine, verifies frame switching, external refresh, selected raster painting,\ninverse-transform input, and undo, and writes\n`build/test-output/shared-canvas-item.png`.\n`CanvasItem::renderArtboardId` optionally restricts the rendered composition to one\nnative artboard while retaining the editable document and workspace coordinates.\nThe empty value renders the complete document; an unknown ID presents transparency.\nThe source document, revision, selection and undo remain unchanged by focus.\nThe dedicated `iiSharedCanvas.CanvasItemArtboardFocus` pixel test covers overlapping\nartboards and loose layers, frame changes, painting, undo and stale render rejection.\nSee [ARTBOARD_PRESENTATION.md](docs/ARTBOARD_PRESENTATION.md) for the public contract.\nWith `IISHAREDCANVAS_VERIFY_GPU=1` on a windowed platform, the same executable\nalso requires a hardware Qt Quick backend and verifies a captured scene-graph\ntile image; the normal offscreen CTest does not claim hardware execution.\n`iiSharedCanvas.IiscCodec` verifies canonical byte-identical round-trip,\nfixed 1.0 through 1.2 golden containers emitted by package 0.2.0,\nframe-by-frame rendered-pixel identity, corruption and future-version failure,\nUTF-8, tag, trailing-data, and allocation-limit enforcement.\n`iiSharedCanvas.InfiniteCanvas` verifies signed chunk addressing, camera-driven\nregion growth, sparse paint, rendering, undo/redo, canonical 1.1 persistence,\n1.0 finite migration, and the Qt adapter's exact growth margins.\n`iiSharedCanvas.AsyncFrameRenderer` verifies a 65,536 by 49,152 sparse and\nnative-vector document through bounded 128 by 128 LOD output, immutable worker\nsnapshots, and owner-thread completion.\n`iiSharedCanvas.CameraRaw` verifies CFA, monochrome, and linear sample layouts;\nactive-area anchored patterns; calibration and metadata validation; and\nbounds-checked sample, channel, black-level, and white-level access.\n`iiSharedCanvas.StableDiffusionMetadata` verifies typed prompt, sampling,\nresource, and LoRA fields; strict ComfyUI JSON; duplicate keys; invalid numeric\nsettings; canonical 1.2 round-trip; legacy 1.1 preservation; and metadata\nallocation limits.\n`iiSharedCanvas.StableDiffusionGenerationParameters` verifies official infotext splitting and\ndefaults, multiline prompts, quoted and escaped values, Hires projection,\nresource/hash compatibility, duplicate and future fields, malformed input,\ncanonical UTF-8, and byte-exact format-1.2 round-trip.\n"
+    },
+    {
+      "id": "b000200",
+      "kind": "blank",
+      "start_line": 909,
+      "end_line": 909,
+      "raw": "\n"
+    },
+    {
+      "id": "b000201",
+      "kind": "heading",
+      "start_line": 910,
+      "end_line": 910,
+      "raw": "## Documents\n",
+      "level": 2,
+      "title": "Documents"
+    },
+    {
+      "id": "b000202",
+      "kind": "blank",
+      "start_line": 911,
+      "end_line": 911,
+      "raw": "\n"
+    },
+    {
+      "id": "b000203",
+      "kind": "list",
+      "start_line": 912,
+      "end_line": 921,
+      "raw": "- docs/OPENRASTER_IMPORT.md and docs/PSD_IMPORT.md define layer-preserving\n  import subsets, safety limits, unsupported features and metadata handling.\n- docs/LAYERED_IMPORT_CLI.md defines the installed file-to-file converter.\n- docs/API.md defines Camera RAW and Stable Diffusion metadata objects, public\n  document data ownership, stable-id lookup, validated mutation, failure,\n  lifetime, revision, and threading contracts.\n- docs/BLUEPRINT.md defines ownership, dependency direction, milestones, and\n  completion gates.\n- docs/FORMAT.md defines the implemented canonical `.iisc` binary contract.\n- AGENTS.md fixes the engineering rules that future changes must preserve.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "docs/OPENRASTER_IMPORT.md and docs/PSD_IMPORT.md define layer-preserving",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "docs/LAYERED_IMPORT_CLI.md defines the installed file-to-file converter.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "docs/API.md defines Camera RAW and Stable Diffusion metadata objects, public",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "docs/BLUEPRINT.md defines ownership, dependency direction, milestones, and",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "docs/FORMAT.md defines the implemented canonical `.iisc` binary contract.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "AGENTS.md fixes the engineering rules that future changes must preserve.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000204",
+      "kind": "blank",
+      "start_line": 922,
+      "end_line": 922,
+      "raw": "\n"
+    },
+    {
+      "id": "b000205",
+      "kind": "heading",
+      "start_line": 923,
+      "end_line": 923,
+      "raw": "## Editable timeline exchange\n",
+      "level": 2,
+      "title": "Editable timeline exchange"
+    },
+    {
+      "id": "b000206",
+      "kind": "blank",
+      "start_line": 924,
+      "end_line": 924,
+      "raw": "\n"
+    },
+    {
+      "id": "b000207",
+      "kind": "paragraph",
+      "start_line": 925,
+      "end_line": 932,
+      "raw": "`exportTimelineInterchange` and the installed `iisc-export-timeline` CLI create\na new directory with legacy XML (Premiere/Resolve), FCPXML (Final Cut Pro),\nseparate layer-state PNGs and `source.iisc`. Native layers remain independent\ntracks/lanes and every hold-key interval remains a clip with exact timing.\nThis is an XML import workflow, not a native `.iisc` plug-in. Vector geometry\nand spatial transforms are projected into clip pixels; the native snapshot\nretains full editability. See [the contract](docs/TIMELINE_INTERCHANGE.md) and\n[CLI usage](docs/TIMELINE_INTERCHANGE_CLI.md).\n"
+    },
+    {
+      "id": "b000208",
+      "kind": "blank",
+      "start_line": 933,
+      "end_line": 933,
+      "raw": "\n"
+    },
+    {
+      "id": "b000209",
+      "kind": "heading",
+      "start_line": 934,
+      "end_line": 934,
+      "raw": "## Persisted audio timeline\n",
+      "level": 2,
+      "title": "Persisted audio timeline"
+    },
+    {
+      "id": "b000210",
+      "kind": "blank",
+      "start_line": 935,
+      "end_line": 935,
+      "raw": "\n"
+    },
+    {
+      "id": "b000211",
+      "kind": "paragraph",
+      "start_line": 936,
+      "end_line": 944,
+      "raw": "`Document::audioAssets` embeds signed PCM16 mono/stereo samples, and\n`Document::audioTracks` stores independent `AudioTrackLayer` values with named\nclips, frame positions/durations, sample-accurate source trims, mute and gain.\nUse `importAudioWav` to read a bounded WAV, then validated `DocumentEditor`\noperations to attach it. Native `.iisc` 1.4 and synchronous working files preserve\nall PCM and edits; visual rendering remains independent of audio playback.\n`exportTimelineInterchange` exports PNG/WAV media and both XML dialects for\nPremiere Pro, Final Cut Pro and DaVinci Resolve. Details and examples are in\n[AUDIO_TIMELINE.md](docs/AUDIO_TIMELINE.md).\n"
+    },
+    {
+      "id": "b000212",
+      "kind": "blank",
+      "start_line": 945,
+      "end_line": 945,
+      "raw": "\n"
+    },
+    {
+      "id": "b000213",
+      "kind": "heading",
+      "start_line": 946,
+      "end_line": 946,
+      "raw": "## License\n",
+      "level": 2,
+      "title": "License"
+    },
+    {
+      "id": "b000214",
+      "kind": "blank",
+      "start_line": 947,
+      "end_line": 947,
+      "raw": "\n"
+    },
+    {
+      "id": "b000215",
+      "kind": "paragraph",
+      "start_line": 948,
+      "end_line": 948,
+      "raw": "SPDX-License-Identifier: MIT\n"
+    },
+    {
+      "id": "b000216",
+      "kind": "blank",
+      "start_line": 949,
+      "end_line": 949,
+      "raw": "\n"
+    },
+    {
+      "id": "b000217",
+      "kind": "paragraph",
+      "start_line": 950,
+      "end_line": 950,
+      "raw": "The code and documentation written by iiSharedCanvas are distributed under the MIT License ( `MIT` ). The full terms follow [LICENSE](LICENSE). This choice matches the `MIT` license of the iiPaintEngine public dependency.\n"
+    },
+    {
+      "id": "b000218",
+      "kind": "blank",
+      "start_line": 951,
+      "end_line": 951,
+      "raw": "\n"
+    },
+    {
+      "id": "b000219",
+      "kind": "paragraph",
+      "start_line": 952,
+      "end_line": 953,
+      "raw": "Third-party code, libraries, tools, and models retain their respective licenses and copyright notices, and this repository's license does not replace them. Existing dependency and distribution-related notices are\nFollows [NOTICE.md](NOTICE.md)and the [dependency review](docs/DEPENDENCIES.md).\n"
+    },
+    {
+      "id": "b000220",
+      "kind": "blank",
+      "start_line": 954,
+      "end_line": 954,
+      "raw": "\n"
+    },
+    {
+      "id": "b000221",
+      "kind": "heading",
+      "start_line": 955,
+      "end_line": 955,
+      "raw": "### SDK installation layout\n",
+      "level": 3,
+      "title": "SDK installation layout"
+    },
+    {
+      "id": "b000222",
+      "kind": "blank",
+      "start_line": 956,
+      "end_line": 956,
+      "raw": "\n"
+    },
+    {
+      "id": "b000223",
+      "kind": "paragraph",
+      "start_line": 957,
+      "end_line": 967,
+      "raw": "The checkout is `Workspace/SDK/iiSharedCanvas`. Both direct CMake configuration\nand `./install.sh` default to `~/.local/SDK/iiSharedCanvas`; iiPaintEngine is\nresolved from the sibling SDK installation. `IISHAREDCANVAS_INSTALL_PREFIX`\nand `IISHAREDCANVAS_IIPAINTENGINE_PREFIX` retain explicit custom paths. The\ninstaller regenerates build and consumer CMake caches after checkout moves.\nThe installer preserves caller `CMAKE_PREFIX_PATH` entries for both the fresh\nSDK configuration and the installed-package consumer. Entries may use semicolon\nor Unix colon separators, including paths containing spaces. Supply the pinned\nlibzip installation prefix through this variable when it is outside standard\npackage locations. `iiSharedCanvas.InstallScript` tests the default and custom\ninstallation prefix and external dependency-prefix forwarding.\n"
+    },
+    {
+      "id": "b000224",
+      "kind": "blank",
+      "start_line": 968,
+      "end_line": 968,
+      "raw": "\n"
+    },
+    {
+      "id": "b000225",
+      "kind": "paragraph",
+      "start_line": 969,
+      "end_line": 974,
+      "raw": "Public headers resolve the generated visibility header as\n`iiSharedCanvas/Export.h`. The exported include directories support this\nqualified path alongside the existing short public includes. This prevents\ncollisions when another installed SDK also exports an `Export.h`. Both the\npublic API compile test and installed consumer put an unrelated `Export.h`\nfirst in the include search path as a regression check.\n"
+    },
+    {
+      "id": "b000226",
+      "kind": "blank",
+      "start_line": 975,
+      "end_line": 975,
+      "raw": "\n"
+    },
+    {
+      "id": "b000227",
+      "kind": "paragraph",
+      "start_line": 976,
+      "end_line": 979,
+      "raw": "On macOS, the installed CMake target also supplies its runtime search path when\n`LIBRARY_PATH` makes the package an implicit linker directory. The installer\nbuilds its consumer with that condition and runs it without `DYLD_LIBRARY_PATH`\nor `DYLD_FALLBACK_LIBRARY_PATH` to verify normal package loading.\n"
+    },
+    {
+      "id": "b000228",
+      "kind": "blank",
+      "start_line": 980,
+      "end_line": 980,
+      "raw": "\n"
+    },
+    {
+      "id": "b000229",
+      "kind": "heading",
+      "start_line": 981,
+      "end_line": 981,
+      "raw": "## File authorship (0.10.0)\n",
+      "level": 2,
+      "title": "File authorship (0.10.0)"
+    },
+    {
+      "id": "b000230",
+      "kind": "blank",
+      "start_line": 982,
+      "end_line": 982,
+      "raw": "\n"
+    },
+    {
+      "id": "b000231",
+      "kind": "paragraph",
+      "start_line": 983,
+      "end_line": 989,
+      "raw": "`Document::authorship` is an iiFileProvider 0.2 `Authorship` value. Select the\ncurrent editor with `DocumentEditor::setFileAuthor(author)` before editing.\nStructural, vector, bitmap, chunked-bitmap and audio changes synchronously refresh\nits cached JSON dump; no-op and rejected operations preserve it. `DocumentFile`\ncommits the changed content and an independent authorship record in the same\nSQLite transaction before returning, including raw `edit` callbacks. There is no\nautosave timer or whole-document snapshot dump in the working-file path.\n"
+    },
+    {
+      "id": "b000232",
+      "kind": "blank",
+      "start_line": 990,
+      "end_line": 990,
+      "raw": "\n"
+    },
+    {
+      "id": "b000233",
+      "kind": "paragraph",
+      "start_line": 991,
+      "end_line": 997,
+      "raw": "Native snapshots use `.iisc` 1.20. Legacy 1.0–1.19 files remain readable and are\nupgraded on the first accepted change. Undo/cancel of already committed pixels\nis itself a recorded change. Detached public aggregates have no observers; use\neditors or `recordDocumentChange` after a direct detached mutation. File-bound\nmutable edits must use `DocumentFile::edit`. Loaded profiles never become the\ncurrent editing identity automatically. Credentials are excluded from all file\nmetadata; the ledger is attribution data, not proof of ownership or login.\n"
+    },
+    {
+      "id": "b000234",
+      "kind": "blank",
+      "start_line": 998,
+      "end_line": 998,
+      "raw": "\n"
+    },
+    {
+      "id": "b000235",
+      "kind": "paragraph",
+      "start_line": 999,
+      "end_line": 1000,
+      "raw": "The installer accepts `QT_PREFIX_PATH` (the external Qt 6.8.3 macOS prefix by\ndefault) so clean builds and installed consumers do not rely on an old Qt cache.\n"
+    },
+    {
+      "id": "b000236",
+      "kind": "blank",
+      "start_line": 1001,
+      "end_line": 1001,
+      "raw": "\n"
+    },
+    {
+      "id": "b000237",
+      "kind": "html",
+      "start_line": 1002,
+      "end_line": 1002,
+      "raw": "<a id=\"파일-저장-소유권\"></a>\n"
+    },
+    {
+      "id": "b000238",
+      "kind": "blank",
+      "start_line": 1003,
+      "end_line": 1003,
+      "raw": "\n"
+    },
+    {
+      "id": "b000239",
+      "kind": "heading",
+      "start_line": 1004,
+      "end_line": 1004,
+      "raw": "## File storage ownership\n",
+      "level": 2,
+      "title": "File storage ownership"
+    },
+    {
+      "id": "b000240",
+      "kind": "blank",
+      "start_line": 1005,
+      "end_line": 1005,
+      "raw": "\n"
+    },
+    {
+      "id": "b000241",
+      "kind": "paragraph",
+      "start_line": 1006,
+      "end_line": 1006,
+      "raw": "Since 0.10.1, actual file CRUD, SQLite connections, transactions, partial BLOB writes, and backups are delegated to iiFileProvider 0.5. DocumentFile owns the canvas schema, format validation, editing state, and conflict decisions. The existing `.iisc` file format and immediate-application behavior are retained. The dependency is iiSharedCanvas → iiFileProvider, with no reverse reference.\n"
+    },
+    {
+      "id": "b000242",
+      "kind": "blank",
+      "start_line": 1007,
+      "end_line": 1007,
+      "raw": "\n"
+    },
+    {
+      "id": "b000243",
+      "kind": "heading",
+      "start_line": 1008,
+      "end_line": 1008,
+      "raw": "## ControlNet semantic segments (0.13.0)\n",
+      "level": 2,
+      "title": "ControlNet semantic segments (0.13.0)"
+    },
+    {
+      "id": "b000244",
+      "kind": "blank",
+      "start_line": 1009,
+      "end_line": 1009,
+      "raw": "\n"
+    },
+    {
+      "id": "b000245",
+      "kind": "paragraph",
+      "start_line": 1010,
+      "end_line": 1014,
+      "raw": "`SemanticSegmentLayer` owns validated region identities, an explicit semantic\ntaxonomy and ControlNet settings. Static and dynamic identity masks share the\nexisting timeline. `renderSemanticControlMap` produces exact class colors, labels\nand region geometry while ordinary artwork rendering excludes conditioning layers.\nSee [the complete object and persistence contract](docs/SEMANTIC_SEGMENT.md).\n"
+    },
+    {
+      "id": "b000246",
+      "kind": "blank",
+      "start_line": 1015,
+      "end_line": 1015,
+      "raw": "\n"
+    },
+    {
+      "id": "b000247",
+      "kind": "heading",
+      "start_line": 1016,
+      "end_line": 1016,
+      "raw": "## Full-body, hands and dense facial Pose (0.14.0)\n",
+      "level": 2,
+      "title": "Full-body, hands and dense facial Pose (0.14.0)"
+    },
+    {
+      "id": "b000248",
+      "kind": "blank",
+      "start_line": 1017,
+      "end_line": 1017,
+      "raw": "\n"
+    },
+    {
+      "id": "b000249",
+      "kind": "paragraph",
+      "start_line": 1018,
+      "end_line": 1020,
+      "raw": "`PoseAsset` / `PoseLayer` own 590 anchors per person, including 523 facial anchors,\nwith sparse weighted expression targets, static/dynamic sources, exact native\npersistence and explicit OpenPose projection. See [the pose contract](docs/POSE.md).\n"
+    },
+    {
+      "id": "b000250",
+      "kind": "blank",
+      "start_line": 1021,
+      "end_line": 1021,
+      "raw": "\n"
+    },
+    {
+      "id": "b000251",
+      "kind": "heading",
+      "start_line": 1022,
+      "end_line": 1022,
+      "raw": "## Depth ControlNet (0.15.0)\n",
+      "level": 2,
+      "title": "Depth ControlNet (0.15.0)"
+    },
+    {
+      "id": "b000252",
+      "kind": "blank",
+      "start_line": 1023,
+      "end_line": 1023,
+      "raw": "\n"
+    },
+    {
+      "id": "b000253",
+      "kind": "paragraph",
+      "start_line": 1024,
+      "end_line": 1026,
+      "raw": "`DepthLayer` stores static or dynamic normalized proximity fields: 0 is empty\nblack space, 1 is white camera contact. Binary64 native samples, exact editing,\ngrayscale control output and persistence are described in [DEPTH.md](docs/DEPTH.md).\n"
+    },
+    {
+      "id": "b000254",
+      "kind": "blank",
+      "start_line": 1027,
+      "end_line": 1027,
+      "raw": "\n"
+    },
+    {
+      "id": "b000255",
+      "kind": "heading",
+      "start_line": 1028,
+      "end_line": 1028,
+      "raw": "## Line Art ControlNet (0.16.0)\n",
+      "level": 2,
+      "title": "Line Art ControlNet (0.16.0)"
+    },
+    {
+      "id": "b000256",
+      "kind": "blank",
+      "start_line": 1029,
+      "end_line": 1029,
+      "raw": "\n"
+    },
+    {
+      "id": "b000257",
+      "kind": "paragraph",
+      "start_line": 1030,
+      "end_line": 1032,
+      "raw": "`LineArtLayer` references static or dynamic native ink-coverage fields. Zero is\nwhite background, one is full black ink; intermediate coverage preserves soft\ncontours. See [LINE_ART.md](docs/LINE_ART.md) for editing, output and persistence.\n"
+    },
+    {
+      "id": "b000258",
+      "kind": "blank",
+      "start_line": 1033,
+      "end_line": 1033,
+      "raw": "\n"
+    },
+    {
+      "id": "b000259",
+      "kind": "heading",
+      "start_line": 1034,
+      "end_line": 1034,
+      "raw": "## Canny and Scribble line controls (0.17.0)\n",
+      "level": 2,
+      "title": "Canny and Scribble line controls (0.17.0)"
+    },
+    {
+      "id": "b000260",
+      "kind": "blank",
+      "start_line": 1035,
+      "end_line": 1035,
+      "raw": "\n"
+    },
+    {
+      "id": "b000261",
+      "kind": "paragraph",
+      "start_line": 1036,
+      "end_line": 1038,
+      "raw": "`CannyLayer` and `ScribbleLayer` own typed binary edge/stroke sources, with\nwhite lines on black control maps. `isLineControlNetLayer` identifies these\nalongside Line Art. See [BINARY_LINE_CONTROL.md](docs/BINARY_LINE_CONTROL.md).\n"
+    },
+    {
+      "id": "b000262",
+      "kind": "blank",
+      "start_line": 1039,
+      "end_line": 1039,
+      "raw": "\n"
+    },
+    {
+      "id": "b000263",
+      "kind": "heading",
+      "start_line": 1040,
+      "end_line": 1040,
+      "raw": "## MLSD line-segment control (0.18.0)\n",
+      "level": 2,
+      "title": "MLSD line-segment control (0.18.0)"
+    },
+    {
+      "id": "b000264",
+      "kind": "blank",
+      "start_line": 1041,
+      "end_line": 1041,
+      "raw": "\n"
+    },
+    {
+      "id": "b000265",
+      "kind": "paragraph",
+      "start_line": 1042,
+      "end_line": 1044,
+      "raw": "`MlsdAsset`/`MlsdLayer` retain editable straight segments, confidence and enabled\nstate. Static/dynamic vector sources render white lines on black control maps.\nSee [MLSD.md](docs/MLSD.md) for coordinates, editing and persistence.\n"
+    },
+    {
+      "id": "b000266",
+      "kind": "blank",
+      "start_line": 1045,
+      "end_line": 1045,
+      "raw": "\n"
+    },
+    {
+      "id": "b000267",
+      "kind": "heading",
+      "start_line": 1046,
+      "end_line": 1046,
+      "raw": "## Normal-map control (0.19.0)\n",
+      "level": 2,
+      "title": "Normal-map control (0.19.0)"
+    },
+    {
+      "id": "b000268",
+      "kind": "blank",
+      "start_line": 1047,
+      "end_line": 1047,
+      "raw": "\n"
+    },
+    {
+      "id": "b000269",
+      "kind": "paragraph",
+      "start_line": 1048,
+      "end_line": 1051,
+      "raw": "`NormalMapSample`, `NormalMapAsset` and `NormalMapLayer` preserve per-pixel\nsigned XYZ unit normals and explicit missing samples. Static/dynamic bitmap\nlayers provide RGB previews and independent channel-order/Y-axis export options.\nSee [NORMAL_MAP.md](docs/NORMAL_MAP.md) for the basis, editing and persistence.\n"
+    },
+    {
+      "id": "b000270",
+      "kind": "blank",
+      "start_line": 1052,
+      "end_line": 1052,
+      "raw": "\n"
+    },
+    {
+      "id": "b000271",
+      "kind": "heading",
+      "start_line": 1053,
+      "end_line": 1053,
+      "raw": "## Shuffle control (0.20.0)\n",
+      "level": 2,
+      "title": "Shuffle control (0.20.0)"
+    },
+    {
+      "id": "b000272",
+      "kind": "blank",
+      "start_line": 1054,
+      "end_line": 1054,
+      "raw": "\n"
+    },
+    {
+      "id": "b000273",
+      "kind": "paragraph",
+      "start_line": 1055,
+      "end_line": 1058,
+      "raw": "`ShuffleColor`, `ShuffleAsset` and `ShuffleLayer` retain prepared RGB conditioning\nimages as static/dynamic bitmap layers. `makeShuffleAsset` builds prepared pixels\nfrom an explicit normalized remapping field with bilinear sampling. Rendering is\ndeterministic and never reshuffles stored content. See [SHUFFLE.md](docs/SHUFFLE.md).\n"
+    },
+    {
+      "id": "b000274",
+      "kind": "blank",
+      "start_line": 1059,
+      "end_line": 1059,
+      "raw": "\n"
+    },
+    {
+      "id": "b000275",
+      "kind": "heading",
+      "start_line": 1060,
+      "end_line": 1060,
+      "raw": "## Tile control (0.21.0)\n",
+      "level": 2,
+      "title": "Tile control (0.21.0)"
+    },
+    {
+      "id": "b000276",
+      "kind": "blank",
+      "start_line": 1061,
+      "end_line": 1061,
+      "raw": "\n"
+    },
+    {
+      "id": "b000277",
+      "kind": "paragraph",
+      "start_line": 1062,
+      "end_line": 1065,
+      "raw": "`TileColor`, `TileAsset` and `TileLayer` preserve spatial RGB reference images\nfor local-context/detail conditioning. Static/dynamic bitmap layers support\nwhole-image and bounded native-region exports without implicit resizing or wrapping.\nSee [TILE.md](docs/TILE.md).\n"
+    },
+    {
+      "id": "b000278",
+      "kind": "blank",
+      "start_line": 1066,
+      "end_line": 1066,
+      "raw": "\n"
+    },
+    {
+      "id": "b000279",
+      "kind": "heading",
+      "start_line": 1067,
+      "end_line": 1067,
+      "raw": "## Reference control (0.22.0)\n",
+      "level": 2,
+      "title": "Reference control (0.22.0)"
+    },
+    {
+      "id": "b000280",
+      "kind": "blank",
+      "start_line": 1068,
+      "end_line": 1068,
+      "raw": "\n"
+    },
+    {
+      "id": "b000281",
+      "kind": "paragraph",
+      "start_line": 1069,
+      "end_line": 1072,
+      "raw": "`ReferenceAsset` and `ReferenceLayer` retain RGB reference images together with\nAttention, AdaIN or Attention+AdaIN mode and style fidelity. Static/dynamic bitmap\nsources and reference settings survive native persistence. Export returns image\nand settings to a consuming inference adapter. See [REFERENCE.md](docs/REFERENCE.md).\n"
+    },
+    {
+      "id": "b000282",
+      "kind": "blank",
+      "start_line": 1073,
+      "end_line": 1073,
+      "raw": "\n"
+    },
+    {
+      "id": "b000283",
+      "kind": "heading",
+      "start_line": 1074,
+      "end_line": 1074,
+      "raw": "## IP-Adapter image embeddings (0.23.0)\n",
+      "level": 2,
+      "title": "IP-Adapter image embeddings (0.23.0)"
+    },
+    {
+      "id": "b000284",
+      "kind": "blank",
+      "start_line": 1075,
+      "end_line": 1075,
+      "raw": "\n"
+    },
+    {
+      "id": "b000285",
+      "kind": "paragraph",
+      "start_line": 1076,
+      "end_line": 1081,
+      "raw": "`IpAdapterAsset` owns actual float32 conditional/unconditional image embeddings,\nwith encoder/adapter provenance and explicit pooled, hidden-state or projected-token\nstage. `IpAdapterLayer` selects static or dynamic states. The four bitmap/vector\nartwork kinds remain the four bitmap/vector kinds; nonspatial conditioning has\nno visual `LayerKind`. Export passes typed tensors to an inference consumer without\nencoding or projection. See [IP_ADAPTER.md](docs/IP_ADAPTER.md).\n"
+    },
+    {
+      "id": "b000286",
+      "kind": "blank",
+      "start_line": 1082,
+      "end_line": 1082,
+      "raw": "\n"
+    },
+    {
+      "id": "b000287",
+      "kind": "heading",
+      "start_line": 1083,
+      "end_line": 1083,
+      "raw": "## Detailed ControlNet parameters (0.24.0)\n",
+      "level": 2,
+      "title": "Detailed ControlNet parameters (0.24.0)"
+    },
+    {
+      "id": "b000288",
+      "kind": "blank",
+      "start_line": 1084,
+      "end_line": 1084,
+      "raw": "\n"
+    },
+    {
+      "id": "b000289",
+      "kind": "paragraph",
+      "start_line": 1085,
+      "end_line": 1090,
+      "raw": "All 12 conditioning types expose typed layer/object snapshots through\n`getControlNetParameters` and `DocumentEditor::controlNetParameters`.\n`setControlNetParameters` applies one layer and all unique source states atomically;\n`patchControlNetSettings` edits selected common fields without replacing the others.\nDetailed fields, output options, ownership and rollback rules are documented in\n[CONTROLNET_PARAMETERS.md](docs/CONTROLNET_PARAMETERS.md). Native model is now 1.20 (explicit layer types and layer appearance).\n"
+    },
+    {
+      "id": "b000290",
+      "kind": "blank",
+      "start_line": 1091,
+      "end_line": 1091,
+      "raw": "\n"
+    },
+    {
+      "id": "b000291",
+      "kind": "paragraph",
+      "start_line": 1092,
+      "end_line": 1092,
+      "raw": "Bitmap processing and native brush settings are documented in [BITMAP_PROCESSING.md](docs/BITMAP_PROCESSING.md).\n"
+    },
+    {
+      "id": "b000292",
+      "kind": "blank",
+      "start_line": 1093,
+      "end_line": 1093,
+      "raw": "\n"
+    },
+    {
+      "id": "b000293",
+      "kind": "heading",
+      "start_line": 1094,
+      "end_line": 1094,
+      "raw": "## Per-frame dynamic content (0.27.1)\n",
+      "level": 2,
+      "title": "Per-frame dynamic content (0.27.1)"
+    },
+    {
+      "id": "b000294",
+      "kind": "blank",
+      "start_line": 1095,
+      "end_line": 1095,
+      "raw": "\n"
+    },
+    {
+      "id": "b000295",
+      "kind": "paragraph",
+      "start_line": 1096,
+      "end_line": 1103,
+      "raw": "Dynamic bitmap and vector layers can hold different native pixels and paths at\nevery integer frame. `DocumentEditor::setDynamicFrameContent` atomically appends\na fresh raster/vector asset and inserts or replaces its exact-frame key. A fresh\nasset id prevents other frames or layers from being overwritten. Supply a key\nat each frame for frame-by-frame content; sparse keys retain hold sampling.\nSnapshot and working-file persistence keep all states in native format 1.20.\nSee [DYNAMIC_FRAME_CONTENT.md](docs/DYNAMIC_FRAME_CONTENT.md) for authoring,\nindependent editing, persistence and verification.\n"
+    },
+    {
+      "id": "b000296",
+      "kind": "blank",
+      "start_line": 1104,
+      "end_line": 1104,
+      "raw": "\n"
+    },
+    {
+      "id": "b000297",
+      "kind": "heading",
+      "start_line": 1105,
+      "end_line": 1105,
+      "raw": "## Artboards (0.27.0)\n",
+      "level": 2,
+      "title": "Artboards (0.27.0)"
+    },
+    {
+      "id": "b000298",
+      "kind": "blank",
+      "start_line": 1106,
+      "end_line": 1106,
+      "raw": "\n"
+    },
+    {
+      "id": "b000299",
+      "kind": "paragraph",
+      "start_line": 1107,
+      "end_line": 1113,
+      "raw": "One `.iisc` document can hold multiple independent artboards with different sizes,\npositions, backgrounds and owned layer stacks. `DocumentEditor` supports creation,\nrename, move/resize, reorder, independent duplication, deletion and layer reparenting.\nOwned artwork uses local coordinates and clips to its board. `renderFrame` displays\nthe complete workspace; `renderArtboard` renders one board. Snapshots and working\nfiles preserve all artboards in native format 1.20. See [ARTBOARDS.md](docs/ARTBOARDS.md)\nfor coordinate, composition, persistence and export contracts.\n"
+    },
+    {
+      "id": "b000300",
+      "kind": "blank",
+      "start_line": 1114,
+      "end_line": 1114,
+      "raw": "\n"
+    },
+    {
+      "id": "b000301",
+      "kind": "paragraph",
+      "start_line": 1115,
+      "end_line": 1116,
+      "raw": "The four-type model was introduced in package 0.28.0 and remains in 0.31.0; migration details and typed\ncontent examples are in [FOUR_LAYER_TYPES.md](docs/FOUR_LAYER_TYPES.md).\n"
+    },
+    {
+      "id": "b000302",
+      "kind": "blank",
+      "start_line": 1117,
+      "end_line": 1117,
+      "raw": "\n"
+    },
+    {
+      "id": "b000303",
+      "kind": "paragraph",
+      "start_line": 1118,
+      "end_line": 1118,
+      "raw": "Native layer composition in 0.30.0 adds a persistent `LayerAppearance`, 27 blend modes, pixel/vector/filter masks, ordered non-destructive effect and color-adjustment stacks, clipping chains and split Blend If. The native model is IISC 1.20. See [Layer compositing](docs/LAYER_COMPOSITING.md) and [the evidence comparison](docs/PHOTOSHOP_LAYER_COMPARISON.md) for semantics, verification and the exact Photoshop/interchange boundaries. The GUI adapter now declares Qt dependencies directly; iiPaintEngine 0.5.1 remains a standard-C++23 bitmap library.\n"
+    },
+    {
+      "id": "b000304",
+      "kind": "blank",
+      "start_line": 1119,
+      "end_line": 1119,
+      "raw": "\n"
+    },
+    {
+      "id": "b000305",
+      "kind": "paragraph",
+      "start_line": 1120,
+      "end_line": 1120,
+      "raw": "`DocumentFile::readRevision(path, revision)` inspects the committed working-file revision through a read-only iiFileProvider connection without adopting an authoring document or changing journal mode. Errors preserve the output; serialized IISC snapshots have no stored revision. Storage/schema inspection does not validate the document payload.\n"
+    },
+    {
+      "id": "b000306",
+      "kind": "blank",
+      "start_line": 1121,
+      "end_line": 1121,
+      "raw": "\n"
+    },
+    {
+      "id": "b000307",
+      "kind": "heading",
+      "start_line": 1122,
+      "end_line": 1122,
+      "raw": "### Native working-file tiles and agent interface (0.35.0)\n",
+      "level": 3,
+      "title": "Native working-file tiles and agent interface (0.35.0)"
+    },
+    {
+      "id": "b000308",
+      "kind": "blank",
+      "start_line": 1123,
+      "end_line": 1123,
+      "raw": "\n"
+    },
+    {
+      "id": "b000309",
+      "kind": "paragraph",
+      "start_line": 1124,
+      "end_line": 1124,
+      "raw": "The Qt-free Native package stores editable bitmap pixels in independently checked tiles (private working storage v2), while preserving canonical IISC 1.22 and reading existing v1 working files. `DocumentFile::readStorageInfo`, `storageVersion`, and `upgradeStorage` expose inspection and explicit migration. The installed `iisc-working inspect|verify|upgrade-storage PATH` CLI emits JSON and supports a source-preserving `--dry-run`. See [the storage contract](docs/WORKING_FILE_TILES.md) for integrity, limits, compatibility, and the remaining full-draft cost of general edits.\n"
+    },
+    {
+      "id": "b000310",
+      "kind": "blank",
+      "start_line": 1125,
+      "end_line": 1125,
+      "raw": "\n"
+    },
+    {
+      "id": "b000311",
+      "kind": "html",
+      "start_line": 1126,
+      "end_line": 1126,
+      "raw": "<!-- workspace-docs:readme:start -->\n"
+    },
+    {
+      "id": "b000312",
+      "kind": "heading",
+      "start_line": 1127,
+      "end_line": 1127,
+      "raw": "## Documentation entry points\n",
+      "level": 2,
+      "title": "Documentation entry points"
+    },
+    {
+      "id": "b000313",
+      "kind": "blank",
+      "start_line": 1128,
+      "end_line": 1128,
+      "raw": "\n"
+    },
+    {
+      "id": "b000314",
+      "kind": "list",
+      "start_line": 1129,
+      "end_line": 1132,
+      "raw": "- Human overview: this English `README.md`.\n- Agent instructions: [AGENT.md](AGENT.md).\n- Human documentation: [documentation index](docs/README.md).\n- Structured agent documentation: [agent index](docs/agent-index.json).\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "Human overview: this English `README.md`.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Agent instructions: [AGENT.md](AGENT.md).",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Human documentation: [documentation index](docs/README.md).",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Structured agent documentation: [agent index](docs/agent-index.json).",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000315",
+      "kind": "html",
+      "start_line": 1133,
+      "end_line": 1133,
+      "raw": "<!-- workspace-docs:readme:end -->\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "iiSharedCanvas",
+      "anchor": "iisharedcanvas",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Write-through authoring",
+      "anchor": "write-through-authoring",
+      "start_line": 202
+    },
+    {
+      "block_id": "b000043",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Content contract",
+      "anchor": "content-contract",
+      "start_line": 240
+    },
+    {
+      "block_id": "b000051",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Camera RAW authoring data",
+      "anchor": "camera-raw-authoring-data",
+      "start_line": 264
+    },
+    {
+      "block_id": "b000059",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Stable Diffusion generation metadata",
+      "anchor": "stable-diffusion-generation-metadata",
+      "start_line": 288
+    },
+    {
+      "block_id": "b000073",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Video editing timeline data",
+      "anchor": "video-editing-timeline-data",
+      "start_line": 351
+    },
+    {
+      "block_id": "b000085",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Layered document, bitmap, vector and video interchange",
+      "anchor": "layered-document-bitmap-vector-and-video-interchange",
+      "start_line": 402
+    },
+    {
+      "block_id": "b000099",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Data access and structural editing",
+      "anchor": "data-access-and-structural-editing",
+      "start_line": 448
+    },
+    {
+      "block_id": "b000115",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Bitmap display and editing",
+      "anchor": "bitmap-display-and-editing",
+      "start_line": 514
+    },
+    {
+      "block_id": "b000129",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Native vector editing",
+      "anchor": "native-vector-editing",
+      "start_line": 572
+    },
+    {
+      "block_id": "b000135",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Mixed frame rendering",
+      "anchor": "mixed-frame-rendering",
+      "start_line": 591
+    },
+    {
+      "block_id": "b000143",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Durable `.iisc` format",
+      "anchor": "durable-iisc-format",
+      "start_line": 630
+    },
+    {
+      "block_id": "b000155",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Dependency",
+      "anchor": "dependency",
+      "start_line": 668
+    },
+    {
+      "block_id": "b000165",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Build and test",
+      "anchor": "build-and-test",
+      "start_line": 719
+    },
+    {
+      "block_id": "b000181",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Four layer/content types (0.28.0)",
+      "anchor": "four-layercontent-types-0280",
+      "start_line": 758
+    },
+    {
+      "block_id": "b000187",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Source layout",
+      "anchor": "source-layout",
+      "start_line": 774
+    },
+    {
+      "block_id": "b000193",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Minimal model usage",
+      "anchor": "minimal-model-usage",
+      "start_line": 823
+    },
+    {
+      "block_id": "b000201",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Documents",
+      "anchor": "documents",
+      "start_line": 910
+    },
+    {
+      "block_id": "b000205",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Editable timeline exchange",
+      "anchor": "editable-timeline-exchange",
+      "start_line": 923
+    },
+    {
+      "block_id": "b000209",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Persisted audio timeline",
+      "anchor": "persisted-audio-timeline",
+      "start_line": 934
+    },
+    {
+      "block_id": "b000213",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "License",
+      "anchor": "license",
+      "start_line": 946
+    },
+    {
+      "block_id": "b000221",
+      "parent_id": "b000213",
+      "level": 3,
+      "title": "SDK installation layout",
+      "anchor": "sdk-installation-layout",
+      "start_line": 955
+    },
+    {
+      "block_id": "b000229",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "File authorship (0.10.0)",
+      "anchor": "file-authorship-0100",
+      "start_line": 981
+    },
+    {
+      "block_id": "b000239",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "File storage ownership",
+      "anchor": "file-storage-ownership",
+      "start_line": 1004
+    },
+    {
+      "block_id": "b000243",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "ControlNet semantic segments (0.13.0)",
+      "anchor": "controlnet-semantic-segments-0130",
+      "start_line": 1008
+    },
+    {
+      "block_id": "b000247",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Full-body, hands and dense facial Pose (0.14.0)",
+      "anchor": "full-body-hands-and-dense-facial-pose-0140",
+      "start_line": 1016
+    },
+    {
+      "block_id": "b000251",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Depth ControlNet (0.15.0)",
+      "anchor": "depth-controlnet-0150",
+      "start_line": 1022
+    },
+    {
+      "block_id": "b000255",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Line Art ControlNet (0.16.0)",
+      "anchor": "line-art-controlnet-0160",
+      "start_line": 1028
+    },
+    {
+      "block_id": "b000259",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Canny and Scribble line controls (0.17.0)",
+      "anchor": "canny-and-scribble-line-controls-0170",
+      "start_line": 1034
+    },
+    {
+      "block_id": "b000263",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "MLSD line-segment control (0.18.0)",
+      "anchor": "mlsd-line-segment-control-0180",
+      "start_line": 1040
+    },
+    {
+      "block_id": "b000267",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Normal-map control (0.19.0)",
+      "anchor": "normal-map-control-0190",
+      "start_line": 1046
+    },
+    {
+      "block_id": "b000271",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Shuffle control (0.20.0)",
+      "anchor": "shuffle-control-0200",
+      "start_line": 1053
+    },
+    {
+      "block_id": "b000275",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Tile control (0.21.0)",
+      "anchor": "tile-control-0210",
+      "start_line": 1060
+    },
+    {
+      "block_id": "b000279",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Reference control (0.22.0)",
+      "anchor": "reference-control-0220",
+      "start_line": 1067
+    },
+    {
+      "block_id": "b000283",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "IP-Adapter image embeddings (0.23.0)",
+      "anchor": "ip-adapter-image-embeddings-0230",
+      "start_line": 1074
+    },
+    {
+      "block_id": "b000287",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Detailed ControlNet parameters (0.24.0)",
+      "anchor": "detailed-controlnet-parameters-0240",
+      "start_line": 1083
+    },
+    {
+      "block_id": "b000293",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Per-frame dynamic content (0.27.1)",
+      "anchor": "per-frame-dynamic-content-0271",
+      "start_line": 1094
+    },
+    {
+      "block_id": "b000297",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Artboards (0.27.0)",
+      "anchor": "artboards-0270",
+      "start_line": 1105
+    },
+    {
+      "block_id": "b000307",
+      "parent_id": "b000297",
+      "level": 3,
+      "title": "Native working-file tiles and agent interface (0.35.0)",
+      "anchor": "native-working-file-tiles-and-agent-interface-0350",
+      "start_line": 1122
+    },
+    {
+      "block_id": "b000312",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Documentation entry points",
+      "anchor": "documentation-entry-points",
+      "start_line": 1127
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000007",
+        "line": 70,
+        "text": "Existing references, frames, motion and audio are never silently discarded.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 80,
+        "text": "transactions, so callers must resolve interruptions and handle errors explicitly.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 108,
+        "text": "staged previews are not written until commit. Callers must explicitly resolve",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000013",
+        "line": 147,
+        "text": "remains 1.22 and stores pixels, never input paths. See [bitmap input](docs/BITMAP_INPUT.md).",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000015",
+        "line": 154,
+        "text": "`Document` by value must rebuild for ABI 0.32.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 175,
+        "text": "writer tests do not depend on an unexported DLL symbol on Windows. Its UTF-8",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 178,
+        "text": "Windows Developer Mode or the symbolic-link privilege is required for these fixtures.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000029",
+        "line": 196,
+        "text": "Consumer applications do not shape this public contract in parallel. A library",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000037",
+        "line": 221,
+        "text": "are never silently converted or overwritten. See [the persistence contract](docs/PERSISTENCE.md).",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000041",
+        "line": 233,
+        "text": "current inputs unchanged, rejects future/corrupt inputs, and never overwrites an",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000041",
+        "line": 237,
+        "text": "the existing storage adapter stays inside the file module. No GUI session is required.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000045",
+        "line": 248,
+        "text": "| Stable Diffusion recipe | Typed generation settings plus exact workflow metadata | Optional document metadata, never render content |",
+        "basis": "lexical_match",
+        "context": "table"
+      },
+      {
+        "block_id": "b000047",
+        "line": 255,
+        "text": "Brush trajectories, dab sequences, and replay commands are never part of the",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000069",
+        "line": 340,
+        "text": "extension value to be valid JSON, and keys to be unique, but it never executes",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000077",
+        "line": 371,
+        "text": "playback rate must exactly relate source duration to sequence duration; an",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000081",
+        "line": 390,
+        "text": "cut, and subtitle image cues must resolve representation attachments.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000091",
+        "line": 415,
+        "text": "separately for reading and writing. They do not promise every profile/subtype",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000091",
+        "line": 418,
+        "text": "updates. Exports never substitute for write-through document editing.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000105",
+        "line": 476,
+        "text": "index and the selected frame. Direct aggregate authors must update the frame",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000109",
+        "line": 499,
+        "text": "owner must call `refresh()` and validate the result.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000111",
+        "line": 503,
+        "text": "it never retains a writable file binding or schedules storage work. Frame, pan",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000111",
+        "line": 508,
+        "text": "returns an empty pointer. Independent worker consumers must capture their frame",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000121",
+        "line": 536,
+        "text": "owner mutates a bound document directly, the UI owner must call `refresh()` on",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000125",
+        "line": 564,
+        "text": "prefetch tiles; they do not advance the document presentation revision.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000141",
+        "line": 625,
+        "text": "smaller than the world region, so a tens-of-thousands-pixel canvas never needs",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000145",
+        "line": 636,
+        "text": "commands and keyframe references remain native data and are never silently",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000161",
+        "line": 707,
+        "text": "syntax validator and never parses into a graph model, re-emits, normalizes, or",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000173",
+        "line": 741,
+        "text": "are header-inline. Windows shared-library consumers therefore do not depend on",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000175",
+        "line": 747,
+        "text": "same minor version. Consumers must rebuild against 0.34 or later to use the new editor",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000197",
+        "line": 864,
+        "text": "item and `SharedCanvas` is the mixed-document item. Product QML must continue",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000203",
+        "line": 921,
+        "text": "- AGENTS.md fixes the engineering rules that future changes must preserve.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000233",
+        "line": 995,
+        "text": "mutable edits must use `DocumentFile::edit`. Loaded profiles never become the",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000235",
+        "line": 1000,
+        "text": "default) so clean builds and installed consumers do not rely on an old Qt cache.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000273",
+        "line": 1058,
+        "text": "deterministic and never reshuffles stored content. See [SHUFFLE.md](docs/SHUFFLE.md).",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [
+      {
+        "block_id": "b000167",
+        "language": "sh",
+        "code": "cmake --fresh --preset dev\ncmake --build --preset dev\nctest --preset dev\n"
+      },
+      {
+        "block_id": "b000171",
+        "language": "sh",
+        "code": "cmake --fresh -S . -B build -DCMAKE_BUILD_TYPE=Debug\ncmake --build build -j4\nctest --test-dir build --output-on-failure -j4\n"
+      },
+      {
+        "block_id": "b000179",
+        "language": "sh",
+        "code": "./install.sh\n"
+      }
+    ],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "Windows build and execution",
+        "target": "docs/WindowsBuildAndRun.md",
+        "kind": "relative",
+        "line": 3
+      },
+      {
+        "block_id": "b000005",
+        "label": "iiGUI frame example",
+        "target": "docs/GUI_FRAME_PRESENTATION.md",
+        "kind": "relative",
+        "line": 10
+      },
+      {
+        "block_id": "b000005",
+        "label": "the canonical SVG adapter",
+        "target": "docs/XML_SVG_IMPORT.md",
+        "kind": "relative",
+        "line": 19
+      },
+      {
+        "block_id": "b000005",
+        "label": "Native",
+        "target": "docs/NATIVE.md",
+        "kind": "relative",
+        "line": 25
+      },
+      {
+        "block_id": "b000005",
+        "label": "Qt migration status",
+        "target": "docs/QT_MIGRATION.md",
+        "kind": "relative",
+        "line": 47
+      },
+      {
+        "block_id": "b000007",
+        "label": "frame overlays",
+        "target": "docs/FRAME_OVERLAY.md",
+        "kind": "relative",
+        "line": 56
+      },
+      {
+        "block_id": "b000007",
+        "label": "document history",
+        "target": "docs/DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 60
+      },
+      {
+        "block_id": "b000007",
+        "label": "document history",
+        "target": "docs/DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 66
+      },
+      {
+        "block_id": "b000007",
+        "label": "document history",
+        "target": "docs/DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 74
+      },
+      {
+        "block_id": "b000007",
+        "label": "document history",
+        "target": "docs/DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 81
+      },
+      {
+        "block_id": "b000007",
+        "label": "document history",
+        "target": "docs/DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 87
+      },
+      {
+        "block_id": "b000007",
+        "label": "document history",
+        "target": "docs/DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 92
+      },
+      {
+        "block_id": "b000007",
+        "label": "layer file edits",
+        "target": "docs/LAYER_FILE_EDITS.md",
+        "kind": "relative",
+        "line": 97
+      },
+      {
+        "block_id": "b000007",
+        "label": "mask region rendering",
+        "target": "docs/MASK_REGIONS.md",
+        "kind": "relative",
+        "line": 102
+      },
+      {
+        "block_id": "b000007",
+        "label": "document history",
+        "target": "docs/DOCUMENT_HISTORY.md",
+        "kind": "relative",
+        "line": 111
+      },
+      {
+        "block_id": "b000007",
+        "label": "bitmap region history",
+        "target": "docs/BITMAP_HISTORY.md",
+        "kind": "relative",
+        "line": 119
+      },
+      {
+        "block_id": "b000007",
+        "label": "file-bound bitmap regions",
+        "target": "docs/BITMAP_FILE_REGIONS.md",
+        "kind": "relative",
+        "line": 122
+      },
+      {
+        "block_id": "b000007",
+        "label": "working-file tiles",
+        "target": "docs/WORKING_FILE_TILES.md",
+        "kind": "relative",
+        "line": 128
+      },
+      {
+        "block_id": "b000007",
+        "label": "layer file edits",
+        "target": "docs/LAYER_FILE_EDITS.md",
+        "kind": "relative",
+        "line": 131
+      },
+      {
+        "block_id": "b000009",
+        "label": "stroke clocks",
+        "target": "docs/BITMAP_CLOCK.md",
+        "kind": "relative",
+        "line": 136
+      },
+      {
+        "block_id": "b000011",
+        "label": "wet brush sampling",
+        "target": "docs/BITMAP_WET_BRUSH.md",
+        "kind": "relative",
+        "line": 141
+      },
+      {
+        "block_id": "b000013",
+        "label": "bitmap input",
+        "target": "docs/BITMAP_INPUT.md",
+        "kind": "relative",
+        "line": 147
+      },
+      {
+        "block_id": "b000015",
+        "label": "Publication metadata",
+        "target": "docs/PUBLICATION_METADATA.md",
+        "kind": "relative",
+        "line": 153
+      },
+      {
+        "block_id": "b000033",
+        "label": "Document previews",
+        "target": "docs/DOCUMENT_PREVIEWS.md",
+        "kind": "relative",
+        "line": 207
+      },
+      {
+        "block_id": "b000037",
+        "label": "the persistence contract",
+        "target": "docs/PERSISTENCE.md",
+        "kind": "relative",
+        "line": 221
+      },
+      {
+        "block_id": "b000041",
+        "label": "IISC_UPGRADE_CLI.md",
+        "target": "docs/IISC_UPGRADE_CLI.md",
+        "kind": "relative",
+        "line": 238
+      },
+      {
+        "block_id": "b000049",
+        "label": "CANVAS_MEDIA.md",
+        "target": "docs/CANVAS_MEDIA.md",
+        "kind": "relative",
+        "line": 261
+      },
+      {
+        "block_id": "b000067",
+        "label": "`parse_generation_parameters`",
+        "target": "https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/infotext_utils.py",
+        "kind": "external",
+        "line": 325
+      },
+      {
+        "block_id": "b000067",
+        "label": "image metadata implementation",
+        "target": "https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/images.py",
+        "kind": "external",
+        "line": 329
+      },
+      {
+        "block_id": "b000093",
+        "label": "MEDIA_IO.md",
+        "target": "docs/MEDIA_IO.md",
+        "kind": "relative",
+        "line": 425
+      },
+      {
+        "block_id": "b000095",
+        "label": "LAYERED_IMPORT_CLI.md",
+        "target": "docs/LAYERED_IMPORT_CLI.md",
+        "kind": "relative",
+        "line": 433
+      },
+      {
+        "block_id": "b000095",
+        "label": "OPENRASTER_IMPORT.md",
+        "target": "docs/OPENRASTER_IMPORT.md",
+        "kind": "relative",
+        "line": 434
+      },
+      {
+        "block_id": "b000095",
+        "label": "PSD_IMPORT.md",
+        "target": "docs/PSD_IMPORT.md",
+        "kind": "relative",
+        "line": 435
+      },
+      {
+        "block_id": "b000097",
+        "label": "PSD_EXPORT.md",
+        "target": "docs/PSD_EXPORT.md",
+        "kind": "relative",
+        "line": 444
+      },
+      {
+        "block_id": "b000097",
+        "label": "PSD_EXPORT_CLI.md",
+        "target": "docs/PSD_EXPORT_CLI.md",
+        "kind": "relative",
+        "line": 445
+      },
+      {
+        "block_id": "b000113",
+        "label": "docs/API.md",
+        "target": "docs/API.md",
+        "kind": "relative",
+        "line": 511
+      },
+      {
+        "block_id": "b000139",
+        "label": "raster sampling",
+        "target": "docs/RASTER_SAMPLING.md",
+        "kind": "relative",
+        "line": 605
+      },
+      {
+        "block_id": "b000157",
+        "label": "the review",
+        "target": "docs/DEPENDENCIES.md",
+        "kind": "relative",
+        "line": 673
+      },
+      {
+        "block_id": "b000157",
+        "label": "DEPENDENCIES.md",
+        "target": "docs/DEPENDENCIES.md",
+        "kind": "relative",
+        "line": 679
+      },
+      {
+        "block_id": "b000159",
+        "label": "Adobe DNG 1.7.1",
+        "target": "https://helpx.adobe.com/camera-raw/desktop/dng-and-file-formats/digital-negative.html",
+        "kind": "external",
+        "line": 687
+      },
+      {
+        "block_id": "b000159",
+        "label": "LibRaw",
+        "target": "https://github.com/LibRaw/LibRaw",
+        "kind": "external",
+        "line": 690
+      },
+      {
+        "block_id": "b000161",
+        "label": "ComfyUI workflow metadata",
+        "target": "https://docs.comfy.org/development/api-development/workflow-metadata",
+        "kind": "external",
+        "line": 696
+      },
+      {
+        "block_id": "b000161",
+        "label": "Workflow API format",
+        "target": "https://docs.comfy.org/development/api-development/workflow-api-format",
+        "kind": "external",
+        "line": 697
+      },
+      {
+        "block_id": "b000161",
+        "label": "metadata-writing implementation",
+        "target": "https://github.com/Comfy-Org/ComfyUI/blob/master/comfy_api/latest/_ui.py",
+        "kind": "external",
+        "line": 699
+      },
+      {
+        "block_id": "b000161",
+        "label": "nlohmann/json 3.12.0",
+        "target": "https://github.com/nlohmann/json",
+        "kind": "external",
+        "line": 703
+      },
+      {
+        "block_id": "b000163",
+        "label": "infotext parser",
+        "target": "https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/infotext_utils.py",
+        "kind": "external",
+        "line": 711
+      },
+      {
+        "block_id": "b000163",
+        "label": "generation writer",
+        "target": "https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/processing.py",
+        "kind": "external",
+        "line": 712
+      },
+      {
+        "block_id": "b000163",
+        "label": "image metadata carriers",
+        "target": "https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/images.py",
+        "kind": "external",
+        "line": 713
+      },
+      {
+        "block_id": "b000163",
+        "label": "checkpoint hash implementation",
+        "target": "https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/sd_models.py",
+        "kind": "external",
+        "line": 714
+      },
+      {
+        "block_id": "b000183",
+        "label": "FOUR_LAYER_TYPES.md",
+        "target": "docs/FOUR_LAYER_TYPES.md",
+        "kind": "relative",
+        "line": 766
+      },
+      {
+        "block_id": "b000199",
+        "label": "ARTBOARD_PRESENTATION.md",
+        "target": "docs/ARTBOARD_PRESENTATION.md",
+        "kind": "relative",
+        "line": 884
+      },
+      {
+        "block_id": "b000207",
+        "label": "the contract",
+        "target": "docs/TIMELINE_INTERCHANGE.md",
+        "kind": "relative",
+        "line": 931
+      },
+      {
+        "block_id": "b000207",
+        "label": "CLI usage",
+        "target": "docs/TIMELINE_INTERCHANGE_CLI.md",
+        "kind": "relative",
+        "line": 932
+      },
+      {
+        "block_id": "b000211",
+        "label": "AUDIO_TIMELINE.md",
+        "target": "docs/AUDIO_TIMELINE.md",
+        "kind": "relative",
+        "line": 944
+      },
+      {
+        "block_id": "b000217",
+        "label": "LICENSE",
+        "target": "LICENSE",
+        "kind": "relative",
+        "line": 950
+      },
+      {
+        "block_id": "b000219",
+        "label": "NOTICE.md",
+        "target": "NOTICE.md",
+        "kind": "relative",
+        "line": 953
+      },
+      {
+        "block_id": "b000219",
+        "label": "dependency review",
+        "target": "docs/DEPENDENCIES.md",
+        "kind": "relative",
+        "line": 953
+      },
+      {
+        "block_id": "b000245",
+        "label": "the complete object and persistence contract",
+        "target": "docs/SEMANTIC_SEGMENT.md",
+        "kind": "relative",
+        "line": 1014
+      },
+      {
+        "block_id": "b000249",
+        "label": "the pose contract",
+        "target": "docs/POSE.md",
+        "kind": "relative",
+        "line": 1020
+      },
+      {
+        "block_id": "b000253",
+        "label": "DEPTH.md",
+        "target": "docs/DEPTH.md",
+        "kind": "relative",
+        "line": 1026
+      },
+      {
+        "block_id": "b000257",
+        "label": "LINE_ART.md",
+        "target": "docs/LINE_ART.md",
+        "kind": "relative",
+        "line": 1032
+      },
+      {
+        "block_id": "b000261",
+        "label": "BINARY_LINE_CONTROL.md",
+        "target": "docs/BINARY_LINE_CONTROL.md",
+        "kind": "relative",
+        "line": 1038
+      },
+      {
+        "block_id": "b000265",
+        "label": "MLSD.md",
+        "target": "docs/MLSD.md",
+        "kind": "relative",
+        "line": 1044
+      },
+      {
+        "block_id": "b000269",
+        "label": "NORMAL_MAP.md",
+        "target": "docs/NORMAL_MAP.md",
+        "kind": "relative",
+        "line": 1051
+      },
+      {
+        "block_id": "b000273",
+        "label": "SHUFFLE.md",
+        "target": "docs/SHUFFLE.md",
+        "kind": "relative",
+        "line": 1058
+      },
+      {
+        "block_id": "b000277",
+        "label": "TILE.md",
+        "target": "docs/TILE.md",
+        "kind": "relative",
+        "line": 1065
+      },
+      {
+        "block_id": "b000281",
+        "label": "REFERENCE.md",
+        "target": "docs/REFERENCE.md",
+        "kind": "relative",
+        "line": 1072
+      },
+      {
+        "block_id": "b000285",
+        "label": "IP_ADAPTER.md",
+        "target": "docs/IP_ADAPTER.md",
+        "kind": "relative",
+        "line": 1081
+      },
+      {
+        "block_id": "b000289",
+        "label": "CONTROLNET_PARAMETERS.md",
+        "target": "docs/CONTROLNET_PARAMETERS.md",
+        "kind": "relative",
+        "line": 1090
+      },
+      {
+        "block_id": "b000291",
+        "label": "BITMAP_PROCESSING.md",
+        "target": "docs/BITMAP_PROCESSING.md",
+        "kind": "relative",
+        "line": 1092
+      },
+      {
+        "block_id": "b000295",
+        "label": "DYNAMIC_FRAME_CONTENT.md",
+        "target": "docs/DYNAMIC_FRAME_CONTENT.md",
+        "kind": "relative",
+        "line": 1102
+      },
+      {
+        "block_id": "b000299",
+        "label": "ARTBOARDS.md",
+        "target": "docs/ARTBOARDS.md",
+        "kind": "relative",
+        "line": 1112
+      },
+      {
+        "block_id": "b000301",
+        "label": "FOUR_LAYER_TYPES.md",
+        "target": "docs/FOUR_LAYER_TYPES.md",
+        "kind": "relative",
+        "line": 1116
+      },
+      {
+        "block_id": "b000303",
+        "label": "Layer compositing",
+        "target": "docs/LAYER_COMPOSITING.md",
+        "kind": "relative",
+        "line": 1118
+      },
+      {
+        "block_id": "b000303",
+        "label": "the evidence comparison",
+        "target": "docs/PHOTOSHOP_LAYER_COMPARISON.md",
+        "kind": "relative",
+        "line": 1118
+      },
+      {
+        "block_id": "b000309",
+        "label": "the storage contract",
+        "target": "docs/WORKING_FILE_TILES.md",
+        "kind": "relative",
+        "line": 1124
+      },
+      {
+        "block_id": "b000314",
+        "label": "AGENT.md",
+        "target": "AGENT.md",
+        "kind": "relative",
+        "line": 1130
+      },
+      {
+        "block_id": "b000314",
+        "label": "documentation index",
+        "target": "docs/README.md",
+        "kind": "relative",
+        "line": 1131
+      },
+      {
+        "block_id": "b000314",
+        "label": "agent index",
+        "target": "docs/agent-index.json",
+        "kind": "relative",
+        "line": 1132
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000045",
+        "columns": [
+          "Authoring input",
+          "Stored render content",
+          "Initial behavior"
+        ],
+        "rows": [
+          [
+            "Bitmap image",
+            "iiPaintEngine RasterLayer",
+            "Static layer"
+          ],
+          [
+            "iiPaintEngine brush",
+            "Committed ARGB pixels",
+            "Static or keyframed raster asset"
+          ],
+          [
+            "Infinite raster paint",
+            "Committed ARGB pixels in touched world chunks",
+            "Static sparse raster layer"
+          ],
+          [
+            "Decoded Camera RAW",
+            "Unsigned sensor samples plus calibration and capture metadata",
+            "Import-side aggregate, not a document layer"
+          ],
+          [
+            "Stable Diffusion recipe",
+            "Typed generation settings plus exact workflow metadata",
+            "Optional document metadata, never render content"
+          ],
+          [
+            "Vector path",
+            "M/L/Q/C/Z path commands with solid fill or stroke",
+            "Static layer"
+          ],
+          [
+            "Raster keyframes",
+            "Frame-owned raster asset references",
+            "Integer-frame hold sampling"
+          ],
+          [
+            "Vector keyframes",
+            "Frame-owned vector asset references",
+            "Integer-frame hold sampling"
+          ],
+          [
+            "Video",
+            "`VideoAsset` owning constant-rate ARGB frames",
+            "Typed `VideoLayer`, rational timing and source trim"
+          ],
+          [
+            "Motion graphics",
+            "Layer-local transform/opacity keys over any visual layer",
+            "Hold, linear or smooth interpolation"
+          ]
+        ]
+      },
+      {
+        "block_id": "b000089",
+        "columns": [
+          "Content",
+          "Import",
+          "Export"
+        ],
+        "rows": [
+          [
+            "Layered document",
+            "OpenRaster PNG layers; PSD v1 8-bit RGB pixel layers, with names, order, visibility, opacity, offsets and supported blending",
+            "PSD at frame zero; vectors as embedded PDF Smart Objects, bitmaps as pixel layers; native `.iisc` through `DocumentFile::create` or `encodeIisc`"
+          ],
+          [
+            "Bitmap",
+            "Qt readers: PNG, JPEG, BMP, TIFF, WebP, HEIC, JP2, icons and portable bitmaps; optional extended TGA/QOI/EXR/DPX/HDR/PCX/SGI, PSD composite and DDS",
+            "Available Qt writers plus extended TGA/QOI/EXR/DPX/HDR/PCX/SGI; alpha matte and PNG text controls"
+          ],
+          [
+            "Editable vector",
+            "Solid SVG/SVGZ paths, shapes, transforms, linear/quadratic/cubic segments and arc conversion",
+            "Native SVG/SVGZ; PDF with vector paths and separate bitmap drawing"
+          ],
+          [
+            "Rasterized vector",
+            "Explicit SVG/PDF page rasterization through an installed Qt plugin",
+            "Bitmap/frame output at the canvas extent"
+          ],
+          [
+            "Canvas animation",
+            "FFmpeg local video/animation to a bitmap layer with frame-owned keys",
+            "FFV1/Matroska, MP4/H.264 or HEVC, WebM/VP9, MOV/ProRes or Animation, AVI, GIF, APNG and other supported container/encoder combinations"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

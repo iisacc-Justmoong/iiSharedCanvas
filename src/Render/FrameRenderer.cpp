@@ -15,8 +15,11 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <limits>
+#include <map>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <unordered_set>
 #include <vector>
@@ -59,6 +62,88 @@ std::size_t pixelIndex(int width, int x, int y) noexcept
     return static_cast<std::size_t>(y) * static_cast<std::size_t>(width)
         + static_cast<std::size_t>(x);
 }
+
+constexpr std::int64_t OverlayTileSide = BitmapPreviewTileSide;
+struct OverlayCoordinate {
+    std::int64_t column = 0, row = 0;
+    friend bool operator==(const OverlayCoordinate &, const OverlayCoordinate &) = default;
+};
+struct OverlayCoordinateHash {
+    std::size_t operator()(OverlayCoordinate key) const noexcept {
+        const auto x = std::hash<std::int64_t>{}(key.column);
+        const auto y = std::hash<std::int64_t>{}(key.row);
+        return x ^ (y + std::size_t(0x9e3779b9U) + (x << 6) + (x >> 2));
+    }
+};
+std::int64_t floorDivide(std::int64_t value, std::int64_t divisor) noexcept {
+    const auto quotient = value / divisor;
+    return quotient - (value % divisor < 0 ? 1 : 0);
+}
+struct OverlayAsset {
+    std::unordered_map<OverlayCoordinate, std::span<const std::uint32_t>, OverlayCoordinateHash> tiles;
+    [[nodiscard]] std::optional<std::uint32_t> pixel(std::int64_t x, std::int64_t y) const noexcept {
+        const OverlayCoordinate key{floorDivide(x, OverlayTileSide), floorDivide(y, OverlayTileSide)};
+        const auto found = tiles.find(key);
+        if (found == tiles.end()) return std::nullopt;
+        const auto localX = x - key.column * OverlayTileSide;
+        const auto localY = y - key.row * OverlayTileSide;
+        return found->second[std::size_t(localY * OverlayTileSide + localX)];
+    }
+    void apply(RasterLayer &raster) const {
+        for (const auto &[key, pixels] : tiles) {
+            const auto originX = key.column * OverlayTileSide, originY = key.row * OverlayTileSide;
+            const auto left = std::max<std::int64_t>(0, originX);
+            const auto top = std::max<std::int64_t>(0, originY);
+            const auto right = std::min<std::int64_t>(raster.width, originX + OverlayTileSide);
+            const auto bottom = std::min<std::int64_t>(raster.height, originY + OverlayTileSide);
+            if (right <= left || bottom <= top) continue;
+            for (auto y = top; y < bottom; ++y)
+                std::copy_n(pixels.begin() + std::size_t((y - originY) * OverlayTileSide + left - originX),
+                            std::size_t(right - left),
+                            raster.pixels.begin() + std::size_t(y * raster.width + left));
+        }
+    }
+};
+struct PreparedOverlays {
+    std::unordered_map<const Asset *, OverlayAsset> assets;
+    bool prepare(const Document &document, std::span<const FrameBitmapOverlay> overlays) {
+        for (const auto &overlay : overlays) {
+            const auto asset = std::find_if(document.assets.begin(), document.assets.end(),
+                [&](const Asset &entry) { return assetId(entry) == overlay.assetId; });
+            if (asset == document.assets.end() ||
+                (!std::holds_alternative<RasterAsset>(*asset) && !std::holds_alternative<ChunkedRasterAsset>(*asset)))
+                return false;
+            auto [entry, inserted] = assets.try_emplace(&*asset);
+            if (!inserted) return false;
+            for (const auto &tile : overlay.tiles) {
+                if (tile.bounds.width != OverlayTileSide || tile.bounds.height != OverlayTileSide ||
+                    tile.bounds.origin.x % OverlayTileSide != 0 || tile.bounds.origin.y % OverlayTileSide != 0 ||
+                    tile.pixels.size() != std::size_t(OverlayTileSide * OverlayTileSide)) return false;
+                const OverlayCoordinate key{tile.bounds.origin.x / OverlayTileSide,
+                                            tile.bounds.origin.y / OverlayTileSide};
+                if (!entry->second.tiles.emplace(key, tile.pixels).second) return false;
+            }
+        }
+        return true;
+    }
+    [[nodiscard]] const OverlayAsset *get(const Asset *asset) const noexcept {
+        const auto found = assets.find(asset);
+        return found == assets.end() ? nullptr : &found->second;
+    }
+};
+struct RasterSource {
+    const RasterLayer *base = nullptr;
+    int width = 0, height = 0;
+    const OverlayAsset *overlay = nullptr;
+    std::int64_t originX = 0, originY = 0;
+    [[nodiscard]] std::uint32_t pixel(int x, int y) const noexcept {
+        if (overlay) {
+            const auto replacement = overlay->pixel(originX + x, originY + y);
+            if (replacement) return *replacement;
+        }
+        return base ? base->pixels[pixelIndex(width, x, y)] : 0;
+    }
+};
 
 double squaredDistance(Point first, Point second) noexcept
 {
@@ -384,7 +469,8 @@ Bounds transformBounds(Bounds source,
 RasterLayer rasterizeVector(const VectorAsset &asset,
                             const AffineTransform &transform,
                             int outputWidth,
-                            int outputHeight)
+                            int outputHeight,
+                            bool opaqueMask = false)
 {
     RasterLayer result = makeRasterLayer(outputWidth, outputHeight, 0x00000000U);
     const double determinant = transform.m11 * transform.m22
@@ -399,7 +485,7 @@ RasterLayer rasterizeVector(const VectorAsset &asset,
         if (path.fill) {
             paintCoverage(result,
                           transformBounds(sourceBounds, transform),
-                          path.fill->argb,
+                          opaqueMask ? 0xffffffffU : path.fill->argb,
                           [&](Point point) {
                               return insideEvenOddFill(
                                   contours, inverseTransformPoint(transform, point));
@@ -414,7 +500,7 @@ RasterLayer rasterizeVector(const VectorAsset &asset,
             strokeBounds.bottom += radius;
             paintCoverage(result,
                           transformBounds(strokeBounds, transform),
-                          path.stroke->paint.argb,
+                          opaqueMask ? 0xffffffffU : path.stroke->paint.argb,
                           [&](Point point) {
                               return insideStroke(
                                   contours,
@@ -447,7 +533,7 @@ struct FilteredPixel {
     }
 };
 
-std::uint32_t bilinearPixel(const RasterLayer &source, double x, double y) noexcept
+std::uint32_t bilinearPixel(const RasterSource &source, double x, double y) noexcept
 {
     if (x < 0.0 || y < 0.0 || x >= source.width || y >= source.height) return 0;
     x = std::clamp(x - 0.5, 0.0, static_cast<double>(source.width - 1));
@@ -456,14 +542,14 @@ std::uint32_t bilinearPixel(const RasterLayer &source, double x, double y) noexc
     const int right = std::min(left + 1, source.width - 1), bottom = std::min(top + 1, source.height - 1);
     const double dx = x - left, dy = y - top;
     FilteredPixel pixel;
-    pixel.add(source.pixels[pixelIndex(source.width, left, top)], (1 - dx) * (1 - dy));
-    pixel.add(source.pixels[pixelIndex(source.width, right, top)], dx * (1 - dy));
-    pixel.add(source.pixels[pixelIndex(source.width, left, bottom)], (1 - dx) * dy);
-    pixel.add(source.pixels[pixelIndex(source.width, right, bottom)], dx * dy);
+    pixel.add(source.pixel(left, top), (1 - dx) * (1 - dy));
+    pixel.add(source.pixel(right, top), dx * (1 - dy));
+    pixel.add(source.pixel(left, bottom), (1 - dx) * dy);
+    pixel.add(source.pixel(right, bottom), dx * dy);
     return pixel.argb();
 }
 
-std::uint32_t areaPixel(const RasterLayer &source, double x, double y, double width, double height) noexcept
+std::uint32_t areaPixel(const RasterSource &source, double x, double y, double width, double height) noexcept
 {
     const double left = x - width * 0.5, right = x + width * 0.5;
     const double top = y - height * 0.5, bottom = y + height * 0.5;
@@ -472,13 +558,13 @@ std::uint32_t areaPixel(const RasterLayer &source, double x, double y, double wi
         const double wy = std::max(0.0, std::min(bottom, row + 1.0) - std::max(top, double(row)));
         for (int column = floorToExtent(left, source.width); column < ceilToExtent(right, source.width); ++column) {
             const double wx = std::max(0.0, std::min(right, column + 1.0) - std::max(left, double(column)));
-            pixel.add(source.pixels[pixelIndex(source.width, column, row)], wx * wy);
+            pixel.add(source.pixel(column, row), wx * wy);
         }
     }
     return pixel.argb(width * height);
 }
 
-RasterLayer transformedRaster(const RasterLayer &source,
+RasterLayer transformedRaster(const RasterSource &source,
                               const AffineTransform &transform,
                               int outputWidth,
                               int outputHeight,
@@ -547,13 +633,13 @@ RasterLayer transformedRaster(const RasterLayer &source,
             const int nearestX = static_cast<int>(std::floor(sourceX));
             const int nearestY = static_cast<int>(std::floor(sourceY));
             result.pixels[pixelIndex(outputWidth, x, y)] =
-                source.pixels[pixelIndex(source.width, nearestX, nearestY)];
+                source.pixel(nearestX, nearestY);
         }
     }
     return result;
 }
 
-Bounds transformedBounds(const RasterLayer &source,
+Bounds transformedBounds(const RasterSource &source,
                          const AffineTransform &transform) noexcept
 {
     const std::array<DocumentPoint, 4> corners{
@@ -570,7 +656,7 @@ Bounds transformedBounds(const RasterLayer &source,
     return bounds;
 }
 
-bool intersectsOutput(const RasterLayer &source,
+bool intersectsOutput(const RasterSource &source,
                       const AffineTransform &transform,
                       int outputWidth,
                       int outputHeight) noexcept
@@ -663,13 +749,137 @@ void clipToArtboard(RasterLayer &pixels, CanvasRegion clip, const FrameRenderTil
     }
 }
 
-struct PreparedMask {
+constexpr int MaskTileSide = 64;
+constexpr std::size_t MaskTileCacheCapacity = 32;
+
+struct PreparedMask;
+struct MaskTile {
+    std::size_t maskId = 0;
+    std::int64_t column = 0, row = 0;
+    int width = 0, height = 0;
+    std::uint64_t lastUse = 0;
     std::vector<double> coverage;
-    int width = 0, height = 0, padding = 0;
+};
+struct MaskTileCache {
+    std::vector<MaskTile> tiles;
+    std::uint64_t clock = 0;
+    double sample(const PreparedMask &mask, std::int64_t x, std::int64_t y);
+};
+struct PreparedMask {
+    const RasterLayer *raster = nullptr;
+    const VectorAsset *vector = nullptr;
+    const OverlayAsset *overlay = nullptr;
+    MaskTileCache *cache = nullptr;
+    std::size_t cacheId = 0;
+    int contentWidth = 0, contentHeight = 0, padding = 0;
+    std::int64_t width = 0, height = 0;
+    MaskChannel channel = MaskChannel::Luminance;
+    std::vector<double> kernel;
     double outside = 1, density = 1;
     bool inverted = false;
     AffineTransform transform;
 };
+
+std::uint32_t maskRasterPixel(const PreparedMask &mask, int x, int y) noexcept {
+    if (mask.overlay) {
+        const auto replacement = mask.overlay->pixel(x, y);
+        if (replacement) return *replacement;
+    }
+    return mask.raster->pixels[pixelIndex(mask.raster->width, x, y)];
+}
+
+double coverageOfPixel(std::uint32_t pixel, MaskChannel channel) noexcept
+{
+    double value = double(pixel >> 24) / 255;
+    if (channel == MaskChannel::Luminance)
+        value *= (0.2126 * ((pixel >> 16) & 255) + 0.7152 * ((pixel >> 8) & 255)
+                  + 0.0722 * (pixel & 255)) / 255;
+    return value;
+}
+
+// Build exactly the native-space samples needed by one mask tile. The
+// intermediate rows include the Gaussian halo, and samples beyond the old
+// padded domain remain the explicit outside coverage at both passes.
+MaskTile buildMaskTile(const PreparedMask &p, std::int64_t column, std::int64_t row)
+{
+    const std::int64_t left=column*MaskTileSide, top=row*MaskTileSide;
+    const int width=static_cast<int>(std::min<std::int64_t>(MaskTileSide,p.width-left));
+    const int height=static_cast<int>(std::min<std::int64_t>(MaskTileSide,p.height-top));
+    MaskTile tile; tile.maskId=p.cacheId; tile.column=column; tile.row=row;
+    tile.width=width; tile.height=height;
+    tile.coverage.resize(std::size_t(width)*height);
+
+    // A vector mask is rasterized only over this tile's contributing source
+    // rectangle. Integer translation preserves the original 4x4 coverage grid.
+    const auto sourceLeft=std::clamp<std::int64_t>(left-2LL*p.padding,0,p.contentWidth);
+    const auto sourceTop=std::clamp<std::int64_t>(top-2LL*p.padding,0,p.contentHeight);
+    const auto sourceRight=std::clamp<std::int64_t>(left+width,0,p.contentWidth);
+    const auto sourceBottom=std::clamp<std::int64_t>(top+height,0,p.contentHeight);
+    RasterLayer vectorPixels;
+    if (p.vector && sourceRight>sourceLeft && sourceBottom>sourceTop) {
+        AffineTransform translate;
+        translate.translationX=-static_cast<double>(sourceLeft);
+        translate.translationY=-static_cast<double>(sourceTop);
+        vectorPixels=rasterizeVector(*p.vector,translate,static_cast<int>(sourceRight-sourceLeft),
+                                     static_cast<int>(sourceBottom-sourceTop),true);
+    }
+    const auto source=[&](std::int64_t x,std::int64_t y) {
+        x-=p.padding; y-=p.padding;
+        if (x<0 || y<0 || x>=p.contentWidth || y>=p.contentHeight) return p.outside;
+        if (p.raster)
+            return coverageOfPixel(maskRasterPixel(p,static_cast<int>(x),static_cast<int>(y)),p.channel);
+        return coverageOfPixel(vectorPixels.pixels[pixelIndex(vectorPixels.width,static_cast<int>(x-sourceLeft),static_cast<int>(y-sourceTop))],p.channel);
+    };
+    if (!p.padding) {
+        for (int y=0;y<height;++y) for (int x=0;x<width;++x)
+            tile.coverage[pixelIndex(width,x,y)]=source(left+x,top+y);
+        return tile;
+    }
+    const auto firstRow=std::max<std::int64_t>(0,top-p.padding);
+    const auto afterRow=std::min<std::int64_t>(p.height,top+height+p.padding);
+    std::vector<double> horizontal(std::size_t(width)*std::size_t(afterRow-firstRow));
+    for (auto y=firstRow;y<afterRow;++y) for (int x=0;x<width;++x) {
+        double value=0;
+        for (int i=-p.padding;i<=p.padding;++i) {
+            const auto sx=left+x+i;
+            value+=p.kernel[std::size_t(i+p.padding)]*(sx<0 || sx>=p.width?p.outside:source(sx,y));
+        }
+        horizontal[std::size_t(y-firstRow)*width+x]=value;
+    }
+    for (int y=0;y<height;++y) for (int x=0;x<width;++x) {
+        double value=0;
+        for (int i=-p.padding;i<=p.padding;++i) {
+            const auto sy=top+y+i;
+            value+=p.kernel[std::size_t(i+p.padding)]*(sy<0 || sy>=p.height?p.outside:
+                horizontal[std::size_t(sy-firstRow)*width+x]);
+        }
+        tile.coverage[pixelIndex(width,x,y)]=value;
+    }
+    return tile;
+}
+
+double MaskTileCache::sample(const PreparedMask &mask, std::int64_t x, std::int64_t y)
+{
+    const auto column=x/MaskTileSide, row=y/MaskTileSide;
+    auto entry=std::find_if(tiles.begin(),tiles.end(),[&](const MaskTile &t) {
+        return t.maskId==mask.cacheId && t.column==column && t.row==row;
+    });
+    if (entry==tiles.end()) {
+        auto next=buildMaskTile(mask,column,row);
+        if (tiles.size()<MaskTileCacheCapacity) {
+            tiles.push_back(std::move(next)); entry=std::prev(tiles.end());
+        } else {
+            entry=std::min_element(tiles.begin(),tiles.end(),[](const MaskTile &a,const MaskTile &b) {
+                return a.lastUse<b.lastUse;
+            });
+            *entry=std::move(next);
+        }
+    }
+    if (++clock==0) { for (auto &tile:tiles) tile.lastUse=0; ++clock; }
+    entry->lastUse=clock;
+    return entry->coverage[pixelIndex(entry->width,static_cast<int>(x-column*MaskTileSide),
+                                      static_cast<int>(y-row*MaskTileSide))];
+}
 
 AffineTransform concatenate(AffineTransform a, AffineTransform b)
 {
@@ -680,7 +890,9 @@ AffineTransform concatenate(AffineTransform a, AffineTransform b)
 }
 
 std::optional<PreparedMask> prepareMask(const Document &document, const std::optional<LayerMask> &mask,
-                                      const LayerProperties &properties, const LayerSample &sampled)
+                                      const LayerProperties &properties, const LayerSample &sampled,
+                                      MaskTileCache &cache, std::size_t cacheId,
+                                      const PreparedOverlays *overlays)
 {
     if (!mask || !mask->enabled) return std::nullopt;
     PreparedMask p;
@@ -691,46 +903,24 @@ std::optional<PreparedMask> prepareMask(const Document &document, const std::opt
         p.transform.translationX += origin.x; p.transform.translationY += origin.y;
     }
     const auto *asset = findAsset(document, mask->assetId);
-    RasterLayer raster;
-    if (const auto *bitmap = std::get_if<RasterAsset>(asset)) raster = bitmap->pixels;
-    else {
-        auto vector = std::get<VectorAsset>(*asset);
-        for (auto &path : vector.paths) {
-            if (path.fill) path.fill->argb = 0xffffffff;
-            if (path.stroke) path.stroke->paint.argb = 0xffffffff;
-        }
-        raster = rasterizeVector(vector, {}, vector.viewport.width, vector.viewport.height);
+    if (const auto *bitmap = std::get_if<RasterAsset>(asset)) {
+        p.raster=&bitmap->pixels; p.contentWidth=p.raster->width; p.contentHeight=p.raster->height;
+        p.overlay=overlays ? overlays->get(asset) : nullptr;
+    } else {
+        p.vector=&std::get<VectorAsset>(*asset);
+        p.contentWidth=p.vector->viewport.width; p.contentHeight=p.vector->viewport.height;
     }
+    p.cache=&cache; p.cacheId=cacheId; p.channel=mask->channel;
     p.padding = static_cast<int>(std::ceil(mask->featherRadius * 3));
-    p.width = raster.width + 2*p.padding; p.height = raster.height + 2*p.padding;
-    p.coverage.assign(std::size_t(p.width)*p.height, p.outside);
-    for (int y = 0; y < raster.height; ++y) for (int x = 0; x < raster.width; ++x) {
-        const auto pixel = raster.pixels[pixelIndex(raster.width,x,y)];
-        double value = double(pixel >> 24) / 255;
-        if (mask->channel == MaskChannel::Luminance)
-            value *= (0.2126 * ((pixel >> 16) & 255) + 0.7152 * ((pixel >> 8) & 255) + 0.0722 * (pixel & 255)) / 255;
-        p.coverage[pixelIndex(p.width,x+p.padding,y+p.padding)] = value;
-    }
+    p.width = std::int64_t(p.contentWidth)+2LL*p.padding;
+    p.height = std::int64_t(p.contentHeight)+2LL*p.padding;
     if (mask->featherRadius > 0) {
-        std::vector<double> kernel(std::size_t(2*p.padding+1)); double total = 0;
+        p.kernel.resize(std::size_t(2*p.padding+1)); double total = 0;
         for (int i = -p.padding; i <= p.padding; ++i) {
             const auto weight = std::exp(-0.5 * (double(i)/mask->featherRadius) * (double(i)/mask->featherRadius));
-            kernel[std::size_t(i+p.padding)] = weight; total += weight;
+            p.kernel[std::size_t(i+p.padding)] = weight; total += weight;
         }
-        for (auto &weight : kernel) weight /= total;
-        for (int axis = 0; axis < 2; ++axis) {
-            auto output = p.coverage;
-            for (int y = 0; y < p.height; ++y) for (int x = 0; x < p.width; ++x) {
-                double value = 0;
-                for (int i = -p.padding; i <= p.padding; ++i) {
-                    const int sx = x + (axis == 0 ? i : 0), sy = y + (axis == 1 ? i : 0);
-                    value += kernel[std::size_t(i+p.padding)] * (sx < 0 || sx >= p.width || sy < 0 || sy >= p.height
-                        ? p.outside : p.coverage[pixelIndex(p.width,sx,sy)]);
-                }
-                output[pixelIndex(p.width,x,y)] = value;
-            }
-            p.coverage = std::move(output);
-        }
+        for (auto &weight : p.kernel) weight /= total;
     }
     return p;
 }
@@ -746,9 +936,13 @@ double maskSample(const PreparedMask &p, double wx, double wy, RasterSampling sa
         const double sy = (t.m11*dy-t.m12*dx)/determinant + p.padding;
         const auto at = [&](double x, double y) {
             if (!std::isfinite(x) || !std::isfinite(y) || x < 0 || y < 0 || x >= p.width || y >= p.height) return p.outside;
-            return p.coverage[pixelIndex(p.width,static_cast<int>(x),static_cast<int>(y))];
+            const auto ix=static_cast<std::int64_t>(x), iy=static_cast<std::int64_t>(y);
+            if (p.raster && !p.padding)
+                return coverageOfPixel(maskRasterPixel(p,static_cast<int>(ix),static_cast<int>(iy)),p.channel);
+            return p.cache->sample(p,ix,iy);
         };
-        if (sampling == RasterSampling::Nearest) value = at(std::floor(sx), std::floor(sy));
+        if (!std::isfinite(sx) || !std::isfinite(sy)) value=p.outside;
+        else if (sampling == RasterSampling::Nearest) value = at(std::floor(sx), std::floor(sy));
         else {
             const double x = std::floor(sx-0.5), y = std::floor(sy-0.5);
             const double fx = sx-0.5-x, fy = sy-0.5-y;
@@ -799,9 +993,13 @@ FrameRenderResult renderLayerRegion(const Document &document,
                                     CanvasRegion region,
                                     CanvasExtent outputExtent,
                                     const RasterLayer *videoFrame,
-                                    RasterSampling sampling)
+                                    RasterSampling sampling,
+                                    const OverlayAsset *overlay)
 {
     ::LayerStack layerPieces;
+    const bool streamChunks = overlay && !videoFrame && std::holds_alternative<ChunkedRasterAsset>(asset);
+    RasterLayer streamed;
+    if (streamChunks) streamed = makeRasterLayer(outputExtent.width, outputExtent.height, 0x00000000U);
 
     const double scaleX = static_cast<double>(outputExtent.width)
         / static_cast<double>(region.extent.width);
@@ -819,6 +1017,18 @@ FrameRenderResult renderLayerRegion(const Document &document,
         return transform;
     };
     const auto appendOutputPiece = [&](RasterLayer pixels) {
+        if (streamChunks) {
+            // All pieces are visible SourceOver layers at unit opacity.
+            // Compose them in the same canonical chunk order without keeping
+            // one output-sized surface alive for every visible chunk.
+            for (int y = 0; y < outputExtent.height; ++y) for (int x = 0; x < outputExtent.width; ++x) {
+                const auto index = pixelIndex(outputExtent.width, x, y);
+                streamed.pixels[index] = compositeRasterPixel(pixels.pixels[index], streamed.pixels[index],
+                    RasterBlendMode::SourceOver, 1.0,
+                    static_cast<std::uint32_t>(x) * 0x9e3779b9U ^ static_cast<std::uint32_t>(y));
+            }
+            return;
+        }
         ::Layer engineLayer;
         engineLayer.surface = drawingSurfaceFromRasterLayer(std::move(pixels));
         engineLayer.metadata.visible = true;
@@ -826,8 +1036,7 @@ FrameRenderResult renderLayerRegion(const Document &document,
         engineLayer.metadata.blendMode = RasterBlendMode::SourceOver;
         layerPieces.layers.push_back(std::move(engineLayer));
     };
-    const auto appendRasterLayer = [&](const RasterLayer &source,
-                                       AffineTransform transform) {
+    const auto appendSource = [&](const RasterSource &source, AffineTransform transform) {
         transform = outputTransform(transform);
         if (!intersectsOutput(source, transform,
                               outputExtent.width, outputExtent.height)) {
@@ -838,11 +1047,16 @@ FrameRenderResult renderLayerRegion(const Document &document,
                                             outputExtent.width,
                                             outputExtent.height, sampling));
     };
+    const auto appendRasterLayer = [&](const RasterLayer &source, AffineTransform transform,
+                                       const OverlayAsset *replacement = nullptr,
+                                       std::int64_t originX = 0, std::int64_t originY = 0) {
+        appendSource({&source, source.width, source.height, replacement, originX, originY}, transform);
+    };
 
     if (videoFrame) {
         appendRasterLayer(*videoFrame, properties.transform);
     } else if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
-        appendRasterLayer(raster->pixels, properties.transform);
+        appendRasterLayer(raster->pixels, properties.transform, overlay);
     } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
         appendOutputPiece(rasterizeVector(mlsdVectorPreview(*mlsd), outputTransform(properties.transform),
             outputExtent.width, outputExtent.height));
@@ -873,19 +1087,43 @@ FrameRenderResult renderLayerRegion(const Document &document,
     } else {
         const auto &chunked = std::get<ChunkedRasterAsset>(asset);
         const std::int32_t chunkSize = document.infiniteCanvas.chunkSize;
-        for (const RasterChunk &chunk : chunked.chunks) {
-            const double chunkX = static_cast<double>(chunk.column) * chunkSize;
-            const double chunkY = static_cast<double>(chunk.row) * chunkSize;
+        const auto appendChunk = [&](const RasterChunk *chunk, std::int64_t column, std::int64_t row) {
+            const auto originX = column * chunkSize, originY = row * chunkSize;
+            const double chunkX = static_cast<double>(originX);
+            const double chunkY = static_cast<double>(originY);
             AffineTransform transform = properties.transform;
             transform.translationX += transform.m11 * chunkX + transform.m21 * chunkY;
             transform.translationY += transform.m12 * chunkX + transform.m22 * chunkY;
-            appendRasterLayer(chunk.pixels, transform);
+            appendSource({chunk ? &chunk->pixels : nullptr, chunkSize, chunkSize,
+                          overlay, originX, originY}, transform);
+        };
+        if (!overlay) {
+            for (const RasterChunk &chunk : chunked.chunks)
+                appendChunk(&chunk, chunk.column, chunk.row);
+        } else {
+            // The persisted chunk order is row-major. Merge preview-only
+            // chunks in that order so smooth transformed composition matches
+            // the committed document, without allocating a blank chunk image.
+            std::map<std::pair<std::int64_t, std::int64_t>, const RasterChunk *> chunks;
+            for (const RasterChunk &chunk : chunked.chunks)
+                chunks.emplace(std::pair{std::int64_t(chunk.row), std::int64_t(chunk.column)}, &chunk);
+            for (const auto &[key, pixels] : overlay->tiles) {
+                (void)pixels;
+                const auto x = key.column * OverlayTileSide, y = key.row * OverlayTileSide;
+                const auto firstColumn = floorDivide(x, chunkSize), lastColumn = floorDivide(x + OverlayTileSide - 1, chunkSize);
+                const auto firstRow = floorDivide(y, chunkSize), lastRow = floorDivide(y + OverlayTileSide - 1, chunkSize);
+                for (auto row = firstRow; row <= lastRow; ++row)
+                    for (auto column = firstColumn; column <= lastColumn; ++column)
+                        chunks.try_emplace(std::pair{row, column}, nullptr);
+            }
+            for (const auto &[key, chunk] : chunks)
+                appendChunk(chunk, key.second, key.first);
         }
     }
 
     FrameRenderResult result;
     result.origin = region.origin;
-    result.pixels = compositeLayerStack(layerPieces,
+    result.pixels = streamChunks ? std::move(streamed) : compositeLayerStack(layerPieces,
                                         outputExtent.width,
                                         outputExtent.height,
                                         0x00000000U);
@@ -896,7 +1134,8 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
     const Document &document,
     FrameIndex frame,
     std::size_t layerIndex,
-    const std::vector<FrameRenderTileRequest> &requests)
+    const std::vector<FrameRenderTileRequest> &requests,
+    const PreparedOverlays *overlays = nullptr)
 {
     const iiSharedCanvas::Layer &documentLayer = document.layers[layerIndex];
     const LayerProperties &properties = layerProperties(documentLayer);
@@ -940,12 +1179,15 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
 
     const auto *videoLayer = std::get_if<VideoLayer>(&documentLayer);
     const auto *videoFrame = videoLayer ? resolveVideoFrameAt(document, *videoLayer, frame) : nullptr;
-    const auto rasterMask = prepareMask(document, appearance.rasterMask, properties, sampled);
-    const auto vectorMask = prepareMask(document, appearance.vectorMask, properties, sampled);
-    const auto filterMask = prepareMask(document, appearance.filterMask, properties, sampled);
+    const auto *overlay = overlays ? overlays->get(asset) : nullptr;
+    MaskTileCache maskCache;
+    std::size_t maskId=0;
+    const auto rasterMask = prepareMask(document, appearance.rasterMask, properties, sampled, maskCache, maskId++, overlays);
+    const auto vectorMask = prepareMask(document, appearance.vectorMask, properties, sampled, maskCache, maskId++, overlays);
+    const auto filterMask = prepareMask(document, appearance.filterMask, properties, sampled, maskCache, maskId++, overlays);
     std::vector<std::pair<MaskCombineMode, std::optional<PreparedMask>>> stack;
     if (appearance.maskStackEnabled) for (const auto &entry : appearance.maskStack) {
-        if (entry.mask.enabled) stack.emplace_back(entry.combine, prepareMask(document, entry.mask, properties, sampled));
+        if (entry.mask.enabled) stack.emplace_back(entry.combine, prepareMask(document, entry.mask, properties, sampled, maskCache, maskId++, overlays));
     }
     std::vector<const std::optional<PreparedMask> *> masks{&rasterMask, &vectorMask, &filterMask};
     for (const auto &entry : stack) masks.push_back(&entry.second);
@@ -963,7 +1205,10 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
     if (std::any_of(appearance.filters.begin(), appearance.filters.end(), [](const LayerFilter &f) { return f.enabled && f.opacity > 0; })) {
         RasterLayer native;
         if (videoFrame) native = *videoFrame;
-        else if (const auto *raster = std::get_if<RasterAsset>(asset)) native = raster->pixels;
+        else if (const auto *raster = std::get_if<RasterAsset>(asset)) {
+            native = raster->pixels;
+            if (overlay) overlay->apply(native);
+        }
         else {
             const auto &vector = std::get<VectorAsset>(*asset);
             native = rasterizeVector(vector, {}, vector.viewport.width, vector.viewport.height);
@@ -979,9 +1224,9 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
                                                    sampled,
                                                    request.region,
                                                    request.outputExtent,
-                                                   videoFrame, request.sampling);
+                                                   videoFrame, request.sampling, overlay);
         if (filtered) {
-            auto processed = renderLayerRegion(document,*asset,sampled,request.region,request.outputExtent,&*filtered,request.sampling);
+            auto processed = renderLayerRegion(document,*asset,sampled,request.region,request.outputExtent,&*filtered,request.sampling,nullptr);
             if (filterMask) {
                 RasterMask coverage{request.outputExtent,{}}; coverage.alpha.resize(tile.pixels.pixels.size());
                 for (int y = 0; y < request.outputExtent.height; ++y) for (int x = 0; x < request.outputExtent.width; ++x)
@@ -990,22 +1235,41 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
             } else tile.pixels = std::move(processed.pixels);
         }
         if (rasterMask || vectorMask || !stack.empty()) {
-            for (int y = 0; y < request.outputExtent.height; ++y) for (int x = 0; x < request.outputExtent.width; ++x) {
-                auto &p = tile.pixels.pixels[pixelIndex(request.outputExtent.width,x,y)];
-                double coverage = 1;
-                bool first = true;
+            // Visit each stack operand over a small output block. This retains
+            // the bounded shared mask cache even for long ordered stacks,
+            // without allocating an output-sized coverage plane.
+            constexpr int blockSide=32;
+            std::array<double,blockSide*blockSide> stackCoverage;
+            for (int top=0;top<request.outputExtent.height;) {
+              const int height=std::min(blockSide,request.outputExtent.height-top);
+              for (int left=0;left<request.outputExtent.width;) {
+                const int width=std::min(blockSide,request.outputExtent.width-left);
+                std::fill_n(stackCoverage.begin(),width*height,1.0);
+                bool first=true;
                 for (const auto &[mode, mask] : stack) {
-                    const double operand = maskCoverage(mask, request, x, y);
-                    if (first) { coverage = mode == MaskCombineMode::Subtract ? 1 - operand : operand; first = false; }
-                    else switch (mode) {
-                    case MaskCombineMode::Add: coverage = std::max(coverage, operand); break;
-                    case MaskCombineMode::Subtract: coverage *= 1 - operand; break;
-                    case MaskCombineMode::Intersect: coverage *= operand; break;
-                    case MaskCombineMode::Replace: coverage = operand; break;
+                    for (int y=0;y<height;++y) for (int x=0;x<width;++x) {
+                        const double operand=maskCoverage(mask,request,left+x,top+y);
+                        auto &coverage=stackCoverage[std::size_t(y)*width+x];
+                        if (first) coverage=mode==MaskCombineMode::Subtract?1-operand:operand;
+                        else switch (mode) {
+                        case MaskCombineMode::Add: coverage=std::max(coverage,operand); break;
+                        case MaskCombineMode::Subtract: coverage*=1-operand; break;
+                        case MaskCombineMode::Intersect: coverage*=operand; break;
+                        case MaskCombineMode::Replace: coverage=operand; break;
+                        }
                     }
+                    first=false;
                 }
-                const auto alpha = std::uint32_t(std::lround((p >> 24)*coverage*maskCoverage(rasterMask,request,x,y)*maskCoverage(vectorMask,request,x,y)));
-                p = alpha ? (p & 0x00ffffffU) | (alpha << 24) : 0;
+                for (int y=0;y<height;++y) for (int x=0;x<width;++x) {
+                    auto &p=tile.pixels.pixels[pixelIndex(request.outputExtent.width,left+x,top+y)];
+                    const double coverage=stackCoverage[std::size_t(y)*width+x];
+                    const auto alpha=std::uint32_t(std::lround((p>>24)*coverage*
+                        maskCoverage(rasterMask,request,left+x,top+y)*maskCoverage(vectorMask,request,left+x,top+y)));
+                    p=alpha?(p&0x00ffffffU)|(alpha<<24):0;
+                }
+                left+=width;
+              }
+              top+=height;
             }
         }
         if (properties.artboardId)
@@ -1129,9 +1393,15 @@ FrameLayerTileRenderResult renderPreflightedFrameLayerTiles(
 
 FrameRenderResult renderFrame(const Document &document, FrameIndex frame)
 {
+    return renderFrame(document, frame, {});
+}
+
+FrameRenderResult renderFrame(const Document &document, FrameIndex frame,
+                              std::span<const FrameBitmapOverlay> overlays)
+{
     const auto view = documentViewRegion(document);
     const FrameTileRenderResult tiles = renderFrameTiles(
-        document, frame, {{view, view.extent}});
+        document, frame, {{view, view.extent}}, overlays);
     if (!tiles.ok()) {
         return errorResult(tiles.status, tiles.message);
     }
@@ -1157,6 +1427,13 @@ FrameRenderResult renderArtboard(const Document &document, FrameIndex frame, con
 FrameRenderResult renderArtboardRegion(const Document &document, FrameIndex frame, const std::string &id,
                                       CanvasRegion region, CanvasExtent outputExtent, RasterSampling sampling)
 {
+    return renderArtboardRegion(document, frame, id, region, outputExtent, sampling, {});
+}
+
+FrameRenderResult renderArtboardRegion(const Document &document, FrameIndex frame, const std::string &id,
+                                      CanvasRegion region, CanvasExtent outputExtent, RasterSampling sampling,
+                                      std::span<const FrameBitmapOverlay> overlays)
+{
     const auto validation = validate(document);
     if (!validation.ok()) return errorResult(FrameRenderStatus::InvalidDocument, validation.issues.front().message);
     const auto *a = findArtboard(document, id);
@@ -1169,13 +1446,16 @@ FrameRenderResult renderArtboardRegion(const Document &document, FrameIndex fram
     if (!validRequests(document, requests) || region.origin.x < a->region.origin.x || region.origin.y < a->region.origin.y
         || right(region) > right(a->region) || bottom(region) > bottom(a->region))
         return errorResult(FrameRenderStatus::InvalidRegion, "render region must be positive, contained by the artboard, and have a valid output extent and sampling policy");
+    PreparedOverlays prepared;
+    if (!prepared.prepare(document, overlays))
+        return errorResult(FrameRenderStatus::InvalidOverlay, "bitmap overlays must reference distinct raster assets and distinct aligned 64x64 tiles");
     FrameLayerBatchRenderResult batch;
     batch.requests = requests;
     batch.artboards = {*a};
     batch.layers.reserve(document.layers.size());
     for (std::size_t index = 0; index < document.layers.size(); ++index) {
         if (layerProperties(document.layers[index]).artboardId == id) {
-            auto layer = render_detail::renderPreflightedFrameLayerTiles(document, frame, index, batch.requests);
+            auto layer = renderValidatedFrameLayerTiles(document, frame, index, batch.requests, &prepared);
             if (!layer.ok()) return errorResult(layer.status, layer.message);
             batch.layers.push_back(std::move(layer));
         } else {
@@ -1205,8 +1485,15 @@ FrameRenderResult renderFrameRegion(const Document &document,
                                     CanvasExtent outputExtent,
                                     RasterSampling sampling)
 {
+    return renderFrameRegion(document, frame, region, outputExtent, sampling, {});
+}
+
+FrameRenderResult renderFrameRegion(const Document &document, FrameIndex frame, CanvasRegion region,
+                                   CanvasExtent outputExtent, RasterSampling sampling,
+                                   std::span<const FrameBitmapOverlay> overlays)
+{
     const FrameTileRenderResult tiles = renderFrameTiles(
-        document, frame, {{region, outputExtent, sampling}});
+        document, frame, {{region, outputExtent, sampling}}, overlays);
     if (!tiles.ok()) {
         return errorResult(tiles.status, tiles.message);
     }
@@ -1221,6 +1508,14 @@ FrameLayerTileRenderResult renderFrameLayerTiles(
     FrameIndex frame,
     std::size_t layerIndex,
     const std::vector<FrameRenderTileRequest> &requests)
+{
+    return renderFrameLayerTiles(document, frame, layerIndex, requests, {});
+}
+
+FrameLayerTileRenderResult renderFrameLayerTiles(
+    const Document &document, FrameIndex frame, std::size_t layerIndex,
+    const std::vector<FrameRenderTileRequest> &requests,
+    std::span<const FrameBitmapOverlay> overlays)
 {
     const ValidationResult validation = validate(document);
     if (!validation.ok()) {
@@ -1252,8 +1547,15 @@ FrameLayerTileRenderResult renderFrameLayerTiles(
         result.message = "render region must be positive, bounded by the document, and have a valid output extent";
         return result;
     }
-    return render_detail::renderPreflightedFrameLayerTiles(
-        document, frame, layerIndex, requests);
+    PreparedOverlays prepared;
+    if (!prepared.prepare(document, overlays)) {
+        FrameLayerTileRenderResult result;
+        result.layerIndex = layerIndex;
+        result.status = FrameRenderStatus::InvalidOverlay;
+        result.message = "bitmap overlays must reference distinct raster assets and distinct aligned 64x64 tiles";
+        return result;
+    }
+    return renderValidatedFrameLayerTiles(document, frame, layerIndex, requests, &prepared);
 }
 
 FrameLayerBatchRenderResult renderFrameLayers(
@@ -1261,16 +1563,27 @@ FrameLayerBatchRenderResult renderFrameLayers(
     FrameIndex frame,
     const std::vector<FrameRenderTileRequest> &requests)
 {
+    return renderFrameLayers(document, frame, requests, {});
+}
+
+FrameLayerBatchRenderResult renderFrameLayers(
+    const Document &document, FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests,
+    std::span<const FrameBitmapOverlay> overlays)
+{
     FrameLayerBatchRenderResult result = render_detail::preflightFrameLayerRender(
         document, frame, requests);
     if (!result.ok()) {
         return result;
     }
+    PreparedOverlays prepared;
+    if (!prepared.prepare(document, overlays))
+        return layerBatchError(FrameRenderStatus::InvalidOverlay,
+            "bitmap overlays must reference distinct raster assets and distinct aligned 64x64 tiles", requests);
     result.layers.reserve(document.layers.size());
     for (std::size_t layerIndex = 0; layerIndex < document.layers.size(); ++layerIndex) {
         FrameLayerTileRenderResult layer =
-            render_detail::renderPreflightedFrameLayerTiles(
-                document, frame, layerIndex, requests);
+            renderValidatedFrameLayerTiles(document, frame, layerIndex, requests, &prepared);
         if (!layer.ok()) {
             result.status = layer.status;
             result.message = layer.message;
@@ -1427,7 +1740,15 @@ FrameTileRenderResult renderFrameTiles(
     FrameIndex frame,
     const std::vector<FrameRenderTileRequest> &requests)
 {
-    return composeFrameLayers(renderFrameLayers(document, frame, requests));
+    return renderFrameTiles(document, frame, requests, {});
+}
+
+FrameTileRenderResult renderFrameTiles(
+    const Document &document, FrameIndex frame,
+    const std::vector<FrameRenderTileRequest> &requests,
+    std::span<const FrameBitmapOverlay> overlays)
+{
+    return composeFrameLayers(renderFrameLayers(document, frame, requests, overlays));
 }
 
 } // namespace iiSharedCanvas

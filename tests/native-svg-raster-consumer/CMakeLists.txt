@@ -1,0 +1,26 @@
+cmake_minimum_required(VERSION 3.31)
+project(NativeSvgRasterConsumer LANGUAGES CXX)
+
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt5 ON)
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt6 ON)
+find_package(iiSharedCanvasNative CONFIG REQUIRED)
+find_package(iiXmlNative 0.1 CONFIG REQUIRED)
+find_package(iiCompression 0.1 CONFIG REQUIRED)
+find_package(iiGUI 0.4.1 CONFIG REQUIRED)
+if(TARGET Qt6::Core OR TARGET Qt5::Core)
+    message(FATAL_ERROR "The installed SVG raster consumer imported Qt")
+endif()
+
+add_executable(gui-svg-raster-consumer ../NativeGuiSvgRasterTest.cpp ../../example/GuiSvgRasterizer.cpp)
+set_target_properties(gui-svg-raster-consumer PROPERTIES CXX_EXTENSIONS OFF)
+target_include_directories(gui-svg-raster-consumer PRIVATE ../../example)
+target_link_libraries(gui-svg-raster-consumer PRIVATE iiSharedCanvas::Native iiXml::Native
+    iiCompression::iiCompression iiGUI::iiGUI)
+enable_testing()
+add_test(NAME NativeSvgRasterConsumer.GuiSvg COMMAND gui-svg-raster-consumer)
+
+add_executable(gui-canvas-frame-consumer ../NativeGuiFrameTest.cpp ../../example/GuiFramePresenter.cpp)
+set_target_properties(gui-canvas-frame-consumer PROPERTIES CXX_EXTENSIONS OFF)
+target_include_directories(gui-canvas-frame-consumer PRIVATE ../../example)
+target_link_libraries(gui-canvas-frame-consumer PRIVATE iiSharedCanvas::Native iiGUI::iiGUI)
+add_test(NAME NativeSvgRasterConsumer.GuiCanvasFrame COMMAND gui-canvas-frame-consumer)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.32.0 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.35.14 LANGUAGES CXX)
 # File creation is owned by iiFileProvider.
 
 
@@ -21,6 +21,24 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 option(IISHAREDCANVAS_BUILD_QT_API "Build the legacy Qt media/Quick package" ON)
+# Resolve linked source resources and exclude private test work from packages.
+file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources" _iisc_resource_source)
+install(DIRECTORY "${_iisc_resource_source}/" DESTINATION "${CMAKE_INSTALL_DATADIR}/iiSharedCanvas/resources"
+    PATTERN ".iisacc-*" EXCLUDE)
+if(BUILD_TESTING)
+    include(cmake/iiSharedCanvasTestWorkDir.cmake)
+    iisc_configure_test_work_dir(_iisc_test_work "${_iisc_resource_source}")
+    add_test(NAME iiSharedCanvas.TestWorkDirContract COMMAND "${CMAKE_COMMAND}"
+        "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}" "-DWORK_DIR=${_iisc_test_work}" "-DBUILD_ROOT=${CMAKE_BINARY_DIR}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeTestWorkDirContract.cmake")
+    set_tests_properties(iiSharedCanvas.TestWorkDirContract PROPERTIES TIMEOUT 60)
+    add_test(NAME iiSharedCanvas.ResourcesInstall COMMAND "${CMAKE_COMMAND}"
+        "-DSDK_BUILD=${CMAKE_BINARY_DIR}" "-DRESOURCE_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        "-DINSTALL_DATADIR=${CMAKE_INSTALL_DATADIR}" "-DOUTPUT_ROOT=${_iisc_test_work}"
+        "-DCONFIGURATION=$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeResourceInstall.cmake")
+    set_tests_properties(iiSharedCanvas.ResourcesInstall PROPERTIES TIMEOUT 900
+        SKIP_REGULAR_EXPRESSION "SKIP: Resource install test requires a relative install data directory")
+endif()
 if(NOT IISHAREDCANVAS_BUILD_QT_API)
     include(cmake/iiSharedCanvasNative.cmake)
     return()
@@ -32,88 +50,88 @@ if(BUILD_TESTING)
     add_test(NAME iiSharedCanvas.DocumentCommit COMMAND iiSharedCanvasDocumentCommitTest)
     add_executable(iiSharedCanvasPublicationMetadataTest tests/PublicationMetadataTest.cpp)
     target_link_libraries(iiSharedCanvasPublicationMetadataTest PRIVATE iiSharedCanvas::Core iiFileProvider::Native ZLIB::ZLIB)
-    target_compile_definitions(iiSharedCanvasPublicationMetadataTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasPublicationMetadataTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.PublicationMetadata COMMAND iiSharedCanvasPublicationMetadataTest)
     add_executable(iiSharedCanvasDocumentSnapshotTest tests/DocumentSnapshotTest.cpp)
     target_link_libraries(iiSharedCanvasDocumentSnapshotTest PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
-    target_compile_definitions(iiSharedCanvasDocumentSnapshotTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasDocumentSnapshotTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.DocumentSnapshot COMMAND iiSharedCanvasDocumentSnapshotTest)
     add_executable(iiSharedCanvasDocumentPreviewTest tests/DocumentPreviewTest.cpp)
     target_link_libraries(iiSharedCanvasDocumentPreviewTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasDocumentPreviewTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasDocumentPreviewTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.DocumentPreview COMMAND iiSharedCanvasDocumentPreviewTest)
     set_tests_properties(iiSharedCanvas.DocumentPreview PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     add_executable(iiSharedCanvasFourLayerTypeTest tests/FourLayerTypeTest.cpp)
     target_link_libraries(iiSharedCanvasFourLayerTypeTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasFourLayerTypeTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_compile_definitions(iiSharedCanvasFourLayerTypeTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_test(NAME iiSharedCanvas.FourLayerType COMMAND iiSharedCanvasFourLayerTypeTest)
     add_executable(iiSharedCanvasDynamicFrameContentTest tests/DynamicFrameContentTest.cpp)
     target_link_libraries(iiSharedCanvasDynamicFrameContentTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasDynamicFrameContentTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_compile_definitions(iiSharedCanvasDynamicFrameContentTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_test(NAME iiSharedCanvas.DynamicFrameContent COMMAND iiSharedCanvasDynamicFrameContentTest)
     add_executable(iiSharedCanvasArtboardTest tests/ArtboardTest.cpp)
     target_link_libraries(iiSharedCanvasArtboardTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasArtboardTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_compile_definitions(iiSharedCanvasArtboardTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_test(NAME iiSharedCanvas.Artboard COMMAND iiSharedCanvasArtboardTest)
     add_executable(iiSharedCanvasArtboardRegionTest tests/ArtboardRegionTest.cpp)
     target_link_libraries(iiSharedCanvasArtboardRegionTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.ArtboardRegion COMMAND iiSharedCanvasArtboardRegionTest)
     add_executable(iiSharedCanvasMlsdTest tests/MlsdTest.cpp)
     target_link_libraries(iiSharedCanvasMlsdTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasMlsdTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasMlsdTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Mlsd COMMAND iiSharedCanvasMlsdTest)
     add_executable(iiSharedCanvasCannyTest tests/CannyTest.cpp)
     target_link_libraries(iiSharedCanvasCannyTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasCannyTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasCannyTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Canny COMMAND iiSharedCanvasCannyTest)
     add_executable(iiSharedCanvasScribbleTest tests/ScribbleTest.cpp)
     target_link_libraries(iiSharedCanvasScribbleTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasScribbleTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasScribbleTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Scribble COMMAND iiSharedCanvasScribbleTest)
     add_executable(iiSharedCanvasLineArtTest tests/LineArtTest.cpp)
     target_link_libraries(iiSharedCanvasLineArtTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasLineArtTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasLineArtTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.LineArt COMMAND iiSharedCanvasLineArtTest)
     add_executable(iiSharedCanvasNormalMapTest tests/NormalMapTest.cpp)
     target_link_libraries(iiSharedCanvasNormalMapTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasNormalMapTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasNormalMapTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.NormalMap COMMAND iiSharedCanvasNormalMapTest)
     add_executable(iiSharedCanvasShuffleTest tests/ShuffleTest.cpp)
     target_link_libraries(iiSharedCanvasShuffleTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasShuffleTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasShuffleTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Shuffle COMMAND iiSharedCanvasShuffleTest)
     add_executable(iiSharedCanvasTileTest tests/TileTest.cpp)
     target_link_libraries(iiSharedCanvasTileTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasTileTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasTileTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Tile COMMAND iiSharedCanvasTileTest)
     add_executable(iiSharedCanvasReferenceTest tests/ReferenceTest.cpp)
     target_link_libraries(iiSharedCanvasReferenceTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasReferenceTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasReferenceTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Reference COMMAND iiSharedCanvasReferenceTest)
     add_executable(iiSharedCanvasControlNetParametersTest tests/ControlNetParametersTest.cpp)
     target_link_libraries(iiSharedCanvasControlNetParametersTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasControlNetParametersTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasControlNetParametersTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.ControlNetParameters COMMAND iiSharedCanvasControlNetParametersTest)
     add_executable(iiSharedCanvasIpAdapterTest tests/IpAdapterTest.cpp)
     target_link_libraries(iiSharedCanvasIpAdapterTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasIpAdapterTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasIpAdapterTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.IpAdapter COMMAND iiSharedCanvasIpAdapterTest)
     add_executable(iiSharedCanvasDepthTest tests/DepthTest.cpp)
     target_link_libraries(iiSharedCanvasDepthTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasDepthTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasDepthTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Depth COMMAND iiSharedCanvasDepthTest)
     add_executable(iiSharedCanvasPoseTest tests/PoseTest.cpp)
     target_link_libraries(iiSharedCanvasPoseTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasPoseTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasPoseTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.Pose COMMAND iiSharedCanvasPoseTest)
     add_executable(iiSharedCanvasSemanticSegmentTest tests/SemanticSegmentTest.cpp)
     target_link_libraries(iiSharedCanvasSemanticSegmentTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasSemanticSegmentTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasSemanticSegmentTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.SemanticSegment COMMAND iiSharedCanvasSemanticSegmentTest)
     add_executable(iiSharedCanvasLayerKindTest tests/LayerKindTest.cpp)
     target_link_libraries(iiSharedCanvasLayerKindTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasLayerKindTest PRIVATE
-        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.LayerKind COMMAND iiSharedCanvasLayerKindTest)
     add_executable(iiSharedCanvasCanvasMediaTest tests/CanvasMediaTest.cpp)
     target_link_libraries(iiSharedCanvasCanvasMediaTest PRIVATE iiSharedCanvas::iiSharedCanvas)
@@ -121,7 +139,7 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasCanvasMediaPersistenceTest tests/CanvasMediaPersistenceTest.cpp)
     target_link_libraries(iiSharedCanvasCanvasMediaPersistenceTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasCanvasMediaPersistenceTest PRIVATE
-        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_test(NAME iiSharedCanvas.CanvasMediaPersistence COMMAND iiSharedCanvasCanvasMediaPersistenceTest)
 endif()
 
@@ -130,7 +148,7 @@ if(EXISTS "$ENV{HOME}/.local/SDK/iiPaintEngine")
 endif()
 
 list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiFileProvider")
-find_package(iiPaintEngine 0.5.1 CONFIG REQUIRED)
+find_package(iiPaintEngine 0.5.4 CONFIG REQUIRED)
 find_package(iiFileProvider 0.7.3 CONFIG REQUIRED HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
 find_package(iiFileProviderNative 0.8.3 CONFIG REQUIRED)
 option(IISHAREDCANVAS_BUILD_QUICK "Build Qt Quick presentation adapters" ON)
@@ -170,6 +188,7 @@ add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/ExtendedBitmapCodec.cpp
         src/Bitmap/ExtendedBitmapCodec_p.hpp
         src/Bitmap/BitmapEditor.cpp
+        src/Bitmap/BitmapEditJournal_p.cpp
         src/Bitmap/BitmapEditor.h
         src/Bitmap/BitmapProcessing.h
         src/Bitmap/BitmapProcessing.cpp
@@ -403,7 +422,7 @@ install(FILES src/iiSharedCanvas.h src/iiSharedCanvasCore.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 install(DIRECTORY src/Audio src/Bitmap src/Camera src/ControlNet src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas
-        FILES_MATCHING PATTERN "*.h")
+        FILES_MATCHING PATTERN "*.h" PATTERN "*_p.h" EXCLUDE)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 install(EXPORT iiSharedCanvasTargets
@@ -421,6 +440,9 @@ install(FILES docs/LAYER_COMPOSITING.md docs/PHOTOSHOP_LAYER_COMPARISON.md docs/
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md docs/IISC_UPGRADE_CLI.md
         docs/DOCUMENT_PREVIEWS.md
         docs/PUBLICATION_METADATA.md
+        docs/BITMAP_INPUT.md
+        docs/BITMAP_WET_BRUSH.md
+        docs/BITMAP_CLOCK.md
         docs/TIMELINE_INTERCHANGE.md docs/TIMELINE_INTERCHANGE_CLI.md docs/TIMELINE_XML.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/iiSharedCanvas)
 
@@ -446,13 +468,13 @@ if(BUILD_TESTING)
     target_link_libraries(iiSharedCanvasIiscUpgradeCliTest PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
     target_compile_definitions(iiSharedCanvasIiscUpgradeCliTest PRIVATE
         IISHAREDCANVAS_UPGRADE_EXECUTABLE="$<TARGET_FILE:iisc-upgrade>"
-        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_dependencies(iiSharedCanvasIiscUpgradeCliTest iisc-upgrade)
     add_test(NAME iiSharedCanvas.IiscUpgradeCli COMMAND iiSharedCanvasIiscUpgradeCliTest)
     foreach(import_test LayeredDocumentCodec OpenRasterImport PsdLayeredImport LayeredImportCli PsdExport PsdExportCli TimelineInterchange TimelineInterchangeCli)
         add_executable(iiSharedCanvas${import_test}Test tests/${import_test}Test.cpp)
         target_compile_definitions(iiSharedCanvas${import_test}Test PRIVATE
-                IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+                IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
         target_link_libraries(iiSharedCanvas${import_test}Test PRIVATE iiSharedCanvas::iiSharedCanvas)
         add_test(NAME iiSharedCanvas.${import_test} COMMAND iiSharedCanvas${import_test}Test)
         set_tests_properties(iiSharedCanvas.${import_test} PROPERTIES
@@ -474,13 +496,13 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasTimelineXmlWriterTest tests/TimelineXmlWriterTest.cpp src/Timeline/TimelineXmlWriter.cpp)
     target_link_libraries(iiSharedCanvasTimelineXmlWriterTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     target_compile_definitions(iiSharedCanvasTimelineXmlWriterTest PRIVATE
-            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_test(NAME iiSharedCanvas.TimelineXmlWriter COMMAND iiSharedCanvasTimelineXmlWriterTest)
 
     foreach(codec Bitmap Vector Video)
         add_executable(iiSharedCanvas${codec}CodecTest tests/${codec}CodecTest.cpp)
         target_compile_definitions(iiSharedCanvas${codec}CodecTest PRIVATE
-                IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+                IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
         target_link_libraries(iiSharedCanvas${codec}CodecTest PRIVATE iiSharedCanvas::iiSharedCanvas)
         add_test(NAME iiSharedCanvas.${codec}Codec COMMAND iiSharedCanvas${codec}CodecTest)
         set_tests_properties(iiSharedCanvas.${codec}Codec PROPERTIES
@@ -490,7 +512,7 @@ if(BUILD_TESTING)
 
     add_executable(iiSharedCanvasDocumentFileTest tests/DocumentFileTest.cpp)
     target_compile_definitions(iiSharedCanvasDocumentFileTest PRIVATE
-            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     target_link_libraries(iiSharedCanvasDocumentFileTest PRIVATE
             iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
     add_test(NAME iiSharedCanvas.DocumentFile COMMAND iiSharedCanvasDocumentFileTest)
@@ -499,7 +521,7 @@ if(BUILD_TESTING)
     find_package(Threads REQUIRED)
     add_executable(iiSharedCanvasSourceAccessTest tests/SourceAccessTest.cpp)
     target_link_libraries(iiSharedCanvasSourceAccessTest PRIVATE iiSharedCanvas::Core iiFileProvider::Native Threads::Threads SQLite3::SQLite3)
-    target_compile_definitions(iiSharedCanvasSourceAccessTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+    target_compile_definitions(iiSharedCanvasSourceAccessTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.SourceAccess COMMAND iiSharedCanvasSourceAccessTest)
     set_tests_properties(iiSharedCanvas.SourceAccess PROPERTIES TIMEOUT 20)
 
@@ -542,7 +564,7 @@ if(BUILD_TESTING)
         add_executable(iiSharedCanvas${audio_test}Test tests/${audio_test}Test.cpp)
         target_link_libraries(iiSharedCanvas${audio_test}Test PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
         target_compile_definitions(iiSharedCanvas${audio_test}Test PRIVATE
-            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
         add_test(NAME iiSharedCanvas.${audio_test} COMMAND iiSharedCanvas${audio_test}Test)
         set_tests_properties(iiSharedCanvas.${audio_test} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
     endforeach()
@@ -584,6 +606,22 @@ if(BUILD_TESTING)
     add_test(NAME iiSharedCanvas.BitmapEditor
             COMMAND iiSharedCanvasBitmapEditorTest)
 
+    add_executable(iiSharedCanvasBitmapInputTest tests/BitmapInputTest.cpp)
+    target_link_libraries(iiSharedCanvasBitmapInputTest PRIVATE iiSharedCanvas::iiSharedCanvas iiFileProvider::Native)
+    target_compile_definitions(iiSharedCanvasBitmapInputTest PRIVATE
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/bitmap-input-output")
+    add_test(NAME iiSharedCanvas.BitmapInput COMMAND iiSharedCanvasBitmapInputTest)
+    add_executable(iiSharedCanvasBitmapWetBrushTest tests/BitmapWetBrushTest.cpp)
+    target_link_libraries(iiSharedCanvasBitmapWetBrushTest PRIVATE iiSharedCanvas::iiSharedCanvas iiFileProvider::Native)
+    target_compile_definitions(iiSharedCanvasBitmapWetBrushTest PRIVATE
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/bitmap-wet-output")
+    add_test(NAME iiSharedCanvas.BitmapWetBrush COMMAND iiSharedCanvasBitmapWetBrushTest)
+    add_executable(iiSharedCanvasBitmapClockTest tests/BitmapClockTest.cpp)
+    target_link_libraries(iiSharedCanvasBitmapClockTest PRIVATE iiSharedCanvas::iiSharedCanvas iiFileProvider::Native)
+    target_compile_definitions(iiSharedCanvasBitmapClockTest PRIVATE
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/bitmap-clock-output")
+    add_test(NAME iiSharedCanvas.BitmapClock COMMAND iiSharedCanvasBitmapClockTest)
+
     add_executable(iiSharedCanvasVectorEditorTest
             tests/VectorEditorTest.cpp)
     target_link_libraries(iiSharedCanvasVectorEditorTest PRIVATE
@@ -594,7 +632,7 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasBitmapItemRenderTest
             tests/BitmapItemRenderTest.cpp)
     target_compile_definitions(iiSharedCanvasBitmapItemRenderTest PRIVATE
-            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     target_link_libraries(iiSharedCanvasBitmapItemRenderTest PRIVATE
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.BitmapItemRender
@@ -605,9 +643,9 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasFrameRendererTest
             tests/FrameRendererTest.cpp)
     add_executable(iiSharedCanvasRasterSamplingTest tests/RasterSamplingTest.cpp)
-    target_link_libraries(iiSharedCanvasRasterSamplingTest PRIVATE iiSharedCanvas::iiSharedCanvas)
+    target_link_libraries(iiSharedCanvasRasterSamplingTest PRIVATE iiSharedCanvas::iiSharedCanvas iiFileProvider::Native)
     target_compile_definitions(iiSharedCanvasRasterSamplingTest PRIVATE
-        IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+        IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
     add_test(NAME iiSharedCanvas.RasterSampling COMMAND iiSharedCanvasRasterSamplingTest)
     add_executable(iiSharedCanvasBitmapProcessingTest tests/BitmapProcessingTest.cpp)
     target_link_libraries(iiSharedCanvasBitmapProcessingTest PRIVATE iiSharedCanvas::iiSharedCanvas)
@@ -620,7 +658,7 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasCanvasItemRenderTest
             tests/CanvasItemRenderTest.cpp)
     target_compile_definitions(iiSharedCanvasCanvasItemRenderTest PRIVATE
-            IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     target_link_libraries(iiSharedCanvasCanvasItemRenderTest PRIVATE
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.CanvasItemRender
@@ -669,8 +707,8 @@ endif()
 
 if(BUILD_TESTING)
     add_executable(iiSharedCanvasLayerCompositingTest tests/LayerCompositingTest.cpp)
-    target_link_libraries(iiSharedCanvasLayerCompositingTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasLayerCompositingTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_link_libraries(iiSharedCanvasLayerCompositingTest PRIVATE iiSharedCanvas::iiSharedCanvas iiFileProvider::Native)
+    target_compile_definitions(iiSharedCanvasLayerCompositingTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_test(NAME iiSharedCanvas.LayerCompositing COMMAND iiSharedCanvasLayerCompositingTest)
 endif()
 
@@ -678,8 +716,8 @@ endif()
 
 if(BUILD_TESTING)
     add_executable(iiSharedCanvasMaskStackTest tests/MaskStackTest.cpp)
-    target_link_libraries(iiSharedCanvasMaskStackTest PRIVATE iiSharedCanvas::iiSharedCanvas)
-    target_compile_definitions(iiSharedCanvasMaskStackTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/test-output")
+    target_link_libraries(iiSharedCanvasMaskStackTest PRIVATE iiSharedCanvas::iiSharedCanvas iiFileProvider::Native)
+    target_compile_definitions(iiSharedCanvasMaskStackTest PRIVATE IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
     add_test(NAME iiSharedCanvas.MaskStack COMMAND iiSharedCanvasMaskStackTest)
 endif()
 

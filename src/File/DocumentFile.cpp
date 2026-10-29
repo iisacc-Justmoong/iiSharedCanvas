@@ -445,6 +445,20 @@ const Document *DocumentFile::document() const noexcept { return isOpen() ? &m_i
 Document *DocumentFile::boundDocument() noexcept { return isOpen() ? &m_impl->document : nullptr; }
 const std::string &DocumentFile::filePath() const noexcept { return m_impl->path; }
 std::uint64_t DocumentFile::revision() const noexcept { return m_impl->revision; }
+std::uint32_t DocumentFile::storageVersion() const noexcept { return isOpen() ? StorageVersion : 0; }
+
+DocumentFileResult DocumentFile::readStorageInfo(const std::string &path, DocumentFileInfo &info)
+{
+    std::uint64_t revision = 0;
+    auto result = readRevision(path, revision);
+    if (result.ok()) info = {revision, StorageVersion};
+    return result;
+}
+
+DocumentFileResult DocumentFile::upgradeStorage()
+{
+    return editImpl([](Document &) { return true; }, false);
+}
 std::uint64_t DocumentFile::bindingGeneration() const noexcept { return m_impl->generation; }
 const DocumentFileResult &DocumentFile::lastResult() const noexcept { return m_impl->result; }
 DocumentFileWriteStatistics DocumentFile::lastWriteStatistics() const noexcept { return m_impl->statistics; }

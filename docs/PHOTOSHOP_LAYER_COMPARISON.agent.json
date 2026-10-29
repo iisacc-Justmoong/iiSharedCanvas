@@ -1,0 +1,496 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:1b077103ef123adbbd96089d3c846a982dfcc5e3a922b277dd5042bc68cee46e",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/PHOTOSHOP_LAYER_COMPARISON.md",
+    "sha256": "02c627b5a902a8229aee8c26b17fa63879dbb7c9c57c0133c0853384f959fe44",
+    "bytes": 5940,
+    "line_count": 40,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Photoshop layer evidence and native coverage comparison",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Photoshop layer evidence and native coverage comparison\n",
+      "level": 1,
+      "title": "Photoshop layer evidence and native coverage comparison"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "The reference is the local reverse-engineering project at `Engineering/Projects/Adobe/Photoshop`, inspected on 2026-10-14. The recovered evidence reports Photoshop 2026 27.10.0; the currently installed bundle is 27.11.0. Seven of the eight layer-related recovered text files are byte-identical to the current bundle. The differing mask-properties layout adds an Enhance Edge control and tooltip without changing the observed density/feather/inversion declarations. This is a UI declaration, not proof of the Enhance Edge algorithm. Recovered JavaScript and Eve/EXV text expose shipped interfaces and state declarations. They do not recover the full original C++ layer compositor. Implementations below are independently written C++23 code; no proprietary layer implementation is linked or copied into iiSharedCanvas.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## Evidence inspected\n",
+      "level": 2,
+      "title": "Evidence inspected"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "list",
+      "start_line": 7,
+      "end_line": 14,
+      "raw": "- `recovered/javascript/shipped/Required/Plug-ins/Generator/assets.generate/lib/dom/layer.js`: layer bounds, effects bounds, visibility, clipped state, masks, blend options, protection, vector paths, parent groups, typed adjustment/pixel/shape/smart-object layers and dependency traversal. The adjustment layer depends on underlying layers unless clipped.\n- The adjacent `mask.js`: enabled state, bounds and extend-with-white behavior, preserved separately from mask removal.\n- The adjacent `layereffects.js`: independently enabled bevel/emboss, strokes, satin, shadows, solid/gradient/pattern overlays and glows, including multiple effect entries.\n- `recovered/interface/Required/drover_layouts/layers/panels/layers_panel.eve` and `Required/layouts/Layers/Panels/layers-2490.exv`: layer panel structure and controls.\n- `recovered/interface/Required/layouts/Masks/Properties/masks-2662.exv`: separate pixel, vector and filter mask controls, density, feather and inversion.\n- `recovered/interface/Required/layouts/Filters/Dialogs/filterBlendingOptions-3061.exv`: per-filter opacity/blend controls.\n- `recovered/interface/Required/layouts/Styles/Dialogs/tLayerEffectsDialog-3230.exv`: Fill, clipped-group blending, knockout, channel restrictions, mask/effect relationships and split source/backdrop Blend If controls.\n- `docs/Filters.md`, `recovered/native/filters/Average` and `recovered/native/filters/Solarize`: isolated reconstructed kernel rules and their stated native replay boundary. Clouds/NTSC Colors exports are observations, not verified buildable kernels.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "`recovered/javascript/shipped/Required/Plug-ins/Generator/assets.generate/lib/dom/layer.js`: layer bounds, effects bounds, visibility, clipped state, masks, blend options, protection, vector paths, parent groups, typed adjustment/pixel/shape/smart-object layers and dependency traversal. The adjustment layer depends on underlying layers unless clipped.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "The adjacent `mask.js`: enabled state, bounds and extend-with-white behavior, preserved separately from mask removal.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "The adjacent `layereffects.js`: independently enabled bevel/emboss, strokes, satin, shadows, solid/gradient/pattern overlays and glows, including multiple effect entries.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`recovered/interface/Required/drover_layouts/layers/panels/layers_panel.eve` and `Required/layouts/Layers/Panels/layers-2490.exv`: layer panel structure and controls.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`recovered/interface/Required/layouts/Masks/Properties/masks-2662.exv`: separate pixel, vector and filter mask controls, density, feather and inversion.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`recovered/interface/Required/layouts/Filters/Dialogs/filterBlendingOptions-3061.exv`: per-filter opacity/blend controls.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`recovered/interface/Required/layouts/Styles/Dialogs/tLayerEffectsDialog-3230.exv`: Fill, clipped-group blending, knockout, channel restrictions, mask/effect relationships and split source/backdrop Blend If controls.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "`docs/Filters.md`, `recovered/native/filters/Average` and `recovered/native/filters/Solarize`: isolated reconstructed kernel rules and their stated native replay boundary. Clouds/NTSC Colors exports are observations, not verified buildable kernels.",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "The table separates source declarations from verified native behavior. See `build/photoshop-layer-source-evidence.json` for current recovered/source byte identities when available.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "## Coverage delta\n",
+      "level": 2,
+      "title": "Coverage delta"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "table",
+      "start_line": 20,
+      "end_line": 29,
+      "raw": "| Area | Before this change | Native contract after this change | Remaining Photoshop-specific work |\n|---|---|---|---|\n| Layer blends | Normal, Multiply, Screen, Overlay | 27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions | Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic |\n| Fill | Only overall opacity | Distinct stored Fill and layer/motion opacity | Styles with independent Fill and the eight special blend formulas |\n| Pixel/vector masks | Detached bitmap mask operations only | Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage | Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms |\n| Filter masks | No layer-owned filter mask | Shared non-destructive filter-stack coverage | Full Smart Object/filter host equivalence |\n| Filters | Detached 14 photographic effects and color adjustment | Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added | Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations |\n| Composition | Flat artwork plus isolated artboards | Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If | General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers |\n| Layer styles | No native style model | Explicitly retained as a known gap | Shadows, glows, strokes, overlays, bevel/emboss and style/mask precedence |\n| Persistence | IISC 1.19 | IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation | PSD appearance serialization and richer interchange profiles |\n",
+      "columns": [
+        "Area",
+        "Before this change",
+        "Native contract after this change",
+        "Remaining Photoshop-specific work"
+      ],
+      "rows": [
+        [
+          "Layer blends",
+          "Normal, Multiply, Screen, Overlay",
+          "27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions",
+          "Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic"
+        ],
+        [
+          "Fill",
+          "Only overall opacity",
+          "Distinct stored Fill and layer/motion opacity",
+          "Styles with independent Fill and the eight special blend formulas"
+        ],
+        [
+          "Pixel/vector masks",
+          "Detached bitmap mask operations only",
+          "Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage",
+          "Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms"
+        ],
+        [
+          "Filter masks",
+          "No layer-owned filter mask",
+          "Shared non-destructive filter-stack coverage",
+          "Full Smart Object/filter host equivalence"
+        ],
+        [
+          "Filters",
+          "Detached 14 photographic effects and color adjustment",
+          "Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added",
+          "Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations"
+        ],
+        [
+          "Composition",
+          "Flat artwork plus isolated artboards",
+          "Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If",
+          "General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers"
+        ],
+        [
+          "Layer styles",
+          "No native style model",
+          "Explicitly retained as a known gap",
+          "Shadows, glows, strokes, overlays, bevel/emboss and style/mask precedence"
+        ],
+        [
+          "Persistence",
+          "IISC 1.19",
+          "IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation",
+          "PSD appearance serialization and richer interchange profiles"
+        ]
+      ]
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "The highest-value remaining dependencies are a real nested group/adjustment-layer model, then layer styles with tested Fill/mask precedence, and PSD appearance interchange. None of the new CPU fixture or installed-package checks establish full Photoshop UI parity, consumer application adoption or another platform's GPU/device behavior.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "heading",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "## Primary specifications used\n",
+      "level": 2,
+      "title": "Primary specifications used"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "list",
+      "start_line": 35,
+      "end_line": 40,
+      "raw": "- [Adobe Photoshop layer API](https://developer.adobe.com/photoshop/uxp/ps_reference/classes/layer/): public layer/mask state.\n- [Adobe Photoshop blend descriptions](https://helpx.adobe.com/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html): mode semantics and depth limitations.\n- [Adobe Photoshop file format](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/): the exact PSD four-byte blend keys.\n- [Adobe filter masks](https://helpx.adobe.com/photoshop/desktop/effects-filters/smart-filters/mask-smart-filter-effects.html) and [filter blending](https://helpx.adobe.com/photoshop/desktop/effects-filters/get-started-with-filters/blend-and-fade-filter-effects.html): mask and filter-blend intent.\n- [W3C Compositing and Blending](https://www.w3.org/TR/compositing-1/): straight/premultiplied alpha accounting and separable/nonseparable definitions.\n- [OpenRaster layer stack](https://www.openraster.org/baseline/layer-stack-spec.html): baseline source-over blend functions and isolated-group semantics.\n",
+      "items": [
+        {
+          "marker": "-",
+          "text": "[Adobe Photoshop layer API](https://developer.adobe.com/photoshop/uxp/ps_reference/classes/layer/): public layer/mask state.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[Adobe Photoshop blend descriptions](https://helpx.adobe.com/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html): mode semantics and depth limitations.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[Adobe Photoshop file format](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/): the exact PSD four-byte blend keys.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[Adobe filter masks](https://helpx.adobe.com/photoshop/desktop/effects-filters/smart-filters/mask-smart-filter-effects.html) and [filter blending](https://helpx.adobe.com/photoshop/desktop/effects-filters/get-started-with-filters/blend-and-fade-filter-effects.html): mask and filter-blend intent.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[W3C Compositing and Blending](https://www.w3.org/TR/compositing-1/): straight/premultiplied alpha accounting and separable/nonseparable definitions.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "[OpenRaster layer stack](https://www.openraster.org/baseline/layer-stack-spec.html): baseline source-over blend functions and isolated-group semantics.",
+          "checked": null
+        }
+      ]
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Photoshop layer evidence and native coverage comparison",
+      "anchor": "photoshop-layer-evidence-and-native-coverage-comparison",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Evidence inspected",
+      "anchor": "evidence-inspected",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Coverage delta",
+      "anchor": "coverage-delta",
+      "start_line": 18
+    },
+    {
+      "block_id": "b000017",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Primary specifications used",
+      "anchor": "primary-specifications-used",
+      "start_line": 33
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000003",
+        "line": 3,
+        "text": "The reference is the local reverse-engineering project at `Engineering/Projects/Adobe/Photoshop`, inspected on 2026-10-14. The recovered evidence reports Photoshop 2026 27.10.0; the currently installed bundle is 27.11.0. Seven of the eight layer-related recovered text files are byte-identical to the current bundle. The differing mask-properties layout adds an Enhance Edge control and tooltip without changing the observed density/feather/inversion declarations. This is a UI declaration, not proof of the Enhance Edge algorithm. Recovered JavaScript and Eve/EXV text expose shipped interfaces and state declarations. They do not recover the full original C++ layer compositor. Implementations below are independently written C++23 code; no proprietary layer implementation is linked or copied into iiSharedCanvas.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000007",
+        "line": 7,
+        "text": "- `recovered/javascript/shipped/Required/Plug-ins/Generator/assets.generate/lib/dom/layer.js`: layer bounds, effects bounds, visibility, clipped state, masks, blend options, protection, vector paths, parent groups, typed adjustment/pixel/shape/smart-object layers and dependency traversal. The adjustment layer depends on underlying layers unless clipped.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000007",
+        "line": 10,
+        "text": "- `recovered/interface/Required/drover_layouts/layers/panels/layers_panel.eve` and `Required/layouts/Layers/Panels/layers-2490.exv`: layer panel structure and controls.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000007",
+        "line": 11,
+        "text": "- `recovered/interface/Required/layouts/Masks/Properties/masks-2662.exv`: separate pixel, vector and filter mask controls, density, feather and inversion.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000007",
+        "line": 12,
+        "text": "- `recovered/interface/Required/layouts/Filters/Dialogs/filterBlendingOptions-3061.exv`: per-filter opacity/blend controls.",
+        "basis": "lexical_match",
+        "context": "list"
+      },
+      {
+        "block_id": "b000007",
+        "line": 13,
+        "text": "- `recovered/interface/Required/layouts/Styles/Dialogs/tLayerEffectsDialog-3230.exv`: Fill, clipped-group blending, knockout, channel restrictions, mask/effect relationships and split source/backdrop Blend If controls.",
+        "basis": "lexical_match",
+        "context": "list"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000019",
+        "label": "Adobe Photoshop layer API",
+        "target": "https://developer.adobe.com/photoshop/uxp/ps_reference/classes/layer/",
+        "kind": "external",
+        "line": 35
+      },
+      {
+        "block_id": "b000019",
+        "label": "Adobe Photoshop blend descriptions",
+        "target": "https://helpx.adobe.com/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html",
+        "kind": "external",
+        "line": 36
+      },
+      {
+        "block_id": "b000019",
+        "label": "Adobe Photoshop file format",
+        "target": "https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/",
+        "kind": "external",
+        "line": 37
+      },
+      {
+        "block_id": "b000019",
+        "label": "Adobe filter masks",
+        "target": "https://helpx.adobe.com/photoshop/desktop/effects-filters/smart-filters/mask-smart-filter-effects.html",
+        "kind": "external",
+        "line": 38
+      },
+      {
+        "block_id": "b000019",
+        "label": "filter blending",
+        "target": "https://helpx.adobe.com/photoshop/desktop/effects-filters/get-started-with-filters/blend-and-fade-filter-effects.html",
+        "kind": "external",
+        "line": 38
+      },
+      {
+        "block_id": "b000019",
+        "label": "W3C Compositing and Blending",
+        "target": "https://www.w3.org/TR/compositing-1/",
+        "kind": "external",
+        "line": 39
+      },
+      {
+        "block_id": "b000019",
+        "label": "OpenRaster layer stack",
+        "target": "https://www.openraster.org/baseline/layer-stack-spec.html",
+        "kind": "external",
+        "line": 40
+      }
+    ],
+    "tables": [
+      {
+        "block_id": "b000013",
+        "columns": [
+          "Area",
+          "Before this change",
+          "Native contract after this change",
+          "Remaining Photoshop-specific work"
+        ],
+        "rows": [
+          [
+            "Layer blends",
+            "Normal, Multiply, Screen, Overlay",
+            "27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions",
+            "Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic"
+          ],
+          [
+            "Fill",
+            "Only overall opacity",
+            "Distinct stored Fill and layer/motion opacity",
+            "Styles with independent Fill and the eight special blend formulas"
+          ],
+          [
+            "Pixel/vector masks",
+            "Detached bitmap mask operations only",
+            "Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage",
+            "Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms"
+          ],
+          [
+            "Filter masks",
+            "No layer-owned filter mask",
+            "Shared non-destructive filter-stack coverage",
+            "Full Smart Object/filter host equivalence"
+          ],
+          [
+            "Filters",
+            "Detached 14 photographic effects and color adjustment",
+            "Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added",
+            "Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations"
+          ],
+          [
+            "Composition",
+            "Flat artwork plus isolated artboards",
+            "Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If",
+            "General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers"
+          ],
+          [
+            "Layer styles",
+            "No native style model",
+            "Explicitly retained as a known gap",
+            "Shadows, glows, strokes, overlays, bevel/emboss and style/mask precedence"
+          ],
+          [
+            "Persistence",
+            "IISC 1.19",
+            "IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation",
+            "PSD appearance serialization and richer interchange profiles"
+          ]
+        ]
+      }
+    ]
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:d777e83ba712b2772c3cff2cb1a5a7118a78f1af1083fd794e5ad2dd1f232d68",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/BITMAP_PROCESSING.md",
+    "sha256": "7aeaddf79c0c506f3a6d6ca2a076c6ab925de490773d4f563713e925a921062b",
+    "bytes": 2464,
+    "line_count": 36,
+    "encoding": "utf-8",
+    "language": "en"
+  },
+  "document": {
+    "title": "Bitmap processing and native brush configuration (0.26.0)",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# Bitmap processing and native brush configuration (0.26.0)\n",
+      "level": 1,
+      "title": "Bitmap processing and native brush configuration (0.26.0)"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 10,
+      "raw": "`Bitmap/BitmapProcessing.h` provides detached, bounded C++23 operations for color\nadjustment, spatial effects, deterministic noise, solid/gradient/pattern fills,\ncoverage-mask feathering and combinations, connected/global color selection,\nand masked pixel replacement. Inputs remain unchanged. Invalid dimensions,\nstorage, mismatched masks and nonfinite parameters return an explicit error.\nRGB operations preserve source alpha; mask operations multiply alpha and clear\nRGB where alpha becomes zero. Gaussian blur uses three running-window separable\nbox convolutions. It is an approximation, not a frequency-domain exact Gaussian.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 12,
+      "end_line": 15,
+      "raw": "These operations do not infer faces, objects, depth or semantic regions. Such\ndata must be supplied by a real detector or an existing conditioning asset.\nThey do not manage UI state, files or transactions. Consumers commit resulting\npixels through `DocumentFile::edit`, `DocumentEditor` or `CanvasItem` edits.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 22,
+      "raw": "`BitmapBrush::engineState` optionally carries iiPaintEngine's native tip,\ndynamics, color and material configuration. The existing scalar size/color/flow/\nhardness/spacing controls remain authoritative, and erasing remains destination\nout. `CanvasItem::setBrushEngineState` applies this to both finite and chunked\nbitmap editors; `clearBrushEngineState` restores legacy behavior. Brush input\nremains committed raster pixels; no pointer sequence is serialized.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 24,
+      "end_line": 27,
+      "raw": "This release changes the C++ package ABI to SOVERSION 0.26. The `.iisc` schema\nremains 1.17. Processing and independent installed-consumer tests cover exact\nneutral output, alpha, deterministic seeds, gradient stops, mask algebra,\nconnected/global selection, rejected data and all effect kinds.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "heading",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "# Alpha and parameter boundaries\n",
+      "level": 1,
+      "title": "Alpha and parameter boundaries"
+    },
+    {
+      "id": "b000011",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "paragraph",
+      "start_line": 30,
+      "end_line": 34,
+      "raw": "Masked replacement interpolates premultiplied color and alpha, then stores\nunassociated ARGB. Feathering colored content over transparency retains its\ncolor instead of introducing a dark fringe. Zero/full mask coverage preserves\nthe corresponding input byte exactly. Dehaze strength is bounded to keep its\ntransmission divisor positive for every accepted public parameter.\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "Bitmap processing and native brush configuration (0.26.0)",
+      "anchor": "bitmap-processing-and-native-brush-configuration-0260",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000010",
+      "parent_id": null,
+      "level": 1,
+      "title": "Alpha and parameter boundaries",
+      "anchor": "alpha-and-parameter-boundaries",
+      "start_line": 28
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [
+      {
+        "block_id": "b000005",
+        "line": 12,
+        "text": "These operations do not infer faces, objects, depth or semantic regions. Such",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 13,
+        "text": "data must be supplied by a real detector or an existing conditioning asset.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000005",
+        "line": 14,
+        "text": "They do not manage UI state, files or transactions. Consumers commit resulting",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      }
+    ],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000014",
+        "label": "Native layer compositing",
+        "target": "LAYER_COMPOSITING.md",
+        "kind": "relative",
+        "line": 36
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}
