@@ -9,6 +9,8 @@
 #include "Bitmap/BitmapEditor.h"
 #include "Bitmap/ChunkedBitmapEditor.h"
 #include "Bitmap/BitmapProcessing.h"
+#include "Bitmap/TiledMask.h"
+#include "Bitmap/TiledMaskEditor.h"
 #include "Audio/AudioCodec.h"
 #include "Camera/CameraRaw.h"
 #include "Vector/VectorEditor.h"

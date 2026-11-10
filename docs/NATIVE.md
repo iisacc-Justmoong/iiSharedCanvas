@@ -252,3 +252,142 @@ CTest로 실행한다. 직접 실행할 때 인자가 없으면 두 범위를 �
 Qt 없는 네이티브 빌드에서 `BUILD_TESTING`을 켜면 시험 파일, 임시 설치 접두 경로와 프로세스 임시 파일은 빌드 폴더가 아니라 실제 `resources/` 아래의 예약된 `.iisacc-` 디렉터리에 둔다. 독립 소비자 검사도 같은 경로 계약을 사용하며 설치 패키지의 고정 픽스처는 패키지의 리소스 경로에서 읽는다. `IISC_TEST_WORK_DIR`을 지정하면 이미 존재하는 절대 디렉터리여야 하며, 실제 경로가 자원 루트의 예약된 하위 트리 안에 있어야 한다. 루트 자체, 외부 경로, 없는 디렉터리, 요청 경로 자체가 심볼릭 링크인 경우와 중간 링크가 루트 밖을 가리키는 경우는 거부한다. 지정하지 않으면 구성 시 자원 루트에 고유한 `.iisacc-tests-` 디렉터리를 만들고 그 경로를 CMake 캐시에 보존한다. 자동 생성된 디렉터리를 성공 후 정리한 경우 다음 구성은 새 고유 디렉터리를 만들며, 명시적으로 지정한 누락 경로는 계속 거부한다.
 
 테스트 종료 후 호출자는 자신이 만든 디렉터리의 경로와 소유권을 확인하고 성공한 작업 자원만 정리한다. 실패 자료와 다른 작업의 디렉터리는 보존한다. `iiSharedCanvas.TestWorkDirContract`는 유효한 경로, 별도 CMake 구성 간 기본 디렉터리 정리와 재생성, 자원 루트·외부·미존재 경로 및 가능한 심볼릭 링크 탈출을 검사한다.
+
+## 사각형·타원 선택 마스크
+
+이 공개 API는 iiSharedCanvas Native 0.35.15부터 제공한다. 0.35.14 설치본에는
+같은 기능이 없을 수 있으므로 소비자는 0.35.15 이상을 요구해야 한다.
+
+`selectionGeometry(extent, shape, first, second, antialias)`는 문서 로컬 좌표의
+두 대각점으로 분리된 `RasterMask`를 생성한다. 사각형과 타원, 역방향 드래그,
+캔버스 바깥 클리핑과 영면적 입력을 처리한다. 안티앨리어싱은 픽셀당 4×4
+고정 표본으로 계산한다. 입력 크기는 기존 래스터 연산과 같은 최대 64MP이며
+유한하지 않은 좌표와 알 수 없는 도형은 오류를 반환한다. 생성된 마스크는
+`combineMasks`, `featherMask`, `maskRaster`와 함께 사용할 수 있다.
+이 API는 문서 편집·UI 도구 연결이나 대형 문서의 타일형 선택을 제공하지 않는다.
+
+
+`selectionPolygon(extent, points, antialias)`는 마지막 점과 첫 점을 연결한
+경로를 짝수·홀수 규칙으로 채운 분리 마스크를 반환한다. 방향과 자체 교차에
+관계없이 4×4 고정 표본을 사용하며 안티앨리어싱을 끄면 픽셀 중심을 사용한다.
+캔버스 밖은 잘라내고 점은 3개 이상 65,536개 이하, 좌표 절댓값은 10억 이하로
+제한한다. 보이는 행과 표본당 변 검사 횟수가 합계 5천만을 넘으면 오류를
+반환한다. 이 제한은 비용을 예측하기 위한 것이며 타일형 선택이나 입력 제스처,
+에지 스냅을 구현한 것은 아니다. 기존 `combineMasks`로 다른 선택과 결합한다.
+
+### 마술봉 선택
+
+`selectionWand(pixels, seed, tolerance, contiguous)`는 분리된 선택 마스크를
+반환한다. 허용 오차는 0부터 1까지이며 각 픽셀의 premultiplied RGB와 알파의
+최대 채널 차이로 판정한다. 완전히 투명한 픽셀의 숨겨진 RGB는 비교에 영향을
+주지 않는다. 연속 모드는 상하좌우 연결 영역만 선택하고 전체 모드는 떨어진
+일치 픽셀도 선택한다. 유효하지 않은 좌표·오차와 64MP를 초과하는 래스터는
+오류다. 기존 `floodMask`의 RGB 비교 계약은 변경하지 않는다. 이 API를 사용하려면
+iiSharedCanvas Native 0.35.16 이상을 요구해야 한다.
+
+### 좌표 기반 그라디언트
+
+`gradientRaster(extent, definition)`는 문서 로컬 좌표의 시작점과 끝점,
+선형 또는 방사형 방식, 단색 범위 고정 또는 반복, 2–256개의 엄격히 증가하는
+색상 정지점과 불투명도로 분리된 래스터를 만든다. 픽셀 중심을 샘플링하고
+RGBA는 premultiplied 상태로 보간한 뒤 비연관 색상으로 반환하여 투명 색상에
+숨겨진 RGB가 경계를 오염시키지 않게 한다. 잘못된 좌표·정지점·불투명도,
+같은 시작·끝점과 64MP를 초과하는 크기는 거부한다. 선택 적용은 `maskRaster`로
+별도 수행하며 문서 편집 및 레이어 블렌딩은 호출자의 책임이다. 이 API를
+사용하려면 iiSharedCanvas Native 0.35.17 이상을 요구해야 한다.
+
+
+### Magnetic selection path
+
+`magneticSelectionPath` traces a detached raster path using premultiplied RGBA
+edge strengths and a deterministic bounded shortest-path search. Its search radius
+is expressed in source pixels; low-contrast input falls back to a straight segment.
+The caller supplies its reference frame and decides when to place anchors or apply
+the resulting path as a selection. Invalid input, an oversized search rectangle,
+and allocation failure return an error without changing document data. The search
+is limited to at most 1,048,576 pixels and source images to 64 megapixels. This is
+a synchronous primitive; callers should bound or schedule preview work.
+
+
+### Finite canvas reframe
+
+`DocumentEditor::reframeCanvas` changes the finite canvas extent to a contained
+integer region without deleting source assets. It translates loose layer transforms
+and unlinked world-space masks, and shifts artboard origins so grouped layers retain
+their local coordinates. Motion keyframes, frame references, and asset pixels remain
+unchanged. Invalid, empty, out-of-bounds, and infinite-canvas regions are rejected
+without mutation. Dissolve layers are rejected for nonzero origin shifts because their
+world-coordinate pattern would otherwise change. This operation is a non-destructive
+reframe, not perspective correction or destructive pixel trimming.
+
+
+### 브러시 획 상태 스냅샷
+
+문서에 직접 바인딩한 `BitmapEditor`의 활성 획에서 `currentStrokeBrushState()`는
+실제로 적용하는 크기·색·재료·입력 반응과 현재 획의 난수 시드를 값으로 반환한다.
+획이 없거나 파일 트랜잭션에 바인딩한 경우에는 빈 값을 반환한다. 이 값은 임시 작성
+도구의 재렌더링에 사용할 수 있으며 입력 표본이나 문서 변경을 보관하지 않는다.
+호출자는 획 시작 픽셀, 미리보기와 이력의 원자성을 별도로 관리한다.
+
+
+### 이진 마스크 경계 앤티앨리어싱
+
+`antialiasBinaryMask`는 0과 255로만 구성된 분리된 마스크에서 이웃 픽셀 중심의
+이중선형 보간값 0.5를 경계로 삼아 각 픽셀에 4×4 서브픽셀 커버리지를 계산한다.
+가로·세로로 정렬된 직선과 문서 가장자리는 유지하고 대각선·모서리는 16단계의
+결정적인 부분 커버리지로 재구성한다. 원래 이미지의 숨은 벡터 경계를 복구하는
+기능은 아니다. 유효하지 않거나 부분 커버리지가 이미 포함된 입력과 64MP 초과는
+거부하며 입력은 변경하지 않는다. 기존 선택 마스크와의 합성은 호출자가 처리한다.
+
+
+## 선택 영역 타일 마스크
+
+`TiledMask::rectangle`, `TiledMask::ellipse`와 `TiledMask::polygon`은 유한한 문서 좌표 영역과 도형 경계를 받아 64×64
+타일의 불변 선택 마스크를 만든다. 영역 전체가 같은 커버리지인 경우 기본값으로,
+단색 타일은 한 값으로, 경계 타일만 픽셀 배열로 저장한다. 복사는 불변 데이터를
+공유하며 `combine`의 교체·더하기·빼기·교차와 `inverted`는 새 값을 반환한다.
+좌표 밖 커버리지는 0이며 영역과 크기가 같은 마스크끼리만 결합할 수 있다.
+`coverage`는 문서 좌표를 사용한다. `materialize`는 요청한 영역만 조밀한 마스크로
+변환하고 영역 밖은 0으로 채우며 요청당 최대 64MP를 허용한다.
+
+기본 예산은 표현된 타일 65,536개와 조밀 타일 데이터 32MiB다. 타일 메타데이터,
+할당자와 결과 배열의 일시 메모리는 포함하지 않는다. 작업이 예산을 넘거나 입력이
+잘못되면 오류를 반환하고 기존 마스크는 변경하지 않는다. 전체 영역 사각 선택은
+타일을 만들지 않지만, 그 밖의 매우 큰 사각 영역은 타일 개수 한도로 거부될 수 있다.
+타원은 캔버스 밖 도형도 원래의 중심과 반지름을 유지해 클리핑한다.
+다각형은 최대 65,536개 정점과 전체 타일에서 최대 5천만 회의 경계 스캔을
+허용하며, 캔버스 밖 점과 자기 교차를 기존 조밀 다각형과 같은 규칙으로 처리한다.
+이 API는 사각·타원·다각형 선택과 불리언 연산의 기반이다. 앱 도구 연결과
+청크 획의 선택·이력 처리는 이를 사용하는 애플리케이션이 별도로 보장해야 한다.
+
+작은 크기의 무작위 사각·타원·다각형 선택은 기존 조밀 픽셀 기준과 비교하고,
+네 결합 연산·반전·음수 원점·타일 경계·큰 영역·예산 및 유효하지 않은 입력을
+검사한다. 플랫폼별 실제 실행은 이 검사에 포함되지 않는다.
+
+`equivalent`는 서로 다른 기본값·타일 표현이어도 실제 영역의 커버리지를 비교한다.
+`feathered`는 기존 조밀 `featherMask`와 같은 픽셀 결과를 내며 유효 영역과
+여유 경계만 처리한다. 계산 영역이 16MP를 넘으면 거부하고, 균일한 마스크는
+추가 버퍼 없이 유지한다. 반경은 0부터 256까지 허용한다.
+`fromRaster`는 문서 좌표의 제한된 래스터 커버리지와 영역 밖 기본 커버리지를
+불변 타일 마스크로 가져온다. 소스는 최대 64MP이며 도메인 밖은 잘린다. 타일
+수와 조밀 저장량 예산은 다른 타일 연산과 동일하게 적용된다.
+`nonzeroBounds`는 0이 아닌 커버리지를 포함하는 문서 좌표의 범위를 반환하며,
+암묵적 배경이 0이 아니면 안전을 위해 전체 도메인을 반환한다. 빈 마스크는
+범위가 없다. 이를 사용한 작업에도 별도의 출력 크기·이력 예산이 필요하다.
+`storage_bytes`는 이력 예산 산정에 쓸 수 있는 보수적인 소유 페이로드 추정치이며
+공유되는 타일을 각 마스크에서 다시 계산하고 할당자 오버헤드는 포함하지 않는다.
+
+`TiledMask::patched`는 문서 좌표의 래스터 커버리지 조각을 입력 순서대로 적용한
+새 마스크를 원자적으로 반환한다. 도메인 밖은 잘리고, 잘못된 크기나 합계 16MP를
+초과한 조각 또는 타일 저장 예산 초과는 원본을 바꾸지 않고 거부한다.
+`TiledMaskEditor`는 분리된 마스크에 기존 브러시 엔진의 입력·타일 스트로크 합성을
+사용해 붓과 지우개를 적용한다. 진행 중 커버리지는 `coverage`, 확정된 마스크는
+`mask`로 조회한다. 획 취소와 로컬 Undo/Redo는 원래 문서를 수정하지 않는다.
+기본 작업·이력 예산은 64MiB이며 타일 payload의 보수적 추정치로 산정한다.
+예산·입력 오류는 획을 적용하지 않는다. 이 편집기는 애플리케이션의 문서 이력과
+별도이므로 앱은 확정된 마스크를 자체 Undo/Redo 트랜잭션으로 연결해야 한다.
+
+`TiledMask::reframed`는 현재 도메인 내부의 사각형을 잘라 지정한 새 원점에
+배치한다. 암묵적 배경을 유지하며 원본은 변경하지 않는다. 도메인 전체의 원점
+이동은 타일 데이터를 공유하고, 부분 자르기는 표현된 타일에서 최대 16MP의
+픽셀을 검사한다. 그 한도나 타일 저장 예산을 넘으면 변경 없이 오류를 반환한다.

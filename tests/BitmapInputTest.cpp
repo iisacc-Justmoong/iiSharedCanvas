@@ -235,6 +235,7 @@ void fileRoundtrip(bool chunked)
         StrokePoint sample;
         sample.position = {32, 32}; sample.time = 1;
         check(editor.beginStroke(sample), "file-bound measured stroke begins");
+        check(!editor.currentStrokeBrushState(), "file-bound editor does not expose transient stroke state");
         sample.position.x += 4; sample.time += .1;
         check(editor.continueStroke(sample), "file-bound measured stroke continues");
         const auto before = pixels(*file.document()).pixels;
@@ -264,6 +265,17 @@ int main()
                   << std::chrono::duration_cast<std::chrono::milliseconds>(
                          std::chrono::steady_clock::now() - begin).count() << std::endl;
     };
+    stage("chunked-stroke-state", [] {
+        auto document=canvas(true); ChunkedBitmapEditor editor(document,"paint");
+        check(!editor.currentStrokeBrushState(), "idle chunk editor exposes no stroke state");
+        auto configuration=brush(); configuration.size=9; configuration.opacity=.6;
+        StrokePoint point; point.position={16,16}; point.time=1;
+        check(editor.setBrush(configuration) && editor.beginStroke(point), "chunk state stroke begins");
+        auto state=editor.currentStrokeBrushState();
+        check(state && state->rasterizer.brushSize==9 && std::abs(state->rasterizer.opacity-.6)<1e-6,
+              "chunk stroke exposes effective frozen brush settings");
+        check(editor.endStroke(point) && !editor.currentStrokeBrushState(), "finished chunk stroke exposes no state");
+    });
     stage("finite-memory", [] { exercise<BitmapEditor>(false); });
     stage("chunked-memory", [] { exercise<ChunkedBitmapEditor>(true); });
     stage("chunked-boundary", [] { crossTiles<ChunkedBitmapEditor>(); });

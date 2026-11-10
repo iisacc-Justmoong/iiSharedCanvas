@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/README.md",
-    "sha256": "efb62a98b1b44bdc491e4bff875d1f2a7a66660ad712fcf717517129efe0d955",
-    "bytes": 5914,
-    "line_count": 76,
+    "sha256": "20ecc2694f4751f954a7b25df7a76c243cffe4b7522bb1df34089e2b2cc07742",
+    "bytes": 6080,
+    "line_count": 78,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -79,8 +79,8 @@
       "id": "b000008",
       "kind": "table",
       "start_line": 8,
-      "end_line": 75,
-      "raw": "| Document | Agent JSON |\n| --- | --- |\n| [`AGENT.md`](../AGENT.md) | [JSON](entrypoints/AGENT.agent.json) |\n| [`AGENTS.md`](../AGENTS.md) | [JSON](entrypoints/AGENTS.agent.json) |\n| [`NOTICE.md`](../NOTICE.md) | [JSON](entrypoints/NOTICE.agent.json) |\n| [`README.md`](../README.md) | [JSON](entrypoints/README.agent.json) |\n| [`docs/API.md`](API.md) | [JSON](API.agent.json) |\n| [`docs/ARTBOARDS.md`](ARTBOARDS.md) | [JSON](ARTBOARDS.agent.json) |\n| [`docs/ARTBOARD_PRESENTATION.md`](ARTBOARD_PRESENTATION.md) | [JSON](ARTBOARD_PRESENTATION.agent.json) |\n| [`docs/AUDIO_TIMELINE.md`](AUDIO_TIMELINE.md) | [JSON](AUDIO_TIMELINE.agent.json) |\n| [`docs/BINARY_LINE_CONTROL.md`](BINARY_LINE_CONTROL.md) | [JSON](BINARY_LINE_CONTROL.agent.json) |\n| [`docs/BITMAP_CLOCK.md`](BITMAP_CLOCK.md) | [JSON](BITMAP_CLOCK.agent.json) |\n| [`docs/BITMAP_FILE_REGIONS.md`](BITMAP_FILE_REGIONS.md) | [JSON](BITMAP_FILE_REGIONS.agent.json) |\n| [`docs/BITMAP_HISTORY.md`](BITMAP_HISTORY.md) | [JSON](BITMAP_HISTORY.agent.json) |\n| [`docs/BITMAP_INPUT.md`](BITMAP_INPUT.md) | [JSON](BITMAP_INPUT.agent.json) |\n| [`docs/BITMAP_PROCESSING.md`](BITMAP_PROCESSING.md) | [JSON](BITMAP_PROCESSING.agent.json) |\n| [`docs/BITMAP_WET_BRUSH.md`](BITMAP_WET_BRUSH.md) | [JSON](BITMAP_WET_BRUSH.agent.json) |\n| [`docs/BLUEPRINT.md`](BLUEPRINT.md) | [JSON](BLUEPRINT.agent.json) |\n| [`docs/BuildComponents.md`](BuildComponents.md) | [JSON](BuildComponents.agent.json) |\n| [`docs/CANVAS_MEDIA.md`](CANVAS_MEDIA.md) | [JSON](CANVAS_MEDIA.agent.json) |\n| [`docs/CONTROLNET_PARAMETERS.md`](CONTROLNET_PARAMETERS.md) | [JSON](CONTROLNET_PARAMETERS.agent.json) |\n| [`docs/DEPENDENCIES.md`](DEPENDENCIES.md) | [JSON](DEPENDENCIES.agent.json) |\n| [`docs/DEPTH.md`](DEPTH.md) | [JSON](DEPTH.agent.json) |\n| [`docs/DOCUMENT_HISTORY.md`](DOCUMENT_HISTORY.md) | [JSON](DOCUMENT_HISTORY.agent.json) |\n| [`docs/DOCUMENT_PREVIEWS.md`](DOCUMENT_PREVIEWS.md) | [JSON](DOCUMENT_PREVIEWS.agent.json) |\n| [`docs/DYNAMIC_FRAME_CONTENT.md`](DYNAMIC_FRAME_CONTENT.md) | [JSON](DYNAMIC_FRAME_CONTENT.agent.json) |\n| [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md) | [JSON](FILE_PROVIDER.agent.json) |\n| [`docs/FORMAT.md`](FORMAT.md) | [JSON](FORMAT.agent.json) |\n| [`docs/FOUR_LAYER_TYPES.md`](FOUR_LAYER_TYPES.md) | [JSON](FOUR_LAYER_TYPES.agent.json) |\n| [`docs/FRAME_OVERLAY.md`](FRAME_OVERLAY.md) | [JSON](FRAME_OVERLAY.agent.json) |\n| [`docs/GUI_FRAME_PRESENTATION.md`](GUI_FRAME_PRESENTATION.md) | [JSON](GUI_FRAME_PRESENTATION.agent.json) |\n| [`docs/IISC_UPGRADE_CLI.md`](IISC_UPGRADE_CLI.md) | [JSON](IISC_UPGRADE_CLI.agent.json) |\n| [`docs/IP_ADAPTER.md`](IP_ADAPTER.md) | [JSON](IP_ADAPTER.agent.json) |\n| [`docs/LAYERED_IMPORT_CLI.md`](LAYERED_IMPORT_CLI.md) | [JSON](LAYERED_IMPORT_CLI.agent.json) |\n| [`docs/LAYER_COMPOSITING.md`](LAYER_COMPOSITING.md) | [JSON](LAYER_COMPOSITING.agent.json) |\n| [`docs/LAYER_FILE_EDITS.md`](LAYER_FILE_EDITS.md) | [JSON](LAYER_FILE_EDITS.agent.json) |\n| [`docs/LINE_ART.md`](LINE_ART.md) | [JSON](LINE_ART.agent.json) |\n| [`docs/MASK_REGIONS.md`](MASK_REGIONS.md) | [JSON](MASK_REGIONS.agent.json) |\n| [`docs/MEDIA_IO.md`](MEDIA_IO.md) | [JSON](MEDIA_IO.agent.json) |\n| [`docs/MLSD.md`](MLSD.md) | [JSON](MLSD.agent.json) |\n| [`docs/NATIVE.md`](NATIVE.md) | [JSON](NATIVE.agent.json) |\n| [`docs/NORMAL_MAP.md`](NORMAL_MAP.md) | [JSON](NORMAL_MAP.agent.json) |\n| [`docs/OPENRASTER_IMPORT.md`](OPENRASTER_IMPORT.md) | [JSON](OPENRASTER_IMPORT.agent.json) |\n| [`docs/PERSISTENCE.md`](PERSISTENCE.md) | [JSON](PERSISTENCE.agent.json) |\n| [`docs/PHOTOSHOP_LAYER_COMPARISON.md`](PHOTOSHOP_LAYER_COMPARISON.md) | [JSON](PHOTOSHOP_LAYER_COMPARISON.agent.json) |\n| [`docs/PIXEL_PREVIEW.md`](PIXEL_PREVIEW.md) | [JSON](PIXEL_PREVIEW.agent.json) |\n| [`docs/POSE.md`](POSE.md) | [JSON](POSE.agent.json) |\n| [`docs/PSD_EXPORT.md`](PSD_EXPORT.md) | [JSON](PSD_EXPORT.agent.json) |\n| [`docs/PSD_EXPORT_CLI.md`](PSD_EXPORT_CLI.md) | [JSON](PSD_EXPORT_CLI.agent.json) |\n| [`docs/PSD_IMPORT.md`](PSD_IMPORT.md) | [JSON](PSD_IMPORT.agent.json) |\n| [`docs/PUBLICATION_METADATA.md`](PUBLICATION_METADATA.md) | [JSON](PUBLICATION_METADATA.agent.json) |\n| [`docs/QT_MIGRATION.md`](QT_MIGRATION.md) | [JSON](QT_MIGRATION.agent.json) |\n| [`docs/RASTER_SAMPLING.md`](RASTER_SAMPLING.md) | [JSON](RASTER_SAMPLING.agent.json) |\n| [`docs/REFERENCE.md`](REFERENCE.md) | [JSON](REFERENCE.agent.json) |\n| [`docs/SEMANTIC_SEGMENT.md`](SEMANTIC_SEGMENT.md) | [JSON](SEMANTIC_SEGMENT.agent.json) |\n| [`docs/SHUFFLE.md`](SHUFFLE.md) | [JSON](SHUFFLE.agent.json) |\n| [`docs/TILE.md`](TILE.md) | [JSON](TILE.agent.json) |\n| [`docs/TIMELINE_INTERCHANGE.md`](TIMELINE_INTERCHANGE.md) | [JSON](TIMELINE_INTERCHANGE.agent.json) |\n| [`docs/TIMELINE_INTERCHANGE_CLI.md`](TIMELINE_INTERCHANGE_CLI.md) | [JSON](TIMELINE_INTERCHANGE_CLI.agent.json) |\n| [`docs/TIMELINE_XML.md`](TIMELINE_XML.md) | [JSON](TIMELINE_XML.agent.json) |\n| [`docs/VIDEO_FRAME_DECODER.md`](VIDEO_FRAME_DECODER.md) | [JSON](VIDEO_FRAME_DECODER.agent.json) |\n| [`docs/VIDEO_FRAME_ENCODER.md`](VIDEO_FRAME_ENCODER.md) | [JSON](VIDEO_FRAME_ENCODER.agent.json) |\n| [`docs/WORKING_FILE_TILES.md`](WORKING_FILE_TILES.md) | [JSON](WORKING_FILE_TILES.agent.json) |\n| [`docs/WindowsBuildAndRun.md`](WindowsBuildAndRun.md) | [JSON](WindowsBuildAndRun.agent.json) |\n| [`docs/WindowsDocumentCommit.md`](WindowsDocumentCommit.md) | [JSON](WindowsDocumentCommit.agent.json) |\n| [`docs/XML_SVG_IMPORT.md`](XML_SVG_IMPORT.md) | [JSON](XML_SVG_IMPORT.agent.json) |\n| [`docs/documentation-structure.md`](documentation-structure.md) | [JSON](documentation-structure.agent.json) |\n| [`example/README.md`](../example/README.md) | [JSON](mirrors/example/README.agent.json) |\n",
+      "end_line": 77,
+      "raw": "| Document | Agent JSON |\n| --- | --- |\n| [`AGENT.md`](../AGENT.md) | [JSON](entrypoints/AGENT.agent.json) |\n| [`AGENTS.md`](../AGENTS.md) | [JSON](entrypoints/AGENTS.agent.json) |\n| [`NOTICE.md`](../NOTICE.md) | [JSON](entrypoints/NOTICE.agent.json) |\n| [`README.md`](../README.md) | [JSON](entrypoints/README.agent.json) |\n| [`docs/API.md`](API.md) | [JSON](API.agent.json) |\n| [`docs/ARTBOARDS.md`](ARTBOARDS.md) | [JSON](ARTBOARDS.agent.json) |\n| [`docs/ARTBOARD_PRESENTATION.md`](ARTBOARD_PRESENTATION.md) | [JSON](ARTBOARD_PRESENTATION.agent.json) |\n| [`docs/AUDIO_TIMELINE.md`](AUDIO_TIMELINE.md) | [JSON](AUDIO_TIMELINE.agent.json) |\n| [`docs/BINARY_LINE_CONTROL.md`](BINARY_LINE_CONTROL.md) | [JSON](BINARY_LINE_CONTROL.agent.json) |\n| [`docs/BITMAP_CLOCK.md`](BITMAP_CLOCK.md) | [JSON](BITMAP_CLOCK.agent.json) |\n| [`docs/BITMAP_FILE_REGIONS.md`](BITMAP_FILE_REGIONS.md) | [JSON](BITMAP_FILE_REGIONS.agent.json) |\n| [`docs/BITMAP_HISTORY.md`](BITMAP_HISTORY.md) | [JSON](BITMAP_HISTORY.agent.json) |\n| [`docs/BITMAP_INPUT.md`](BITMAP_INPUT.md) | [JSON](BITMAP_INPUT.agent.json) |\n| [`docs/BITMAP_PROCESSING.md`](BITMAP_PROCESSING.md) | [JSON](BITMAP_PROCESSING.agent.json) |\n| [`docs/BITMAP_WET_BRUSH.md`](BITMAP_WET_BRUSH.md) | [JSON](BITMAP_WET_BRUSH.agent.json) |\n| [`docs/BLUEPRINT.md`](BLUEPRINT.md) | [JSON](BLUEPRINT.agent.json) |\n| [`docs/BUILD_LAYOUT.md`](BUILD_LAYOUT.md) | [JSON](BUILD_LAYOUT.agent.json) |\n| [`docs/BuildComponents.md`](BuildComponents.md) | [JSON](BuildComponents.agent.json) |\n| [`docs/CANVAS_MEDIA.md`](CANVAS_MEDIA.md) | [JSON](CANVAS_MEDIA.agent.json) |\n| [`docs/CONTROLNET_PARAMETERS.md`](CONTROLNET_PARAMETERS.md) | [JSON](CONTROLNET_PARAMETERS.agent.json) |\n| [`docs/DEPENDENCIES.md`](DEPENDENCIES.md) | [JSON](DEPENDENCIES.agent.json) |\n| [`docs/DEPTH.md`](DEPTH.md) | [JSON](DEPTH.agent.json) |\n| [`docs/DOCUMENT_HISTORY.md`](DOCUMENT_HISTORY.md) | [JSON](DOCUMENT_HISTORY.agent.json) |\n| [`docs/DOCUMENT_PREVIEWS.md`](DOCUMENT_PREVIEWS.md) | [JSON](DOCUMENT_PREVIEWS.agent.json) |\n| [`docs/DYNAMIC_FRAME_CONTENT.md`](DYNAMIC_FRAME_CONTENT.md) | [JSON](DYNAMIC_FRAME_CONTENT.agent.json) |\n| [`docs/DynamicLinking.md`](DynamicLinking.md) | [JSON](DynamicLinking.agent.json) |\n| [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md) | [JSON](FILE_PROVIDER.agent.json) |\n| [`docs/FORMAT.md`](FORMAT.md) | [JSON](FORMAT.agent.json) |\n| [`docs/FOUR_LAYER_TYPES.md`](FOUR_LAYER_TYPES.md) | [JSON](FOUR_LAYER_TYPES.agent.json) |\n| [`docs/FRAME_OVERLAY.md`](FRAME_OVERLAY.md) | [JSON](FRAME_OVERLAY.agent.json) |\n| [`docs/GUI_FRAME_PRESENTATION.md`](GUI_FRAME_PRESENTATION.md) | [JSON](GUI_FRAME_PRESENTATION.agent.json) |\n| [`docs/IISC_UPGRADE_CLI.md`](IISC_UPGRADE_CLI.md) | [JSON](IISC_UPGRADE_CLI.agent.json) |\n| [`docs/IP_ADAPTER.md`](IP_ADAPTER.md) | [JSON](IP_ADAPTER.agent.json) |\n| [`docs/LAYERED_IMPORT_CLI.md`](LAYERED_IMPORT_CLI.md) | [JSON](LAYERED_IMPORT_CLI.agent.json) |\n| [`docs/LAYER_COMPOSITING.md`](LAYER_COMPOSITING.md) | [JSON](LAYER_COMPOSITING.agent.json) |\n| [`docs/LAYER_FILE_EDITS.md`](LAYER_FILE_EDITS.md) | [JSON](LAYER_FILE_EDITS.agent.json) |\n| [`docs/LINE_ART.md`](LINE_ART.md) | [JSON](LINE_ART.agent.json) |\n| [`docs/MASK_REGIONS.md`](MASK_REGIONS.md) | [JSON](MASK_REGIONS.agent.json) |\n| [`docs/MEDIA_IO.md`](MEDIA_IO.md) | [JSON](MEDIA_IO.agent.json) |\n| [`docs/MLSD.md`](MLSD.md) | [JSON](MLSD.agent.json) |\n| [`docs/NATIVE.md`](NATIVE.md) | [JSON](NATIVE.agent.json) |\n| [`docs/NORMAL_MAP.md`](NORMAL_MAP.md) | [JSON](NORMAL_MAP.agent.json) |\n| [`docs/OPENRASTER_IMPORT.md`](OPENRASTER_IMPORT.md) | [JSON](OPENRASTER_IMPORT.agent.json) |\n| [`docs/PERSISTENCE.md`](PERSISTENCE.md) | [JSON](PERSISTENCE.agent.json) |\n| [`docs/PHOTOSHOP_LAYER_COMPARISON.md`](PHOTOSHOP_LAYER_COMPARISON.md) | [JSON](PHOTOSHOP_LAYER_COMPARISON.agent.json) |\n| [`docs/PIXEL_PREVIEW.md`](PIXEL_PREVIEW.md) | [JSON](PIXEL_PREVIEW.agent.json) |\n| [`docs/POSE.md`](POSE.md) | [JSON](POSE.agent.json) |\n| [`docs/PSD_EXPORT.md`](PSD_EXPORT.md) | [JSON](PSD_EXPORT.agent.json) |\n| [`docs/PSD_EXPORT_CLI.md`](PSD_EXPORT_CLI.md) | [JSON](PSD_EXPORT_CLI.agent.json) |\n| [`docs/PSD_IMPORT.md`](PSD_IMPORT.md) | [JSON](PSD_IMPORT.agent.json) |\n| [`docs/PUBLICATION_METADATA.md`](PUBLICATION_METADATA.md) | [JSON](PUBLICATION_METADATA.agent.json) |\n| [`docs/QT_MIGRATION.md`](QT_MIGRATION.md) | [JSON](QT_MIGRATION.agent.json) |\n| [`docs/RASTER_SAMPLING.md`](RASTER_SAMPLING.md) | [JSON](RASTER_SAMPLING.agent.json) |\n| [`docs/REFERENCE.md`](REFERENCE.md) | [JSON](REFERENCE.agent.json) |\n| [`docs/SEMANTIC_SEGMENT.md`](SEMANTIC_SEGMENT.md) | [JSON](SEMANTIC_SEGMENT.agent.json) |\n| [`docs/SHUFFLE.md`](SHUFFLE.md) | [JSON](SHUFFLE.agent.json) |\n| [`docs/TILE.md`](TILE.md) | [JSON](TILE.agent.json) |\n| [`docs/TIMELINE_INTERCHANGE.md`](TIMELINE_INTERCHANGE.md) | [JSON](TIMELINE_INTERCHANGE.agent.json) |\n| [`docs/TIMELINE_INTERCHANGE_CLI.md`](TIMELINE_INTERCHANGE_CLI.md) | [JSON](TIMELINE_INTERCHANGE_CLI.agent.json) |\n| [`docs/TIMELINE_XML.md`](TIMELINE_XML.md) | [JSON](TIMELINE_XML.agent.json) |\n| [`docs/VIDEO_FRAME_DECODER.md`](VIDEO_FRAME_DECODER.md) | [JSON](VIDEO_FRAME_DECODER.agent.json) |\n| [`docs/VIDEO_FRAME_ENCODER.md`](VIDEO_FRAME_ENCODER.md) | [JSON](VIDEO_FRAME_ENCODER.agent.json) |\n| [`docs/WORKING_FILE_TILES.md`](WORKING_FILE_TILES.md) | [JSON](WORKING_FILE_TILES.agent.json) |\n| [`docs/WindowsBuildAndRun.md`](WindowsBuildAndRun.md) | [JSON](WindowsBuildAndRun.agent.json) |\n| [`docs/WindowsDocumentCommit.md`](WindowsDocumentCommit.md) | [JSON](WindowsDocumentCommit.agent.json) |\n| [`docs/XML_SVG_IMPORT.md`](XML_SVG_IMPORT.md) | [JSON](XML_SVG_IMPORT.agent.json) |\n| [`docs/documentation-structure.md`](documentation-structure.md) | [JSON](documentation-structure.agent.json) |\n| [`example/README.md`](../example/README.md) | [JSON](mirrors/example/README.agent.json) |\n",
       "columns": [
         "Document",
         "Agent JSON"
@@ -151,6 +151,10 @@
           "[JSON](BLUEPRINT.agent.json)"
         ],
         [
+          "[`docs/BUILD_LAYOUT.md`](BUILD_LAYOUT.md)",
+          "[JSON](BUILD_LAYOUT.agent.json)"
+        ],
+        [
           "[`docs/BuildComponents.md`](BuildComponents.md)",
           "[JSON](BuildComponents.agent.json)"
         ],
@@ -181,6 +185,10 @@
         [
           "[`docs/DYNAMIC_FRAME_CONTENT.md`](DYNAMIC_FRAME_CONTENT.md)",
           "[JSON](DYNAMIC_FRAME_CONTENT.agent.json)"
+        ],
+        [
+          "[`docs/DynamicLinking.md`](DynamicLinking.md)",
+          "[JSON](DynamicLinking.agent.json)"
         ],
         [
           "[`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md)",
@@ -355,8 +363,8 @@
     {
       "id": "b000009",
       "kind": "html",
-      "start_line": 76,
-      "end_line": 76,
+      "start_line": 78,
+      "end_line": 78,
       "raw": "<!-- workspace-docs:document-map:end -->\n"
     }
   ],
@@ -608,703 +616,731 @@
       },
       {
         "block_id": "b000008",
+        "label": "`docs/BUILD_LAYOUT.md`",
+        "target": "BUILD_LAYOUT.md",
+        "kind": "relative",
+        "line": 26
+      },
+      {
+        "block_id": "b000008",
+        "label": "JSON",
+        "target": "BUILD_LAYOUT.agent.json",
+        "kind": "relative",
+        "line": 26
+      },
+      {
+        "block_id": "b000008",
         "label": "`docs/BuildComponents.md`",
         "target": "BuildComponents.md",
         "kind": "relative",
-        "line": 26
+        "line": 27
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "BuildComponents.agent.json",
         "kind": "relative",
-        "line": 26
+        "line": 27
       },
       {
         "block_id": "b000008",
         "label": "`docs/CANVAS_MEDIA.md`",
         "target": "CANVAS_MEDIA.md",
         "kind": "relative",
-        "line": 27
+        "line": 28
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "CANVAS_MEDIA.agent.json",
         "kind": "relative",
-        "line": 27
+        "line": 28
       },
       {
         "block_id": "b000008",
         "label": "`docs/CONTROLNET_PARAMETERS.md`",
         "target": "CONTROLNET_PARAMETERS.md",
         "kind": "relative",
-        "line": 28
+        "line": 29
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "CONTROLNET_PARAMETERS.agent.json",
         "kind": "relative",
-        "line": 28
+        "line": 29
       },
       {
         "block_id": "b000008",
         "label": "`docs/DEPENDENCIES.md`",
         "target": "DEPENDENCIES.md",
         "kind": "relative",
-        "line": 29
+        "line": 30
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "DEPENDENCIES.agent.json",
         "kind": "relative",
-        "line": 29
+        "line": 30
       },
       {
         "block_id": "b000008",
         "label": "`docs/DEPTH.md`",
         "target": "DEPTH.md",
         "kind": "relative",
-        "line": 30
+        "line": 31
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "DEPTH.agent.json",
         "kind": "relative",
-        "line": 30
+        "line": 31
       },
       {
         "block_id": "b000008",
         "label": "`docs/DOCUMENT_HISTORY.md`",
         "target": "DOCUMENT_HISTORY.md",
         "kind": "relative",
-        "line": 31
+        "line": 32
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "DOCUMENT_HISTORY.agent.json",
         "kind": "relative",
-        "line": 31
+        "line": 32
       },
       {
         "block_id": "b000008",
         "label": "`docs/DOCUMENT_PREVIEWS.md`",
         "target": "DOCUMENT_PREVIEWS.md",
         "kind": "relative",
-        "line": 32
+        "line": 33
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "DOCUMENT_PREVIEWS.agent.json",
         "kind": "relative",
-        "line": 32
+        "line": 33
       },
       {
         "block_id": "b000008",
         "label": "`docs/DYNAMIC_FRAME_CONTENT.md`",
         "target": "DYNAMIC_FRAME_CONTENT.md",
         "kind": "relative",
-        "line": 33
+        "line": 34
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "DYNAMIC_FRAME_CONTENT.agent.json",
         "kind": "relative",
-        "line": 33
+        "line": 34
+      },
+      {
+        "block_id": "b000008",
+        "label": "`docs/DynamicLinking.md`",
+        "target": "DynamicLinking.md",
+        "kind": "relative",
+        "line": 35
+      },
+      {
+        "block_id": "b000008",
+        "label": "JSON",
+        "target": "DynamicLinking.agent.json",
+        "kind": "relative",
+        "line": 35
       },
       {
         "block_id": "b000008",
         "label": "`docs/FILE_PROVIDER.md`",
         "target": "FILE_PROVIDER.md",
         "kind": "relative",
-        "line": 34
+        "line": 36
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FILE_PROVIDER.agent.json",
         "kind": "relative",
-        "line": 34
+        "line": 36
       },
       {
         "block_id": "b000008",
         "label": "`docs/FORMAT.md`",
         "target": "FORMAT.md",
         "kind": "relative",
-        "line": 35
+        "line": 37
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FORMAT.agent.json",
         "kind": "relative",
-        "line": 35
+        "line": 37
       },
       {
         "block_id": "b000008",
         "label": "`docs/FOUR_LAYER_TYPES.md`",
         "target": "FOUR_LAYER_TYPES.md",
         "kind": "relative",
-        "line": 36
+        "line": 38
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FOUR_LAYER_TYPES.agent.json",
         "kind": "relative",
-        "line": 36
+        "line": 38
       },
       {
         "block_id": "b000008",
         "label": "`docs/FRAME_OVERLAY.md`",
         "target": "FRAME_OVERLAY.md",
         "kind": "relative",
-        "line": 37
+        "line": 39
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "FRAME_OVERLAY.agent.json",
         "kind": "relative",
-        "line": 37
+        "line": 39
       },
       {
         "block_id": "b000008",
         "label": "`docs/GUI_FRAME_PRESENTATION.md`",
         "target": "GUI_FRAME_PRESENTATION.md",
         "kind": "relative",
-        "line": 38
+        "line": 40
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "GUI_FRAME_PRESENTATION.agent.json",
         "kind": "relative",
-        "line": 38
+        "line": 40
       },
       {
         "block_id": "b000008",
         "label": "`docs/IISC_UPGRADE_CLI.md`",
         "target": "IISC_UPGRADE_CLI.md",
         "kind": "relative",
-        "line": 39
+        "line": 41
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "IISC_UPGRADE_CLI.agent.json",
         "kind": "relative",
-        "line": 39
+        "line": 41
       },
       {
         "block_id": "b000008",
         "label": "`docs/IP_ADAPTER.md`",
         "target": "IP_ADAPTER.md",
         "kind": "relative",
-        "line": 40
+        "line": 42
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "IP_ADAPTER.agent.json",
         "kind": "relative",
-        "line": 40
+        "line": 42
       },
       {
         "block_id": "b000008",
         "label": "`docs/LAYERED_IMPORT_CLI.md`",
         "target": "LAYERED_IMPORT_CLI.md",
         "kind": "relative",
-        "line": 41
+        "line": 43
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "LAYERED_IMPORT_CLI.agent.json",
         "kind": "relative",
-        "line": 41
+        "line": 43
       },
       {
         "block_id": "b000008",
         "label": "`docs/LAYER_COMPOSITING.md`",
         "target": "LAYER_COMPOSITING.md",
         "kind": "relative",
-        "line": 42
+        "line": 44
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "LAYER_COMPOSITING.agent.json",
         "kind": "relative",
-        "line": 42
+        "line": 44
       },
       {
         "block_id": "b000008",
         "label": "`docs/LAYER_FILE_EDITS.md`",
         "target": "LAYER_FILE_EDITS.md",
         "kind": "relative",
-        "line": 43
+        "line": 45
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "LAYER_FILE_EDITS.agent.json",
         "kind": "relative",
-        "line": 43
+        "line": 45
       },
       {
         "block_id": "b000008",
         "label": "`docs/LINE_ART.md`",
         "target": "LINE_ART.md",
         "kind": "relative",
-        "line": 44
+        "line": 46
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "LINE_ART.agent.json",
         "kind": "relative",
-        "line": 44
+        "line": 46
       },
       {
         "block_id": "b000008",
         "label": "`docs/MASK_REGIONS.md`",
         "target": "MASK_REGIONS.md",
         "kind": "relative",
-        "line": 45
+        "line": 47
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "MASK_REGIONS.agent.json",
         "kind": "relative",
-        "line": 45
+        "line": 47
       },
       {
         "block_id": "b000008",
         "label": "`docs/MEDIA_IO.md`",
         "target": "MEDIA_IO.md",
         "kind": "relative",
-        "line": 46
+        "line": 48
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "MEDIA_IO.agent.json",
         "kind": "relative",
-        "line": 46
+        "line": 48
       },
       {
         "block_id": "b000008",
         "label": "`docs/MLSD.md`",
         "target": "MLSD.md",
         "kind": "relative",
-        "line": 47
+        "line": 49
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "MLSD.agent.json",
         "kind": "relative",
-        "line": 47
+        "line": 49
       },
       {
         "block_id": "b000008",
         "label": "`docs/NATIVE.md`",
         "target": "NATIVE.md",
         "kind": "relative",
-        "line": 48
+        "line": 50
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NATIVE.agent.json",
         "kind": "relative",
-        "line": 48
+        "line": 50
       },
       {
         "block_id": "b000008",
         "label": "`docs/NORMAL_MAP.md`",
         "target": "NORMAL_MAP.md",
         "kind": "relative",
-        "line": 49
+        "line": 51
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "NORMAL_MAP.agent.json",
         "kind": "relative",
-        "line": 49
+        "line": 51
       },
       {
         "block_id": "b000008",
         "label": "`docs/OPENRASTER_IMPORT.md`",
         "target": "OPENRASTER_IMPORT.md",
         "kind": "relative",
-        "line": 50
+        "line": 52
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "OPENRASTER_IMPORT.agent.json",
         "kind": "relative",
-        "line": 50
+        "line": 52
       },
       {
         "block_id": "b000008",
         "label": "`docs/PERSISTENCE.md`",
         "target": "PERSISTENCE.md",
         "kind": "relative",
-        "line": 51
+        "line": 53
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PERSISTENCE.agent.json",
         "kind": "relative",
-        "line": 51
+        "line": 53
       },
       {
         "block_id": "b000008",
         "label": "`docs/PHOTOSHOP_LAYER_COMPARISON.md`",
         "target": "PHOTOSHOP_LAYER_COMPARISON.md",
         "kind": "relative",
-        "line": 52
+        "line": 54
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PHOTOSHOP_LAYER_COMPARISON.agent.json",
         "kind": "relative",
-        "line": 52
+        "line": 54
       },
       {
         "block_id": "b000008",
         "label": "`docs/PIXEL_PREVIEW.md`",
         "target": "PIXEL_PREVIEW.md",
         "kind": "relative",
-        "line": 53
+        "line": 55
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PIXEL_PREVIEW.agent.json",
         "kind": "relative",
-        "line": 53
+        "line": 55
       },
       {
         "block_id": "b000008",
         "label": "`docs/POSE.md`",
         "target": "POSE.md",
         "kind": "relative",
-        "line": 54
+        "line": 56
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "POSE.agent.json",
         "kind": "relative",
-        "line": 54
+        "line": 56
       },
       {
         "block_id": "b000008",
         "label": "`docs/PSD_EXPORT.md`",
         "target": "PSD_EXPORT.md",
         "kind": "relative",
-        "line": 55
+        "line": 57
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PSD_EXPORT.agent.json",
         "kind": "relative",
-        "line": 55
+        "line": 57
       },
       {
         "block_id": "b000008",
         "label": "`docs/PSD_EXPORT_CLI.md`",
         "target": "PSD_EXPORT_CLI.md",
         "kind": "relative",
-        "line": 56
+        "line": 58
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PSD_EXPORT_CLI.agent.json",
         "kind": "relative",
-        "line": 56
+        "line": 58
       },
       {
         "block_id": "b000008",
         "label": "`docs/PSD_IMPORT.md`",
         "target": "PSD_IMPORT.md",
         "kind": "relative",
-        "line": 57
+        "line": 59
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PSD_IMPORT.agent.json",
         "kind": "relative",
-        "line": 57
+        "line": 59
       },
       {
         "block_id": "b000008",
         "label": "`docs/PUBLICATION_METADATA.md`",
         "target": "PUBLICATION_METADATA.md",
         "kind": "relative",
-        "line": 58
+        "line": 60
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "PUBLICATION_METADATA.agent.json",
         "kind": "relative",
-        "line": 58
+        "line": 60
       },
       {
         "block_id": "b000008",
         "label": "`docs/QT_MIGRATION.md`",
         "target": "QT_MIGRATION.md",
         "kind": "relative",
-        "line": 59
+        "line": 61
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "QT_MIGRATION.agent.json",
         "kind": "relative",
-        "line": 59
+        "line": 61
       },
       {
         "block_id": "b000008",
         "label": "`docs/RASTER_SAMPLING.md`",
         "target": "RASTER_SAMPLING.md",
         "kind": "relative",
-        "line": 60
+        "line": 62
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "RASTER_SAMPLING.agent.json",
         "kind": "relative",
-        "line": 60
+        "line": 62
       },
       {
         "block_id": "b000008",
         "label": "`docs/REFERENCE.md`",
         "target": "REFERENCE.md",
         "kind": "relative",
-        "line": 61
+        "line": 63
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "REFERENCE.agent.json",
         "kind": "relative",
-        "line": 61
+        "line": 63
       },
       {
         "block_id": "b000008",
         "label": "`docs/SEMANTIC_SEGMENT.md`",
         "target": "SEMANTIC_SEGMENT.md",
         "kind": "relative",
-        "line": 62
+        "line": 64
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SEMANTIC_SEGMENT.agent.json",
         "kind": "relative",
-        "line": 62
+        "line": 64
       },
       {
         "block_id": "b000008",
         "label": "`docs/SHUFFLE.md`",
         "target": "SHUFFLE.md",
         "kind": "relative",
-        "line": 63
+        "line": 65
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "SHUFFLE.agent.json",
         "kind": "relative",
-        "line": 63
+        "line": 65
       },
       {
         "block_id": "b000008",
         "label": "`docs/TILE.md`",
         "target": "TILE.md",
         "kind": "relative",
-        "line": 64
+        "line": 66
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "TILE.agent.json",
         "kind": "relative",
-        "line": 64
+        "line": 66
       },
       {
         "block_id": "b000008",
         "label": "`docs/TIMELINE_INTERCHANGE.md`",
         "target": "TIMELINE_INTERCHANGE.md",
         "kind": "relative",
-        "line": 65
+        "line": 67
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "TIMELINE_INTERCHANGE.agent.json",
         "kind": "relative",
-        "line": 65
+        "line": 67
       },
       {
         "block_id": "b000008",
         "label": "`docs/TIMELINE_INTERCHANGE_CLI.md`",
         "target": "TIMELINE_INTERCHANGE_CLI.md",
         "kind": "relative",
-        "line": 66
+        "line": 68
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "TIMELINE_INTERCHANGE_CLI.agent.json",
         "kind": "relative",
-        "line": 66
+        "line": 68
       },
       {
         "block_id": "b000008",
         "label": "`docs/TIMELINE_XML.md`",
         "target": "TIMELINE_XML.md",
         "kind": "relative",
-        "line": 67
+        "line": 69
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "TIMELINE_XML.agent.json",
         "kind": "relative",
-        "line": 67
+        "line": 69
       },
       {
         "block_id": "b000008",
         "label": "`docs/VIDEO_FRAME_DECODER.md`",
         "target": "VIDEO_FRAME_DECODER.md",
         "kind": "relative",
-        "line": 68
+        "line": 70
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "VIDEO_FRAME_DECODER.agent.json",
         "kind": "relative",
-        "line": 68
+        "line": 70
       },
       {
         "block_id": "b000008",
         "label": "`docs/VIDEO_FRAME_ENCODER.md`",
         "target": "VIDEO_FRAME_ENCODER.md",
         "kind": "relative",
-        "line": 69
+        "line": 71
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "VIDEO_FRAME_ENCODER.agent.json",
         "kind": "relative",
-        "line": 69
+        "line": 71
       },
       {
         "block_id": "b000008",
         "label": "`docs/WORKING_FILE_TILES.md`",
         "target": "WORKING_FILE_TILES.md",
         "kind": "relative",
-        "line": 70
+        "line": 72
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "WORKING_FILE_TILES.agent.json",
         "kind": "relative",
-        "line": 70
+        "line": 72
       },
       {
         "block_id": "b000008",
         "label": "`docs/WindowsBuildAndRun.md`",
         "target": "WindowsBuildAndRun.md",
         "kind": "relative",
-        "line": 71
+        "line": 73
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "WindowsBuildAndRun.agent.json",
         "kind": "relative",
-        "line": 71
+        "line": 73
       },
       {
         "block_id": "b000008",
         "label": "`docs/WindowsDocumentCommit.md`",
         "target": "WindowsDocumentCommit.md",
         "kind": "relative",
-        "line": 72
+        "line": 74
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "WindowsDocumentCommit.agent.json",
         "kind": "relative",
-        "line": 72
+        "line": 74
       },
       {
         "block_id": "b000008",
         "label": "`docs/XML_SVG_IMPORT.md`",
         "target": "XML_SVG_IMPORT.md",
         "kind": "relative",
-        "line": 73
+        "line": 75
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "XML_SVG_IMPORT.agent.json",
         "kind": "relative",
-        "line": 73
+        "line": 75
       },
       {
         "block_id": "b000008",
         "label": "`docs/documentation-structure.md`",
         "target": "documentation-structure.md",
         "kind": "relative",
-        "line": 74
+        "line": 76
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "documentation-structure.agent.json",
         "kind": "relative",
-        "line": 74
+        "line": 76
       },
       {
         "block_id": "b000008",
         "label": "`example/README.md`",
         "target": "../example/README.md",
         "kind": "relative",
-        "line": 75
+        "line": 77
       },
       {
         "block_id": "b000008",
         "label": "JSON",
         "target": "mirrors/example/README.agent.json",
         "kind": "relative",
-        "line": 75
+        "line": 77
       }
     ],
     "tables": [
@@ -1380,6 +1416,10 @@
             "[JSON](BLUEPRINT.agent.json)"
           ],
           [
+            "[`docs/BUILD_LAYOUT.md`](BUILD_LAYOUT.md)",
+            "[JSON](BUILD_LAYOUT.agent.json)"
+          ],
+          [
             "[`docs/BuildComponents.md`](BuildComponents.md)",
             "[JSON](BuildComponents.agent.json)"
           ],
@@ -1410,6 +1450,10 @@
           [
             "[`docs/DYNAMIC_FRAME_CONTENT.md`](DYNAMIC_FRAME_CONTENT.md)",
             "[JSON](DYNAMIC_FRAME_CONTENT.agent.json)"
+          ],
+          [
+            "[`docs/DynamicLinking.md`](DynamicLinking.md)",
+            "[JSON](DynamicLinking.agent.json)"
           ],
           [
             "[`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md)",

@@ -9,6 +9,7 @@
 
 #include "Bitmap/BitmapEditor.h"
 #include "Bitmap/BitmapProcessing.h"
+#include "Bitmap/TiledMask.h"
 #include "Bitmap/BitmapCodec.h"
 #include "Bitmap/ChunkedBitmapEditor.h"
 #include "Camera/CameraRaw.h"

@@ -11,7 +11,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::size_t AppendTimelineIndex =
-    std::numeric_limits<std::size_t>::max();
+    (std::numeric_limits<std::size_t>::max)();
 
 enum class TimelineEditCode : std::uint8_t {
     None,

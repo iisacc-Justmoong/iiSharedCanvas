@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.35.14 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.35.39 LANGUAGES CXX)
 # File creation is owned by iiFileProvider.
 
 
@@ -21,10 +21,15 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 option(IISHAREDCANVAS_BUILD_QT_API "Build the legacy Qt media/Quick package" ON)
+option(IISHAREDCANVAS_BUILD_SHARED "Build iiSharedCanvas as a shared library." ON)
+option(IISHAREDCANVAS_BUILD_PYTHON_API "Build the optional host Python raster API." ON)
+if(EMSCRIPTEN AND IISHAREDCANVAS_BUILD_SHARED)
+    set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
+endif()
 # Resolve linked source resources and exclude private test work from packages.
 file(REAL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/resources" _iisc_resource_source)
-install(DIRECTORY "${_iisc_resource_source}/" DESTINATION "${CMAKE_INSTALL_DATADIR}/iiSharedCanvas/resources"
-    PATTERN ".iisacc-*" EXCLUDE)
+include(cmake/iiSharedCanvasInstallResources.cmake)
+iisc_install_resources("${_iisc_resource_source}" "${CMAKE_INSTALL_DATADIR}/iiSharedCanvas/resources")
 if(BUILD_TESTING)
     include(cmake/iiSharedCanvasTestWorkDir.cmake)
     iisc_configure_test_work_dir(_iisc_test_work "${_iisc_resource_source}")
@@ -158,6 +163,19 @@ if(IISHAREDCANVAS_BUILD_QUICK)
 endif()
 find_package(ZLIB 1.2.9 REQUIRED)
 find_package(libzip 1.7.3 CONFIG REQUIRED)
+set(IISHAREDCANVAS_TEST_PACKAGE_PREFIX "" CACHE PATH
+    "Existing staged installation for the Core runtime-path consumer check")
+if(BUILD_TESTING AND APPLE AND IISHAREDCANVAS_TEST_PACKAGE_PREFIX)
+    add_test(NAME iiSharedCanvas.InstalledCoreRuntimePath COMMAND "${CMAKE_COMMAND}"
+        -S "${CMAKE_CURRENT_SOURCE_DIR}/tests/core_runtime_path"
+        -B "${CMAKE_CURRENT_BINARY_DIR}/tests/core-runtime-path"
+        "-DCANVAS_PREFIX=${IISHAREDCANVAS_TEST_PACKAGE_PREFIX}"
+        "-DiiSharedCanvas_DIR=${IISHAREDCANVAS_TEST_PACKAGE_PREFIX}/${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas"
+        "-DCMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}" "-DQt6_DIR=${Qt6_DIR}"
+        "-DiiFileProvider_DIR=${iiFileProvider_DIR}"
+        "-DiiFileProviderNative_DIR=${iiFileProviderNative_DIR}"
+        "-Dlibzip_DIR=${libzip_DIR}")
+endif()
 if(BUILD_TESTING)
     block(SCOPE_FOR VARIABLES)
         # Prefer the SDK/library headers over SQLite copies embedded in unrelated frameworks.
@@ -171,10 +189,8 @@ endif()
 
 include(cmake/iiSharedCanvasAppleQtCompatibility.cmake)
 
-option(IISHAREDCANVAS_BUILD_SHARED "Build iiSharedCanvas as a shared library." ON)
-
 set(IISHAREDCANVAS_LIBRARY_TYPE STATIC)
-if(IISHAREDCANVAS_BUILD_SHARED AND NOT EMSCRIPTEN)
+if(IISHAREDCANVAS_BUILD_SHARED)
     set(IISHAREDCANVAS_LIBRARY_TYPE SHARED)
 endif()
 
@@ -192,6 +208,10 @@ add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Bitmap/BitmapEditor.h
         src/Bitmap/BitmapProcessing.h
         src/Bitmap/BitmapProcessing.cpp
+        src/Bitmap/TiledMask.h
+        src/Bitmap/TiledMask.cpp
+        src/Bitmap/TiledMaskEditor.h
+        src/Bitmap/TiledMaskEditor.cpp
         src/Bitmap/RasterProcessingTypes.cpp
         src/Document/LayerAppearance.cpp
         src/Bitmap/ChunkedBitmapEditor.cpp
@@ -279,6 +299,16 @@ add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Video/VideoCodec.h)
 add_library(iiSharedCanvas::Core ALIAS iiSharedCanvasCore)
 add_library(iiSharedCanvas ${IISHAREDCANVAS_LIBRARY_TYPE} src/Compatibility.cpp)
+if(IISHAREDCANVAS_BUILD_SHARED)
+    foreach(canvas_target IN ITEMS iiSharedCanvas iiSharedCanvasCore)
+        if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+            set_target_properties(${canvas_target} PROPERTIES FRAMEWORK TRUE)
+        elseif(EMSCRIPTEN)
+            target_compile_options(${canvas_target} PRIVATE -fPIC)
+            target_link_options(${canvas_target} PRIVATE -sSIDE_MODULE=1)
+        endif()
+    endforeach()
+endif()
 set_target_properties(iiSharedCanvas PROPERTIES VERSION ${PROJECT_VERSION}
     SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}"
     INSTALL_RPATH_USE_LINK_PATH TRUE)
@@ -309,7 +339,7 @@ target_link_libraries(iiSharedCanvasCore PUBLIC
 target_link_libraries(iiSharedCanvasCore PRIVATE ZLIB::ZLIB libzip::zip iiFileProvider::Native)
 target_include_directories(iiSharedCanvasCore SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fast_float")
-if(APPLE OR UNIX)
+if((APPLE OR UNIX) AND NOT EMSCRIPTEN)
     target_link_options(iiSharedCanvasCore INTERFACE
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiFileProvider::Native>"
             "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
@@ -345,6 +375,14 @@ if(IISHAREDCANVAS_BUILD_QUICK)
         src/QtAdapter/CanvasItem.cpp src/QtAdapter/CanvasItem.h
         src/QtAdapter/BitmapItem.cpp src/QtAdapter/BitmapItem.h
         src/QtAdapter/AsyncFrameRenderer.cpp src/QtAdapter/AsyncFrameRenderer.h)
+    if(IISHAREDCANVAS_BUILD_SHARED)
+        if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+            set_target_properties(iiSharedCanvasQuick PROPERTIES FRAMEWORK TRUE)
+        elseif(EMSCRIPTEN)
+            target_compile_options(iiSharedCanvasQuick PRIVATE -fPIC)
+            target_link_options(iiSharedCanvasQuick PRIVATE -sSIDE_MODULE=1)
+        endif()
+    endif()
     add_library(iiSharedCanvas::Quick ALIAS iiSharedCanvasQuick)
     generate_export_header(iiSharedCanvasQuick BASE_NAME iiSharedCanvasQuick
         EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/QuickExport.h")
@@ -364,7 +402,7 @@ if(IISHAREDCANVAS_BUILD_QUICK)
     endif()
     install(TARGETS iiSharedCanvasQuick EXPORT iiSharedCanvasTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR} ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/QuickExport.h"
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 endif()
@@ -417,7 +455,7 @@ install(TARGETS iiSharedCanvas iiSharedCanvasCore
         EXPORT iiSharedCanvasTargets
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
 install(FILES src/iiSharedCanvas.h src/iiSharedCanvasCore.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 install(DIRECTORY src/Audio src/Bitmap src/Camera src/ControlNet src/Document src/File src/Layered src/Media src/Metadata src/QtAdapter src/Render src/Serialization src/Timeline src/Validation src/Vector src/Video
@@ -460,9 +498,20 @@ install(FILES
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 
 if(BUILD_TESTING)
+    if(IISHAREDCANVAS_BUILD_SHARED)
+        foreach(canvas_target IN ITEMS iiSharedCanvas iiSharedCanvasCore)
+            add_test(NAME ${canvas_target}.shared_type COMMAND "${CMAKE_COMMAND}"
+                "-DTARGET_TYPE=$<TARGET_PROPERTY:${canvas_target},TYPE>"
+                -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/shared_target_type.cmake")
+        endforeach()
+    endif()
     if(UNIX)
         add_test(NAME iiSharedCanvas.InstallScript
             COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/InstallScriptTest.sh")
+    endif()
+    if(WIN32)
+        add_library(iiSharedCanvasWindowsHeaderMacros OBJECT tests/WindowsHeaderMacrosTest.cpp)
+        target_link_libraries(iiSharedCanvasWindowsHeaderMacros PRIVATE iiSharedCanvas::Core)
     endif()
     add_executable(iiSharedCanvasIiscUpgradeCliTest tests/IiscUpgradeCliTest.cpp)
     target_link_libraries(iiSharedCanvasIiscUpgradeCliTest PRIVATE iiSharedCanvas::iiSharedCanvas SQLite3::SQLite3)
@@ -605,6 +654,9 @@ if(BUILD_TESTING)
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.BitmapEditor
             COMMAND iiSharedCanvasBitmapEditorTest)
+    add_executable(iiSharedCanvasProjectedStrokeTest tests/ProjectedStrokeTest.cpp)
+    target_link_libraries(iiSharedCanvasProjectedStrokeTest PRIVATE iiSharedCanvas)
+    add_test(NAME iiSharedCanvas.ProjectedStroke COMMAND iiSharedCanvasProjectedStrokeTest)
 
     add_executable(iiSharedCanvasBitmapInputTest tests/BitmapInputTest.cpp)
     target_link_libraries(iiSharedCanvasBitmapInputTest PRIVATE iiSharedCanvas::iiSharedCanvas iiFileProvider::Native)

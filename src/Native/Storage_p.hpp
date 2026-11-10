@@ -22,6 +22,10 @@ inline void sqlValue(sql::Result<void> result) {
 }
 class NativeStatement;
 class NativeTransaction;
+// Preview/sync readers may hold a short SQLite shared lock in another process.
+// Bound the authoring wait so a transient reader does not reject an edit, while
+// a persistent competing owner still returns control to the application.
+inline constexpr int NativeAuthoringBusyTimeoutMs = 250;
 // This private adapter translates the document's existing, typed schema calls to
 // the provider's Result API. SQLite handles and execution remain in FileProvider.
 class NativeDatabase final {
@@ -29,6 +33,7 @@ public:
     explicit NativeDatabase(const std::string& path,bool readonly=false)
         :value(sqlValue(sql::Database::open(std::filesystem::u8path(path),
             {.mode=readonly?sql::OpenMode::read_only:sql::OpenMode::read_write,
+             .busy_timeout_ms=readonly?0:NativeAuthoringBusyTimeoutMs,
              .maximum_value_bytes=std::numeric_limits<int>::max()}))){}
     void execute(const char* text) {
         // Only fixed, private schema/PRAGMA literals enter this method. Values

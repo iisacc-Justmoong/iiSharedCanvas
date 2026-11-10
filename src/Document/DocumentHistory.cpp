@@ -33,6 +33,8 @@ struct BitmapHistorySeed {
     static bool canvasMode(BitmapEditor &,StrokeCanvasMode mode) { return mode==StrokeCanvasMode::Clip; }
     static bool canvasMode(ChunkedBitmapEditor &editor,StrokeCanvasMode mode) {
         if (mode!=StrokeCanvasMode::Clip && mode!=StrokeCanvasMode::Grow) return false;
+        if (mode==StrokeCanvasMode::Grow &&
+            (!editor.m_document || editor.m_document->canvasMode!=CanvasMode::Infinite)) return false;
         editor.journal().setStrokeCanvasGrowth(mode==StrokeCanvasMode::Grow);
         return true;
     }

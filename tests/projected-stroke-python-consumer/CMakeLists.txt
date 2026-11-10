@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.31)
+project(iiSharedCanvasPythonConsumer LANGUAGES CXX)
+include(GNUInstallDirs)
+include(CTest)
+set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
+find_package(iiSharedCanvasNative 0.35.39 CONFIG REQUIRED)
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../src/Python" "${CMAKE_CURRENT_BINARY_DIR}/python")

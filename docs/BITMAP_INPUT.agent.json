@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/BITMAP_INPUT.md",
-    "sha256": "863dce439b7db24b01e1cc8c7cfa37f123a8415fe62b0f8c980a4a9555a87eab",
-    "bytes": 5249,
-    "line_count": 50,
+    "sha256": "ea99bd60991193e3a4efbab0252de6ae83bbbf746c050bac50799a5816cc6117",
+    "bytes": 11808,
+    "line_count": 145,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -179,108 +179,343 @@
       "id": "b000017",
       "kind": "paragraph",
       "start_line": 33,
-      "end_line": 33,
-      "raw": "하나의 편집기에는 호출자가 순서대로 입력을 전달한다. 이 캐시는 병렬 호출을 동기화하는 수단이 아니다.\n"
+      "end_line": 38,
+      "raw": "입력 표본을 타일별로 나눌 때 각 타일의 표본 수를 먼저 세어 필요한 공간을 한\n번 예약한다. 같은 타일 안의 원래 표본 순서는 유지한다. 획의 원본 타일은\n불변으로 공유하고, 새 미리보기와 누적 커버리지는 독립적으로 준비한 뒤에만\n게시한다. 따라서 계속 그릴 때 원본 픽셀 버퍼를 반복 복제하지 않으면서 실패한\n준비가 기존 획을 바꾸지 않는다. `StrokeCompositeBatch`는 반복·음수 좌표와\n여러 타일의 소스 오버, 지우개, 혼합 결과 및 일반 C++ 할당 요청을 검사한다.\n"
     },
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 34,
-      "end_line": 34,
+      "start_line": 39,
+      "end_line": 39,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "paragraph",
-      "start_line": 35,
-      "end_line": 35,
-      "raw": "비유한 입력·역행 시각·엔진 이벤트 예산 초과는 `false`와 `lastError()`로 보고한다. 입력 값/예산 거부는 픽셀·리비전·활성 획을 보존하며, 정상 입력으로 계속하거나 취소할 수 있다. 시스템 메모리 고갈 전체에 대한 무실패 보장은 아니다.\n"
+      "start_line": 40,
+      "end_line": 40,
+      "raw": "하나의 편집기에는 호출자가 순서대로 입력을 전달한다. 이 캐시는 병렬 호출을 동기화하는 수단이 아니다.\n"
     },
     {
       "id": "b000020",
       "kind": "blank",
-      "start_line": 36,
-      "end_line": 36,
+      "start_line": 41,
+      "end_line": 41,
       "raw": "\n"
     },
     {
       "id": "b000021",
       "kind": "heading",
-      "start_line": 37,
-      "end_line": 37,
-      "raw": "## ABI와 검증 범위\n",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "## 외부 이력 관리 획의 실시간 미리보기\n",
       "level": 2,
-      "title": "ABI와 검증 범위"
+      "title": "외부 이력 관리 획의 실시간 미리보기"
     },
     {
       "id": "b000022",
       "kind": "blank",
-      "start_line": 38,
-      "end_line": 38,
+      "start_line": 43,
+      "end_line": 43,
       "raw": "\n"
     },
     {
       "id": "b000023",
       "kind": "paragraph",
-      "start_line": 39,
-      "end_line": 39,
-      "raw": "0.33.2의 `advanceStrokeTime`과 `rebaseStrokeTime`은 입력 이벤트 사이의 실제 시각과 중단·복귀를 처리한다. [획 시계 계약](BITMAP_CLOCK.md)을 참조한다.\n"
+      "start_line": 44,
+      "end_line": 49,
+      "raw": "0.35.38부터 자체 문서 이력과 독점 소유권을 가진 호출자는 메모리 `Document`에 바인딩한\n`BitmapEditor` 또는 `ChunkedBitmapEditor`에 `setExternalStrokeHistory(true)`를\n지정할 수 있다. 이 모드는 입력마다 새로 바뀐 타일만 합성하여 문서에 반영하며,\n입력 지점·필압·기울기·시각과 누적 합성 결과는 기존 브러시 엔진과 같다.\n획 취소는 획 전 픽셀과 청크 존재 상태를 복원한다. 호출자는 활성 획 동안 해당\n자산을 독점해야 하고, 같은 타일에서 충돌이 확인되면 입력은 거절된다.\n"
     },
     {
       "id": "b000024",
       "kind": "blank",
-      "start_line": 40,
-      "end_line": 40,
+      "start_line": 50,
+      "end_line": 50,
       "raw": "\n"
     },
     {
       "id": "b000025",
       "kind": "paragraph",
-      "start_line": 41,
-      "end_line": 41,
-      "raw": "편집기 런타임 객체의 배치가 바뀌므로 0.33으로 소비자를 재빌드해야 한다. 문서 타입과 IISC 1.22 형식은 바뀌지 않는다. 현재 Native 패키지는 iiPaintEngine 0.5.3 이상을 사용한다.\n"
+      "start_line": 51,
+      "end_line": 55,
+      "raw": "이 모드는 내부 Undo 항목을 만들지 않으므로 호출자가 획 전체의 Undo/Redo를\n관리해야 한다. 변경된 획을 확정하면 이전 내부 이력은 무효화된다. 취소와\n변경 없는 획은 기존 내부 이력을 보존한다. 활성 획, 픽셀 미리보기, 파일\n바인딩 또는 자동 캔버스 확장 중에는 설정할 수 없다. 기본값은 기존 내부 이력\n모드이며, 파일 트랜잭션과 다른 편집기의 기존 동작은 바꾸지 않는다.\n"
     },
     {
       "id": "b000026",
       "kind": "blank",
-      "start_line": 42,
-      "end_line": 42,
+      "start_line": 56,
+      "end_line": 56,
       "raw": "\n"
     },
     {
       "id": "b000027",
       "kind": "paragraph",
-      "start_line": 43,
-      "end_line": 43,
-      "raw": "`BitmapInputTest`는 유한·청크 편집기에서 펜 회전·기울기의 실제 자국, custom 채널, 실제 경과 시간과 이벤트 빈도, 잘못된 입력·예산 거부, 취소·Undo/Redo 및 기존 중괄호 API를 검증한다. 파일에 바인딩한 양쪽 편집기도 입력 거부 시 저장 리비전 보존, Undo/Redo, 닫기·재열기 후 픽셀 보존을 검사한다. 설치 소비자도 설치 헤더와 라이브러리로 같은 공개 동작을 검사한다. 물리 펜, 앱 어댑터의 값 전달, 정지 상태에서 호출하는 앱 시계는 별도 채택 단계이다.\n"
+      "start_line": 57,
+      "end_line": 61,
+      "raw": "`setDeferredStrokeHistory(true)`는 같은 즉시 타일 합성을 사용하면서 내부 이력을\n횟수마다 다시 만들지 않고 놓을 때 획 전체를 하나의 Undo 항목으로 만든다. 이력\n예산은 확정 시 검사한다. 예산 또는 충돌로 확정이 거절되면 미리보기와 활성 획을\n보존하며 호출자는 취소해 원래 픽셀로 복원할 수 있다. 이 모드도 메모리 문서의\n독점 소유권이 필요하고 파일 바인딩·자동 캔버스 확장과 함께 사용할 수 없다.\n"
     },
     {
       "id": "b000028",
       "kind": "blank",
-      "start_line": 44,
-      "end_line": 44,
+      "start_line": 62,
+      "end_line": 62,
       "raw": "\n"
     },
     {
       "id": "b000029",
-      "kind": "paragraph",
-      "start_line": 45,
-      "end_line": 47,
-      "raw": "입력 회귀 검사는 유한 메모리·청크 메모리·청크 경계·유한 파일 왕복·청크 파일 왕복의\n각 구간에서 `BITMAP_INPUT_STAGE` 벽시각을 출력한다. 기능 기대값과 기존 시간 제한을\n유지하면서 어느 구간에서 지연 또는 시간 초과가 발생하는지 검증 기록으로 남긴다.\n"
+      "kind": "heading",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "## 투영된 픽셀과 교체 가능한 획 끝\n",
+      "level": 2,
+      "title": "투영된 픽셀과 교체 가능한 획 끝"
     },
     {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 48,
-      "end_line": 48,
+      "start_line": 64,
+      "end_line": 64,
       "raw": "\n"
     },
     {
       "id": "b000031",
       "kind": "paragraph",
-      "start_line": 49,
-      "end_line": 50,
+      "start_line": 65,
+      "end_line": 71,
+      "raw": "메모리 문서를 독점하고 외부 또는 지연 이력을 설정한 호출자는\n`beginProjectedStroke`, `updateProjectedStroke`, `endProjectedStroke`로 이미\n래스터화한 표본을 전달할 수 있다. 업데이트의 첫 표본 묶음은 기존 획에 누적하고,\n두 번째 묶음은 현재 획 끝에 대한 일시적인 픽셀 합성으로 표시한다. 다음 갱신은\n이전 끝의 타일만 복원하고 새 끝으로 교체한다. `strokeSourceAt`은 임시 픽셀이\n아닌 획 시작 전 픽셀을 제공한다. 투영 결과는 기존 획의 누적 불투명도와 혼합\n순서를 공유하며 문서는 표본 좌표나 자국 명령을 보관하지 않는다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 72,
+      "end_line": 72,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 73,
+      "end_line": 79,
+      "raw": "종료는 화면에 이미 표시된 임시 타일을 그대로 이력에 편입한다. 별도의 전체 획\n재생은 하지 않는다. 취소는 확정 부분과 임시 부분 모두를 되돌린다. 지연 이력은\n한 획을 하나의 Undo 항목으로 만들며, 예산 초과나 게시 실패 시 기존 복구 계약을\n따른다. 이 경로는 경계가 정해진 래스터와 청크 자산을 지원하고 파일 바인딩 및\n자동 캔버스 확장은 지원하지 않는다. 호출자는 브러시 계산, 일시 구간의 수명,\n표본 검증과 기기 입력을 담당한다. 편집기의 객체 배치가 바뀌므로 소비자는 새\n헤더와 라이브러리로 함께 다시 빌드해야 한다. 문서 형식은 바뀌지 않는다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 81,
+      "end_line": 83,
+      "raw": "`ProjectedStrokeTest`는 유한 래스터와 청크에 대해 임시 픽셀의 교체·겹침·원본\n조회, 잘못된 좌표 거부, 취소, 최종 픽셀 보존과 Undo/Redo를 검사한다. 이 검사는\n장치 화면의 표시 지연을 측정하지 않는다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 84,
+      "end_line": 84,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "heading",
+      "start_line": 85,
+      "end_line": 85,
+      "raw": "## Python에서 투영 픽셀 사용\n",
+      "level": 2,
+      "title": "Python에서 투영 픽셀 사용"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 86,
+      "end_line": 86,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 87,
+      "end_line": 94,
+      "raw": "선택적으로 빌드하는 `iiSharedCanvasPython`은 Python 3.9 이상에서 표준 라이브러리만\n사용하는 `iisharedcanvas` 모듈을 제공한다. 네이티브 호스트 빌드에서는\n`IISHAREDCANVAS_BUILD_PYTHON_API=ON`이 기본값이며 `OFF`로 비활성화할 수 있다.\n설치된 모듈은 SDK 접두 경로의\n`share/iiSharedCanvasNative/python`에 있다. 해당 경로를 `PYTHONPATH`에 추가하거나\n모듈 검색 경로에 넣어 가져온다. 브리지 라이브러리의 경로는 자동으로 찾으며,\n필요하면 `ProjectedRaster(..., library=경로)` 또는 환경 변수\n`IISHAREDCANVAS_PYTHON_LIBRARY`로 명시할 수 있다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 95,
+      "end_line": 95,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "fenced_code",
+      "start_line": 96,
+      "end_line": 108,
+      "raw": "```python\nfrom iisharedcanvas import ProjectedRaster, RasterSample\n\nwith ProjectedRaster(256, 256) as raster:\n    raster.begin_stroke()\n    raster.update_stroke([RasterSample(8, 8, 0xff6633ff)], [])\n    raster.update_stroke([], [RasterSample(9, 8, 0xff6633ff)])\n    shown = raster.pixel(9, 8)\n    raster.end_stroke()\n    assert raster.pixel(9, 8) == shown\n    raster.undo()\n    raster.redo()\n```\n",
+      "language": "python",
+      "code": "from iisharedcanvas import ProjectedRaster, RasterSample\n\nwith ProjectedRaster(256, 256) as raster:\n    raster.begin_stroke()\n    raster.update_stroke([RasterSample(8, 8, 0xff6633ff)], [])\n    raster.update_stroke([], [RasterSample(9, 8, 0xff6633ff)])\n    shown = raster.pixel(9, 8)\n    raster.end_stroke()\n    assert raster.pixel(9, 8) == shown\n    raster.undo()\n    raster.redo()\n",
+      "closed": true
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 109,
+      "end_line": 109,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 110,
+      "end_line": 116,
+      "raw": "이 인터페이스는 유한 메모리 래스터에 이미 투영된 ARGB 표본을 전달하는 범위이며\n브러시 자국 생성이나 문서 파일 편집 API를 대신하지 않는다. 배경색과 지우개\n혼합을 선택할 수 있고 픽셀 및 획 시작 전 소스를 조회할 수 있다. 크기와 입력은\nSDK의 메모리 예산을 따르며, 실패는 Python 예외로 전달한다. 객체는 단독 소유하며\n복사하거나 여러 스레드에서 동시에 호출하지 않는다. 독립 C ABI 헤더도 함께\n설치된다. 이 호스트용 브리지는 iPad 앱에 링크되지 않으며 앱이 Python 실행기나\n바이트코드를 필요로 하지 않는다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 117,
+      "end_line": 117,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 118,
+      "end_line": 119,
+      "raw": "`ProjectedStrokePythonTest`는 브리지의 픽셀 교체, 원본 조회, 지우개, 잘못된 입력,\n복사 방지, 취소, 변경 없는 획의 Redo 보존과 Undo/Redo를 확인한다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 120,
+      "end_line": 120,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 121,
+      "end_line": 121,
+      "raw": "비유한 입력·역행 시각·엔진 이벤트 예산 초과는 `false`와 `lastError()`로 보고한다. 입력 값/예산 거부는 픽셀·리비전·활성 획을 보존하며, 정상 입력으로 계속하거나 취소할 수 있다. 시스템 메모리 고갈 전체에 대한 무실패 보장은 아니다.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 122,
+      "end_line": 122,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "heading",
+      "start_line": 123,
+      "end_line": 123,
+      "raw": "## ABI와 검증 범위\n",
+      "level": 2,
+      "title": "ABI와 검증 범위"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 124,
+      "end_line": 124,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 125,
+      "end_line": 125,
+      "raw": "0.33.2의 `advanceStrokeTime`과 `rebaseStrokeTime`은 입력 이벤트 사이의 실제 시각과 중단·복귀를 처리한다. [획 시계 계약](BITMAP_CLOCK.md)을 참조한다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 126,
+      "end_line": 126,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 127,
+      "end_line": 127,
+      "raw": "편집기 런타임 객체의 배치가 바뀌므로 0.33으로 소비자를 재빌드해야 한다. 문서 타입과 IISC 1.22 형식은 바뀌지 않는다. 현재 Native 패키지는 iiPaintEngine 0.5.3 이상을 사용한다.\n"
+    },
+    {
+      "id": "b000054",
+      "kind": "blank",
+      "start_line": 128,
+      "end_line": 128,
+      "raw": "\n"
+    },
+    {
+      "id": "b000055",
+      "kind": "paragraph",
+      "start_line": 129,
+      "end_line": 129,
+      "raw": "`BitmapInputTest`는 유한·청크 편집기에서 펜 회전·기울기의 실제 자국, custom 채널, 실제 경과 시간과 이벤트 빈도, 잘못된 입력·예산 거부, 취소·Undo/Redo 및 기존 중괄호 API를 검증한다. 파일에 바인딩한 양쪽 편집기도 입력 거부 시 저장 리비전 보존, Undo/Redo, 닫기·재열기 후 픽셀 보존을 검사한다. 설치 소비자도 설치 헤더와 라이브러리로 같은 공개 동작을 검사한다. 물리 펜, 앱 어댑터의 값 전달, 정지 상태에서 호출하는 앱 시계는 별도 채택 단계이다.\n"
+    },
+    {
+      "id": "b000056",
+      "kind": "blank",
+      "start_line": 130,
+      "end_line": 130,
+      "raw": "\n"
+    },
+    {
+      "id": "b000057",
+      "kind": "paragraph",
+      "start_line": 131,
+      "end_line": 133,
+      "raw": "입력 회귀 검사는 유한 메모리·청크 메모리·청크 경계·유한 파일 왕복·청크 파일 왕복의\n각 구간에서 `BITMAP_INPUT_STAGE` 벽시각을 출력한다. 기능 기대값과 기존 시간 제한을\n유지하면서 어느 구간에서 지연 또는 시간 초과가 발생하는지 검증 기록으로 남긴다.\n"
+    },
+    {
+      "id": "b000058",
+      "kind": "blank",
+      "start_line": 134,
+      "end_line": 134,
+      "raw": "\n"
+    },
+    {
+      "id": "b000059",
+      "kind": "paragraph",
+      "start_line": 135,
+      "end_line": 136,
       "raw": "정상 종료한 획은 마지막 성공한 미리보기의 채택 결과를 보고한다. 거부된 입력 뒤\n커버리지 없는 끝 표본으로 정상 종료해도 과거의 실패 코드를 성공 결과에 남기지 않는다.\n"
+    },
+    {
+      "id": "b000060",
+      "kind": "blank",
+      "start_line": 137,
+      "end_line": 138,
+      "raw": "\n\n"
+    },
+    {
+      "id": "b000061",
+      "kind": "heading",
+      "start_line": 139,
+      "end_line": 139,
+      "raw": "## 청크 획 재생 상태\n",
+      "level": 2,
+      "title": "청크 획 재생 상태"
+    },
+    {
+      "id": "b000062",
+      "kind": "blank",
+      "start_line": 140,
+      "end_line": 140,
+      "raw": "\n"
+    },
+    {
+      "id": "b000063",
+      "kind": "paragraph",
+      "start_line": 141,
+      "end_line": 145,
+      "raw": "문서에 직접 바인딩된 `ChunkedBitmapEditor`의 활성 획에서는\n`currentStrokeBrushState()`가 해당 획의 유효한 브러시 설정과 시드를 반환한다.\n획이 없거나 파일 바인딩 편집기의 임시 트랜잭션에서는 빈 값을 반환한다.\n호출자는 획 종료 전에 상태를 얻어야 하며 원본 타일과 입력 표본 보존,\n재생의 메모리 예산 및 결과 적용은 호출자가 담당한다.\n"
     }
   ],
   "outline": [
@@ -312,9 +547,41 @@
       "block_id": "b000021",
       "parent_id": "b000001",
       "level": 2,
+      "title": "외부 이력 관리 획의 실시간 미리보기",
+      "anchor": "외부-이력-관리-획의-실시간-미리보기",
+      "start_line": 42
+    },
+    {
+      "block_id": "b000029",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "투영된 픽셀과 교체 가능한 획 끝",
+      "anchor": "투영된-픽셀과-교체-가능한-획-끝",
+      "start_line": 63
+    },
+    {
+      "block_id": "b000037",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Python에서 투영 픽셀 사용",
+      "anchor": "python에서-투영-픽셀-사용",
+      "start_line": 85
+    },
+    {
+      "block_id": "b000049",
+      "parent_id": "b000001",
+      "level": 2,
       "title": "ABI와 검증 범위",
       "anchor": "abi와-검증-범위",
-      "start_line": 37
+      "start_line": 123
+    },
+    {
+      "block_id": "b000061",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "청크 획 재생 상태",
+      "anchor": "청크-획-재생-상태",
+      "start_line": 139
     }
   ],
   "indexes": {
@@ -349,7 +616,70 @@
       },
       {
         "block_id": "b000025",
-        "line": 41,
+        "line": 52,
+        "text": "관리해야 한다. 변경된 획을 확정하면 이전 내부 이력은 무효화된다. 취소와",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000031",
+        "line": 71,
+        "text": "순서를 공유하며 문서는 표본 좌표나 자국 명령을 보관하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 74,
+        "text": "재생은 하지 않는다. 취소는 확정 부분과 임시 부분 모두를 되돌린다. 지연 이력은",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 77,
+        "text": "자동 캔버스 확장은 지원하지 않는다. 호출자는 브러시 계산, 일시 구간의 수명,",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000033",
+        "line": 79,
+        "text": "헤더와 라이브러리로 함께 다시 빌드해야 한다. 문서 형식은 바뀌지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000035",
+        "line": 83,
+        "text": "장치 화면의 표시 지연을 측정하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000043",
+        "line": 111,
+        "text": "브러시 자국 생성이나 문서 파일 편집 API를 대신하지 않는다. 배경색과 지우개",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000043",
+        "line": 114,
+        "text": "복사하거나 여러 스레드에서 동시에 호출하지 않는다. 독립 C ABI 헤더도 함께",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000043",
+        "line": 116,
+        "text": "바이트코드를 필요로 하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000053",
+        "line": 127,
         "text": "편집기 런타임 객체의 배치가 바뀌므로 0.33으로 소비자를 재빌드해야 한다. 문서 타입과 IISC 1.22 형식은 바뀌지 않는다. 현재 Native 패키지는 iiPaintEngine 0.5.3 이상을 사용한다.",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -358,11 +688,11 @@
     "commands": [],
     "links": [
       {
-        "block_id": "b000023",
+        "block_id": "b000051",
         "label": "획 시계 계약",
         "target": "BITMAP_CLOCK.md",
         "kind": "relative",
-        "line": 39
+        "line": 125
       }
     ],
     "tables": []

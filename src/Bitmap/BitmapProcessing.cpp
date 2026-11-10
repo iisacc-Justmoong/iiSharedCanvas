@@ -1,10 +1,13 @@
 #include "BitmapProcessing.h"
+#include "Bitmap/SelectionPolygon_p.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <deque>
 #include <limits>
 #include <numbers>
+#include <queue>
+#include <new>
 
 namespace iiSharedCanvas {
 namespace {
@@ -52,6 +55,89 @@ RasterLayer blur(const RasterLayer &input, int radius) {
     }
     return p;
 }
+}
+
+RasterMaskResult selectionGeometry(CanvasExtent extent, SelectionGeometry shape, Point first, Point second, bool antialias) {
+    if (!extentValid(extent) || (shape != SelectionGeometry::Rectangle && shape != SelectionGeometry::Ellipse) ||
+        !std::isfinite(first.x) || !std::isfinite(first.y) || !std::isfinite(second.x) || !std::isfinite(second.y))
+        return {{}, "invalid selection extent or geometry"};
+    RasterMask mask{extent, std::vector<std::uint8_t>(std::size_t(extent.width) * extent.height, 0)};
+    const double left = std::min(first.x, second.x), right = std::max(first.x, second.x);
+    const double top = std::min(first.y, second.y), bottom = std::max(first.y, second.y);
+    if (left == right || top == bottom) return {std::move(mask), {}};
+    const double centerX = left / 2 + right / 2, centerY = top / 2 + bottom / 2;
+    const double radiusX = right / 2 - left / 2, radiusY = bottom / 2 - top / 2;
+    const auto limit = [](double value, int maximum) { return std::clamp(value, 0.0, double(maximum)); };
+    const int x0 = int(std::floor(limit(left, extent.width))), x1 = int(std::ceil(limit(right, extent.width)));
+    const int y0 = int(std::floor(limit(top, extent.height))), y1 = int(std::ceil(limit(bottom, extent.height)));
+    const int samples = antialias ? 4 : 1, total = samples * samples;
+    for (int y = y0; y < y1; ++y) for (int x = x0; x < x1; ++x) {
+        int coverage = 0;
+        for (int sy = 0; sy < samples; ++sy) for (int sx = 0; sx < samples; ++sx) {
+            const double px = x + (sx + 0.5) / samples, py = y + (sy + 0.5) / samples;
+            bool inside = px >= left && px < right && py >= top && py < bottom;
+            if (inside && shape == SelectionGeometry::Ellipse) {
+                const double dx = (px - centerX) / radiusX, dy = (py - centerY) / radiusY;
+                inside = dx * dx + dy * dy <= 1;
+            }
+            coverage += int(inside);
+        }
+        mask.alpha[std::size_t(y) * extent.width + x] = std::uint8_t((coverage * 255 + total / 2) / total);
+    }
+    return {std::move(mask), {}};
+}
+
+RasterMaskResult detail::selectionPolygonRegion(CanvasExtent domain, CanvasRegion region,
+                                                   std::span<const Point> points, bool antialias) {
+    constexpr std::size_t maxPoints = 65536;
+    constexpr std::uint64_t maxEdgeScans = 50'000'000;
+    constexpr double maxCoordinate = 1'000'000'000;
+    if (domain.width<=0 || domain.height<=0 || !extentValid(region.extent) || region.origin.x<0 || region.origin.y<0 ||
+        std::int64_t(region.origin.x)+region.extent.width>domain.width ||
+        std::int64_t(region.origin.y)+region.extent.height>domain.height || points.size()<3 || points.size()>maxPoints)
+        return {{}, "invalid selection polygon extent or point count"};
+    double top=points.front().y,bottom=top;
+    for(const auto& point:points) {
+        if(!std::isfinite(point.x) || !std::isfinite(point.y) ||
+           std::abs(point.x)>maxCoordinate || std::abs(point.y)>maxCoordinate)
+            return {{}, "invalid selection polygon point"};
+        top=std::min(top,point.y);bottom=std::max(bottom,point.y);
+    }
+    const int firstY=std::max(region.origin.y,int(std::floor(std::clamp(top,0.0,double(domain.height)))));
+    const int lastY=std::min(region.origin.y+region.extent.height,int(std::ceil(std::clamp(bottom,0.0,double(domain.height)))));
+    const int samples=antialias?4:1;
+    if(lastY>firstY && std::uint64_t(lastY-firstY)*samples*points.size()>maxEdgeScans)
+        return {{}, "selection polygon exceeds the edge scan budget"};
+    RasterMask mask{region.extent,std::vector<std::uint8_t>(std::size_t(region.extent.width)*region.extent.height,0)};
+    std::vector<double> crossings;crossings.reserve(points.size());
+    for(int y=firstY;y<lastY;++y) for(int sy=0;sy<samples;++sy) {
+        const double sampleY=y+(sy+0.5)/samples;crossings.clear();
+        for(std::size_t i=0;i<points.size();++i) {
+            const auto& a=points[i];const auto& b=points[(i+1)%points.size()];
+            if((a.y<=sampleY && b.y>sampleY) || (b.y<=sampleY && a.y>sampleY)) {
+                const double x=a.x+(b.x-a.x)*((sampleY-a.y)/(b.y-a.y));
+                crossings.push_back(std::clamp(x,0.0,double(domain.width)));
+            }
+        }
+        std::sort(crossings.begin(),crossings.end());
+        for(std::size_t i=1;i<crossings.size();i+=2) {
+            const double left=crossings[i-1],right=crossings[i];
+            const int x0=std::max(region.origin.x,int(std::floor(left)));
+            const int x1=std::min(region.origin.x+region.extent.width,int(std::ceil(right)));
+            for(int x=x0;x<x1;++x)for(int sx=0;sx<samples;++sx) {
+                const double sampleX=x+(sx+0.5)/samples;
+                if(sampleX>=left && sampleX<right)
+                    ++mask.alpha[std::size_t(y-region.origin.y)*region.extent.width+x-region.origin.x];
+            }
+        }
+    }
+    const int total=samples*samples;
+    for(auto& alpha:mask.alpha)alpha=std::uint8_t((int(alpha)*255+total/2)/total);
+    return {std::move(mask),{}};
+}
+RasterMaskResult selectionPolygon(CanvasExtent extent, std::span<const Point> points, bool antialias) {
+    if (!extentValid(extent)) return {{}, "invalid selection polygon extent or point count"};
+    return detail::selectionPolygonRegion(extent,{{0,0},extent},points,antialias);
 }
 
 RasterProcessResult adjustRaster(const RasterLayer &input, const ColorAdjustment &a) {
@@ -239,6 +325,35 @@ RasterProcessResult blendRaster(const RasterLayer &base, const RasterLayer &proc
     }
     return {std::move(out), {}};
 }
+RasterMaskResult antialiasBinaryMask(const RasterMask &mask) {
+    if (!valid(mask) || std::ranges::any_of(mask.alpha, [](auto a) { return a != 0 && a != 255; }))
+        return {{}, "antialias requires a valid binary mask"};
+    auto out = mask;
+    const int width=mask.extent.width, height=mask.extent.height;
+    const auto selected = [&](int x, int y) {
+        x=std::clamp(x,0,width-1); y=std::clamp(y,0,height-1);
+        return mask.alpha[std::size_t(y)*width+x] == 255;
+    };
+    for (int y=0;y<height;++y) for (int x=0;x<width;++x) {
+        const bool center=selected(x,y); bool edge=false;
+        for (int dy=-1;dy<=1 && !edge;++dy) for (int dx=-1;dx<=1;++dx)
+            if (selected(x+dx,y+dy)!=center) {edge=true;break;}
+        if (!edge) continue;
+        unsigned inside=0;
+        for (int sy=0;sy<4;++sy) for (int sx=0;sx<4;++sx) {
+            // Bilinear reconstruction of center samples; the 0.5 contour
+            // defines the boundary. Integer weights avoid platform drift.
+            const int x0=x+(sx<2 ? -1 : 0), y0=y+(sy<2 ? -1 : 0);
+            const int fx=sx<2 ? 2*sx+5 : 2*sx-3;
+            const int fy=sy<2 ? 2*sy+5 : 2*sy-3;
+            const int score=selected(x0,y0)*(8-fx)*(8-fy) + selected(x0+1,y0)*fx*(8-fy) +
+                            selected(x0,y0+1)*(8-fx)*fy + selected(x0+1,y0+1)*fx*fy;
+            inside += score >= 32;
+        }
+        out.alpha[std::size_t(y)*width+x]=std::uint8_t((inside*255+8)/16);
+    }
+    return {std::move(out), {}};
+}
 RasterMaskResult featherMask(const RasterMask &mask, double radius) {
     if (!valid(mask) || !std::isfinite(radius) || radius < 0 || radius > 256) return {{}, "invalid feather mask or radius"};
     auto pixels = makeRasterLayer(mask.extent.width, mask.extent.height);
@@ -273,5 +388,167 @@ RasterMaskResult floodMask(const RasterLayer &input, CanvasOrigin seed, double t
         }
     }
     return {std::move(out), {}};
+}
+RasterMaskResult selectionWand(const RasterLayer &input, CanvasOrigin seed, double tolerance, bool contiguous) {
+    if (!valid(input) || seed.x < 0 || seed.x >= input.width || seed.y < 0 || seed.y >= input.height ||
+        !std::isfinite(tolerance) || tolerance < 0 || tolerance > 1)
+        return {{}, "invalid wand seed or tolerance"};
+    const auto components = [](std::uint32_t pixel) {
+        const double alpha = double(pixel >> 24) / 255.0;
+        const auto color = rgb(pixel);
+        return std::array<double, 4>{color.r * alpha, color.g * alpha, color.b * alpha, alpha};
+    };
+    const auto target = components(input.pixels[std::size_t(seed.y) * input.width + seed.x]);
+    const auto matches = [&](std::size_t index) {
+        const auto color = components(input.pixels[index]);
+        double distance = 0;
+        for (std::size_t n = 0; n < color.size(); ++n)
+            distance = std::max(distance, std::abs(color[n] - target[n]));
+        return distance <= tolerance;
+    };
+    RasterMask out{{input.width, input.height}, std::vector<std::uint8_t>(input.pixels.size())};
+    if (!contiguous) {
+        for (std::size_t i = 0; i < out.alpha.size(); ++i) if (matches(i)) out.alpha[i] = 255;
+    } else {
+        const auto start = std::size_t(seed.y) * input.width + seed.x;
+        std::deque<std::size_t> queue{start}; out.alpha[start] = 1;
+        const auto visit = [&](std::size_t index) {
+            if (!out.alpha[index]) { out.alpha[index] = 1; queue.push_back(index); }
+        };
+        while (!queue.empty()) {
+            const auto index = queue.front(); queue.pop_front();
+            if (!matches(index)) continue;
+            out.alpha[index] = 255;
+            const auto x = index % std::size_t(input.width), y = index / std::size_t(input.width);
+            if (x > 0) visit(index - 1);
+            if (x + 1 < std::size_t(input.width)) visit(index + 1);
+            if (y > 0) visit(index - std::size_t(input.width));
+            if (y + 1 < std::size_t(input.height)) visit(index + std::size_t(input.width));
+        }
+        for (auto &coverage : out.alpha) if (coverage == 1) coverage = 0;
+    }
+    return {std::move(out), {}};
+}
+RasterProcessResult gradientRaster(CanvasExtent extent, const GradientDefinition& gradient) {
+    const auto finitePoint = [](Point p) { return std::isfinite(p.x) && std::isfinite(p.y) && std::abs(p.x) <= 1e9 && std::abs(p.y) <= 1e9; };
+    if (!extentValid(extent) || !finitePoint(gradient.start) || !finitePoint(gradient.end) ||
+        !std::isfinite(gradient.opacity) || gradient.opacity < 0 || gradient.opacity > 1 ||
+        (gradient.kind != GradientKind::Linear && gradient.kind != GradientKind::Radial) ||
+        (gradient.spread != GradientSpread::Pad && gradient.spread != GradientSpread::Repeat) ||
+        gradient.stops.size() < 2 || gradient.stops.size() > 256)
+        return {{}, "invalid gradient extent or parameters"};
+    const auto dx = gradient.end.x - gradient.start.x, dy = gradient.end.y - gradient.start.y;
+    const auto lengthSquared = dx * dx + dy * dy;
+    if (!std::isfinite(lengthSquared) || lengthSquared <= 1e-18) return {{}, "gradient endpoints must differ"};
+    double previous = -1;
+    for (const auto& stop : gradient.stops) {
+        if (!std::isfinite(stop.position) || stop.position < 0 || stop.position > 1 || stop.position <= previous)
+            return {{}, "gradient stops must be strictly increasing within zero and one"};
+        previous = stop.position;
+    }
+    const auto colorAt = [&](double t) {
+        auto upper = std::upper_bound(gradient.stops.begin(), gradient.stops.end(), t,
+                                     [](double position, const GradientStop& stop) { return position < stop.position; });
+        const GradientStop* a; const GradientStop* b;
+        if (upper == gradient.stops.begin()) a = b = &gradient.stops.front();
+        else if (upper == gradient.stops.end()) a = b = &gradient.stops.back();
+        else { b = &*upper; a = &*(upper - 1); }
+        const double f = a == b ? 0 : (t - a->position) / (b->position - a->position);
+        const auto ca = rgb(a->argb), cb = rgb(b->argb);
+        const double aa = double(a->argb >> 24) / 255, ab = double(b->argb >> 24) / 255;
+        const double alpha = aa + (ab - aa) * f;
+        Rgb color{};
+        if (alpha > 0) color = {(ca.r * aa * (1 - f) + cb.r * ab * f) / alpha,
+                                (ca.g * aa * (1 - f) + cb.g * ab * f) / alpha,
+                                (ca.b * aa * (1 - f) + cb.b * ab * f) / alpha};
+        return pack(color, byte(alpha * gradient.opacity));
+    };
+    auto pixels = makeRasterLayer(extent.width, extent.height);
+    const double length = std::sqrt(lengthSquared);
+    for (int y = 0; y < extent.height; ++y) for (int x = 0; x < extent.width; ++x) {
+        const double px = x + .5 - gradient.start.x, py = y + .5 - gradient.start.y;
+        double t = gradient.kind == GradientKind::Linear ? (px * dx + py * dy) / lengthSquared
+                                                        : std::hypot(px, py) / length;
+        if (gradient.spread == GradientSpread::Repeat) t -= std::floor(t); else t = unit(t);
+        pixels.pixels[std::size_t(y) * extent.width + x] = colorAt(t);
+    }
+    return {std::move(pixels), {}};
+}
+MagneticPathResult magneticSelectionPath(const RasterLayer& image, Point start, Point end, const MagneticPathOptions& options)
+{
+    constexpr std::size_t hardLimit = 1048576;
+    if (!valid(image) || !std::isfinite(start.x) || !std::isfinite(start.y) ||
+        !std::isfinite(end.x) || !std::isfinite(end.y) || !std::isfinite(options.radius) ||
+        options.radius < 1 || options.radius > 64 || !std::isfinite(options.minimumStrength) ||
+        options.minimumStrength < 0 || options.minimumStrength > 1 || !options.maxSearchPixels)
+        return {{},false,"Invalid magnetic path input"};
+    const auto clampPoint = [&](Point p) { return Point{std::clamp(p.x,0.,double(image.width-1)),std::clamp(p.y,0.,double(image.height-1))}; };
+    start=clampPoint(start);end=clampPoint(end);
+    const int radius=int(std::ceil(options.radius));
+    const int sx=int(std::floor(start.x)),sy=int(std::floor(start.y));
+    const int ex=int(std::floor(end.x)),ey=int(std::floor(end.y));
+    const int left=std::max(0,std::min(sx,ex)-radius),top=std::max(0,std::min(sy,ey)-radius);
+    const int right=std::min(image.width-1,std::max(sx,ex)+radius),bottom=std::min(image.height-1,std::max(sy,ey)+radius);
+    const int width=right-left+1,height=bottom-top+1;
+    const auto count=std::uint64_t(width)*height;
+    if (count>std::min<std::size_t>(options.maxSearchPixels,hardLimit))
+        return {{},false,"Magnetic path exceeds the search budget"};
+    try {
+        // Compare premultiplied channels, so RGB hidden beneath zero alpha has no influence.
+        const auto channels=[&](int x,int y) {
+            x=std::clamp(x,0,image.width-1);y=std::clamp(y,0,image.height-1);
+            const auto p=image.pixels[std::size_t(y)*image.width+x];const unsigned a=p>>24;
+            return std::array<unsigned,4>{a,((p>>16)&255)*a/255,((p>>8)&255)*a/255,(p&255)*a/255};
+        };
+        const auto gradient=[&](int x,int y) {
+            const auto l=channels(x-1,y),r=channels(x+1,y),u=channels(x,y-1),d=channels(x,y+1);unsigned strength=0;
+            for(int i=0;i<4;++i) strength=std::max({strength,unsigned(std::abs(int(l[i])-int(r[i]))),unsigned(std::abs(int(u[i])-int(d[i])))});
+            return double(strength)/255.;
+        };
+        std::vector<double> edges(static_cast<std::size_t>(count));double maximum=0;
+        const auto index=[&](int x,int y) { return std::size_t(y-top)*width+std::size_t(x-left); };
+        for(int y=top;y<=bottom;++y) for(int x=left;x<=right;++x) {
+            const auto v=gradient(x,y);edges[index(x,y)]=v;maximum=std::max(maximum,v);
+        }
+        if(maximum<=0 || maximum<options.minimumStrength) return {{start,end},false,{}};
+        const auto snap=[&](int x,int y) {
+            int bx=x,by=y;double best=-1;
+            for(int yy=std::max(top,y-radius);yy<=std::min(bottom,y+radius);++yy)
+                for(int xx=std::max(left,x-radius);xx<=std::min(right,x+radius);++xx) {
+                    const double distance=std::hypot(double(xx-x),double(yy-y));if(distance>options.radius)continue;
+                    const auto edge=edges[index(xx,yy)];if(edge<options.minimumStrength || edge<=0)continue;
+                    const double score=edge-.2*distance/options.radius;
+                    if(score>best) {best=score;bx=xx;by=yy;}
+                }
+            return std::pair{bx,by};
+        };
+        const auto [ax,ay]=snap(sx,sy);const auto [bx,by]=snap(ex,ey);
+        const auto startIndex=index(ax,ay),goalIndex=index(bx,by);
+        struct Node { double f,g;std::size_t index; };
+        struct Later { bool operator()(const Node& a,const Node& b)const { if(a.f!=b.f)return a.f>b.f;if(a.g!=b.g)return a.g>b.g;return a.index>b.index; } };
+        std::priority_queue<Node,std::vector<Node>,Later> queue;
+        std::vector<double> distance(static_cast<std::size_t>(count),std::numeric_limits<double>::infinity());
+        std::vector<std::size_t> previous(static_cast<std::size_t>(count),static_cast<std::size_t>(count));
+        const auto estimate=[&](int x,int y){return std::hypot(double(x-bx),double(y-by));};
+        distance[startIndex]=0;queue.push({estimate(ax,ay),0,startIndex});
+        constexpr std::array<std::pair<int,int>,8> directions{{{-1,0},{1,0},{0,-1},{0,1},{-1,-1},{1,-1},{-1,1},{1,1}}};
+        while(!queue.empty()) {
+            const auto node=queue.top();queue.pop();if(node.g!=distance[node.index])continue;if(node.index==goalIndex)break;
+            const int x=left+int(node.index%width),y=top+int(node.index/width);
+            for(auto [dx,dy]:directions) {
+                const int nx=x+dx,ny=y+dy;if(nx<left||nx>right||ny<top||ny>bottom)continue;
+                const auto next=index(nx,ny);const double step=(dx&&dy)?std::numbers::sqrt2:1.;
+                const auto cost=node.g+step*(1.+8.*(1.-edges[next]));
+                if(cost<distance[next]) {distance[next]=cost;previous[next]=node.index;queue.push({cost+estimate(nx,ny),cost,next});}
+            }
+        }
+        if(!std::isfinite(distance[goalIndex]))return {{},false,"Magnetic path could not be traced"};
+        std::vector<Point> path;for(auto current=goalIndex;;current=previous[current]) {
+            path.push_back({double(left+int(current%width))+.5,double(top+int(current/width))+.5});
+            if(current==startIndex)break;if(previous[current]>=count)return {{},false,"Magnetic path is incomplete"};
+        }
+        std::reverse(path.begin(),path.end());if(path.size()==1)path.push_back(path.front());
+        return {std::move(path),true,{}};
+    } catch(const std::bad_alloc&) { return {{},false,"Insufficient memory for magnetic path"}; }
 }
 } // namespace iiSharedCanvas

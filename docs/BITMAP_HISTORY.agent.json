@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/BITMAP_HISTORY.md",
-    "sha256": "8e80e4a6480498b5e79b4b8ff85a125edd7d9063a026187a46c1351801acb47b",
-    "bytes": 4943,
-    "line_count": 65,
+    "sha256": "ad9dacf2f895542f16bf23c7e7bc022e02abf38355f1dcbe51e520985170720f",
+    "bytes": 11784,
+    "line_count": 144,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -73,7 +73,7 @@
       "kind": "paragraph",
       "start_line": 9,
       "end_line": 13,
-      "raw": "`BitmapPatch`는 row-major 최종 ARGB32 표본의 빌린 span이다.\n`replacePatches(span)`의 여러 비중첩 사각형을 한 명령으로 적용하고 한 번에 Undo한다.\n유한 자산은 자산 로컬 좌표, 청크 자산은 할당된 무한 캔버스 영역의 세계 좌표이다.\n크기·표본 수·범위·중복을 거부하면 픽셀·문서 저작 리비전·편집기 리비전과 커서를 보존한다.\n입력은 동기 호출 동안만 빌리며 문서에는 남기지 않는다.\n"
+      "raw": "`BitmapPatch`는 row-major 최종 ARGB32 표본의 빌린 span이다.\n`replacePatches(span)`의 여러 비중첩 사각형을 한 명령으로 적용하고 한 번에 Undo한다.\n일반 래스터 자산은 자산 로컬 좌표, 청크 자산의 기본 편집은 유한 또는 무한 캔버스 영역의 세계 좌표이다.\n크기·표본 수·범위·중복을 거부하면 픽셀·문서 저작 리비전·편집기 리비전과 커서를 보존한다.\n입력은 동기 호출 동안만 빌리며 문서에는 남기지 않는다.\n"
     },
     {
       "id": "b000008",
@@ -86,156 +86,328 @@
       "id": "b000009",
       "kind": "paragraph",
       "start_line": 15,
-      "end_line": 18,
-      "raw": "기존 setPixel·replacePatch·clear·replacePixels·replaceRegion도 같은 저널을 사용한다.\n유한 자산의 크기와 청크의 존재 여부는 픽셀과 같은 명령에 기록한다.\nUndo는 새로 할당한 청크를 제거하고 clear Undo는 원래 있던 0색 청크까지 복원한다.\n레이어 그룹·자산 삽입/삭제 등 일반 구조 명령의 이력은 별도 후속 범위이다.\n"
+      "end_line": 21,
+      "raw": "0.35.32의 `ChunkedBitmapEditor::assetPixelAt`과 `replaceAssetPatches`는 청크 자산의\n로컬 좌표를 사용하며 할당 캔버스 경계 밖의 좌표도 다룬다. 레이어 변환 후 캔버스와\n교차하는 픽셀의 위치를 호출자가 결정한다. 이 API는 캔버스 원점·크기를 바꾸지 않으며,\n좌표 범위는 -1,000,000,000 이상 1,000,000,000 미만이다. 패치의 수·바이트·중복\n검사와 Undo/Redo, 실패 시 원자성은 기존 `replacePatches`와 동일하다. `pixelAt`과\n`replacePatches`의 기존 캔버스 경계 제한은 유지된다. 파일 연결 시에도 같은 명령을\n원자적으로 저장하며 재열기 후 로컬 좌표로 읽을 수 있다.\n"
     },
     {
       "id": "b000010",
       "kind": "blank",
-      "start_line": 19,
-      "end_line": 19,
+      "start_line": 22,
+      "end_line": 22,
       "raw": "\n"
     },
     {
       "id": "b000011",
-      "kind": "heading",
-      "start_line": 20,
-      "end_line": 20,
-      "raw": "## 한도와 오류\n",
-      "level": 2,
-      "title": "한도와 오류"
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 30,
+      "raw": "0.35.36부터 유한 문서에서도 `ChunkedRasterAsset`과 `ChunkedBitmapEditor`를\n사용한다. 유한 정규 IISC 헤더는 청크 크기를 기록하지 않으므로 유한 청크는\n256px만 허용하고 청크 자료형이 도입된 IISC 1.1 미만은 거부한다. 일반 획과 픽셀 편집은 문서 경계를 따르며 명시적 자산 로컬\nAPI는 호출자가 변환과 클리핑을 담당한다. 유한 문서에 성장 모드를 요청하면\n변경 없이 거부한다. 청크의 할당·삭제, 픽셀과 Undo/Redo는 메모리 및 작업\n파일에 기록되며 정규 저장과 재열기에도 유지된다. 이 확장으로 작성한 유한\n청크 문서는 구버전 라이브러리에서 검증 실패하므로 구버전 소비자는 0.35.36\n이상으로 갱신해야 한다. 기존 일반 래스터 유한 문서와 무한 문서의 표현은 바뀌지 않는다.\n"
     },
     {
       "id": "b000012",
       "kind": "blank",
-      "start_line": 21,
-      "end_line": 21,
+      "start_line": 31,
+      "end_line": 31,
       "raw": "\n"
     },
     {
       "id": "b000013",
       "kind": "paragraph",
-      "start_line": 22,
-      "end_line": 26,
-      "raw": "생성자의 `RasterHistoryLimits`가 바이트·항목·패치·입력 한도를 정한다.\n기본은 64 MiB·32개이며 초과 시 적용 전에 Reject한다. 명시적으로 EvictOldest를\n선택하면 제거한 항목 수를 `lastHistoryResult().evictedEntries`로 확인한다.\n무변경 편집은 리비전·Redo를 바꾸지 않는다. 단일 명령 자체가 한도를 넘으면 기존 이력을\n제거하지 않는다. `historyStatistics()`는 확정 또는 활성 미리보기 커서의 논리 보관량이다.\n"
+      "start_line": 32,
+      "end_line": 37,
+      "raw": "0.35.35의 `ChunkedBitmapEditor::setStrokeCanvasGrowth(true)`는 일반 획에서\n실제로 바뀐 픽셀이 현재 무한 캔버스 밖에 있으면 캔버스를 확장하고, 픽셀과\n원점·크기를 하나의 Undo/Redo 항목으로 기록한다. 기본값은 클리핑이며 편집이\n진행 중일 때는 모드를 바꿀 수 없다. 명시적 자산 로컬 사각형 획은 항상 해당\n사각형으로 제한한다. 취소와 무변경 획은 캔버스와 Redo를 보존한다. 문서 또는\n`DocumentFile`에 바인딩한 편집기에서 사용할 수 있다.\n"
     },
     {
       "id": "b000014",
       "kind": "blank",
-      "start_line": 27,
-      "end_line": 27,
+      "start_line": 38,
+      "end_line": 38,
       "raw": "\n"
     },
     {
       "id": "b000015",
       "kind": "paragraph",
-      "start_line": 28,
-      "end_line": 31,
-      "raw": "이 통계는 소스 문서·할당자·임시 계획·파일 임시 문서의 메모리를 포함하지 않는다.\n브러시의 원본/누적/최종 픽셀 타일은 `previewStorageBytes()`로 별도 확인한다.\n활성 획은 취소 시 기존 Undo/Redo를 복원하기 위해 이전 불변 커서도 보유한다.\n따라서 활성 중 실제 메모리는 현재 커서 통계 하나만으로 판단하면 안 된다.\n"
+      "start_line": 39,
+      "end_line": 44,
+      "raw": "0.35.34의 `ChunkedBitmapEditor::dirtyBounds()`는 청크 생성이나 삭제 시 전체\n캔버스 대신 실제로 변한 픽셀 패치들의 경계를 반환한다. 로컬 좌표 편집은 캔버스\n밖의 자산 좌표로 반환하며, Undo/Redo도 지워지거나 복원된 픽셀을 포함한다.\n빈 청크의 존재 여부만 바뀌고 표시 픽셀이 동일하면 픽셀 갱신 영역은 비어 있지만\n편집 리비전은 증가하며 Undo/Redo로 구조를 복원할 수 있다.\n캔버스 크기나 원점 변경은 문서 상태에서 별도로 확인해야 한다.\n"
     },
     {
       "id": "b000016",
-      "kind": "blank",
-      "start_line": 32,
-      "end_line": 32,
-      "raw": "\n"
-    },
-    {
-      "id": "b000017",
-      "kind": "heading",
-      "start_line": 33,
-      "end_line": 33,
-      "raw": "## 미리보기와 현재 입력\n",
-      "level": 2,
-      "title": "미리보기와 현재 입력"
-    },
-    {
-      "id": "b000018",
-      "kind": "blank",
-      "start_line": 34,
-      "end_line": 34,
-      "raw": "\n"
-    },
-    {
-      "id": "b000019",
-      "kind": "paragraph",
-      "start_line": 35,
-      "end_line": 42,
-      "raw": "브러시는 현재 StrokePoint와 스칼라 dab 상태만 유지한다. 전체 원본 자산 대신 건드린\n64×64 픽셀 타일의 원본·부동소수 누적·최종 미리보기를 보관한다.\n매 입력의 후보는 같은 획 시작 픽셀에서 다시 이력 예산을 판정한 뒤 게시한다.\n거부된 입력은 이전 미리보기·시각·활성 획을 보존하며, 입력 궤적·dab 목록은 저장하지 않는다.\n끝내기는 한 명령을 확정하고 취소는 픽셀과 이전 커서를 복원한다.\n이 미리보기는 기존 스트리밍 브러시 경로이다. 0.34.1은 iiBrushTools 등 외부 작성기의\n전체 결과를 교체하는 별도 [최종 픽셀 세션](PIXEL_PREVIEW.md)도 제공한다.\n혼색 샘플러는 원본 타일이 있으면 이를 읽고 아직 건드리지 않은 위치는 현재 자산을 읽는다.\n"
-    },
-    {
-      "id": "b000020",
-      "kind": "blank",
-      "start_line": 43,
-      "end_line": 43,
-      "raw": "\n"
-    },
-    {
-      "id": "b000021",
-      "kind": "heading",
-      "start_line": 44,
-      "end_line": 44,
-      "raw": "## 파일과 바인딩\n",
-      "level": 2,
-      "title": "파일과 바인딩"
-    },
-    {
-      "id": "b000022",
       "kind": "blank",
       "start_line": 45,
       "end_line": 45,
       "raw": "\n"
     },
     {
-      "id": "b000023",
+      "id": "b000017",
       "kind": "paragraph",
       "start_line": 46,
-      "end_line": 48,
-      "raw": "파일 바인딩은 DocumentFile의 동기 트랜잭션 안에서 픽셀과 작업 커서를 준비하고,\n저장이 성공한 뒤에만 호출 편집기에 커서를 설치한다. 파일이 닫히거나 바인딩 세대가\n바뀌면 이전 편집기를 거부한다. 같은 소스의 외부 편집과 Undo 충돌을 검사한다.\n"
+      "end_line": 50,
+      "raw": "0.35.33의 `beginAssetStrokeInput`은 호출자가 지정한 로컬 사각 영역에서 붓 입력을\n스트리밍한다. 이 영역은 캔버스 경계와 별개이며 원점·크기를 변경하지 않는다.\n캔버스와 변환된 레이어의 정확한 교차 또는 선택 마스크는 호출자가 적용한다.\n입력은 같은 좌표 한도와 이력 예산을 따르고, 취소·Undo/Redo 및 파일 연결 시의\n원자적 저장은 일반 청크 획과 동일하다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 52,
+      "end_line": 55,
+      "raw": "기존 setPixel·replacePatch·clear·replacePixels·replaceRegion도 같은 저널을 사용한다.\n유한 자산의 크기와 청크의 존재 여부는 픽셀과 같은 명령에 기록한다.\nUndo는 새로 할당한 청크를 제거하고 clear Undo는 원래 있던 0색 청크까지 복원한다.\n레이어 그룹·자산 삽입/삭제 등 일반 구조 명령의 이력은 별도 후속 범위이다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "heading",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "## 한도와 오류\n",
+      "level": 2,
+      "title": "한도와 오류"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 59,
+      "end_line": 63,
+      "raw": "생성자의 `RasterHistoryLimits`가 바이트·항목·패치·입력 한도를 정한다.\n기본은 64 MiB·32개이며 초과 시 적용 전에 Reject한다. 명시적으로 EvictOldest를\n선택하면 제거한 항목 수를 `lastHistoryResult().evictedEntries`로 확인한다.\n무변경 편집은 리비전·Redo를 바꾸지 않는다. 단일 명령 자체가 한도를 넘으면 기존 이력을\n제거하지 않는다. `historyStatistics()`는 확정 또는 활성 미리보기 커서의 논리 보관량이다.\n"
     },
     {
       "id": "b000024",
       "kind": "blank",
-      "start_line": 49,
-      "end_line": 49,
+      "start_line": 64,
+      "end_line": 64,
       "raw": "\n"
     },
     {
       "id": "b000025",
       "kind": "paragraph",
-      "start_line": 50,
-      "end_line": 54,
-      "raw": "Native 0.35.1의 같은 크기 픽셀 편집은 준비된 변경 영역을 파일의 타일 트랜잭션에 직접\n연결한다. 자세한 원자성·자원 한도·호환성은 [파일 영역 저장](BITMAP_FILE_REGIONS.md)을\n참조한다. 일반 `DocumentFile::edit`, 크기 변경과 이전 모델의 갱신은 여전히 전체 임시\n문서를 사용한다. 일반 구조 delta, 앱 이력 통합과 실제 대형 필터/마스크 워크플로우\n수락은 D28의 후속 단계이다.\n"
+      "start_line": 65,
+      "end_line": 68,
+      "raw": "이 통계는 소스 문서·할당자·임시 계획·파일 임시 문서의 메모리를 포함하지 않는다.\n브러시의 원본/누적/최종 픽셀 타일은 `previewStorageBytes()`로 별도 확인한다.\n활성 획은 취소 시 기존 Undo/Redo를 복원하기 위해 이전 불변 커서도 보유한다.\n따라서 활성 중 실제 메모리는 현재 커서 통계 하나만으로 판단하면 안 된다.\n"
     },
     {
       "id": "b000026",
       "kind": "blank",
-      "start_line": 55,
-      "end_line": 55,
+      "start_line": 69,
+      "end_line": 69,
       "raw": "\n"
     },
     {
       "id": "b000027",
       "kind": "heading",
-      "start_line": 56,
-      "end_line": 56,
-      "raw": "## 수락 검사\n",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "## 미리보기와 현재 입력\n",
       "level": 2,
-      "title": "수락 검사"
+      "title": "미리보기와 현재 입력"
     },
     {
       "id": "b000028",
       "kind": "blank",
-      "start_line": 57,
-      "end_line": 57,
+      "start_line": 71,
+      "end_line": 71,
       "raw": "\n"
     },
     {
       "id": "b000029",
       "kind": "paragraph",
-      "start_line": 58,
-      "end_line": 65,
+      "start_line": 72,
+      "end_line": 79,
+      "raw": "브러시는 현재 StrokePoint와 스칼라 dab 상태만 유지한다. 전체 원본 자산 대신 건드린\n64×64 픽셀 타일의 원본·부동소수 누적·최종 미리보기를 보관한다.\n매 입력의 후보는 같은 획 시작 픽셀에서 다시 이력 예산을 판정한 뒤 게시한다.\n거부된 입력은 이전 미리보기·시각·활성 획을 보존하며, 입력 궤적·dab 목록은 저장하지 않는다.\n끝내기는 한 명령을 확정하고 취소는 픽셀과 이전 커서를 복원한다.\n이 미리보기는 기존 스트리밍 브러시 경로이다. 0.34.1은 iiBrushTools 등 외부 작성기의\n전체 결과를 교체하는 별도 [최종 픽셀 세션](PIXEL_PREVIEW.md)도 제공한다.\n혼색 샘플러는 원본 타일이 있으면 이를 읽고 아직 건드리지 않은 위치는 현재 자산을 읽는다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 80,
+      "end_line": 80,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 81,
+      "end_line": 81,
+      "raw": "## 파일과 바인딩\n",
+      "level": 2,
+      "title": "파일과 바인딩"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 82,
+      "end_line": 82,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "heading",
+      "start_line": 83,
+      "end_line": 83,
+      "raw": "### 독립 이력의 파일 반영 계약 (Native 0.35.39)\n",
+      "level": 3,
+      "title": "독립 이력의 파일 반영 계약 (Native 0.35.39)"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 84,
+      "end_line": 84,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 85,
+      "end_line": 88,
+      "raw": "문서에 바인딩된 비트맵 편집기의 완료된 이력 항목을 별도 작업 파일에 반영할\n수 있어야 한다. 적용된 상태를 반영할 때는 파일이 해당 항목의 이전 픽셀을,\n취소된 상태를 반영할 때는 이후 픽셀을 가지고 있어야 한다. 유한 래스터와\n희소 청크의 픽셀·청크 존재 변화는 해당 항목의 변경 부분만 사용한다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 90,
+      "end_line": 95,
+      "raw": "호출자는 파일의 예상 리비전과 저작 정보·형식 버전을 제공한다. 현재 파일이\n예상과 다르거나 원본 편집기의 픽셀이 이력과 다르면 거부한다. 성공 시 원본의\n저작 정보와 형식 버전을 픽셀과 같은 내구성 트랜잭션으로 반영한다. 파일 기록,\n원본 문서와 양쪽 Undo/Redo 커서는 실패 시 바뀌지 않아야 한다. 이 API는 이력\n스택의 최상단 항목 하나만 반영하며, 다른 문서 구조를 복사하거나 입력 경로를\n저장하지 않는다. 형식 이행이 필요한 파일은 명시적으로 거부한다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 96,
+      "end_line": 96,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 97,
+      "end_line": 101,
+      "raw": "`BitmapEditor`와 `ChunkedBitmapEditor`의 `publishHistoryState`는 원본 커서를\n이동하지 않는다. `Applied`는 원본의 적용된 최상단 항목을 파일에 적용하고,\n`Undone`은 원본의 취소된 최상단 항목을 파일에 복원한다. 파일과 원본은 별개여야\n하며 파일 바인딩 편집기, 활성 획, 활성 미리보기 및 의미론적 마스크에는 사용하지\n않는다. 원본·파일의 픽셀 불일치와 예기치 않은 메타데이터 또는 리비전은 거부한다.\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 102,
+      "end_line": 102,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 103,
+      "end_line": 112,
+      "raw": "파일 커밋은 기존과 같이 동기적이고 내구성 있는 트랜잭션이다. 저장 데이터와\n복사량은 변경 이력에 비례하지만 저장 장치의 동기화 지연을 제거하지는 않는다.\n별도 프로세스의 미리보기나 동기화가 잠시 읽는 동안 이력 확정이 실패하지 않도록,\nNative 작업 파일은 각 SQLite 요청에서 읽기·쓰기 잠금 경합을 최대 250ms 기다린다.\n이 시간 동안 잠금이 풀리지 않거나 다른 쓰기가 파일을 변경한 경우에는 작업을\n거부하고 기존 픽셀, 파일 리비전, Undo/Redo 커서를 유지한다. 이 대기는 동기\n호출의 상한이며 저장 장치 자체의 지연을 제한하거나 실시간 입력 지연을 보장하지 않는다.\n8K 단일 래스터에서 한 픽셀을 확정·취소·재적용하는 검사는 각 호출의 일반 C++\n할당 요청 합을 8MiB 미만으로 제한하며, 할당 실패 위치와 파일 잠금 시의 상태\n보존도 검사한다. 이 수치는 최대 메모리나 기기의 실제 입력 지연이 아니다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 113,
+      "end_line": 113,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "paragraph",
+      "start_line": 114,
+      "end_line": 116,
+      "raw": "파일 바인딩은 DocumentFile의 동기 트랜잭션 안에서 픽셀과 작업 커서를 준비하고,\n저장이 성공한 뒤에만 호출 편집기에 커서를 설치한다. 파일이 닫히거나 바인딩 세대가\n바뀌면 이전 편집기를 거부한다. 같은 소스의 외부 편집과 Undo 충돌을 검사한다.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 117,
+      "end_line": 117,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 118,
+      "end_line": 122,
+      "raw": "Native 0.35.1의 같은 크기 픽셀 편집은 준비된 변경 영역을 파일의 타일 트랜잭션에 직접\n연결한다. 자세한 원자성·자원 한도·호환성은 [파일 영역 저장](BITMAP_FILE_REGIONS.md)을\n참조한다. 일반 `DocumentFile::edit`, 크기 변경과 이전 모델의 갱신은 여전히 전체 임시\n문서를 사용한다. 일반 구조 delta, 앱 이력 통합과 실제 대형 필터/마스크 워크플로우\n수락은 D28의 후속 단계이다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 123,
+      "end_line": 123,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "heading",
+      "start_line": 124,
+      "end_line": 124,
+      "raw": "## 수락 검사\n",
+      "level": 2,
+      "title": "수락 검사"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 125,
+      "end_line": 125,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "paragraph",
+      "start_line": 126,
+      "end_line": 133,
       "raw": "`BitmapHistoryTest`는 다중 영역·무변경·잘못된 두 번째 영역·중복·명시적 한도와 제거,\n유한 크기 변경·음수 청크 경계·청크 존재 복원·미리보기 거부/취소·파일 왕복을 검사한다.\n별도 8K 검사는 실제 Native 편집기의 고엔트로피 래스터 3개(768 MiB), 비중첩 영역\n48개와 브러시 미리보기 취소, 참조된 래스터 마스크의 편집·Undo를 실행한다. 초기 표본을\n재생성하여 세 자산의 모든 픽셀이 복원되는지 검사하며 추가 전체 자산 사본은 보관하지 않는다.\n`operations_ms`는 준비·전체 표본 대조를 제외한 해당 동기 편집 호출 구간이다. 실제 필터\n합성·파일 저장·프로세스 RSS 또는 최종 대형 문서 워크플로우 수락과 구분한다.\n전체 빌드·기존 입력/혼색/시계 검사·설치 소비자와 검사 범위별 계측을 함께 기록한다.\n"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 134,
+      "end_line": 134,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "heading",
+      "start_line": 135,
+      "end_line": 135,
+      "raw": "## 희소 선택 영역 순회 (Native 0.35.37)\n",
+      "level": 2,
+      "title": "희소 선택 영역 순회 (Native 0.35.37)"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 136,
+      "end_line": 136,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 137,
+      "end_line": 144,
+      "raw": "`TiledMask::nonzeroRegions(maxRegions)`는 0이 아닌 모든 커버리지를 포함하는\n겹치지 않는 문서 좌표 영역을 반환한다. 영역은 마스크의 64px 타일 경계에 맞고\n도메인 가장자리에서 잘리며, 보수적 범위라 0인 픽셀을 포함할 수 있다. 암묵적\n배경이 0이면 저장된 타일만 열거한다. 배경이 0이 아니면 도메인 전체 타일을\n열거하므로 요청 상한을 넘을 때 결과를 만들지 않고 오류를 반환한다. 빈 마스크는\n상한이 0이어도 빈 결과이고 초기화되지 않은 마스크는 오류다. 이 API는 영역 목록을\n제공하며 픽셀 할당·렌더링·문서 변경은 수행하지 않는다. 선택 영역의 분산도에 따른\n작업 예산과 결과 타일 생성은 소비자 책임이다.\n"
     }
   ],
   "outline": [
@@ -256,36 +428,52 @@
       "start_line": 7
     },
     {
-      "block_id": "b000011",
+      "block_id": "b000021",
       "parent_id": "b000001",
       "level": 2,
       "title": "한도와 오류",
       "anchor": "한도와-오류",
-      "start_line": 20
-    },
-    {
-      "block_id": "b000017",
-      "parent_id": "b000001",
-      "level": 2,
-      "title": "미리보기와 현재 입력",
-      "anchor": "미리보기와-현재-입력",
-      "start_line": 33
-    },
-    {
-      "block_id": "b000021",
-      "parent_id": "b000001",
-      "level": 2,
-      "title": "파일과 바인딩",
-      "anchor": "파일과-바인딩",
-      "start_line": 44
+      "start_line": 57
     },
     {
       "block_id": "b000027",
       "parent_id": "b000001",
       "level": 2,
+      "title": "미리보기와 현재 입력",
+      "anchor": "미리보기와-현재-입력",
+      "start_line": 70
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "파일과 바인딩",
+      "anchor": "파일과-바인딩",
+      "start_line": 81
+    },
+    {
+      "block_id": "b000033",
+      "parent_id": "b000031",
+      "level": 3,
+      "title": "독립 이력의 파일 반영 계약 (Native 0.35.39)",
+      "anchor": "독립-이력의-파일-반영-계약-native-03539",
+      "start_line": 83
+    },
+    {
+      "block_id": "b000047",
+      "parent_id": "b000001",
+      "level": 2,
       "title": "수락 검사",
       "anchor": "수락-검사",
-      "start_line": 56
+      "start_line": 124
+    },
+    {
+      "block_id": "b000051",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "희소 선택 영역 순회 (Native 0.35.37)",
+      "anchor": "희소-선택-영역-순회-native-03537",
+      "start_line": 135
     }
   ],
   "indexes": {
@@ -298,30 +486,79 @@
         "context": "paragraph"
       },
       {
-        "block_id": "b000013",
-        "line": 26,
-        "text": "제거하지 않는다. `historyStatistics()`는 확정 또는 활성 미리보기 커서의 논리 보관량이다.",
+        "block_id": "b000011",
+        "line": 30,
+        "text": "이상으로 갱신해야 한다. 기존 일반 래스터 유한 문서와 무한 문서의 표현은 바뀌지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000015",
-        "line": 28,
+        "line": 44,
+        "text": "캔버스 크기나 원점 변경은 문서 상태에서 별도로 확인해야 한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000017",
+        "line": 47,
+        "text": "스트리밍한다. 이 영역은 캔버스 경계와 별개이며 원점·크기를 변경하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000023",
+        "line": 63,
+        "text": "제거하지 않는다. `historyStatistics()`는 확정 또는 활성 미리보기 커서의 논리 보관량이다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000025",
+        "line": 65,
         "text": "이 통계는 소스 문서·할당자·임시 계획·파일 임시 문서의 메모리를 포함하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000019",
-        "line": 38,
+        "block_id": "b000029",
+        "line": 75,
         "text": "거부된 입력은 이전 미리보기·시각·활성 획을 보존하며, 입력 궤적·dab 목록은 저장하지 않는다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
-        "block_id": "b000029",
-        "line": 62,
+        "block_id": "b000037",
+        "line": 95,
+        "text": "저장하지 않는다. 형식 이행이 필요한 파일은 명시적으로 거부한다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000039",
+        "line": 98,
+        "text": "이동하지 않는다. `Applied`는 원본의 적용된 최상단 항목을 파일에 적용하고,",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000041",
+        "line": 109,
+        "text": "호출의 상한이며 저장 장치 자체의 지연을 제한하거나 실시간 입력 지연을 보장하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000049",
+        "line": 130,
         "text": "재생성하여 세 자산의 모든 픽셀이 복원되는지 검사하며 추가 전체 자산 사본은 보관하지 않는다.",
+        "basis": "lexical_match",
+        "context": "paragraph"
+      },
+      {
+        "block_id": "b000053",
+        "line": 143,
+        "text": "제공하며 픽셀 할당·렌더링·문서 변경은 수행하지 않는다. 선택 영역의 분산도에 따른",
         "basis": "lexical_match",
         "context": "paragraph"
       }
@@ -329,18 +566,18 @@
     "commands": [],
     "links": [
       {
-        "block_id": "b000019",
+        "block_id": "b000029",
         "label": "최종 픽셀 세션",
         "target": "PIXEL_PREVIEW.md",
         "kind": "relative",
-        "line": 41
+        "line": 78
       },
       {
-        "block_id": "b000025",
+        "block_id": "b000045",
         "label": "파일 영역 저장",
         "target": "BITMAP_FILE_REGIONS.md",
         "kind": "relative",
-        "line": 51
+        "line": 119
       }
     ],
     "tables": []

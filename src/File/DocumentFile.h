@@ -10,7 +10,7 @@
 
 namespace iiSharedCanvas {
 
-namespace detail { struct PreparedBitmapChange; class IiscInputAccess; class AssetLayerGuard; }
+namespace detail { struct PreparedBitmapChange; class IiscInputAccess; class AssetLayerGuard; class BitmapHistoryPublication; }
 
 enum class DocumentFileCode {
     None,
@@ -114,6 +114,7 @@ private:
     friend class ChunkedBitmapEditor;
     friend class CanvasItem;
     friend class detail::IiscInputAccess;
+    friend class detail::BitmapHistoryPublication;
     [[nodiscard]] Document *boundDocument() noexcept;
     DocumentFileResult editImpl(const std::function<bool(Document &)> &edit, bool stampAuthorship);
 #ifdef IISHAREDCANVAS_NATIVE_API

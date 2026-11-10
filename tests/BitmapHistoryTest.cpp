@@ -162,6 +162,105 @@ void chunks()
            "chunks: replacement undo restores exact chunk presence");
     (void)painted;
 }
+void chunkAssetCoordinates()
+{
+    auto document = infinite();
+    const auto origin = document.infiniteCanvas.origin;
+    const auto extent = document.extent;
+    ChunkedBitmapEditor editor(document, "paint");
+    const std::array<std::uint32_t, 2> values{0xff123456U, 0xffabcdefU};
+    const BitmapPatch outside{{{300, -200}, 2, 1}, values};
+    expect(!editor.replacePatches(std::array{outside}), "asset coordinates: canvas-clipped API rejects outside region");
+    expect(editor.replaceAssetPatches(std::array{outside}), "asset coordinates: explicit local patch succeeds");
+    expect(!editor.pixelAt(300, -200) && editor.assetPixelAt(300, -200) == values[0] && editor.assetPixelAt(301, -200) == values[1],
+           "asset coordinates: local sampling is distinct from canvas bounds");
+    expect(document.infiniteCanvas.origin == origin && document.extent == extent,
+           "asset coordinates: local edits do not grow the canvas");
+    expect(editor.undo() && editor.assetPixelAt(300, -200) == 0 && editor.canRedo(), "asset coordinates: undo removes allocation");
+    const auto revision = editor.revision();
+    const BitmapPatch invalid{{{-1000000001, 0}, 1, 1}, std::span(values).first(1)};
+    expect(!editor.replaceAssetPatches(std::array{invalid}) && editor.revision() == revision && editor.canRedo(),
+           "asset coordinates: invalid bounds preserve redo");
+    expect(editor.redo() && editor.assetPixelAt(301, -200) == values[1], "asset coordinates: redo restores pixels");
+    const auto unchanged = bytes(document); const auto unchangedRevision = editor.revision();
+    expect(!editor.replaceAssetPatches(std::array{outside, outside}) && editor.revision() == unchangedRevision && bytes(document) == unchanged,
+           "asset coordinates: overlapping patches fail atomically");
+    const std::array<std::uint32_t, 2> zeros{};
+    expect(editor.undo() && editor.canRedo() && editor.replaceAssetPatches(std::array{BitmapPatch{{{300,-200},2,1},zeros}}) && editor.canRedo(),
+           "asset coordinates: unchanged transparent patch preserves redo");
+    expect(editor.redo(), "asset coordinates: redo after unchanged patch");
+    const std::filesystem::path parent(IISHAREDCANVAS_TEST_OUTPUT_DIR);
+    iiFileProvider::native::TemporaryDirectory temporary(parent);
+    if (!temporary.isValid()) { expect(false, "asset coordinates: temporary directory"); return; }
+    const auto path = temporary.path()/"asset-coordinates.iisc";
+    DocumentFile file;
+    expect(file.create(path.string(), infinite()).ok(), "asset coordinates: create file");
+    ChunkedBitmapEditor durable(file, "paint");
+    expect(durable.replaceAssetPatches(std::array{outside}) && durable.undo() && durable.redo(),
+           "asset coordinates: durable local edit history");
+    file.close();
+    DocumentFile reopened;
+    expect(reopened.open(path.string()).ok(), "asset coordinates: reopen file");
+    ChunkedBitmapEditor read(reopened, "paint");
+    expect(read.assetPixelAt(300,-200) == values[0] && !read.pixelAt(300,-200) && reopened.document()->infiniteCanvas.origin == origin && reopened.document()->extent == extent,
+           "asset coordinates: durable pixels and canvas extent");
+}
+void chunkAssetStroke()
+{
+    auto document = infinite();const auto origin=document.infiniteCanvas.origin;const auto extent=document.extent;
+    ChunkedBitmapEditor editor(document,"paint");BitmapBrush brush;brush.size=4;brush.argb=0xff123456U;brush.pressureToOpacityEnabled=false;
+    StrokePoint first;first.position={304,-196};first.time=0;StrokePoint last=first;last.position={308,-196};last.time=.1;
+    const CanvasRegion region{{300,-200},{16,16}};
+    expect(editor.setBrush(brush) && editor.beginAssetStrokeInput(first,region) && editor.endStrokeInput(last),"asset stroke: paint local region outside canvas");
+    expect(editor.assetPixelAt(304,-196).value_or(0)!=0 && !editor.pixelAt(304,-196) && document.infiniteCanvas.origin==origin && document.extent==extent,"asset stroke: local pixels without canvas growth");
+    expect(editor.undo() && editor.assetPixelAt(304,-196)==0 && editor.canRedo(),"asset stroke: undo restores sparse chunks");
+    const CanvasRegion invalid{{999999999,0},{2,1}};const auto revision=editor.revision();
+    expect(!editor.beginAssetStrokeInput(first,invalid) && editor.revision()==revision && editor.canRedo(),"asset stroke: invalid region preserves redo");
+    expect(editor.beginAssetStrokeInput(first,region),"asset stroke: begin cancel");editor.cancelStroke();
+    expect(editor.assetPixelAt(304,-196)==0 && editor.canRedo() && editor.redo(),"asset stroke: cancel preserves old redo");
+    auto clippedDoc=infinite();ChunkedBitmapEditor clipped(clippedDoc,"paint");auto wide=brush;wide.size=12;
+    StrokePoint edge=first;edge.position={300,-196};
+    expect(clipped.setBrush(wide)&&clipped.beginAssetStrokeInput(edge,region)&&clipped.endStrokeInput(edge),"asset stroke: edge dab");
+    expect(clipped.assetPixelAt(299,-196)==0 && clipped.assetPixelAt(300,-196).value_or(0)!=0,"asset stroke: local clip bounds enforced");
+    RasterHistoryLimits tiny;tiny.maximumBytes=1;auto boundedDoc=infinite();ChunkedBitmapEditor bounded(boundedDoc,"paint",tiny);const auto boundedBefore=bytes(boundedDoc);
+    expect(bounded.setBrush(brush)&&!bounded.beginAssetStrokeInput(first,region)&&bytes(boundedDoc)==boundedBefore,"asset stroke: history budget rejects without mutation");
+    const std::filesystem::path parent(IISHAREDCANVAS_TEST_OUTPUT_DIR);iiFileProvider::native::TemporaryDirectory temporary(parent);
+    if(!temporary.isValid()){expect(false,"asset stroke: temporary directory");return;}
+    const auto path=temporary.path()/"asset-stroke.iisc";DocumentFile file;expect(file.create(path.string(),infinite()).ok(),"asset stroke: create file");
+    ChunkedBitmapEditor durable(file,"paint");expect(durable.setBrush(brush)&&durable.beginAssetStrokeInput(first,region)&&durable.endStrokeInput(last)&&durable.undo()&&durable.redo(),"asset stroke: durable edit history");
+    file.close();DocumentFile reopened;expect(reopened.open(path.string()).ok(),"asset stroke: reopen file");ChunkedBitmapEditor read(reopened,"paint");
+    expect(read.assetPixelAt(304,-196).value_or(0)!=0 && !read.pixelAt(304,-196) && reopened.document()->infiniteCanvas.origin==origin && reopened.document()->extent==extent,"asset stroke: persistence and canvas extent");
+}
+void sparseDirtyBounds()
+{
+    auto d=infinite();d.infiniteCanvas.origin={-4096,-4096};d.extent={9000,9000};
+    ChunkedBitmapEditor editor(d,"paint");BitmapBrush brush;brush.size=4;brush.argb=0xff123456U;brush.pressureToOpacityEnabled=false;
+    const auto bounded=[](DevicePixelRect r,int x,int y){return r.width>0 && r.height>0 && r.width<=128 && r.height<=128 && r.origin.x<=x && r.origin.y<=y && std::int64_t(r.origin.x)+r.width>x && std::int64_t(r.origin.y)+r.height>y;};
+    expect(editor.setBrush(brush)&&editor.beginStroke({-250,10})&&editor.endStroke({-250,10}),"sparse dirty: stroke");
+    expect(bounded(editor.dirtyBounds(),-250,10),"sparse dirty: created chunk must not dirty the entire canvas");
+    editor.clearDirtyBounds();expect(editor.undo()&&bounded(editor.dirtyBounds(),-250,10),"sparse dirty: removed chunk bounds on undo");
+    editor.clearDirtyBounds();expect(editor.redo()&&bounded(editor.dirtyBounds(),-250,10),"sparse dirty: recreated chunk bounds on redo");
+    auto local=infinite();ChunkedBitmapEditor asset(local,"paint");StrokePoint point;point.position={304,-196};point.time=0;
+    expect(asset.setBrush(brush)&&asset.beginAssetStrokeInput(point,{{300,-200},{16,16}})&&asset.endStrokeInput(point),"sparse dirty: asset-local stroke");
+    expect(bounded(asset.dirtyBounds(),304,-196),"sparse dirty: asset coordinates outside canvas");
+    asset.clearDirtyBounds();expect(asset.undo()&&bounded(asset.dirtyBounds(),304,-196),"sparse dirty: asset-local undo");
+    auto metadata=infinite();findChunkedRasterAsset(metadata,"paint")->chunks.push_back({0,0,makeRasterLayer(128,128,0)});
+    ChunkedBitmapEditor structure(metadata,"paint");expect(structure.clear()&&structure.revision()==1&&structure.dirtyBounds().width==0 && structure.dirtyBounds().height==0&&structure.canUndo(),"sparse dirty: empty chunk removal updates revision without pixel dirt");
+    expect(structure.undo()&&structure.revision()==2&&structure.dirtyBounds().width==0 && structure.dirtyBounds().height==0&&structure.canRedo(),"sparse dirty: empty chunk restoration updates revision without pixel dirt");
+}
+void chunkStrokeGrowth()
+{
+    auto d=infinite();const auto origin=d.infiniteCanvas.origin;const auto extent=d.extent;ChunkedBitmapEditor editor(d,"paint");BitmapBrush brush;brush.size=4;brush.argb=0xff123456U;brush.pressureToOpacityEnabled=false;
+    expect(editor.setBrush(brush)&&editor.setStrokeCanvasGrowth(true),"stroke growth: configure");StrokePoint first;first.position={120,20};first.time=1;StrokePoint last=first;last.position={200,20};last.time=2;
+    expect(editor.beginStrokeInput(first)&&editor.endStrokeInput(last),"stroke growth: paint beyond canvas");const auto grownOrigin=d.infiniteCanvas.origin;const auto grownExtent=d.extent;const auto painted=editor.assetPixelAt(200,20).value_or(0);expect((grownOrigin!=origin||grownExtent!=extent)&&painted!=0,"stroke growth: pixels and geometry expand");
+    expect(editor.undo()&&d.infiniteCanvas.origin==origin&&d.extent==extent&&editor.assetPixelAt(200,20)==0&&editor.canRedo(),"stroke growth: undo pixels and geometry");
+    auto transparent=brush;transparent.opacity=0;StrokePoint outside=first;outside.position={500,20};expect(editor.setBrush(transparent)&&editor.beginStrokeInput(outside)&&editor.endStrokeInput(outside)&&d.extent==extent&&d.infiniteCanvas.origin==origin&&editor.canRedo(),"stroke growth: no-op preserves geometry and redo");
+    expect(editor.setBrush(brush)&&editor.beginStrokeInput(outside),"stroke growth: start cancel");expect(!editor.setStrokeCanvasGrowth(false),"stroke growth: mode cannot change during a stroke");editor.cancelStroke();expect(d.extent==extent&&d.infiniteCanvas.origin==origin&&editor.canRedo(),"stroke growth: cancel preserves geometry and redo");
+    expect(editor.redo()&&d.infiniteCanvas.origin==grownOrigin&&d.extent==grownExtent&&editor.assetPixelAt(200,20)==painted,"stroke growth: redo pixels and geometry");
+    auto clippedDoc=infinite();ChunkedBitmapEditor clipped(clippedDoc,"paint");expect(clipped.setBrush(brush)&&clipped.setStrokeCanvasGrowth(false)&&clipped.beginStrokeInput(outside)&&clipped.endStrokeInput(outside)&&clippedDoc.extent==extent&&clippedDoc.infiniteCanvas.origin==origin,"stroke growth: clip mode stays within canvas");
+    const std::filesystem::path parent(IISHAREDCANVAS_TEST_OUTPUT_DIR);iiFileProvider::native::TemporaryDirectory tmp(parent);if(!tmp.isValid()){expect(false,"stroke growth: temporary directory");return;}
+    const auto path=tmp.path()/"growing.iisc";DocumentFile file;expect(file.create(path.string(),infinite()).ok(),"stroke growth: create file");ChunkedBitmapEditor durable(file,"paint");expect(durable.setBrush(brush)&&durable.setStrokeCanvasGrowth(true)&&durable.beginStrokeInput(first)&&durable.endStrokeInput(last)&&durable.undo()&&durable.redo(),"stroke growth: durable history");file.close();DocumentFile reopened;expect(reopened.open(path.string()).ok(),"stroke growth: reopen");ChunkedBitmapEditor read(reopened,"paint");expect(reopened.document()->extent==grownExtent&&reopened.document()->infiniteCanvas.origin==grownOrigin&&read.assetPixelAt(200,20)==painted,"stroke growth: durable pixels and geometry");
+}
 void preview()
 {
     auto d = finite();
@@ -397,6 +496,10 @@ int main(int argc, char **)
         budgets();
         resize();
         chunks();
+        chunkAssetCoordinates();
+        chunkAssetStroke();
+        sparseDirtyBounds();
+        chunkStrokeGrowth();
         preview();
         file();
         removalConflicts();

@@ -1000,6 +1000,7 @@ FrameRenderResult renderLayerRegion(const Document &document,
     const bool streamChunks = overlay && !videoFrame && std::holds_alternative<ChunkedRasterAsset>(asset);
     RasterLayer streamed;
     if (streamChunks) streamed = makeRasterLayer(outputExtent.width, outputExtent.height, 0x00000000U);
+    std::optional<RasterLayer> singlePiece;
 
     const double scaleX = static_cast<double>(outputExtent.width)
         / static_cast<double>(region.extent.width);
@@ -1029,12 +1030,23 @@ FrameRenderResult renderLayerRegion(const Document &document,
             }
             return;
         }
-        ::Layer engineLayer;
-        engineLayer.surface = drawingSurfaceFromRasterLayer(std::move(pixels));
-        engineLayer.metadata.visible = true;
-        engineLayer.metadata.opacity = 1.0;
-        engineLayer.metadata.blendMode = RasterBlendMode::SourceOver;
-        layerPieces.layers.push_back(std::move(engineLayer));
+        const auto appendLayer = [&](RasterLayer piece) {
+            ::Layer engineLayer;
+            engineLayer.surface = drawingSurfaceFromRasterLayer(std::move(piece));
+            engineLayer.metadata.visible = true;
+            engineLayer.metadata.opacity = 1.0;
+            engineLayer.metadata.blendMode = RasterBlendMode::SourceOver;
+            layerPieces.layers.push_back(std::move(engineLayer));
+        };
+        if (!singlePiece && layerPieces.layers.empty()) {
+            singlePiece = std::move(pixels);
+            return;
+        }
+        if (singlePiece) {
+            appendLayer(std::move(*singlePiece));
+            singlePiece.reset();
+        }
+        appendLayer(std::move(pixels));
     };
     const auto appendSource = [&](const RasterSource &source, AffineTransform transform) {
         transform = outputTransform(transform);
@@ -1123,10 +1135,17 @@ FrameRenderResult renderLayerRegion(const Document &document,
 
     FrameRenderResult result;
     result.origin = region.origin;
-    result.pixels = streamChunks ? std::move(streamed) : compositeLayerStack(layerPieces,
-                                        outputExtent.width,
-                                        outputExtent.height,
-                                        0x00000000U);
+    if (streamChunks) result.pixels = std::move(streamed);
+    else if (singlePiece) {
+        // One full-opacity SourceOver piece on transparent has the same
+        // channels, except that zero-alpha pixels become canonical zero.
+        for (auto &pixel : singlePiece->pixels)
+            if ((pixel >> 24) == 0) pixel = 0;
+        result.pixels = std::move(*singlePiece);
+    } else result.pixels = compositeLayerStack(layerPieces,
+                                               outputExtent.width,
+                                               outputExtent.height,
+                                               0x00000000U);
     return result;
 }
 
@@ -1400,14 +1419,14 @@ FrameRenderResult renderFrame(const Document &document, FrameIndex frame,
                               std::span<const FrameBitmapOverlay> overlays)
 {
     const auto view = documentViewRegion(document);
-    const FrameTileRenderResult tiles = renderFrameTiles(
+    FrameTileRenderResult tiles = renderFrameTiles(
         document, frame, {{view, view.extent}}, overlays);
     if (!tiles.ok()) {
         return errorResult(tiles.status, tiles.message);
     }
     FrameRenderResult result;
     result.origin = view.origin;
-    result.pixels = tiles.tiles.front().pixels;
+    result.pixels = std::move(tiles.tiles.front().pixels);
     return result;
 }
 
@@ -1492,14 +1511,14 @@ FrameRenderResult renderFrameRegion(const Document &document, FrameIndex frame, 
                                    CanvasExtent outputExtent, RasterSampling sampling,
                                    std::span<const FrameBitmapOverlay> overlays)
 {
-    const FrameTileRenderResult tiles = renderFrameTiles(
+    FrameTileRenderResult tiles = renderFrameTiles(
         document, frame, {{region, outputExtent, sampling}}, overlays);
     if (!tiles.ok()) {
         return errorResult(tiles.status, tiles.message);
     }
     FrameRenderResult result;
     result.origin = region.origin;
-    result.pixels = tiles.tiles.front().pixels;
+    result.pixels = std::move(tiles.tiles.front().pixels);
     return result;
 }
 
@@ -1596,8 +1615,8 @@ FrameLayerBatchRenderResult renderFrameLayers(
     return result;
 }
 
-FrameTileRenderResult composeFrameLayers(
-    const FrameLayerBatchRenderResult &layers)
+static FrameTileRenderResult composeFrameLayersImpl(
+    const FrameLayerBatchRenderResult &layers, FrameLayerBatchRenderResult *owned)
 {
     if (!layers.ok()) {
         return {{}, layers.status, layers.message};
@@ -1651,6 +1670,23 @@ FrameTileRenderResult composeFrameLayers(
 
     FrameTileRenderResult result;
     result.tiles.reserve(layers.requests.size());
+    // A normal, unmasked bottom layer over transparent black is already the
+    // correct starting surface. Only consume owned render results, and keep a
+    // clipped group intact because it needs the unmodified base as a mask.
+    bool adoptBase = owned && layers.artboards.empty() && !layers.layers.empty();
+    if (adoptBase) {
+        const auto &base = layers.layers.front();
+        adoptBase = base.visible && base.spatial && base.role == LayerRole::Artwork &&
+            !base.artboardId && !base.clippedToBelow && !base.blendIf &&
+            base.opacity == 1 && base.fillOpacity == 1 && base.blendMode == RasterBlendMode::SourceOver;
+        if (adoptBase) for (std::size_t i = 1; i < layers.layers.size(); ++i) {
+            const auto &next = layers.layers[i];
+            if (next.role == LayerRole::Artwork && !next.artboardId) {
+                if (next.clippedToBelow) adoptBase = false;
+                break;
+            }
+        }
+    }
     for (std::size_t requestIndex = 0;
          requestIndex < layers.requests.size();
          ++requestIndex) {
@@ -1687,6 +1723,7 @@ FrameTileRenderResult composeFrameLayers(
             }
             for (std::size_t i = 0; i < content.size();) {
                 const auto &base = *content[i];
+                if (adoptBase && &base == &layers.layers.front()) { ++i; continue; }
                 if (base.clippedToBelow) { ++i; continue; }
                 std::size_t end = i+1;
                 while (end < content.size() && content[end]->clippedToBelow) ++end;
@@ -1717,7 +1754,14 @@ FrameTileRenderResult composeFrameLayers(
                 i = end;
             }
         };
-        auto composed = makeRasterLayer(request.outputExtent.width,request.outputExtent.height,0);
+        RasterLayer composed;
+        if (adoptBase) {
+            composed = std::move(owned->layers.front().tiles[requestIndex].pixels);
+            // Source-over-transparent canonicalizes fully transparent pixels.
+            for (auto &pixel : composed.pixels) if (!(pixel >> 24)) pixel = 0;
+        } else {
+            composed = makeRasterLayer(request.outputExtent.width,request.outputExtent.height,0);
+        }
         for (const auto &a : layers.artboards) {
             if (!a.visible) continue;
             auto group = makeRasterLayer(request.outputExtent.width,request.outputExtent.height,a.backgroundArgb);
@@ -1735,6 +1779,11 @@ FrameTileRenderResult composeFrameLayers(
     return result;
 }
 
+FrameTileRenderResult composeFrameLayers(const FrameLayerBatchRenderResult &layers)
+{
+    return composeFrameLayersImpl(layers, nullptr);
+}
+
 FrameTileRenderResult renderFrameTiles(
     const Document &document,
     FrameIndex frame,
@@ -1748,7 +1797,8 @@ FrameTileRenderResult renderFrameTiles(
     const std::vector<FrameRenderTileRequest> &requests,
     std::span<const FrameBitmapOverlay> overlays)
 {
-    return composeFrameLayers(renderFrameLayers(document, frame, requests, overlays));
+    auto layers = renderFrameLayers(document, frame, requests, overlays);
+    return composeFrameLayersImpl(layers, &layers);
 }
 
 } // namespace iiSharedCanvas

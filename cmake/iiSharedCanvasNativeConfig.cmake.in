@@ -1,4 +1,9 @@
 @PACKAGE_INIT@
+if(EMSCRIPTEN)
+    # Emscripten supports side modules although its CMake toolchain defaults
+    # the shared-library capability to false.
+    set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
+endif()
 set_and_check(iiSharedCanvasNative_RESOURCE_DIR "@PACKAGE_CMAKE_INSTALL_DATADIR@/iiSharedCanvas/resources")
 include(CMakeFindDependencyMacro)
 find_dependency(iiFileProviderNative 0.11.1 CONFIG)

@@ -332,6 +332,55 @@ DocumentEditResult DocumentEditor::setCanvasExtent(CanvasExtent extent)
     return applied();
 }
 
+DocumentEditResult DocumentEditor::reframeCanvas(CanvasRegion region)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.reframeCanvas(region); });
+    if (!requireValidDocument()) return m_lastResult;
+    if (m_document->canvasMode != CanvasMode::Finite)
+        return reject(DocumentEditCode::InvalidArgument,"canvasMode","reframing requires a finite canvas");
+    const auto x=region.origin.x,y=region.origin.y,w=region.extent.width,h=region.extent.height;
+    if (x<0 || y<0 || w<=0 || h<=0 || std::int64_t(x)+w>m_document->extent.width ||
+        std::int64_t(y)+h>m_document->extent.height)
+        return reject(DocumentEditCode::InvalidArgument,"region","reframe region must lie within the canvas");
+    if (x==0 && y==0 && region.extent==m_document->extent) return unchanged();
+    // Dissolve samples world coordinates; translating it would change its pattern.
+    if (x!=0 || y!=0) for (const auto& layer:m_document->layers) {
+        const auto& properties=layerProperties(layer);
+        if (properties.blendMode==RasterBlendMode::Dissolve)
+            return reject(DocumentEditCode::InvalidArgument,"layers","reframing dissolve layers is unsupported");
+    }
+    // Copy only structure, not pixel assets. Swap back if validation fails or throws.
+    auto layers=m_document->layers;auto artboards=m_document->artboards;
+    for(auto& artboard:artboards) {
+        const auto nx=std::int64_t(artboard.region.origin.x)-x,ny=std::int64_t(artboard.region.origin.y)-y;
+        if(nx<std::numeric_limits<std::int32_t>::min() || nx>std::numeric_limits<std::int32_t>::max() ||
+           ny<std::numeric_limits<std::int32_t>::min() || ny>std::numeric_limits<std::int32_t>::max())
+            return reject(DocumentEditCode::InvalidArgument,"artboards","reframed artboard origin is out of range");
+        artboard.region.origin={static_cast<std::int32_t>(nx),static_cast<std::int32_t>(ny)};
+    }
+    for(auto& layer:layers) {
+        auto& properties=layerProperties(layer);
+        if(properties.artboardId) continue; // The artboard origin carries the world translation.
+        properties.transform.translationX-=x;properties.transform.translationY-=y;
+        const auto shift=[&](LayerMask& mask) {if(!mask.linkedToLayer) {mask.transform.translationX-=x;mask.transform.translationY-=y;}};
+        if(properties.appearance.rasterMask)shift(*properties.appearance.rasterMask);
+        if(properties.appearance.vectorMask)shift(*properties.appearance.vectorMask);
+        if(properties.appearance.filterMask)shift(*properties.appearance.filterMask);
+        for(auto& entry:properties.appearance.maskStack)shift(entry.mask);
+    }
+    const auto oldExtent=m_document->extent;
+    m_document->layers.swap(layers);m_document->artboards.swap(artboards);m_document->extent=region.extent;
+    try {
+        if(const auto issue=firstValidationIssue(*m_document)) {
+            m_document->extent=oldExtent;m_document->layers.swap(layers);m_document->artboards.swap(artboards);
+            return reject(DocumentEditCode::ValidationRejected,issue->path,issue->message);
+        }
+    } catch(...) {
+        m_document->extent=oldExtent;m_document->layers.swap(layers);m_document->artboards.swap(artboards);throw;
+    }
+    return applied();
+}
+
 DocumentEditResult DocumentEditor::ensureInfiniteCanvasRegion(CanvasRegion region)
 {
     if (m_file) {

@@ -34,6 +34,8 @@ struct BitmapCommitPort {
     void *context;
     bool (*commit)(void *, const PreparedBitmapChange &, RasterHistoryCode &, bool &);
     bool useDraftFallback = false;
+    // Optional exact metadata for publishing an already-authored history.
+    const DocumentAuthorship *authorshipOverride = nullptr;
 };
 
 } // namespace iiSharedCanvas::detail

@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/LAYER_COMPOSITING.md",
-    "sha256": "78759c81494feefbba27f7ab4ef1ed73e33abf7677194345058b482a2539d99e",
-    "bytes": 7370,
-    "line_count": 43,
+    "sha256": "de34c6a5195a12baf88f526b631633f27524b6962984a44ee88106d12b4c9309",
+    "bytes": 8550,
+    "line_count": 57,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -272,69 +272,97 @@
     },
     {
       "id": "b000035",
-      "kind": "heading",
+      "kind": "paragraph",
       "start_line": 35,
-      "end_line": 35,
-      "raw": "## Persistence and interchange\n",
-      "level": 2,
-      "title": "Persistence and interchange"
+      "end_line": 38,
+      "raw": "레이어 영역이 불투명도 100%의 일반 혼합 조각 하나로 만들어지는 경우에는 그\n소유 픽셀을 결과로 옮기고 완전 투명 픽셀을 0으로 정규화한다. 여러 청크가\n겹치는 경우에는 기존 순서대로 모든 조각을 합성한다. 이 경계는 투명도, 색상,\n샘플링, 변환 및 실시간 미리보기 결과를 바꾸지 않는다.\n"
     },
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 36,
-      "end_line": 36,
+      "start_line": 39,
+      "end_line": 39,
       "raw": "\n"
     },
     {
       "id": "b000037",
       "kind": "paragraph",
-      "start_line": 37,
-      "end_line": 37,
-      "raw": "IISC 1.20 persists all fields with explicit tags and little-endian scalars. Unsupported modes, tags, references, nonfinite parameters and resource excesses reject the operation. Older 1.0-1.19 layouts retain their canonical bytes; extended state cannot be encoded under an older version. Serialization limits include per-layer and total filter counts and all filter/mask strings.\n"
+      "start_line": 40,
+      "end_line": 47,
+      "raw": "소유된 레이어 결과를 내부에서 바로 합성할 때 첫 레이어가 일반 혼합이고 레이어·\n채움 불투명도가 100%이며 Blend If, 아트보드, 클리핑 그룹의 기반이 없으면 해당 타일을 출력 버퍼로\n재사용한다. 완전 투명 픽셀은 기존 소스 오버 결과와 같이 정규화한다. 외부에서\n빌린 `composeFrameLayers` 입력이나 이 조건에 해당하지 않는 문서는 기존 합성을\n사용한다. 단일 영역 결과는 소유된 출력 픽셀을 복사하지 않고 옮긴다.\n`FrameCompositionReuse`는 두 경로의 픽셀과 클리핑·투명도·벡터 배경 및 할당을\n비교한다. 이는 CPU 합성 비용에 대한 개선이며 GPU 제출이나 실제 화면 지연을\n측정한 결과는 아니다.\n"
     },
     {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 38,
-      "end_line": 38,
+      "start_line": 48,
+      "end_line": 48,
       "raw": "\n"
     },
     {
       "id": "b000039",
-      "kind": "paragraph",
-      "start_line": 39,
-      "end_line": 39,
-      "raw": "PSD pixel-layer import/export maps all 27 documented keys. OpenRaster reads the 15 baseline source-over blend functions. PSD export and timeline interchange reject appearance-bearing documents until those adapters can preserve the state; they cannot silently drop masks, filters, clipping, Fill or Blend If. PSD mask/style/group import remains outside the bounded pixel-layer profile.\n"
+      "kind": "heading",
+      "start_line": 49,
+      "end_line": 49,
+      "raw": "## Persistence and interchange\n",
+      "level": 2,
+      "title": "Persistence and interchange"
     },
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 40,
-      "end_line": 40,
+      "start_line": 50,
+      "end_line": 50,
       "raw": "\n"
     },
     {
       "id": "b000041",
-      "kind": "heading",
-      "start_line": 41,
-      "end_line": 41,
-      "raw": "## Verification\n",
-      "level": 2,
-      "title": "Verification"
+      "kind": "paragraph",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "IISC 1.20 persists all fields with explicit tags and little-endian scalars. Unsupported modes, tags, references, nonfinite parameters and resource excesses reject the operation. Older 1.0-1.19 layouts retain their canonical bytes; extended state cannot be encoded under an older version. Serialization limits include per-layer and total filter counts and all filter/mask strings.\n"
     },
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 42,
-      "end_line": 42,
+      "start_line": 52,
+      "end_line": 52,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 43,
-      "end_line": 43,
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "PSD pixel-layer import/export maps all 27 documented keys. OpenRaster reads the 15 baseline source-over blend functions. PSD export and timeline interchange reject appearance-bearing documents until those adapters can preserve the state; they cannot silently drop masks, filters, clipping, Fill or Blend If. PSD mask/style/group import remains outside the bounded pixel-layer profile.\n"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "heading",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "## Verification\n",
+      "level": 2,
+      "title": "Verification"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 56,
+      "end_line": 56,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 57,
+      "end_line": 57,
       "raw": "`LayerCompositingTest` covers all native/PSD blend tags, real mask pixels, density, inversion, disabled and linked/unlinked masks, combined vector masks, feather seams, filter ordering and filter masks, Fill/Opacity multiplication, clipping over opaque unrelated backgrounds, Blend If, legacy canonical bytes, edit rollback, asset reference protection, configurable filter limits, and durable file-bound reopens. iiPaintEngine's `LayerBlendModesTest` supplies independent opaque/partial-alpha reference pixels and repeatable Dissolve checks. See [Photoshop evidence comparison](PHOTOSHOP_LAYER_COMPARISON.md) for provenance and remaining differences.\n"
     }
   ],
@@ -380,20 +408,20 @@
       "start_line": 27
     },
     {
-      "block_id": "b000035",
+      "block_id": "b000039",
       "parent_id": "b000001",
       "level": 2,
       "title": "Persistence and interchange",
       "anchor": "persistence-and-interchange",
-      "start_line": 35
+      "start_line": 49
     },
     {
-      "block_id": "b000041",
+      "block_id": "b000045",
       "parent_id": "b000001",
       "level": 2,
       "title": "Verification",
       "anchor": "verification",
-      "start_line": 41
+      "start_line": 55
     }
   ],
   "indexes": {
@@ -430,11 +458,11 @@
         "line": 15
       },
       {
-        "block_id": "b000043",
+        "block_id": "b000047",
         "label": "Photoshop evidence comparison",
         "target": "PHOTOSHOP_LAYER_COMPARISON.md",
         "kind": "relative",
-        "line": 43
+        "line": 57
       }
     ],
     "tables": []

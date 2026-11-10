@@ -228,9 +228,16 @@ void validateChunkedRasterAsset(const Document &document,
                                 ValidationResult &result)
 {
     const std::string path = "assets[" + std::to_string(index) + "]";
-    if (document.canvasMode != CanvasMode::Infinite) {
+    if (document.formatVersion.minor < 1) {
         addIssue(result, ValidationCode::InvalidRasterChunk, path,
-                 "chunked raster assets require an infinite canvas");
+                 "chunked raster assets require document format 1.1 or newer");
+        return;
+    }
+    // The canonical finite header does not serialize a chunk size. Its only
+    // lossless representation is the model's default 256-pixel chunk size.
+    if (document.canvasMode == CanvasMode::Finite && document.infiniteCanvas.chunkSize != 256) {
+        addIssue(result, ValidationCode::InvalidRasterChunk, path,
+                 "finite chunked raster assets require 256-pixel chunks");
         return;
     }
 

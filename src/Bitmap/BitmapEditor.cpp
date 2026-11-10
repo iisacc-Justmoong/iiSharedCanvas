@@ -120,6 +120,7 @@ bool BitmapEditor::bind(Document &document, const std::string &assetIdValue)
     m_nextStrokeSeed = 1;
     m_strokeTime = 0.0;
     m_strokeActive = false;
+    m_projectedStroke = false;
     m_strokeChanged = false;
     clearError();
     return true;
@@ -264,6 +265,35 @@ bool BitmapEditor::replacePixels(const RasterLayer &pixels)
     return finishEdit(edits.replacePixels(*m_document, m_assetId, pixels));
 }
 
+bool BitmapEditor::setExternalStrokeHistory(bool enabled)
+{ return configureStrokeHistory(enabled, false); }
+
+bool BitmapEditor::setDeferredStrokeHistory(bool enabled)
+{ return configureStrokeHistory(enabled, true); }
+
+bool BitmapEditor::configureStrokeHistory(bool enabled, bool deferred)
+{
+    if (!requireBound()) return false;
+    if (m_file || m_strokeActive || pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("incremental stroke history requires an idle document-bound editor");
+        return false;
+    }
+    try {
+        auto &edits = journal();
+        if (deferred) edits.setDeferredStrokeHistory(enabled);
+        else edits.setExternalStrokeHistory(enabled);
+        m_historyResult = {};
+        clearError();
+        return true;
+    } catch (const std::bad_alloc &) {
+        m_historyResult = {RasterHistoryCode::BudgetExceeded};
+        setError(std::string(m_historyResult.message()));
+        return false;
+    }
+}
+
 bool BitmapEditor::beginStroke(DocumentPoint point, double pressure)
 {
     return beginStrokeInput(detail::legacyStrokeSample(point, pressure, 1.0 / 120.0));
@@ -295,6 +325,7 @@ bool BitmapEditor::beginStrokeInput(const StrokePoint &sample)
     const auto priorTime = m_strokeTime;
     resetRasterDabStream(m_dabStream);
     m_strokeActive = true;
+    m_projectedStroke = false;
     m_strokeChanged = false;
     m_strokeTime = 0;
     if (appendStrokePoint(sample, false))
@@ -316,7 +347,7 @@ bool BitmapEditor::continueStrokeInput(const StrokePoint &sample)
     {
         return editFile([&](BitmapEditor &editor) { return editor.continueStrokeInput(sample); });
     }
-    if (!m_strokeActive)
+    if (!m_strokeActive || m_projectedStroke)
     {
         setError("no brush stroke is active");
         return false;
@@ -332,22 +363,88 @@ bool BitmapEditor::endStrokeInput(const StrokePoint &sample)
 {
     if (m_file)
         return editFile([&](auto &editor) { return editor.endStrokeInput(sample); });
-    if (!m_strokeActive)
+    if (!m_strokeActive || m_projectedStroke)
     {
         setError("no brush stroke is active");
         return false;
     }
     if (!validInput(sample) || !appendStrokePoint(sample, true))
         return false;
+    auto &edits = journal();
+    const auto finalized = edits.finishExternalStroke(*m_document, m_assetId);
+    if (!finalized.ok()) return finishEdit(finalized);
     if (m_strokeChanged)
         ++m_nextStrokeSeed;
-    auto &edits = journal();
-    m_historyResult = edits.previewAdmission();
+    m_historyResult = finalized;
     edits.finish();
     m_strokeActive = false;
     m_strokeChanged = false;
     resetRasterDabStream(m_dabStream);
     return true;
+}
+
+bool BitmapEditor::beginProjectedStroke()
+{
+    if (m_file || !requireBound() || m_strokeActive || pixelPreviewActive()) {
+        setError("a projected stroke requires an idle document-bound bitmap"); return false;
+    }
+    try {
+        auto &edits = journal();
+        if (!edits.externalStrokeHistory()) {
+            setError("projected strokes require external or deferred history"); return false;
+        }
+        edits.begin();
+        m_strokeActive = m_projectedStroke = true;
+        m_strokeChanged = false;
+        clearError(); return true;
+    } catch (const std::bad_alloc &) { setError("insufficient memory for projected stroke"); return false; }
+}
+
+bool BitmapEditor::updateProjectedStroke(const std::vector<RasterSample> &stable,
+                                         const std::vector<RasterSample> &transient)
+{
+    if (!m_strokeActive || !m_projectedStroke || !requireBound()) {
+        setError("no projected stroke is active"); return false;
+    }
+    const auto bounds = bitmapBounds();
+    const auto valid = [&](const RasterSample &s) {
+        return s.position.x >= bounds.origin.x && s.position.y >= bounds.origin.y &&
+            std::int64_t(s.position.x) < std::int64_t(bounds.origin.x)+bounds.width &&
+            std::int64_t(s.position.y) < std::int64_t(bounds.origin.y)+bounds.height;
+    };
+    if (stable.size() > m_historyLimits.maximumInputBytes / sizeof(RasterSample) ||
+        transient.size() > m_historyLimits.maximumInputBytes / sizeof(RasterSample) ||
+        !std::ranges::all_of(stable, valid) || !std::ranges::all_of(transient, valid)) {
+        setError("projected stroke samples exceed the canvas or input budget"); return false;
+    }
+    auto &edits = journal();
+    const auto result = edits.projectedPreview(*m_document, m_assetId, stable, transient,
+                                               brushState().rasterizer.blendMode);
+    m_strokeChanged = edits.strokeChanged();
+    return finishEdit(result);
+}
+
+bool BitmapEditor::endProjectedStroke()
+{
+    if (!m_strokeActive || !m_projectedStroke || !requireBound()) {
+        setError("no projected stroke is active"); return false;
+    }
+    auto &edits = journal();
+    const auto promoted = edits.promoteTransientStroke();
+    if (!promoted.ok()) return finishEdit(promoted);
+    const auto finalized = edits.finishExternalStroke(*m_document, m_assetId);
+    if (!finalized.ok()) return finishEdit(finalized);
+    if (m_strokeChanged) ++m_nextStrokeSeed;
+    m_historyResult = finalized;
+    edits.finish();
+    m_strokeActive = m_projectedStroke = m_strokeChanged = false;
+    clearError(); return true;
+}
+
+std::optional<std::uint32_t> BitmapEditor::strokeSourceAt(int x, int y) const
+{
+    if (!m_strokeActive || !m_projectedStroke || !m_journal || !pixelAt(x, y)) return std::nullopt;
+    return m_journal->sourcePixel(*m_document, m_assetId, {x, y});
 }
 
 bool BitmapEditor::advanceStrokeTime(double seconds)
@@ -414,6 +511,7 @@ void BitmapEditor::cancelStroke()
         return;
     resetRasterDabStream(m_dabStream);
     m_strokeActive = false;
+    m_projectedStroke = false;
     m_strokeChanged = false;
 }
 
@@ -453,6 +551,27 @@ bool BitmapEditor::redo()
     auto &edits = journal();
     return finishEdit(edits.step(*m_document, m_assetId, true));
 }
+#ifdef IISHAREDCANVAS_NATIVE_API
+bool BitmapEditor::publishHistoryState(DocumentFile &file, BitmapHistoryState state,
+    const DocumentAuthorship &expectedAuthorship, FormatVersion expectedVersion,
+    std::uint64_t expectedFileRevision)
+{
+    if (m_file || !isBound() || m_strokeActive || pixelPreviewActive() || !m_journal) {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("history publication requires an idle document-bound editor");
+        return false;
+    }
+    auto result = detail::BitmapHistoryPublication::run(*m_journal, *m_document, file, m_assetId,
+        state, expectedAuthorship, expectedVersion, expectedFileRevision);
+    m_historyResult = result.history;
+    if (!result.history.ok() || !result.history.changed) {
+        setError(std::move(result.message));
+        return false;
+    }
+    clearError();
+    return true;
+}
+#endif
 RasterHistoryStatistics BitmapEditor::historyStatistics() const noexcept
 {
     return m_journal ? m_journal->statistics() : RasterHistoryStatistics{};
@@ -621,6 +740,12 @@ bool BitmapEditor::validInput(const StrokePoint &sample)
         return false;
     }
     return true;
+}
+
+std::optional<BrushState> BitmapEditor::currentStrokeBrushState() const
+{
+    if (!m_strokeActive || m_file || !isBound()) return std::nullopt;
+    return brushState();
 }
 
 BrushState BitmapEditor::brushState() const

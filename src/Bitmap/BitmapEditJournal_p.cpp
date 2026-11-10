@@ -1,6 +1,10 @@
 #include "Bitmap/BitmapEditJournal_p.h"
 #include "Document/CanvasRegion_p.hpp"
 #include "Validation/Validation.h"
+#ifdef IISHAREDCANVAS_NATIVE_API
+#include "ControlNet/SemanticSegment.h"
+#include "File/DocumentFile.h"
+#endif
 #include <Render/DirtyRegion.h>
 #include <algorithm>
 #include <array>
@@ -54,12 +58,14 @@ struct Storage
     Document &document;
     std::string_view assetId_;
     BitmapCommitPort *commitPort = nullptr;
+    bool *structureChanged = nullptr;
     RasterAsset *raster = nullptr;
     ChunkedRasterAsset *chunked = nullptr;
     int size = 0;
     RasterHistoryCode rejection = RasterHistoryCode::WriteRejected;
-    explicit Storage(Document &d, std::string_view id, BitmapCommitPort *port = nullptr)
-        : document(d), assetId_(id), commitPort(port)
+    explicit Storage(Document &d, std::string_view id, BitmapCommitPort *port = nullptr,
+                     bool *structure = nullptr)
+        : document(d), assetId_(id), commitPort(port), structureChanged(structure)
     {
         auto it = std::find_if(d.assets.begin(), d.assets.end(),
                                [&](const auto &a) { return assetId(a) == id; });
@@ -167,8 +173,10 @@ struct Storage
         }
         return false;
     }
-    static DocumentAuthorship changedAuthorship(Document &d)
+    DocumentAuthorship changedAuthorship(Document &d) const
     {
+        if (commitPort && commitPort->authorshipOverride)
+            return *commitPort->authorshipOverride;
         auto result = d.authorship;
         result.recordChange();
         return result;
@@ -334,6 +342,7 @@ struct Storage
         std::map<Coordinate, Change, CoordinateLess> changes;
         std::vector<Row> rows;
         bool changed = false;
+        bool changedStructure = false;
         std::optional<CanvasRegion> nextCanvas;
         for (const auto &patch : patches)
             if (patch.plane == Canvas)
@@ -356,6 +365,7 @@ struct Storage
             document.extent = nextCanvas->extent;
             if (!validate(document).ok()) return false;
             changed = true;
+            changedStructure = true;
         }
         const auto prepare = [&](Coordinate key, bool present) -> Change &
         {
@@ -387,8 +397,10 @@ struct Storage
                     const auto &entry = prepare(key, present != 0);
                     if (bool(entry.before) != entry.after)
                     {
+                        // Chunk presence alone does not change visible pixels. Pixel
+                        // patches below report the affected region, including removal.
                         changed = true;
-                        dirty = uniteDevicePixelRects(dirty, bounds());
+                        changedStructure = true;
                     }
                 }
             }
@@ -422,10 +434,17 @@ struct Storage
                     auto &entry = it->second;
                     if (!entry.after)
                     {
+                        bool visibleChange = false;
                         for (int i = 0; i < count; ++i)
+                        {
                             if (sample(data + std::size_t(i) * 4) != 0) return false;
+                            if (entry.before && entry.before->pixels.pixels[std::size_t(localY) * size + localX + i] != 0)
+                                visibleChange = true;
+                        }
                         if (entry.before)
                             entry.removedCoverage[localY].push_back({localX, localX + count});
+                        if (visibleChange)
+                            dirty = uniteDevicePixelRects(dirty, {{worldX, worldY}, count, 1});
                     }
                     else
                     {
@@ -516,6 +535,7 @@ struct Storage
             document.extent = nextCanvas->extent;
         }
         stamp(authorship);
+        if (structureChanged && changedStructure) *structureChanged = true;
         return true;
     }
     bool write(std::span<const RasterHistoryPatch> patches, DevicePixelRect &dirty)
@@ -714,11 +734,12 @@ RasterHistoryResult BitmapEditJournal::apply(Document &d, std::string_view id,
 {
     const bool previewing = original || replacement;
     dirty = {};
+    structureChanged = false;
     try
     {
         if (!checkGeometry(d, id))
             return result;
-        Storage storage(d, id, commitPort_);
+        Storage storage(d, id, commitPort_, &structureChanged);
         std::array<std::int32_t, 2> dimensions;
         std::array<std::int32_t, 4> canvasValues;
         auto writeViews = views(patches, extent, presence, dimensions, canvas, canvasValues);
@@ -797,6 +818,7 @@ RasterHistoryResult BitmapEditJournal::beginPixels(Document &d, std::string_view
                                                    std::string_view label)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         if (previewBase_ || stroke_ || pixelPreview_)
@@ -831,6 +853,7 @@ RasterHistoryResult BitmapEditJournal::replacePixelPreview(Document &d, std::str
                                                            std::span<const BitmapPatch> patches)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         if (!pixelPreview_ || !previewBase_)
@@ -921,6 +944,7 @@ RasterHistoryResult BitmapEditJournal::replacePixelPreview(Document &d, std::str
 RasterHistoryResult BitmapEditJournal::commitPixels(Document &d, std::string_view id)
 {
     dirty = {};
+    structureChanged = false;
     if (!pixelPreview_ || !previewBase_)
         return result = {RasterHistoryCode::InvalidArgument};
     if (!checkGeometry(d, id))
@@ -963,13 +987,15 @@ RasterHistoryResult BitmapEditJournal::commitPixels(Document &d, std::string_vie
     return result = admitted;
 }
 RasterHistoryResult BitmapEditJournal::replace(Document &d, std::string_view id,
-                                               std::span<const BitmapPatch> patches)
+                                               std::span<const BitmapPatch> patches, bool clipToCanvas)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         Storage s(d, id);
-        if (!s.valid() || !validInput(patches, s.bounds(), history_.limits()))
+        if (!s.valid() || (!clipToCanvas && !s.chunked) ||
+            !validInput(patches, s.bounds(), history_.limits(), clipToCanvas))
             return result = {RasterHistoryCode::InvalidArgument};
         auto flags = presenceFor(s, patches, [&](auto key) { return bool(s.chunk(key)); });
         return apply(d, id, patches, {}, std::move(flags), "Replace bitmap regions");
@@ -983,6 +1009,7 @@ RasterHistoryResult BitmapEditJournal::replacePixels(Document &d, std::string_vi
                                                      const RasterLayer &pixels)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         Storage s(d, id);
@@ -1017,6 +1044,7 @@ RasterHistoryResult BitmapEditJournal::replacePixels(Document &d, std::string_vi
 RasterHistoryResult BitmapEditJournal::clear(Document &d, std::string_view id, std::uint32_t argb)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         Storage s(d, id);
@@ -1055,6 +1083,7 @@ RasterHistoryResult BitmapEditJournal::replaceRegion(Document &d, std::string_vi
                                                      CanvasOrigin origin, const RasterLayer &pixels)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         Storage s(d, id);
@@ -1101,11 +1130,12 @@ RasterHistoryResult BitmapEditJournal::replaceRegion(Document &d, std::string_vi
 RasterHistoryResult BitmapEditJournal::step(Document &d, std::string_view id, bool redo)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         if (!checkGeometry(d, id))
             return result;
-        Storage s(d, id, commitPort_);
+        Storage s(d, id, commitPort_, &structureChanged);
         const auto read = [&](auto plane, auto p, auto count, auto bytes)
         { return s.read(plane, p, count, bytes); };
         const auto write = [&](auto patches) { return s.write(patches, dirty); };
@@ -1125,26 +1155,165 @@ RasterHistoryResult BitmapEditJournal::step(Document &d, std::string_view id, bo
     }
     return result;
 }
-void BitmapEditJournal::begin(Document *document)
+#ifdef IISHAREDCANVAS_NATIVE_API
+RasterHistoryResult BitmapEditJournal::publish(Document &source, Document &target,
+                                               std::string_view id, BitmapHistoryState state,
+                                               BitmapCommitPort *port) const
+{
+    try {
+        if (!port || (state != BitmapHistoryState::Applied && state != BitmapHistoryState::Undone))
+            return {RasterHistoryCode::InvalidArgument};
+        Storage from(source, id), to(target, id, port);
+        if (!from.valid() || !to.valid() || bool(from.raster) != bool(to.raster) ||
+            bool(from.chunked) != bool(to.chunked))
+            return {RasterHistoryCode::Conflict};
+        if (from.raster && (from.raster->pixels.width != to.raster->pixels.width ||
+                            from.raster->pixels.height != to.raster->pixels.height))
+            return {RasterHistoryCode::Conflict};
+        if (from.chunked && (from.size != to.size || source.canvasMode != target.canvasMode))
+            return {RasterHistoryCode::Conflict};
+
+        // Flip only a detached COW cursor over a borrowed virtual overlay.
+        // Matching proves the source has the selected side; the second step
+        // checks the target's opposite side and performs the real atomic write.
+        // The source document and the caller's stack never move.
+        auto cursor = history_;
+        std::vector<RasterHistoryPatch> shadow;
+        const auto readSource = [&](auto plane, auto point, auto count, auto bytes) {
+            if (!from.read(plane, point, count, bytes)) return false;
+            for (const auto &patch : shadow) {
+                if (patch.plane != plane || patch.sampleBytes != count ||
+                    point.y < patch.bounds.origin.y ||
+                    std::int64_t(point.y) >= std::int64_t(patch.bounds.origin.y) + patch.bounds.height)
+                    continue;
+                const auto left = std::max<std::int64_t>(point.x, patch.bounds.origin.x);
+                const auto right = std::min<std::int64_t>(std::int64_t(point.x) + bytes.size() / count,
+                    std::int64_t(patch.bounds.origin.x) + patch.bounds.width);
+                if (left >= right) continue;
+                const auto sourceOffset = (std::size_t(point.y - patch.bounds.origin.y) * patch.bounds.width +
+                                           std::size_t(left - patch.bounds.origin.x)) * count;
+                std::memcpy(bytes.data() + std::size_t(left - point.x) * count,
+                            patch.data.data() + sourceOffset, std::size_t(right - left) * count);
+            }
+            return true;
+        };
+        const auto virtualWrite = [&](auto patches) {
+            shadow.assign(patches.begin(), patches.end());
+            return true;
+        };
+        const bool applied = state == BitmapHistoryState::Applied;
+        auto result = applied ? cursor.undo(readSource, virtualWrite)
+                              : cursor.redo(readSource, virtualWrite);
+        if (!result.ok() || !result.changed) return result;
+        const auto readTarget = [&](auto plane, auto point, auto count, auto bytes) {
+            return to.read(plane, point, count, bytes);
+        };
+        DevicePixelRect dirty{};
+        const auto writeTarget = [&](auto patches) { return to.write(patches, dirty); };
+        result = applied ? cursor.redo(readTarget, writeTarget)
+                         : cursor.undo(readTarget, writeTarget);
+        if (result.code == RasterHistoryCode::WriteRejected) result.code = to.rejection;
+        return result;
+    } catch (const std::bad_alloc &) {
+        return {RasterHistoryCode::BudgetExceeded};
+    } catch (...) {
+        return {RasterHistoryCode::WriteRejected};
+    }
+}
+
+BitmapHistoryPublicationResult BitmapHistoryPublication::run(
+    const BitmapEditJournal &journal, Document &source, DocumentFile &file,
+    std::string_view id, BitmapHistoryState state, const DocumentAuthorship &expectedAuthorship,
+    FormatVersion expectedVersion, std::uint64_t expectedRevision)
+{
+    try {
+        if (!file.isOpen() || !file.document() || &source == file.document())
+            return {{RasterHistoryCode::InvalidArgument}, "a separate open working file is required"};
+        if (file.revision() != expectedRevision ||
+            file.document()->authorship.dump() != expectedAuthorship.dump() ||
+            file.document()->formatVersion.major != expectedVersion.major ||
+            file.document()->formatVersion.minor != expectedVersion.minor)
+            return {{RasterHistoryCode::Conflict}, "working file metadata or revision changed"};
+        if (source.formatVersion.major != CurrentFormatMajor || source.formatVersion.minor != CurrentFormatMinor ||
+            expectedVersion.major != CurrentFormatMajor || expectedVersion.minor != CurrentFormatMinor)
+            return {{RasterHistoryCode::InvalidArgument}, "history publication requires the current document format"};
+        const std::string assetId(id);
+        if (isSemanticMaskAsset(source, assetId) || isSemanticMaskAsset(*file.document(), assetId))
+            return {{RasterHistoryCode::InvalidArgument}, "semantic masks require categorical edits"};
+
+        // This copy and all journal planning precede publication to disk.
+        const auto desiredAuthorship = source.authorship;
+        if (!file.beginBitmapEdit(file.bindingGeneration())) {
+            const auto code = file.lastResult().code;
+            return {{code == DocumentFileCode::Conflict ? RasterHistoryCode::Conflict :
+                     code == DocumentFileCode::LimitExceeded ? RasterHistoryCode::BudgetExceeded :
+                     RasterHistoryCode::WriteRejected}, file.lastResult().message};
+        }
+        bool accepted = false;
+        auto finish = [&](DocumentFile *owner) noexcept { owner->endBitmapEdit(accepted); };
+        std::unique_ptr<DocumentFile, decltype(finish)> guard(&file, finish);
+        BitmapCommitPort port{&file,
+            [](void *context, const PreparedBitmapChange &change, RasterHistoryCode &rejection,
+               bool &fallback) {
+                auto *owner = static_cast<DocumentFile *>(context);
+                if (owner->commitBitmapEdit(change, fallback)) return true;
+                const auto code = owner->lastResult().code;
+                rejection = code == DocumentFileCode::Conflict ? RasterHistoryCode::Conflict :
+                            code == DocumentFileCode::LimitExceeded ? RasterHistoryCode::BudgetExceeded :
+                            RasterHistoryCode::WriteRejected;
+                return false;
+            }};
+        port.authorshipOverride = &desiredAuthorship;
+        auto result = journal.publish(source, *file.boundDocument(), id, state, &port);
+        if (result.ok() && result.changed && file.revision() != expectedRevision) {
+            accepted = true;
+            return {result, {}};
+        }
+        if (result.ok()) result = {RasterHistoryCode::WriteRejected};
+        const auto message = port.useDraftFallback ? "history publication requires current tiled storage" :
+            (!file.lastResult().message.empty() ? file.lastResult().message : std::string(result.message()));
+        return {result, message};
+    } catch (const std::bad_alloc &) {
+        return {{RasterHistoryCode::BudgetExceeded}, "out of memory preparing history publication"};
+    } catch (const std::exception &error) {
+        return {{RasterHistoryCode::WriteRejected}, error.what()};
+    } catch (...) {
+        return {{RasterHistoryCode::WriteRejected}, "unknown history publication failure"};
+    }
+}
+#endif
+void BitmapEditJournal::begin(Document *document, std::optional<DevicePixelRect> assetBounds)
 {
     auto next = std::make_shared<BitmapStrokeComposite>();
+    std::optional<RasterEditHistory> empty;
+    if (externalStrokeHistory_ && !deferredStrokeHistory_)
+    {
+        empty.emplace(history_);
+        (void)empty->clear();
+    }
     previewBase_ = history_;
+    externalEmptyHistory_ = std::move(empty);
     stroke_ = std::move(next);
-    strokeCanvas_ = growStrokeCanvas_ && document ? std::optional(canvasRegion(*document)) : std::nullopt;
+    assetStrokeBounds_ = assetBounds;
+    strokeCanvas_ = !assetBounds && growStrokeCanvas_ && document ? std::optional(canvasRegion(*document)) : std::nullopt;
     originalChunks_.clear();
     previewChanged_ = false;
     previewAdmission_ = {};
     dirty = {};
+    structureChanged = false;
     result = {};
 }
 void BitmapEditJournal::finish() noexcept
 {
     stroke_.reset();
+    transientStroke_.reset();
     pixelPreview_.reset();
     previewLabel_.clear();
     previewBase_.reset();
+    externalEmptyHistory_.reset();
     originalChunks_.clear();
     strokeCanvas_.reset();
+    assetStrokeBounds_.reset();
     stagedPixels_ = false;
     growStagedPixels_ = false;
     pixelCanvas_.reset();
@@ -1153,6 +1322,48 @@ void BitmapEditJournal::finish() noexcept
     previewChanged_ = false;
     previewAdmission_ = {};
 }
+RasterHistoryResult BitmapEditJournal::finishExternalStroke(Document &document, std::string_view id)
+{
+    if (!externalStrokeHistory_) return previewAdmission_;
+    if (!deferredStrokeHistory_)
+    {
+        if (previewChanged_ && externalEmptyHistory_)
+            history_ = *externalEmptyHistory_;
+        return previewAdmission_;
+    }
+    if (!previewChanged_) return previewAdmission_;
+    try
+    {
+        if (!stroke_ || !previewBase_) return result = {RasterHistoryCode::InvalidArgument};
+        if (!checkGeometry(document, id)) return result;
+        Storage storage(document, id);
+        const auto clipBounds = assetStrokeBounds_.value_or(storage.bounds());
+        bool matches = true;
+        OwnedPatches output;
+        stroke_->visit([&](auto bounds, const auto &, const auto &preview)
+        {
+            const auto clip = intersectDevicePixelRects(bounds, clipBounds);
+            for (int y = 0; y < clip.height && matches; ++y)
+                for (int x = 0; x < clip.width; ++x)
+                    if (storage.pixel({clip.origin.x+x,clip.origin.y+y}) !=
+                        rasterLayerPixelAt(preview,{clip.origin.x+x-bounds.origin.x,
+                                                    clip.origin.y+y-bounds.origin.y}))
+                    { matches = false; break; }
+            output.tile(bounds, preview, clipBounds);
+        });
+        if (!matches) return result = {RasterHistoryCode::Conflict};
+        auto flags = presenceFor(storage, output.patches, [&](auto key) {
+            const auto found = originalChunks_.find(key);
+            return found != originalChunks_.end() ? found->second != 0 : bool(storage.chunk(key));
+        });
+        const auto finalized = apply(document, id, output.patches, {}, std::move(flags),
+                                     "Bitmap stroke", stroke_.get());
+        if (finalized.ok()) previewAdmission_ = finalized;
+        return finalized;
+    }
+    catch (const std::bad_alloc &) { return result = {RasterHistoryCode::BudgetExceeded}; }
+    catch (const std::exception &) { return result = {RasterHistoryCode::WriteRejected}; }
+}
 std::uint32_t BitmapEditJournal::sourcePixel(Document &d, std::string_view id,
                                              DevicePixelPoint p) const
 {
@@ -1160,7 +1371,8 @@ std::uint32_t BitmapEditJournal::sourcePixel(Document &d, std::string_view id,
     const auto read = [&](auto q) { return s.pixel(q); };
     if (pixelPreview_)
         return pixelPreview_->originalPixel(p, read);
-    return stroke_ ? stroke_->originalPixel(p, read) : s.pixel(p);
+    const auto original = [&](auto q) { return stroke_ ? stroke_->originalPixel(q, read) : read(q); };
+    return transientStroke_ ? transientStroke_->originalPixel(p, original) : original(p);
 }
 BitmapEditSource::BitmapEditSource(const BitmapEditJournal &journal, Document &d,
                                    std::string_view id, CanvasOrigin o)
@@ -1203,8 +1415,56 @@ std::uint32_t BitmapEditSource::sample(DevicePixelPoint local) const
 RasterHistoryResult BitmapEditJournal::cancel(Document &d, std::string_view id)
 {
     dirty = {};
+    structureChanged = false;
+    DevicePixelRect restored{};
+    if (transientStroke_) {
+        const auto discarded = discardTransientStroke(d, id);
+        if (!discarded.ok()) return discarded;
+        restored = dirty;
+    }
     if (!previewBase_)
         return result = {RasterHistoryCode::InvalidArgument};
+    if (externalStrokeHistory_ && stroke_)
+    {
+        try
+        {
+            if (!checkGeometry(d, id)) return result;
+            Storage storage(d, id);
+            bool matches = true;
+            const auto clipBounds = assetStrokeBounds_.value_or(storage.bounds());
+            stroke_->visit([&](auto bounds, const auto &, const auto &preview)
+            {
+                const auto clip = intersectDevicePixelRects(bounds, clipBounds);
+                for (int y = 0; y < clip.height && matches; ++y)
+                    for (int x = 0; x < clip.width; ++x)
+                        if (storage.pixel({clip.origin.x+x,clip.origin.y+y}) !=
+                            rasterLayerPixelAt(preview,{clip.origin.x+x-bounds.origin.x,
+                                                        clip.origin.y+y-bounds.origin.y}))
+                        { matches = false; break; }
+            });
+            if (!matches) return result = {RasterHistoryCode::Conflict};
+            OwnedPatches output;
+            stroke_->visit([&](auto bounds, const auto &original, const auto &)
+                           { output.tile(bounds, original, clipBounds); });
+            auto flags = presenceFor(storage, output.patches, [&](auto key) {
+                const auto found = originalChunks_.find(key);
+                return found != originalChunks_.end() && found->second != 0;
+            });
+            std::optional<CanvasExtent> extent;
+            std::optional<CanvasRegion> canvas;
+            std::array<std::int32_t,2> dimensions;
+            std::array<std::int32_t,4> canvasValues;
+            auto patches = views(output.patches, extent, flags, dimensions, canvas, canvasValues);
+            if (!storage.write(patches, dirty)) return result = {storage.rejection};
+            dirty = uniteDevicePixelRects(dirty, restored);
+            const bool changed = !isEmpty(dirty) || structureChanged;
+            history_ = *previewBase_;
+            finish();
+            return result = {RasterHistoryCode::None, changed};
+        }
+        catch (const std::bad_alloc &) { return result = {RasterHistoryCode::BudgetExceeded}; }
+        catch (const std::exception &) { return result = {RasterHistoryCode::WriteRejected}; }
+    }
     if (previewChanged_ && !step(d, id, false).ok())
         return result;
     if (!previewChanged_)
@@ -1213,11 +1473,137 @@ RasterHistoryResult BitmapEditJournal::cancel(Document &d, std::string_view id)
     finish();
     return result;
 }
+
+RasterHistoryResult BitmapEditJournal::discardTransientStroke(Document &d, std::string_view id)
+{
+    dirty = {};
+    structureChanged = false;
+    if (!transientStroke_) return result = {};
+    try {
+        if (!stroke_ || !externalStrokeHistory_ || !checkGeometry(d, id))
+            return result = {RasterHistoryCode::InvalidArgument};
+        Storage storage(d, id);
+        const auto clip = assetStrokeBounds_.value_or(storage.bounds());
+        bool matches = true;
+        transientStroke_->visit([&](auto bounds, const auto &, const auto &preview) {
+            const auto inside = intersectDevicePixelRects(bounds, clip);
+            for (int y = 0; y < inside.height && matches; ++y)
+                for (int x = 0; x < inside.width; ++x)
+                    if (storage.pixel({inside.origin.x+x, inside.origin.y+y}) !=
+                        rasterLayerPixelAt(preview, {inside.origin.x+x-bounds.origin.x,
+                                                     inside.origin.y+y-bounds.origin.y})) {
+                        matches = false; break;
+                    }
+        });
+        if (!matches) return result = {RasterHistoryCode::Conflict};
+        OwnedPatches output;
+        stroke_->visitUnderlying(*transientStroke_, [&](auto bounds, const auto &pixels) {
+            output.tile(bounds, pixels, clip);
+        });
+        auto flags = presenceFor(storage, output.patches, [&](auto key) {
+            const auto original = originalChunks_.find(key);
+            if (original != originalChunks_.end() && original->second) return true;
+            const auto *chunk = storage.chunk(key);
+            if (!chunk) return false;
+            // A temporary tile can share a chunk with already stable pixels.
+            // Preserve any nonzero pixels outside the restored footprint.
+            for (int y = 0; y < storage.size; ++y) for (int x = 0; x < storage.size; ++x) {
+                if (!chunk->pixels.pixels[std::size_t(y)*storage.size+x]) continue;
+                const auto wx = key.first*storage.size+x, wy = key.second*storage.size+y;
+                bool covered = false;
+                for (const auto &patch : output.patches)
+                    if (wx >= patch.bounds.origin.x && wy >= patch.bounds.origin.y &&
+                        std::int64_t(wx) < std::int64_t(patch.bounds.origin.x)+patch.bounds.width &&
+                        std::int64_t(wy) < std::int64_t(patch.bounds.origin.y)+patch.bounds.height) {
+                        covered = true; break;
+                    }
+                if (!covered) return true;
+            }
+            return false;
+        });
+        std::optional<CanvasExtent> extent;
+        std::optional<CanvasRegion> canvas;
+        std::array<std::int32_t,2> dimensions;
+        std::array<std::int32_t,4> canvasValues;
+        auto patches = views(output.patches, extent, flags, dimensions, canvas, canvasValues);
+        if (!storage.write(patches, dirty)) return result = {storage.rejection};
+        transientStroke_.reset();
+        previewChanged_ = stroke_->changed();
+        previewAdmission_ = {RasterHistoryCode::None, previewChanged_};
+        updateGeometry(d, id);
+        return result = previewAdmission_;
+    } catch (const std::bad_alloc &) { return result = {RasterHistoryCode::BudgetExceeded}; }
+}
+
+RasterHistoryResult BitmapEditJournal::projectedPreview(Document &d, std::string_view id,
+    const std::vector<RasterSample> &stable, const std::vector<RasterSample> &transient,
+    RasterBlendMode mode)
+{
+    if (!externalStrokeHistory_ || !stroke_ || !previewBase_)
+        return result = {RasterHistoryCode::InvalidArgument};
+    const auto discarded = discardTransientStroke(d, id);
+    if (!discarded.ok()) return discarded;
+    auto damage = dirty;
+    if (!stable.empty()) {
+        const auto accepted = preview(d, id, stable, mode);
+        damage = uniteDevicePixelRects(damage, dirty);
+        if (!accepted.ok()) { dirty = damage; return accepted; }
+    }
+    try {
+        if (!transient.empty()) {
+            if (!checkGeometry(d, id)) return result;
+            Storage storage(d, id);
+            auto prepared = std::make_shared<BitmapStrokeComposite::PreparedPaint>(
+                stroke_->preparePaint(transient, mode, [&](DevicePixelPoint p) { return storage.pixel(p); }));
+            if (stroke_->storageBytesAfter(*prepared) > history_.limits().maximumInputBytes)
+                return result = {RasterHistoryCode::BudgetExceeded};
+            const auto clip = assetStrokeBounds_.value_or(storage.bounds());
+            OwnedPatches output;
+            prepared->visit([&](auto bounds, const auto &, const auto &pixels) { output.tile(bounds, pixels, clip); });
+            std::map<Coordinate, std::uint8_t> originals;
+            auto flags = presenceFor(storage, output.patches, [&](auto key) {
+                if (!originalChunks_.contains(key)) originals.try_emplace(key, bool(storage.chunk(key)));
+                return bool(storage.chunk(key));
+            });
+            std::optional<CanvasExtent> extent;
+            std::optional<CanvasRegion> canvas;
+            std::array<std::int32_t,2> dimensions;
+            std::array<std::int32_t,4> canvasValues;
+            auto patches = views(output.patches, extent, flags, dimensions, canvas, canvasValues);
+            DevicePixelRect changed{};
+            if (!storage.write(patches, changed)) return result = {storage.rejection};
+            originalChunks_.merge(originals);
+            transientStroke_ = std::move(prepared);
+            previewChanged_ = stroke_->changed() || transientStroke_->changed();
+            previewAdmission_ = {RasterHistoryCode::None, previewChanged_};
+            damage = uniteDevicePixelRects(damage, changed);
+            updateGeometry(d, id);
+        }
+        dirty = damage;
+        return result = previewAdmission_;
+    } catch (const std::bad_alloc &) { dirty = damage; return result = {RasterHistoryCode::BudgetExceeded}; }
+}
+
+RasterHistoryResult BitmapEditJournal::promoteTransientStroke()
+{
+    if (!transientStroke_) return result = previewAdmission_;
+    try {
+        if (!stroke_) return result = {RasterHistoryCode::InvalidArgument};
+        if (stroke_.use_count() != 1) stroke_ = std::make_shared<BitmapStrokeComposite>(*stroke_);
+        auto prepared = *transientStroke_;
+        stroke_->commitPaint(std::move(prepared));
+        transientStroke_.reset();
+        previewChanged_ = stroke_->changed();
+        return result = previewAdmission_ = {RasterHistoryCode::None, previewChanged_};
+    } catch (const std::bad_alloc &) { return result = {RasterHistoryCode::BudgetExceeded}; }
+}
+
 RasterHistoryResult BitmapEditJournal::preview(Document &d, std::string_view id,
                                                const std::vector<RasterSample> &samples,
                                                RasterBlendMode mode)
 {
     dirty = {};
+    structureChanged = false;
     try
     {
         if (!stroke_ || !previewBase_)
@@ -1225,11 +1611,50 @@ RasterHistoryResult BitmapEditJournal::preview(Document &d, std::string_view id,
         if (!checkGeometry(d, id))
             return result;
         Storage s(d, id);
+        if (externalStrokeHistory_)
+        {
+            if (stroke_.use_count() != 1) stroke_ = std::make_shared<BitmapStrokeComposite>(*stroke_);
+            auto prepared = stroke_->preparePaint(samples, mode, [&](DevicePixelPoint p) { return s.pixel(p); });
+            if (stroke_->storageBytesAfter(prepared) > history_.limits().maximumInputBytes)
+                return result = {RasterHistoryCode::BudgetExceeded};
+            bool matches = true;
+            const auto clipBounds = assetStrokeBounds_.value_or(s.bounds());
+            stroke_->visitPrior(prepared, [&](auto bounds, const auto &preview) {
+                const auto clip = intersectDevicePixelRects(bounds, clipBounds);
+                for (int y = 0; y < clip.height && matches; ++y)
+                    for (int x = 0; x < clip.width; ++x)
+                        if (s.pixel({clip.origin.x+x,clip.origin.y+y}) !=
+                            rasterLayerPixelAt(preview,{clip.origin.x+x-bounds.origin.x,
+                                                        clip.origin.y+y-bounds.origin.y}))
+                        { matches = false; break; }
+            });
+            if (!matches) return result = {RasterHistoryCode::Conflict};
+            OwnedPatches output;
+            prepared.visit([&](auto bounds, const auto &, const auto &preview)
+                           { output.tile(bounds, preview, clipBounds); });
+            std::map<Coordinate, std::uint8_t> originals;
+            auto flags = presenceFor(s, output.patches, [&](auto key) {
+                if (!originalChunks_.contains(key)) originals.try_emplace(key, bool(s.chunk(key)));
+                return bool(s.chunk(key));
+            });
+            std::optional<CanvasExtent> extent;
+            std::optional<CanvasRegion> canvas;
+            std::array<std::int32_t,2> dimensions;
+            std::array<std::int32_t,4> canvasValues;
+            auto patches = views(output.patches, extent, flags, dimensions, canvas, canvasValues);
+            if (!s.write(patches, dirty)) return result = {s.rejection};
+            originalChunks_.merge(originals);
+            stroke_->commitPaint(std::move(prepared));
+            previewChanged_ = stroke_->changed();
+            previewAdmission_ = {RasterHistoryCode::None, previewChanged_};
+            updateGeometry(d, id);
+            return result = previewAdmission_;
+        }
         bool matches = true;
         stroke_->visit(
             [&](auto bounds, const auto &, const auto &preview)
             {
-                const auto clip = intersectDevicePixelRects(bounds, s.bounds());
+                const auto clip = intersectDevicePixelRects(bounds, assetStrokeBounds_.value_or(s.bounds()));
                 for (int y = 0; y < clip.height && matches; ++y)
                     for (int x = 0; x < clip.width; ++x)
                         if (s.pixel({clip.origin.x + x, clip.origin.y + y}) !=
@@ -1248,7 +1673,7 @@ RasterHistoryResult BitmapEditJournal::preview(Document &d, std::string_view id,
         if (candidate->storageBytes() > history_.limits().maximumInputBytes)
             return result = {RasterHistoryCode::BudgetExceeded};
         std::optional<CanvasRegion> nextCanvas;
-        auto outputBounds = s.bounds();
+        auto outputBounds = assetStrokeBounds_.value_or(s.bounds());
         if (strokeCanvas_)
         {
             bool haveChanges = false;

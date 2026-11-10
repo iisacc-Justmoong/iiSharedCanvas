@@ -11,15 +11,15 @@ if(EXISTS "${_driver}" OR IS_SYMLINK "${_driver}" OR
    EXISTS "${_fixture}" OR IS_SYMLINK "${_fixture}")
     message(FATAL_ERROR "Refusing an existing reconfiguration fixture")
 endif()
-file(MAKE_DIRECTORY "${_driver}/source" "${_fixture}/resources")
-file(WRITE "${_driver}/source/CMakeLists.txt" [=[
+file(MAKE_DIRECTORY "${_fixture}/source" "${_fixture}/resources")
+file(WRITE "${_fixture}/source/CMakeLists.txt" [=[
 cmake_minimum_required(VERSION 3.31)
 project(WorkDirReconfigureProbe NONE)
 include("${HELPER}")
 iisc_configure_test_work_dir(work "${RESOURCE_ROOT}")
 message(STATUS "DRIVER_WORK_DIR=${work}")
 ]=])
-set(_args -S "${_driver}/source" -B "${_driver}/source/build"
+set(_args -S "${_fixture}/source" -B "${_driver}/build"
     "-DHELPER=${SOURCE}/cmake/iiSharedCanvasTestWorkDir.cmake"
     "-DRESOURCE_ROOT=${_fixture}/resources")
 execute_process(COMMAND "${CMAKE_COMMAND}" ${_args}

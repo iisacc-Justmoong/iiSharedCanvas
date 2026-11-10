@@ -73,9 +73,10 @@ bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
     }
 
     ChunkedRasterAsset *candidate = findChunkedRasterAsset(document, assetId);
-    if (!candidate || document.canvasMode != CanvasMode::Infinite)
+    if (!candidate || (document.canvasMode == CanvasMode::Finite &&
+                       document.infiniteCanvas.chunkSize != 256))
     {
-        setError(candidate ? "chunked raster requires an infinite canvas"
+        setError(candidate ? "finite chunked raster requires 256-pixel chunks"
                            : "chunked raster asset was not found");
         return false;
     }
@@ -92,6 +93,7 @@ bool ChunkedBitmapEditor::bind(Document &document, const std::string &assetId)
     m_nextStrokeSeed = 1;
     m_strokeTime = 0.0;
     m_strokeActive = false;
+    m_projectedStroke = false;
     m_strokeChanged = false;
     clearError();
     return true;
@@ -122,7 +124,8 @@ void ChunkedBitmapEditor::unbind() noexcept
 
 bool ChunkedBitmapEditor::isBound() const noexcept
 {
-    return m_document && m_document->canvasMode == CanvasMode::Infinite && asset() != nullptr;
+    return m_document && asset() != nullptr &&
+           (m_document->canvasMode == CanvasMode::Infinite || m_document->infiniteCanvas.chunkSize == 256);
 }
 
 const std::string &ChunkedBitmapEditor::boundAssetId() const noexcept { return m_assetId; }
@@ -177,6 +180,22 @@ std::optional<std::uint32_t> ChunkedBitmapEditor::pixelAt(std::int32_t x,
     return rasterLayerPixelAt(chunk->pixels, {x - column * size, y - row * size});
 }
 
+std::optional<std::uint32_t> ChunkedBitmapEditor::assetPixelAt(std::int32_t x,
+                                                               std::int32_t y) const noexcept
+{
+    const auto *bound = asset();
+    if (!bound || x < -1000000000 || y < -1000000000 || x >= 1000000000 || y >= 1000000000)
+        return std::nullopt;
+    const auto size = m_document->infiniteCanvas.chunkSize;
+    if (size <= 0) return std::nullopt;
+    const auto column = floorDivision(x, size), row = floorDivision(y, size);
+    const auto *chunk = findRasterChunk(*bound, column, row);
+    if (!chunk) return 0U;
+    const auto localX = std::int32_t(std::int64_t(x) - std::int64_t(column) * size);
+    const auto localY = std::int32_t(std::int64_t(y) - std::int64_t(row) * size);
+    return rasterLayerPixelAt(chunk->pixels, {localX, localY});
+}
+
 bool ChunkedBitmapEditor::clear()
 {
     if (m_file)
@@ -215,6 +234,50 @@ bool ChunkedBitmapEditor::replacePatches(std::span<const BitmapPatch> patches)
     return finishEdit(edits.replace(*m_document, m_assetId, patches));
 }
 
+bool ChunkedBitmapEditor::replaceAssetPatches(std::span<const BitmapPatch> patches)
+{
+    if (m_file)
+        return editFile([&](auto &editor) { return editor.replaceAssetPatches(patches); });
+    if (!requireBound() || m_strokeActive || pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("asset-local patches require an idle bound chunked bitmap");
+        return false;
+    }
+    auto &edits = journal();
+    return finishEdit(edits.replace(*m_document, m_assetId, patches, false));
+}
+
+bool ChunkedBitmapEditor::setExternalStrokeHistory(bool enabled)
+{ return configureStrokeHistory(enabled, false); }
+
+bool ChunkedBitmapEditor::setDeferredStrokeHistory(bool enabled)
+{ return configureStrokeHistory(enabled, true); }
+
+bool ChunkedBitmapEditor::configureStrokeHistory(bool enabled, bool deferred)
+{
+    if (!requireBound()) return false;
+    if (m_file || m_strokeActive || pixelPreviewActive() ||
+        (enabled && m_journal && m_journal->configuredStrokeCanvasGrowth()))
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("incremental stroke history requires an idle document-bound editor without canvas growth");
+        return false;
+    }
+    try {
+        auto &edits = journal();
+        if (deferred) edits.setDeferredStrokeHistory(enabled);
+        else edits.setExternalStrokeHistory(enabled);
+        m_historyResult = {};
+        clearError();
+        return true;
+    } catch (const std::bad_alloc &) {
+        m_historyResult = {RasterHistoryCode::BudgetExceeded};
+        setError(std::string(m_historyResult.message()));
+        return false;
+    }
+}
+
 bool ChunkedBitmapEditor::beginStroke(DocumentPoint point, double pressure)
 {
     return beginStrokeInput(detail::legacyStrokeSample(point, pressure, 1.0 / 120.0));
@@ -231,21 +294,78 @@ bool ChunkedBitmapEditor::endStroke(DocumentPoint point, double pressure)
     return endStrokeInput(detail::legacyStrokeSample(point, pressure, m_strokeTime + 1.0 / 120.0));
 }
 
+bool ChunkedBitmapEditor::setStrokeCanvasGrowth(bool enabled)
+{
+    if (!requireBound()) return false;
+    if (enabled && m_document->canvasMode != CanvasMode::Infinite)
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("canvas growth requires an infinite canvas");
+        return false;
+    }
+    if (enabled && m_journal && m_journal->externalStrokeHistory())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("canvas growth is unavailable with external stroke history");
+        return false;
+    }
+    if (m_strokeActive || pixelPreviewActive())
+    {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("resolve the active edit before changing canvas growth");
+        return false;
+    }
+    try
+    {
+        journal().setStrokeCanvasGrowth(enabled);
+        m_historyResult = {};
+        clearError();
+        return true;
+    }
+    catch (const std::bad_alloc &)
+    {
+        m_historyResult = {RasterHistoryCode::BudgetExceeded};
+        setError(std::string(m_historyResult.message()));
+        return false;
+    }
+}
+
 bool ChunkedBitmapEditor::beginStrokeInput(const StrokePoint &sample)
 {
+    return beginStrokeInRegion(sample, std::nullopt);
+}
+
+bool ChunkedBitmapEditor::beginAssetStrokeInput(const StrokePoint &sample, CanvasRegion assetRegion)
+{
+    return beginStrokeInRegion(sample, assetRegion);
+}
+
+bool ChunkedBitmapEditor::beginStrokeInRegion(const StrokePoint &sample, std::optional<CanvasRegion> assetRegion)
+{
     if (m_file)
-        return editFile([&](auto &editor) { return editor.beginStrokeInput(sample); });
+        return editFile([&](auto &editor) { return editor.beginStrokeInRegion(sample, assetRegion); });
     if (!requireBound() || m_strokeActive || pixelPreviewActive() || !validInput(sample))
     {
         if (m_strokeActive || pixelPreviewActive())
             setError("an edit preview or brush stroke is already active");
         return false;
     }
+    std::optional<DevicePixelRect> assetBounds;
+    if (assetRegion) {
+        const auto &o=assetRegion->origin;const auto &e=assetRegion->extent;
+        if (e.width<=0 || e.height<=0 || o.x < -1000000000 || o.y < -1000000000 ||
+            std::int64_t(o.x)+e.width > 1000000000 || std::int64_t(o.y)+e.height > 1000000000) {
+            m_historyResult = {RasterHistoryCode::InvalidArgument};
+            setError("asset stroke region is outside the supported coordinate range");return false;
+        }
+        assetBounds=DevicePixelRect{{o.x,o.y},e.width,e.height};
+    }
     auto &edits = journal();
-    edits.begin(m_document);
+    edits.begin(m_document, assetBounds);
     const auto priorTime = m_strokeTime;
     resetRasterDabStream(m_dabStream);
     m_strokeActive = true;
+    m_projectedStroke = false;
     m_strokeChanged = false;
     m_strokeTime = 0;
     if (appendStrokePoint(sample, false))
@@ -268,7 +388,7 @@ bool ChunkedBitmapEditor::continueStrokeInput(const StrokePoint &sample)
         return editFile([&](ChunkedBitmapEditor &editor)
                         { return editor.continueStrokeInput(sample); });
     }
-    if (!m_strokeActive)
+    if (!m_strokeActive || m_projectedStroke)
     {
         setError("no brush stroke is active");
         return false;
@@ -280,22 +400,99 @@ bool ChunkedBitmapEditor::endStrokeInput(const StrokePoint &sample)
 {
     if (m_file)
         return editFile([&](auto &editor) { return editor.endStrokeInput(sample); });
-    if (!m_strokeActive)
+    if (!m_strokeActive || m_projectedStroke)
     {
         setError("no brush stroke is active");
         return false;
     }
     if (!validInput(sample) || !appendStrokePoint(sample, true))
         return false;
+    auto &edits = journal();
+    const auto finalized = edits.finishExternalStroke(*m_document, m_assetId);
+    if (!finalized.ok()) return finishEdit(finalized);
     if (m_strokeChanged)
         ++m_nextStrokeSeed;
-    auto &edits = journal();
-    m_historyResult = edits.previewAdmission();
+    m_historyResult = finalized;
     edits.finish();
     m_strokeActive = false;
     m_strokeChanged = false;
     resetRasterDabStream(m_dabStream);
     return true;
+}
+
+bool ChunkedBitmapEditor::beginProjectedStroke(std::optional<CanvasRegion> assetRegion)
+{
+    if (m_file || !requireBound() || m_strokeActive || pixelPreviewActive()) {
+        setError("a projected stroke requires idle document-bound chunks"); return false;
+    }
+    std::optional<DevicePixelRect> bounds;
+    if (assetRegion) {
+        const auto &o = assetRegion->origin; const auto &e = assetRegion->extent;
+        if (e.width <= 0 || e.height <= 0 || o.x < -1000000000 || o.y < -1000000000 ||
+            std::int64_t(o.x)+e.width > 1000000000 || std::int64_t(o.y)+e.height > 1000000000) {
+            setError("asset stroke region is outside the supported coordinate range"); return false;
+        }
+        bounds = DevicePixelRect{{o.x, o.y}, e.width, e.height};
+    }
+    try {
+        auto &edits = journal();
+        if (!edits.externalStrokeHistory() || edits.configuredStrokeCanvasGrowth()) {
+            setError("projected strokes require bounded external or deferred history"); return false;
+        }
+        edits.begin(m_document, bounds);
+        m_strokeActive = m_projectedStroke = true;
+        m_strokeChanged = false;
+        clearError(); return true;
+    } catch (const std::bad_alloc &) { setError("insufficient memory for projected stroke"); return false; }
+}
+
+bool ChunkedBitmapEditor::updateProjectedStroke(const std::vector<RasterSample> &stable,
+                                                 const std::vector<RasterSample> &transient)
+{
+    if (!m_strokeActive || !m_projectedStroke || !requireBound()) {
+        setError("no projected stroke is active"); return false;
+    }
+    auto &edits = journal();
+    const auto origin = canvasOrigin(*m_document);
+    const auto bounds = edits.assetStrokeBounds().value_or(
+        DevicePixelRect{{origin.x, origin.y}, m_document->extent.width, m_document->extent.height});
+    const auto valid = [&](const RasterSample &s) {
+        return s.position.x >= bounds.origin.x && s.position.y >= bounds.origin.y &&
+            std::int64_t(s.position.x) < std::int64_t(bounds.origin.x)+bounds.width &&
+            std::int64_t(s.position.y) < std::int64_t(bounds.origin.y)+bounds.height;
+    };
+    if (stable.size() > m_historyLimits.maximumInputBytes / sizeof(RasterSample) ||
+        transient.size() > m_historyLimits.maximumInputBytes / sizeof(RasterSample) ||
+        !std::ranges::all_of(stable, valid) || !std::ranges::all_of(transient, valid)) {
+        setError("projected stroke samples exceed the canvas or input budget"); return false;
+    }
+    const auto result = edits.projectedPreview(*m_document, m_assetId, stable, transient,
+                                               brushState().rasterizer.blendMode);
+    m_strokeChanged = edits.strokeChanged();
+    return finishEdit(result);
+}
+
+bool ChunkedBitmapEditor::endProjectedStroke()
+{
+    if (!m_strokeActive || !m_projectedStroke || !requireBound()) {
+        setError("no projected stroke is active"); return false;
+    }
+    auto &edits = journal();
+    const auto promoted = edits.promoteTransientStroke();
+    if (!promoted.ok()) return finishEdit(promoted);
+    const auto finalized = edits.finishExternalStroke(*m_document, m_assetId);
+    if (!finalized.ok()) return finishEdit(finalized);
+    if (m_strokeChanged) ++m_nextStrokeSeed;
+    m_historyResult = finalized;
+    edits.finish();
+    m_strokeActive = m_projectedStroke = m_strokeChanged = false;
+    clearError(); return true;
+}
+
+std::optional<std::uint32_t> ChunkedBitmapEditor::strokeSourceAt(std::int32_t x, std::int32_t y) const
+{
+    if (!m_strokeActive || !m_projectedStroke || !m_journal || !assetPixelAt(x, y)) return std::nullopt;
+    return m_journal->sourcePixel(*m_document, m_assetId, {x, y});
 }
 
 bool ChunkedBitmapEditor::advanceStrokeTime(double seconds)
@@ -364,6 +561,7 @@ void ChunkedBitmapEditor::cancelStroke()
         return;
     resetRasterDabStream(m_dabStream);
     m_strokeActive = false;
+    m_projectedStroke = false;
     m_strokeChanged = false;
 }
 
@@ -403,6 +601,27 @@ bool ChunkedBitmapEditor::redo()
     auto &edits = journal();
     return finishEdit(edits.step(*m_document, m_assetId, true));
 }
+#ifdef IISHAREDCANVAS_NATIVE_API
+bool ChunkedBitmapEditor::publishHistoryState(DocumentFile &file, BitmapHistoryState state,
+    const DocumentAuthorship &expectedAuthorship, FormatVersion expectedVersion,
+    std::uint64_t expectedFileRevision)
+{
+    if (m_file || !isBound() || m_strokeActive || pixelPreviewActive() || !m_journal) {
+        m_historyResult = {RasterHistoryCode::InvalidArgument};
+        setError("history publication requires an idle document-bound editor");
+        return false;
+    }
+    auto result = detail::BitmapHistoryPublication::run(*m_journal, *m_document, file, m_assetId,
+        state, expectedAuthorship, expectedVersion, expectedFileRevision);
+    m_historyResult = result.history;
+    if (!result.history.ok() || !result.history.changed) {
+        setError(std::move(result.message));
+        return false;
+    }
+    clearError();
+    return true;
+}
+#endif
 RasterHistoryStatistics ChunkedBitmapEditor::historyStatistics() const noexcept
 {
     return m_journal ? m_journal->statistics() : RasterHistoryStatistics{};
@@ -495,6 +714,8 @@ bool ChunkedBitmapEditor::finishEdit(RasterHistoryResult result)
     }
     if (m_journal && !isEmpty(m_journal->dirty))
         noteChange(m_journal->dirty);
+    else if (m_journal && m_journal->structureChanged)
+        ++m_revision; // Structure changed without affecting visible pixels.
     clearError();
     return true;
 }
@@ -561,6 +782,12 @@ bool ChunkedBitmapEditor::validInput(const StrokePoint &sample)
     return true;
 }
 
+std::optional<BrushState> ChunkedBitmapEditor::currentStrokeBrushState() const
+{
+    if (!m_strokeActive || m_file || !isBound()) return std::nullopt;
+    return brushState();
+}
+
 BrushState ChunkedBitmapEditor::brushState() const
 {
     Rasterizer rasterizer = m_brush.engineState ? m_brush.engineState->rasterizer : Rasterizer{};
@@ -621,11 +848,11 @@ bool ChunkedBitmapEditor::appendStrokePoint(const StrokePoint &sample, bool fini
     const BrushState state = brushState();
     auto nextStream = m_dabStream;
     auto &edits = journal();
-    const auto bounds = DevicePixelRect{{canvasOrigin(*m_document).x, canvasOrigin(*m_document).y},
-                                        m_document->extent.width,
-                                        m_document->extent.height};
+    const auto bounds = edits.assetStrokeBounds().value_or(DevicePixelRect{{canvasOrigin(*m_document).x, canvasOrigin(*m_document).y},
+                                                                            m_document->extent.width,
+                                                                            m_document->extent.height});
     const auto sourceOrigin = edits.strokeCanvasGrowth() ? CanvasOrigin{-1000000000, -1000000000}
-                                                          : canvasOrigin(*m_document);
+                                                          : CanvasOrigin{bounds.origin.x,bounds.origin.y};
     const detail::BitmapEditSource source{edits, *m_document, m_assetId, sourceOrigin};
     const RasterSourceSampler sampler{&source,
                                       &detail::sampleBitmapEditSource,

@@ -1,3 +1,5 @@
 /build/
+/resources/.recovery/
+/resources/.state/
 /CMakeUserPresets.json
 .DS_Store

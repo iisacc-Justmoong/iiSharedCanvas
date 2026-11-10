@@ -70,6 +70,10 @@ class IISHAREDCANVAS_EXPORT BitmapEditor final
 
     [[nodiscard]] const BitmapBrush &brush() const noexcept;
     bool setBrush(const BitmapBrush &brush);
+    // Snapshot the current stroke's validated state and random seed for an
+    // authoring replay. Document-bound active strokes only; file-backed
+    // editor transactions do not expose their internal transient editor.
+    [[nodiscard]] std::optional<BrushState> currentStrokeBrushState() const;
 
     bool setPixel(int x, int y, std::uint32_t argb);
     bool clear(std::uint32_t argb = 0x00000000U);
@@ -92,6 +96,14 @@ class IISHAREDCANVAS_EXPORT BitmapEditor final
     [[nodiscard]] bool pixelPreviewActive() const noexcept;
     [[nodiscard]] std::optional<std::uint32_t> pixelPreviewSourceAt(int x, int y) const noexcept;
 
+    // Document-bound exclusive editing only. The caller owns whole-stroke
+    // undo/redo; a changed completed stroke clears this editor's history.
+    // Cancellation restores original pixels and preserves prior history.
+    bool setExternalStrokeHistory(bool enabled);
+    // Preview only touched tiles; create the normal undo entry once on release.
+    // History limits are checked at release; a rejected stroke remains active
+    // and can be cancelled. Requires an exclusively owned in-memory document.
+    bool setDeferredStrokeHistory(bool enabled);
     bool beginStroke(DocumentPoint point, double pressure = 1.0);
     bool continueStroke(DocumentPoint point, double pressure = 1.0);
     bool endStroke(DocumentPoint point, double pressure = 1.0);
@@ -99,6 +111,14 @@ class IISHAREDCANVAS_EXPORT BitmapEditor final
     bool beginStrokeInput(const StrokePoint &sample);
     bool continueStrokeInput(const StrokePoint &sample);
     bool endStrokeInput(const StrokePoint &sample);
+    // The caller supplies rasterized samples, never a stored trajectory. The
+    // temporary tip is replaced on the next update; finalization promotes
+    // exactly the pixels already displayed into the same undo entry.
+    bool beginProjectedStroke();
+    bool updateProjectedStroke(const std::vector<RasterSample> &stable,
+                               const std::vector<RasterSample> &transient);
+    bool endProjectedStroke();
+    [[nodiscard]] std::optional<std::uint32_t> strokeSourceAt(int x, int y) const;
     // Caller clock in monotonic seconds. Rebase excludes suspended time without
     // emitting pixels or changing the stored document.
     bool advanceStrokeTime(double seconds);
@@ -130,6 +150,17 @@ class IISHAREDCANVAS_EXPORT BitmapEditor final
     bool undo();
     bool redo();
 
+#ifdef IISHAREDCANVAS_NATIVE_API
+    // Atomically publish the most recent local bitmap history entry to a
+    // separate file without moving this editor's undo/redo cursor. The file
+    // must contain the opposite side and the caller's expected metadata and
+    // revision. Only bitmap pixels and the source document's authorship are
+    // published; unrelated document structure is never copied.
+    bool publishHistoryState(DocumentFile &file, BitmapHistoryState state,
+        const DocumentAuthorship &expectedAuthorship, FormatVersion expectedVersion,
+        std::uint64_t expectedFileRevision);
+#endif
+
     [[nodiscard]] std::uint64_t revision() const noexcept;
     [[nodiscard]] DevicePixelRect dirtyBounds() const noexcept;
     void clearDirtyBounds() noexcept;
@@ -152,6 +183,7 @@ class IISHAREDCANVAS_EXPORT BitmapEditor final
     [[nodiscard]] DevicePixelRect bitmapBounds() const noexcept;
     void noteChange(DevicePixelRect bounds);
     bool appendStrokePoint(const StrokePoint &sample, bool finish);
+    bool configureStrokeHistory(bool enabled, bool deferred);
     void setError(std::string message);
     void clearError() noexcept;
 
@@ -169,6 +201,7 @@ class IISHAREDCANVAS_EXPORT BitmapEditor final
     std::uint32_t m_nextStrokeSeed = 1;
     double m_strokeTime = 0.0;
     bool m_strokeActive = false;
+    bool m_projectedStroke = false;
     bool m_strokeChanged = false;
     std::string m_lastError;
 };

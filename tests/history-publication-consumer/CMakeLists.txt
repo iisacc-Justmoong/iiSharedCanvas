@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.31)
+project(HistoryPublicationConsumer LANGUAGES CXX)
+find_package(iiSharedCanvasNative 0.35.39 CONFIG REQUIRED)
+add_executable(history_publication_consumer main.cpp)
+target_compile_features(history_publication_consumer PRIVATE cxx_std_23)
+target_link_libraries(history_publication_consumer PRIVATE iiSharedCanvas::Native)
+enable_testing()
+add_test(NAME installed_history_publication COMMAND history_publication_consumer)

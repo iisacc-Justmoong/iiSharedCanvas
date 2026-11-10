@@ -1,4 +1,5 @@
 #include <iiSharedCanvas.h>
+#include <algorithm>
 #include <cmath>
 #include <iostream>
 #include <limits>
@@ -38,12 +39,39 @@ int main() {
     mask.alpha[0] = 255;
     auto clipped = maskRaster(source, mask);
     check(clipped.ok() && clipped.pixels.pixels.front() == original.front() && clipped.pixels.pixels.back() == 0, "mask must multiply alpha and clear transparent RGB");
+    RasterMask diagonal{{8, 8}, std::vector<std::uint8_t>(64, 0)};
+    RasterMask vertical{{8, 8}, std::vector<std::uint8_t>(64, 0)};
+    for (int y=0;y<8;++y) for (int x=0;x<8;++x) {
+        diagonal.alpha[std::size_t(y)*8+x] = x<=y ? 255 : 0;
+        vertical.alpha[std::size_t(y)*8+x] = x<4 ? 255 : 0;
+    }
+    const auto diagonalBefore = diagonal.alpha;
+    auto antialiased = antialiasBinaryMask(diagonal), straight = antialiasBinaryMask(vertical);
+    check(antialiased.ok() && std::ranges::any_of(antialiased.mask.alpha, [](auto a){ return a>0 && a<255; }),
+          "diagonal boundary must gain fractional coverage");
+    check(straight.ok() && straight.mask.alpha==vertical.alpha, "pixel-aligned straight boundary must remain exact");
+    check(diagonal.alpha==diagonalBefore, "antialias must not mutate its source");
+    auto antialiasedAgain=antialiasBinaryMask(diagonal);
+    check(antialiasedAgain.ok() && antialiasedAgain.mask.alpha==antialiased.mask.alpha, "antialias must be deterministic");
+    auto nonbinary=diagonal;nonbinary.alpha[0]=128;
+    check(!antialiasBinaryMask(nonbinary).ok() && !antialiasBinaryMask({{3,2},{255}}).ok(), "invalid binary masks must reject");
     auto feathered = featherMask(mask, 2);
     check(feathered.ok() && feathered.mask.alpha[1] > 0 && feathered.mask.alpha[0] < 255, "feather must spread mask coverage");
     auto solid = makeRasterLayer(3, 1); solid.pixels = {0xffff0000, 0xff0000ff, 0xffff0000};
     auto connected = floodMask(solid, {0, 0}, 0, true), global = floodMask(solid, {0, 0}, 0, false);
     check(connected.ok() && connected.mask.alpha == std::vector<std::uint8_t>({255, 0, 0}), "contiguous wand must stop at an unmatched neighbor");
     check(global.ok() && global.mask.alpha == std::vector<std::uint8_t>({255, 0, 255}), "global wand must select disconnected matching pixels");
+    auto wandInput = makeRasterLayer(5, 1);
+    wandInput.pixels = {0x00000000U, 0x00ff0000U, 0xff000000U, 0x80000000U, 0x0000ff00U};
+    auto wandTransparent = selectionWand(wandInput, {0, 0}, 0, true);
+    check(wandTransparent.ok() && wandTransparent.mask.alpha == std::vector<std::uint8_t>({255,255,0,0,0}), "wand must ignore hidden transparent RGB and stop at opacity boundary");
+    auto wandGlobal = selectionWand(wandInput, {0, 0}, 0, false);
+    check(wandGlobal.ok() && wandGlobal.mask.alpha == std::vector<std::uint8_t>({255,255,0,0,255}), "global wand must include disconnected transparent pixels");
+    auto wandTolerance = selectionWand(wandInput, {0, 0}, 0.51, false);
+    check(wandTolerance.ok() && wandTolerance.mask.alpha == std::vector<std::uint8_t>({255,255,0,255,255}), "wand tolerance must include alpha distance");
+    auto wandMaximum = selectionWand(wandInput, {0, 0}, 1, false);
+    check(wandMaximum.ok() && wandMaximum.mask.alpha == std::vector<std::uint8_t>({255,255,255,255,255}), "maximum wand tolerance must include every pixel");
+    check(!selectionWand(wandInput, {-1, 0}, 0, true).ok() && !selectionWand(wandInput, {0, 0}, std::numeric_limits<double>::quiet_NaN(), true).ok(), "invalid wand inputs must fail");
     auto merged = combineMasks(connected.mask, global.mask, MaskOperation::Subtract);
     check(merged.ok() && merged.mask.alpha == std::vector<std::uint8_t>({0, 0, 0}), "subtract must implement coverage subtraction");
     auto reconstructed = blendRaster(source, exposed.pixels, mask);

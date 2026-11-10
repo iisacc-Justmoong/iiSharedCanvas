@@ -91,14 +91,14 @@
       "document_id": "urn:iisacc:document:5e0d81c548e65c3b6dd4ab12089f1ed16131c6235d832d67141905fc03481662",
       "source": "docs/BITMAP_HISTORY.md",
       "agent_json": "docs/BITMAP_HISTORY.agent.json",
-      "source_sha256": "8e80e4a6480498b5e79b4b8ff85a125edd7d9063a026187a46c1351801acb47b",
+      "source_sha256": "ad9dacf2f895542f16bf23c7e7bc022e02abf38355f1dcbe51e520985170720f",
       "role": "history"
     },
     {
       "document_id": "urn:iisacc:document:9f50c3e9dd168efbbc2283678201fb2aa45556292019344b5b10c419dffbd7fc",
       "source": "docs/BITMAP_INPUT.md",
       "agent_json": "docs/BITMAP_INPUT.agent.json",
-      "source_sha256": "863dce439b7db24b01e1cc8c7cfa37f123a8415fe62b0f8c980a4a9555a87eab",
+      "source_sha256": "ea99bd60991193e3a4efbab0252de6ae83bbbf746c050bac50799a5816cc6117",
       "role": "guide"
     },
     {
@@ -123,10 +123,17 @@
       "role": "guide"
     },
     {
+      "document_id": "urn:iisacc:document:53c42d731bd5bfc3c937d4c00ff639748241791dbf1718a24cbdb2e6ee971f0a",
+      "source": "docs/BUILD_LAYOUT.md",
+      "agent_json": "docs/BUILD_LAYOUT.agent.json",
+      "source_sha256": "4fa645ae70f18cd83a8dbec4f55aa443fbe941e870c5567e758ab4d2745ae852",
+      "role": "guide"
+    },
+    {
       "document_id": "urn:iisacc:document:e52e16fe39b2a370db307d2fe990556ce5fd6e77c24e942606412eff86cc2e57",
       "source": "docs/BuildComponents.md",
       "agent_json": "docs/BuildComponents.agent.json",
-      "source_sha256": "4abeeab8ba1e44c22fea7bc1c2c969431f3cb89efb0f751fb048a3113f091c2b",
+      "source_sha256": "aecc369cd273a0f27b93fbc90d35b5e35002432f38a00ab1df2f0d5c6120d709",
       "role": "guide"
     },
     {
@@ -176,6 +183,13 @@
       "source": "docs/DYNAMIC_FRAME_CONTENT.md",
       "agent_json": "docs/DYNAMIC_FRAME_CONTENT.agent.json",
       "source_sha256": "31fba16d73d1304007eef43c23925ac61ff398e3d42e4f57667592bc6b171e9e",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:eb23ba1c61fad0f5504e729bfbbad89064a2c347ac9aa6617b53dc1cf3877d31",
+      "source": "docs/DynamicLinking.md",
+      "agent_json": "docs/DynamicLinking.agent.json",
+      "source_sha256": "4e2e08acc881e05907082b9490b445e46e852f9bf1b60beb5cf80cd845f12b27",
       "role": "guide"
     },
     {
@@ -238,7 +252,7 @@
       "document_id": "urn:iisacc:document:097d0387ec6a7afb7c0b3235c231244efcd56342a4a5dc2ef7c10e29311ba3ee",
       "source": "docs/LAYER_COMPOSITING.md",
       "agent_json": "docs/LAYER_COMPOSITING.agent.json",
-      "source_sha256": "78759c81494feefbba27f7ab4ef1ed73e33abf7677194345058b482a2539d99e",
+      "source_sha256": "de34c6a5195a12baf88f526b631633f27524b6962984a44ee88106d12b4c9309",
       "role": "guide"
     },
     {
@@ -280,7 +294,7 @@
       "document_id": "urn:iisacc:document:3820b8c00286d71fad4f6371653df57dff1c25d2c38054db37835d013a99203e",
       "source": "docs/NATIVE.md",
       "agent_json": "docs/NATIVE.agent.json",
-      "source_sha256": "b97a55e1a334a506fb704219be0b43ed25c2524c31c1b04881f20812001a15ef",
+      "source_sha256": "316ebd1a6985c31b67964b5ed8ef8cfb390437f5295344f9e2c7dc61f352d400",
       "role": "guide"
     },
     {
@@ -371,7 +385,7 @@
       "document_id": "urn:iisacc:document:fdedf11f6e46de99ce8c1fe21601571c07d89f201af7d6f8c4d5805bce78d27d",
       "source": "docs/README.md",
       "agent_json": "docs/README.agent.json",
-      "source_sha256": "efb62a98b1b44bdc491e4bff875d1f2a7a66660ad712fcf717517129efe0d955",
+      "source_sha256": "20ecc2694f4751f954a7b25df7a76c243cffe4b7522bb1df34089e2b2cc07742",
       "role": "overview"
     },
     {

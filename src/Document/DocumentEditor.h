@@ -16,7 +16,7 @@ namespace iiSharedCanvas {
 class DocumentFile;
 
 inline constexpr std::size_t AppendDocumentIndex =
-    std::numeric_limits<std::size_t>::max();
+    (std::numeric_limits<std::size_t>::max)();
 
 enum class DocumentEditCode {
     None,
@@ -77,6 +77,8 @@ public:
 
     DocumentEditResult setFileAuthor(const DocumentFileAuthor &author);
     DocumentEditResult setCanvasExtent(CanvasExtent extent);
+    // Reframe a finite canvas without deleting source pixels or vector data.
+    DocumentEditResult reframeCanvas(CanvasRegion region);
     DocumentEditResult insertArtboard(Artboard artboard, std::size_t index = AppendDocumentIndex);
     DocumentEditResult setArtboardName(const std::string &id, std::string name);
     DocumentEditResult setArtboardRegion(const std::string &id, CanvasRegion region);

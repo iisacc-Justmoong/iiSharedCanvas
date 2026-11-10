@@ -165,9 +165,14 @@ int main()
     brush.eraser = false;
     brush.argb = 0xff00ffffU;
     expect(editor.setBrush(brush), "brush mode must be restorable after erasing");
+    expect(!editor.currentStrokeBrushState(), "inactive editor must not expose a stroke state");
     expect(editor.beginStroke({4.0, 4.0}, 1.0),
            "a cancellable stroke must begin");
+    const auto state = editor.currentStrokeBrushState();
+    expect(state && state->rasterizer.brushSize == brush.size &&
+           state->rasterizer.argb == brush.argb, "active state must include authoritative brush settings");
     editor.cancelStroke();
+    expect(!editor.currentStrokeBrushState(), "cancel must invalidate the transient state");
     expect(editor.pixels() && editor.pixels()->pixels == beforeCancelledStroke.pixels,
            "cancelling a stroke must restore pixels without replaying input");
 

@@ -32,6 +32,20 @@ Clipped artwork uses a preceding base in the same artboard composition; missing 
 
 `renderFrame`, `renderFrameRegion`, `renderFrameTiles`, `renderFrameLayers` and `composeFrameLayers` share this composition. `CanvasItem` uses composed frame tiles for appearance-bearing artwork, retaining native CPU semantics through its Qt presentation adapter. This does not establish running consumer-app or physical-device adoption.
 
+레이어 영역이 불투명도 100%의 일반 혼합 조각 하나로 만들어지는 경우에는 그
+소유 픽셀을 결과로 옮기고 완전 투명 픽셀을 0으로 정규화한다. 여러 청크가
+겹치는 경우에는 기존 순서대로 모든 조각을 합성한다. 이 경계는 투명도, 색상,
+샘플링, 변환 및 실시간 미리보기 결과를 바꾸지 않는다.
+
+소유된 레이어 결과를 내부에서 바로 합성할 때 첫 레이어가 일반 혼합이고 레이어·
+채움 불투명도가 100%이며 Blend If, 아트보드, 클리핑 그룹의 기반이 없으면 해당 타일을 출력 버퍼로
+재사용한다. 완전 투명 픽셀은 기존 소스 오버 결과와 같이 정규화한다. 외부에서
+빌린 `composeFrameLayers` 입력이나 이 조건에 해당하지 않는 문서는 기존 합성을
+사용한다. 단일 영역 결과는 소유된 출력 픽셀을 복사하지 않고 옮긴다.
+`FrameCompositionReuse`는 두 경로의 픽셀과 클리핑·투명도·벡터 배경 및 할당을
+비교한다. 이는 CPU 합성 비용에 대한 개선이며 GPU 제출이나 실제 화면 지연을
+측정한 결과는 아니다.
+
 ## Persistence and interchange
 
 IISC 1.20 persists all fields with explicit tags and little-endian scalars. Unsupported modes, tags, references, nonfinite parameters and resource excesses reject the operation. Older 1.0-1.19 layouts retain their canonical bytes; extended state cannot be encoded under an older version. Serialization limits include per-layer and total filter counts and all filter/mask strings.

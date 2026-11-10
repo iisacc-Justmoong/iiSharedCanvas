@@ -6,6 +6,8 @@
 
 namespace iiSharedCanvas
 {
+// Which side of the latest local history entry is currently visible.
+enum class BitmapHistoryState { Applied, Undone };
 inline constexpr int BitmapPreviewTileSide = 64;
 // Borrowed row-major final ARGB pixels. Finite coordinates are asset-local;
 // chunked coordinates are world pixels within the allocated canvas region.

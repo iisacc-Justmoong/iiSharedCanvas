@@ -23,6 +23,7 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 | [`docs/BITMAP_PROCESSING.md`](BITMAP_PROCESSING.md) | [JSON](BITMAP_PROCESSING.agent.json) |
 | [`docs/BITMAP_WET_BRUSH.md`](BITMAP_WET_BRUSH.md) | [JSON](BITMAP_WET_BRUSH.agent.json) |
 | [`docs/BLUEPRINT.md`](BLUEPRINT.md) | [JSON](BLUEPRINT.agent.json) |
+| [`docs/BUILD_LAYOUT.md`](BUILD_LAYOUT.md) | [JSON](BUILD_LAYOUT.agent.json) |
 | [`docs/BuildComponents.md`](BuildComponents.md) | [JSON](BuildComponents.agent.json) |
 | [`docs/CANVAS_MEDIA.md`](CANVAS_MEDIA.md) | [JSON](CANVAS_MEDIA.agent.json) |
 | [`docs/CONTROLNET_PARAMETERS.md`](CONTROLNET_PARAMETERS.md) | [JSON](CONTROLNET_PARAMETERS.agent.json) |
@@ -31,6 +32,7 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 | [`docs/DOCUMENT_HISTORY.md`](DOCUMENT_HISTORY.md) | [JSON](DOCUMENT_HISTORY.agent.json) |
 | [`docs/DOCUMENT_PREVIEWS.md`](DOCUMENT_PREVIEWS.md) | [JSON](DOCUMENT_PREVIEWS.agent.json) |
 | [`docs/DYNAMIC_FRAME_CONTENT.md`](DYNAMIC_FRAME_CONTENT.md) | [JSON](DYNAMIC_FRAME_CONTENT.agent.json) |
+| [`docs/DynamicLinking.md`](DynamicLinking.md) | [JSON](DynamicLinking.agent.json) |
 | [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md) | [JSON](FILE_PROVIDER.agent.json) |
 | [`docs/FORMAT.md`](FORMAT.md) | [JSON](FORMAT.agent.json) |
 | [`docs/FOUR_LAYER_TYPES.md`](FOUR_LAYER_TYPES.md) | [JSON](FOUR_LAYER_TYPES.agent.json) |
