@@ -2,6 +2,7 @@
 
 #include <Layer/RasterLayer.h>
 #include <Render/Compositor.h>
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <utility>
@@ -28,7 +29,8 @@ class BitmapStrokeComposite final
     {
         return value >= 0 ? value / Side : (value + 1) / Side - 1;
     }
-    static void updateTile(Tile &tile, const std::vector<RasterSample> &local, RasterBlendMode mode)
+    static void updateTile(Tile &tile, const std::vector<RasterSample> &local, RasterBlendMode mode,
+                           bool updateChanged = true)
     {
         accumulateStrokeSamples(tile.pending, local);
         if (mode == RasterBlendMode::SourceOver || mode == RasterBlendMode::DestinationOut)
@@ -43,7 +45,7 @@ class BitmapStrokeComposite final
                     ? compositeRasterPixel(source, tile.original->pixels[index], mode)
                     : tile.original->pixels[index];
             }
-        tile.changed = tile.original->pixels != tile.preview.pixels;
+        if (updateChanged) tile.changed = tile.original->pixels != tile.preview.pixels;
     }
 
   public:
@@ -97,9 +99,6 @@ class BitmapStrokeComposite final
             std::vector<RasterSample> samples;
         };
         std::map<std::pair<int, int>, Group> groups;
-        // Reserve each tile's complete batch once. Repeated vector growth can
-        // otherwise allocate and copy nearly twice the projected sample count
-        // on every coalesced pointer update.
         std::pair<int, int> last{};
         Group *current = nullptr;
         for (const auto &sample : samples) {
@@ -110,30 +109,35 @@ class BitmapStrokeComposite final
             }
             ++current->count;
         }
-        for (auto &entry : groups)
-            entry.second.samples.reserve(entry.second.count);
-        current = nullptr;
-        for (auto sample : samples)
-        {
-            const int x = column(sample.position.x), y = column(sample.position.y);
-            const auto key = std::pair{x, y};
-            if (!current || key != last) {
-                current = &groups.find(key)->second;
-                last = key;
-            }
-            sample.position.x -= x * Side;
-            sample.position.y -= y * Side;
-            sample.blendMode = RasterBlendMode::SourceOver;
-            current->samples.push_back(sample);
-        }
         PreparedPaint prepared;
-        for (const auto &[key, group] : groups)
-        {
+        if (groups.empty()) return prepared;
+        const bool singleTile = groups.size() == 1;
+        // A single touched tile can consume the input in bounded batches.
+        // Multiple tiles keep their grouped path to preserve its CPU locality.
+        constexpr std::size_t singleTileBatch = 1024;
+        std::vector<RasterSample> local;
+        if (singleTile) local.reserve(std::min(groups.begin()->second.count, singleTileBatch));
+        else {
+            for (auto &entry : groups) entry.second.samples.reserve(entry.second.count);
+            current = nullptr;
+            for (auto sample : samples) {
+                const int x = column(sample.position.x), y = column(sample.position.y);
+                const auto key = std::pair{x, y};
+                if (!current || key != last) {
+                    current = &groups.find(key)->second;
+                    last = key;
+                }
+                sample.position.x -= x * Side;
+                sample.position.y -= y * Side;
+                sample.blendMode = RasterBlendMode::SourceOver;
+                current->samples.push_back(sample);
+            }
+        }
+        for (const auto &[key, group] : groups) {
             const auto prior = tiles_.find(key);
             auto tile = prior == tiles_.end() ? std::make_shared<Tile>()
                                              : std::make_shared<Tile>(*prior->second);
-            if (prior == tiles_.end())
-            {
+            if (prior == tiles_.end()) {
                 ++prepared.added_;
                 auto original = std::make_shared<RasterLayer>(makeRasterLayer(Side, Side));
                 tile->pending = makeStrokeCompositeBuffer(Side, Side);
@@ -144,7 +148,20 @@ class BitmapStrokeComposite final
                 tile->preview = *original;
                 tile->original = std::move(original);
             }
-            updateTile(*tile, group.samples, mode);
+            if (singleTile) {
+                for (auto sample : samples) {
+                    sample.position.x -= key.first * Side;
+                    sample.position.y -= key.second * Side;
+                    sample.blendMode = RasterBlendMode::SourceOver;
+                    local.push_back(sample);
+                    if (local.size() == singleTileBatch) {
+                        updateTile(*tile, local, mode, false);
+                        local.clear();
+                    }
+                }
+                if (!local.empty()) updateTile(*tile, local, mode, false);
+                tile->changed = tile->original->pixels != tile->preview.pixels;
+            } else updateTile(*tile, group.samples, mode);
             prepared.tiles_.emplace(key, std::move(tile));
         }
         return prepared;

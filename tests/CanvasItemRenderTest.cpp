@@ -95,6 +95,9 @@ int main(int argc, char **argv)
         qputenv("QT_QPA_PLATFORM", "offscreen");
     }
     QGuiApplication application(argc, argv);
+    const QString outputDirectory = QStringLiteral(IISHAREDCANVAS_TEST_OUTPUT_DIR);
+    expect(QDir().mkpath(outputDirectory),
+           "test output directory must be creatable in the configured resource workspace");
     {
         QQuickWindow host;
         auto *retiring = new iiSharedCanvas::CanvasItem(host.contentItem());
@@ -248,7 +251,7 @@ int main(int argc, char **argv)
            "iiSharedCanvas QML types must register once");
     QQmlEngine engine;
     QQmlComponent component(&engine);
-    component.setData("import QtQuick\nimport iiSharedCanvas 1.0\nSharedCanvas {}\n", QUrl{});
+    component.loadUrl(QUrl::fromLocalFile(QStringLiteral(IISHAREDCANVAS_LEGACY_QML_FIXTURE)));
     std::unique_ptr<QObject> qmlObject(component.create());
     expect(qmlObject && qobject_cast<CanvasItem *>(qmlObject.get()),
            "SharedCanvas must be constructible by an actual QML engine");
@@ -574,9 +577,6 @@ int main(int argc, char **argv)
     expect(artifact.bind(artifactDocument), "mixed render artifact document must bind");
     artifact.setZoom(24.0);
     const QImage artifactImage = render(artifact, 96, 96);
-    const QString outputDirectory = QStringLiteral(IISHAREDCANVAS_TEST_OUTPUT_DIR);
-    expect(QDir().mkpath(outputDirectory),
-           "test output directory must be creatable inside build/");
     expect(artifactImage.save(outputDirectory + QStringLiteral("/shared-canvas-item.png")),
            "the mixed CanvasItem verification artifact must be written as PNG");
 

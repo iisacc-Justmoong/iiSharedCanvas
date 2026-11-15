@@ -710,7 +710,8 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasCanvasItemRenderTest
             tests/CanvasItemRenderTest.cpp)
     target_compile_definitions(iiSharedCanvasCanvasItemRenderTest PRIVATE
-            IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output")
+            IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/test-output"
+            IISHAREDCANVAS_LEGACY_QML_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/tests/Legacy/CanvasItemQmlFixture.qml")
     target_link_libraries(iiSharedCanvasCanvasItemRenderTest PRIVATE
             iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.CanvasItemRender

@@ -13,6 +13,15 @@ presentation surface. Backend consumers request `COMPONENTS Core` and include
 `iiSharedCanvasCore.h` or specific headers. Core does not discover or link Qt
 Quick or QML. The four command-line tools also link Core only.
 
+The existing CanvasItem rendering test keeps its QML construction fixture in
+`tests/Legacy/CanvasItemQmlFixture.qml`; its other presentation and rendering
+checks remain in the same test. This isolation does not migrate the Quick
+component itself to LVUI.
+
+The CanvasItem test now creates its private resource output directory before
+its first file operation. A clean macOS Quick-enabled build and the offscreen
+CanvasItem test passed on 2026-11-15.
+
 ```cmake
 find_package(iiSharedCanvas CONFIG REQUIRED COMPONENTS Core)
 target_link_libraries(worker PRIVATE iiSharedCanvas::Core)

@@ -38,7 +38,8 @@ enable_testing()
 add_executable(iiSharedCanvasInstalledCanvasPresentation ../CanvasItemRenderTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledCanvasPresentation PRIVATE iiSharedCanvas::iiSharedCanvas)
 target_compile_definitions(iiSharedCanvasInstalledCanvasPresentation PRIVATE
-    IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}")
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}"
+    IISHAREDCANVAS_LEGACY_QML_FIXTURE="${CMAKE_CURRENT_SOURCE_DIR}/../Legacy/CanvasItemQmlFixture.qml")
 add_test(NAME iiSharedCanvas.InstalledCanvasPresentation COMMAND iiSharedCanvasInstalledCanvasPresentation)
 set_tests_properties(iiSharedCanvas.InstalledCanvasPresentation PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
 add_executable(iiSharedCanvasInstalledDocumentPreview ../DocumentPreviewTest.cpp)

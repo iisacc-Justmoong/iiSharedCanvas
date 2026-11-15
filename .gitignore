@@ -3,3 +3,4 @@
 /resources/.state/
 /CMakeUserPresets.json
 .DS_Store
+resources/

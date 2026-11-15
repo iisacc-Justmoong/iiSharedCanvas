@@ -98,7 +98,7 @@
       "document_id": "urn:iisacc:document:9f50c3e9dd168efbbc2283678201fb2aa45556292019344b5b10c419dffbd7fc",
       "source": "docs/BITMAP_INPUT.md",
       "agent_json": "docs/BITMAP_INPUT.agent.json",
-      "source_sha256": "ea99bd60991193e3a4efbab0252de6ae83bbbf746c050bac50799a5816cc6117",
+      "source_sha256": "fddb17a72957de8d5b30371a6fe41f81c74f1d8859b6ae166e983a24c2378aca",
       "role": "guide"
     },
     {
@@ -133,7 +133,7 @@
       "document_id": "urn:iisacc:document:e52e16fe39b2a370db307d2fe990556ce5fd6e77c24e942606412eff86cc2e57",
       "source": "docs/BuildComponents.md",
       "agent_json": "docs/BuildComponents.agent.json",
-      "source_sha256": "aecc369cd273a0f27b93fbc90d35b5e35002432f38a00ab1df2f0d5c6120d709",
+      "source_sha256": "d138c0a7bc6c455a3f7d52761ad99813d10538782a77794233e5ce7be0cd49b1",
       "role": "guide"
     },
     {
