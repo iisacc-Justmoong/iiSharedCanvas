@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <array>
+#include <exception>
 #include <filesystem>
 #include <limits>
 #include <map>
@@ -671,6 +672,30 @@ DocumentFileResult DocumentFile::edit(const std::function<bool(Document &)> &edi
     return editImpl(edit, true);
 }
 
+DocumentFileResult DocumentFile::replaceSnapshot(const Document &source, std::uint64_t expectedRevision)
+{
+    if (!isOpen()) return m_impl->fail(DocumentFileCode::NotOpen, "no working file is open");
+    if (revision() != expectedRevision)
+        return m_impl->fail(DocumentFileCode::Conflict, "working file revision changed");
+    return editImpl([&](Document &draft) { draft = source; return true; }, false);
+}
+
+DocumentFileResult DocumentFile::publishEdit(const Document &source, std::uint64_t expectedRevision)
+{
+    if (!isOpen()) return m_impl->fail(DocumentFileCode::NotOpen, "no working file is open");
+    if (revision() != expectedRevision)
+        return m_impl->fail(DocumentFileCode::Conflict, "working file revision changed");
+    try {
+        auto changes = encodeIiscEdit(m_impl->document, source, m_impl->limits);
+        requireEncoding(changes.error);
+        return editImpl({}, false, &source, changes.bytes);
+    } catch (const FileFailure &failure) {
+        return m_impl->fail(failure.code, failure.what());
+    } catch (const std::exception &failure) {
+        return m_impl->fail(DocumentFileCode::EditRejected, failure.what());
+    }
+}
+
 DocumentFileResult DocumentFile::upgradeFormat()
 {
     return editImpl([](Document &draft) {
@@ -961,18 +986,67 @@ void DocumentFile::endBitmapEdit(bool accepted) noexcept
     }
 }
 
+DocumentFileResult DocumentFile::publishLayerProperties(
+    const Document &source, std::string_view layerId,
+    const DocumentAuthorship &expectedAuthorship, FormatVersion expectedVersion,
+    std::uint64_t expectedRevision)
+{
+    if (!isOpen()) return m_impl->fail(DocumentFileCode::NotOpen, "no working file is open");
+    try {
+        if (&source == document())
+            return m_impl->fail(DocumentFileCode::InvalidArgument, "a separate source document is required");
+        if (revision()!=expectedRevision || document()->formatVersion.major!=expectedVersion.major ||
+            document()->formatVersion.minor!=expectedVersion.minor ||
+            document()->authorship.dump()!=expectedAuthorship.dump())
+            return m_impl->fail(DocumentFileCode::Conflict, "working file metadata or revision changed");
+        const auto supported = [](FormatVersion version) {
+            return version.major==CurrentFormatMajor &&
+                (version.minor==CurrentFormatMinor || version.minor+1==CurrentFormatMinor);
+        };
+        if (storageVersion()!=StorageVersion || !supported(expectedVersion) || !supported(source.formatVersion))
+            return m_impl->fail(DocumentFileCode::UnsupportedFormat,
+                                "layer history requires current tiled storage and a supported model version");
+        const std::string id(layerId);
+        const auto *desired=findLayer(source,id);
+        const auto *current=findLayer(*document(),id);
+        if (!desired || !current || desired->index()!=current->index())
+            return m_impl->fail(DocumentFileCode::InvalidArgument, "layer identity or kind does not match");
+        auto properties=layerProperties(*desired);
+        auto authorship=source.authorship;
+        const auto version=source.formatVersion;
+        bool fallback=false;
+        auto result=editLayerPropertiesImpl(id, [&](Document &document) {
+            auto *target=findLayer(document,id);
+            if (!target) return false;
+            layerProperties(*target)=std::move(properties);
+            document.authorship=std::move(authorship);
+            document.formatVersion=version;
+            return true;
+        },fallback,true);
+        if (fallback)
+            return m_impl->fail(DocumentFileCode::UnsupportedFormat, "layer history cannot use a document-copy fallback");
+        return result;
+    } catch (const std::bad_alloc &) {
+        return m_impl->fail(DocumentFileCode::LimitExceeded, "out of memory preparing layer history");
+    } catch (const std::exception &error) {
+        return m_impl->fail(DocumentFileCode::EditRejected, error.what());
+    } catch (...) {
+        return m_impl->fail(DocumentFileCode::EditRejected, "unknown layer history publication failure");
+    }
+}
+
 DocumentFileResult DocumentFile::editLayerPropertiesImpl(
     const std::string &layerId, const std::function<bool(Document &)> &edit,
-    bool &useDraftFallback)
+    bool &useDraftFallback, bool allowFormatTransition)
 {
     useDraftFallback = false;
     m_impl->statistics = {};
     if (!isOpen()) return m_impl->fail(DocumentFileCode::NotOpen, "no working file is open");
     if (!edit || m_impl->editing)
         return m_impl->fail(DocumentFileCode::EditRejected, "empty or nested file edits are not allowed");
-    if (m_impl->storageVersion != StorageVersion ||
+    if (m_impl->storageVersion != StorageVersion || (!allowFormatTransition && (
         m_impl->document.formatVersion.major != CurrentFormatMajor ||
-        m_impl->document.formatVersion.minor != CurrentFormatMinor) {
+        m_impl->document.formatVersion.minor != CurrentFormatMinor))) {
         useDraftFallback = true;
         return {};
     }
@@ -1025,9 +1099,12 @@ DocumentFileResult DocumentFile::editLayerPropertiesImpl(
         } candidate(m_impl->document, layerProperties(*layer));
         if (!edit(m_impl->document))
             return m_impl->fail(DocumentFileCode::EditRejected, "the layer edit was rejected");
-        if (m_impl->document.formatVersion.major != candidate.savedVersion.major ||
-            m_impl->document.formatVersion.minor != candidate.savedVersion.minor)
+        if (!allowFormatTransition && (m_impl->document.formatVersion.major != candidate.savedVersion.major ||
+            m_impl->document.formatVersion.minor != candidate.savedVersion.minor))
             throw FileFailure(DocumentFileCode::EditRejected, "a layer property edit changed the document version");
+        const auto desiredVersion=m_impl->document.formatVersion;
+        const bool changesRecordStructure = desiredVersion.major != candidate.savedVersion.major ||
+            desiredVersion.minor != candidate.savedVersion.minor;
         auto after = detail::encodeDocumentRecords(m_impl->document, &m_impl->document,
                                                     m_impl->limits, true);
         requireEncoding(after.error);
@@ -1035,11 +1112,11 @@ DocumentFileResult DocumentFile::editLayerPropertiesImpl(
         requireEncoding(resources.error);
         candidate.restore();
 
-        if (before.records.size() != after.records.size())
+        if (!changesRecordStructure && before.records.size() != after.records.size())
             throw FileFailure(DocumentFileCode::EditRejected, "a layer property edit changed record structure");
         const detail::DocumentRecord *layerBefore = nullptr, *layerAfter = nullptr;
         const detail::DocumentRecord *authorBefore = nullptr, *authorAfter = nullptr;
-        for (std::size_t i = 0; i < before.records.size(); ++i) {
+        for (std::size_t i = 0; !changesRecordStructure && i < before.records.size(); ++i) {
             const auto &a = before.records[i], &b = after.records[i];
             if (a.kind != b.kind || a.id != b.id || a.position != b.position)
                 throw FileFailure(DocumentFileCode::EditRejected, "a layer property edit changed record identity");
@@ -1051,8 +1128,9 @@ DocumentFileResult DocumentFile::editLayerPropertiesImpl(
                 throw FileFailure(DocumentFileCode::EditRejected, "a layer property edit changed another record");
             }
         }
-        if (!layerBefore || !layerAfter || !authorBefore || !authorAfter ||
+        if (!changesRecordStructure && (!layerBefore || !layerAfter || !authorBefore || !authorAfter ||
             !layerBefore->data || !layerAfter->data || !authorBefore->data || !authorAfter->data)
+           )
             throw FileFailure(DocumentFileCode::CorruptFile, "layer or authorship record is missing");
 
         // Prepare the notification path before durable publication: no
@@ -1067,10 +1145,16 @@ DocumentFileResult DocumentFile::editLayerPropertiesImpl(
             throw FileFailure(DocumentFileCode::Conflict, "the working file changed outside this session");
         std::uint64_t removedBytes = 0, addedBytes = 0;
         DocumentFileWriteStatistics statistics;
-        replacePreparedRecord(database, detail::RecordKind::Layer, layerId, *layerBefore->data,
-                              *layerAfter->data, removedBytes, addedBytes, statistics);
-        replacePreparedRecord(database, detail::RecordKind::Authorship, "", *authorBefore->data,
-                              *authorAfter->data, removedBytes, addedBytes, statistics);
+        if (changesRecordStructure) {
+            RecordPayloadDelta delta;
+            statistics=writeRecords(database,after.records,m_impl->limits,&delta);
+            removedBytes=delta.removedBytes; addedBytes=delta.addedBytes;
+        } else {
+            replacePreparedRecord(database, detail::RecordKind::Layer, layerId, *layerBefore->data,
+                                  *layerAfter->data, removedBytes, addedBytes, statistics);
+            replacePreparedRecord(database, detail::RecordKind::Authorship, "", *authorBefore->data,
+                                  *authorAfter->data, removedBytes, addedBytes, statistics);
+        }
         if (!statistics.recordsWritten) {
             transaction.commit();
             m_impl->result = {};
@@ -1085,6 +1169,7 @@ DocumentFileResult DocumentFile::editLayerPropertiesImpl(
         using std::swap;
         swap(candidate.properties, candidate.savedProperties);
         swap(m_impl->document.authorship, candidate.savedAuthorship);
+        m_impl->document.formatVersion=desiredVersion;
         ++m_impl->revision;
         m_impl->resources = resources.totals;
         m_impl->payloadBytes = payload;
@@ -1478,13 +1563,14 @@ DocumentFileResult DocumentFile::editAssetLayerImpl(
     }
 }
 
-DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> &edit, bool stampAuthorship)
+DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> &edit, bool stampAuthorship,
+    const Document *source, std::span<const std::uint8_t> changes)
 {
     m_impl->statistics = {};
     if (!isOpen()) {
         return m_impl->fail(DocumentFileCode::NotOpen, "no working file is open");
     }
-    if (!edit || m_impl->editing) {
+    if ((!edit && !source) || m_impl->editing) {
         return m_impl->fail(DocumentFileCode::EditRejected, "empty or nested file edits are not allowed");
     }
     struct EditingGuard {
@@ -1495,10 +1581,14 @@ DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> 
     // Keep rollback and outcome verification inside the same source scope.
     std::unique_lock<SourceAccess> sourceLock;
     try {
-        Document draft = m_impl->document;
-        if (!edit(draft)) {
-            return m_impl->fail(DocumentFileCode::EditRejected, "the edit callback rejected its draft");
+        std::optional<Document> owned;
+        if (!source) {
+            owned.emplace(m_impl->document);
+            if (!edit(*owned))
+                return m_impl->fail(DocumentFileCode::EditRejected, "the edit callback rejected its draft");
+            source = &*owned;
         }
+        const Document &draft = *source;
         auto encoded = detail::encodeDocumentRecords(draft, &m_impl->document, m_impl->limits,
                                                       m_impl->storageVersion == 2);
         requireEncoding(encoded.error);
@@ -1518,12 +1608,12 @@ DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> 
         if (statistics.recordsWritten == 0) {
             transaction.commit();
             // Selecting an already recorded author changes only local edit context.
-            m_impl->document.authorship = std::move(draft.authorship);
+            if (owned) m_impl->document.authorship = std::move(owned->authorship);
             m_impl->result = {};
             return m_impl->result;
         }
-        if (stampAuthorship && draft.authorship.dump() == m_impl->document.authorship.dump()) {
-            recordDocumentChange(draft);
+        if (stampAuthorship && owned && draft.authorship.dump() == m_impl->document.authorship.dump()) {
+            recordDocumentChange(*owned);
             auto stamped = detail::encodeDocumentRecords(draft, &m_impl->document, m_impl->limits,
                                                           m_impl->storageVersion == 2);
             requireEncoding(stamped.error);
@@ -1547,10 +1637,22 @@ DocumentFileResult DocumentFile::editImpl(const std::function<bool(Document &)> 
         const auto resources = detail::workingResourceTotals(draft, m_impl->limits);
         requireEncoding(resources.error);
         const auto payloadBytes = storedPayloadBytes(database, StorageVersion, m_impl->limits);
-        detail::PreparedDocumentCommit prepared(m_impl->document, draft);
         database->execute("UPDATE canvas_state SET revision=revision+1 WHERE singleton=1");
-        transaction.commit();
-        prepared.commit();
+        if (owned) {
+            detail::PreparedDocumentCommit prepared(m_impl->document, *owned);
+            transaction.commit();
+            prepared.commit();
+        } else {
+            // Keep the rollback data for changed objects and tiles until
+            // SQLite confirms the same revision. Preserve typed storage errors.
+            std::exception_ptr failure;
+            const auto applied = applyIiscEdit(m_impl->document, changes, m_impl->limits, [&](const Document &) {
+                try { transaction.commit(); return true; }
+                catch (...) { failure = std::current_exception(); return false; }
+            });
+            if (failure) std::rethrow_exception(failure);
+            requireEncoding(applied);
+        }
         ++m_impl->revision;
         m_impl->storageVersion = StorageVersion;
         m_impl->resources = resources.totals;

@@ -60,6 +60,64 @@ int main()
     std::filesystem::create_directories(parent);
     iiFileProvider::native::TemporaryDirectory temporary(parent);
     CHECK(temporary.isValid());
+    {
+        Document before; before.extent={16,16};
+        before.assets.emplace_back(RasterAsset{"paint",makeRasterLayer(16,16,0)});
+        before.layers.emplace_back(StaticBitmapLayer{{"layer","Paint"},StaticSource{"paint"}});
+        Document checkpoint=before; checkpoint.extent={32,32};
+        findRasterAsset(checkpoint,"paint")->pixels=makeRasterLayer(32,32,0xff123456);
+        const auto path=(temporary.path()/"checkpoint.iisc").string();
+        DocumentFile file; CHECK(file.create(path,before).ok());
+        const auto desired=encodeIisc(checkpoint).bytes;
+        const auto original_author=checkpoint.authorship.dump();
+        const auto accepted=file.replaceSnapshot(checkpoint,file.revision());
+        CHECK(accepted.ok() && accepted.changed && file.revision()==1 &&
+              file.document()->authorship.dump()==original_author && encodeIisc(*file.document()).bytes==desired);
+        CHECK(!file.replaceSnapshot(before,0).ok() && file.revision()==1 && encodeIisc(*file.document()).bytes==desired);
+        namespace sql=iiFileProvider::native::sql;
+        auto db=sql::Database::open(path); CHECK(bool(db));
+        auto lock=sql::Transaction::begin(*db,true); CHECK(bool(lock));
+        CHECK(!file.replaceSnapshot(before,file.revision()).ok() && file.revision()==1 &&
+              encodeIisc(*file.document()).bytes==desired);
+        CHECK(bool(lock->rollback())); file.close();
+        CHECK(file.open(path).ok() && encodeIisc(*file.document()).bytes==desired);
+    }
+    {
+        Document initialDelta;
+        initialDelta.extent={32,32};
+        initialDelta.formatVersion.minor=CurrentFormatMinor-1;
+        initialDelta.assets.emplace_back(RasterAsset{"pixels",makeRasterLayer(32,32,0xff123456)});
+        initialDelta.layers.emplace_back(StaticBitmapLayer{{"layer","Old"},StaticSource{"pixels"}});
+        const auto deltaPath=(temporary.path()/"property-delta.iisc").string();
+        DocumentFile delta;
+        CHECK(delta.create(deltaPath,initialDelta).ok());
+        Document candidate=*delta.document();
+        const auto beforeAuth=delta.document()->authorship;
+        const auto beforeVersion=delta.document()->formatVersion;
+        DocumentEditor changes(candidate);
+        CHECK(changes.setLayerName("layer","New").changed);
+        const auto result=delta.publishLayerProperties(candidate,"layer",beforeAuth,beforeVersion,delta.revision());
+        CHECK(result.ok() && result.changed && delta.revision()==1);
+        CHECK(encodeIisc(*delta.document()).bytes==encodeIisc(candidate).bytes);
+        const auto stale=delta.publishLayerProperties(initialDelta,"layer",beforeAuth,beforeVersion,0);
+        CHECK(!stale.ok() && delta.revision()==1);
+        const auto currentAuth=delta.document()->authorship;
+        const auto currentVersion=delta.document()->formatVersion;
+        CHECK(delta.publishLayerProperties(initialDelta,"layer",currentAuth,currentVersion,delta.revision()).changed);
+        CHECK(encodeIisc(*delta.document()).bytes==encodeIisc(initialDelta).bytes);
+        delta.close();
+        CHECK(delta.open(deltaPath).ok() && encodeIisc(*delta.document()).bytes==encodeIisc(initialDelta).bytes);
+        namespace sql=iiFileProvider::native::sql;
+        auto connection=sql::Database::open(deltaPath);CHECK(bool(connection));
+        auto lock=sql::Transaction::begin(*connection,true);CHECK(bool(lock));
+        const auto revisionBeforeLock=delta.revision();
+        CHECK(!delta.publishLayerProperties(candidate,"layer",beforeAuth,beforeVersion,revisionBeforeLock).ok());
+        CHECK(delta.revision()==revisionBeforeLock && encodeIisc(*delta.document()).bytes==encodeIisc(initialDelta).bytes);
+        CHECK(bool(lock->rollback()));
+        CHECK(delta.publishLayerProperties(candidate,"layer",beforeAuth,beforeVersion,revisionBeforeLock).changed);
+        delta.close();
+        CHECK(delta.open(deltaPath).ok() && encodeIisc(*delta.document()).bytes==encodeIisc(candidate).bytes);
+    }
     const auto path = (temporary.path() / "layers.iisc").string();
 
     Document initial;
@@ -132,6 +190,22 @@ int main()
     CHECK(bitmap.undo() && bitmap.pixelAt(23, 24) == 0);
     CHECK(bitmap.redo() && bitmap.pixelAt(23, 24) == 0xff123456);
     CHECK(layerProperties(*findLayer(*file.document(), "paint-layer")).name == "Final layer");
+
+    // Prepare test states outside the measurement: publishing a scalar change
+    // must not allocate or copy the three 1024 x 1024 raster payloads.
+    Document originalForHistory=*file.document();
+    Document editedForHistory=originalForHistory;
+    DocumentEditor historyEditor(editedForHistory);
+    CHECK(historyEditor.setLayerName("paint-layer","Delta probe").changed);
+    allocation::largest=allocation::total=0; allocation::enabled=true;
+    const auto published=file.publishLayerProperties(editedForHistory,"paint-layer",originalForHistory.authorship,
+                                                       originalForHistory.formatVersion,file.revision());
+    allocation::enabled=false;
+    CHECK(published.ok() && published.changed);
+    if constexpr (!IISHAREDCANVAS_ADDRESS_SANITIZED_TEST)
+        CHECK(allocation::largest < 256U*1024 && allocation::total < 1024U*1024);
+    CHECK(file.publishLayerProperties(originalForHistory,"paint-layer",editedForHistory.authorship,
+                                      editedForHistory.formatVersion,file.revision()).changed);
 
     allocation::calls = 0;
     allocation::enabled = true;

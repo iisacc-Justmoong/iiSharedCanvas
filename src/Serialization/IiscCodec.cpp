@@ -10,6 +10,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <map>
+#include <set>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -1303,7 +1305,9 @@ void writeDocumentHeader(ByteWriter &writer, const Document &document, bool work
 void writePayload(ByteWriter &writer, const Document &document,
                   std::vector<detail::DocumentRecord> *records = nullptr,
                   const Document *previous = nullptr, bool separateRasters = false,
-                  std::string_view forceAsset = {})
+                  std::string_view forceAsset = {},
+                  const std::set<std::string_view> *rasterEdits = nullptr,
+                  bool portableRecords = false)
 {
     const auto record = [&](detail::RecordKind kind, std::string id = {},
                             std::uint32_t position = 0) {
@@ -1315,7 +1319,8 @@ void writePayload(ByteWriter &writer, const Document &document,
     record(detail::RecordKind::Header);
     std::uint32_t assetPosition = 0;
     for (const Asset &asset : document.assets) {
-        if (records && assetId(asset)!=forceAsset && unchangedAsset(asset, previous)) {
+        if (records && ((rasterEdits && rasterEdits->contains(assetId(asset))) ||
+                        (assetId(asset) != forceAsset && unchangedAsset(asset, previous)))) {
             records->push_back({detail::RecordKind::Asset, assetId(asset), assetPosition++, std::nullopt});
             continue;
         }
@@ -1326,7 +1331,7 @@ void writePayload(ByteWriter &writer, const Document &document,
         writer.writeU8(kind);
         writer.writeString(assetId(asset));
         if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
-            writeRaster(writer, raster->pixels, !records, separateRasters);
+            writeRaster(writer, raster->pixels, portableRecords || !records, separateRasters);
         } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
             writer.writeI32(mlsd->viewport.width); writer.writeI32(mlsd->viewport.height);
             writer.writeU32(static_cast<std::uint32_t>(mlsd->segments.size()));
@@ -1396,9 +1401,9 @@ void writePayload(ByteWriter &writer, const Document &document,
             writer.writeU32(video->frameRate.numerator);
             writer.writeU32(video->frameRate.denominator);
             writer.writeU32(static_cast<std::uint32_t>(video->frames.size()));
-            for (const auto &frame : video->frames) { writeRaster(writer, frame, !records); }
+            for (const auto &frame : video->frames) { writeRaster(writer, frame, portableRecords || !records); }
         } else {
-            writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset), !records, separateRasters);
+            writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset), portableRecords || !records, separateRasters);
         }
         record(detail::RecordKind::Asset, assetId(asset), assetPosition++);
     }
@@ -1625,76 +1630,12 @@ public:
     Document read(FormatVersion version)
     {
         Document document;
-        document.formatVersion = version;
-        document.extent = {m_reader.readI32(), m_reader.readI32()};
-        if (version.minor >= 1) {
-            const std::uint8_t canvasMode = m_reader.readU8();
-            if (canvasMode == 1U) {
-                document.canvasMode = CanvasMode::Infinite;
-                document.infiniteCanvas.origin = {m_reader.readI32(), m_reader.readI32()};
-                document.infiniteCanvas.chunkSize = m_reader.readI32();
-            } else if (canvasMode != 0U) {
-                m_reader.fail(IiscErrorCode::InvalidData, "unknown canvas mode tag");
-            }
-        }
-        document.timeline.frameRate = {m_reader.readU32(), m_reader.readU32()};
-        document.timeline.frameCount = m_reader.readU32();
-
-        std::uint64_t canvasPixels = 0;
-        if (!pixelCountWithin(document.extent.width,
-                              document.extent.height,
-                              m_limits.maximumCanvasPixels,
-                              canvasPixels)) {
-            m_reader.fail(IiscErrorCode::LimitExceeded,
-                          "decoded canvas pixel count exceeds the configured limit");
-        }
+        readHeader(document, version);
 
         const std::uint32_t assetCount = limitedCount(m_limits.maximumAssets, "asset");
         document.assets.reserve(assetCount);
         for (std::uint32_t index = 0; index < assetCount; ++index) {
-            const std::uint8_t kind = m_reader.readU8();
-            const std::string id = readString();
-            if (kind == 0) {
-                document.assets.emplace_back(RasterAsset{id, readRaster(id)});
-            } else if (kind == 1) {
-                document.assets.emplace_back(readVector(id));
-            } else if (kind == 2 && version.minor >= 1) {
-                document.assets.emplace_back(readChunkedRaster(id));
-            } else if (kind == 10 && version.minor >= 13) {
-                document.assets.emplace_back(readNormalMapAsset(id));
-            } else if (kind == 11 && version.minor >= 14) {
-                document.assets.emplace_back(readShuffleAsset(id));
-            } else if (kind == 12 && version.minor >= 15) {
-                document.assets.emplace_back(readTileAsset(id));
-            } else if (kind == 14 && version.minor >= 17) {
-                document.assets.emplace_back(readIpAdapterAsset(id));
-            } else if (kind == 13 && version.minor >= 16) {
-                document.assets.emplace_back(readReferenceAsset(id));
-            } else if (kind == 9 && version.minor >= 12) {
-                document.assets.emplace_back(readMlsdAsset(id));
-            } else if (kind == 7 && version.minor >= 11) {
-                document.assets.emplace_back(readCannyAsset(id));
-            } else if (kind == 8 && version.minor >= 11) {
-                document.assets.emplace_back(readScribbleAsset(id));
-            } else if (kind == 6 && version.minor >= 10) {
-                document.assets.emplace_back(readLineArtAsset(id));
-            } else if (kind == 5 && version.minor >= 9) {
-                document.assets.emplace_back(readDepthAsset(id));
-            } else if (kind == 4 && version.minor >= 8) {
-                document.assets.emplace_back(readPoseAsset(id));
-            } else if (kind == 3 && version.minor >= 6) {
-                VideoAsset video;
-                video.id = id;
-                video.frameRate = {m_reader.readU32(), m_reader.readU32()};
-                const auto count = m_reader.readU32();
-                addTotal(m_totals.videoFrames, count, m_limits.maximumTotalVideoFrames, "video frame");
-                requireCollectionBytes(count, 25);
-                video.frames.reserve(count);
-                for (std::uint32_t frame = 0; frame < count; ++frame) { video.frames.push_back(readRaster()); }
-                document.assets.emplace_back(std::move(video));
-            } else {
-                m_reader.fail(IiscErrorCode::InvalidData, "unknown asset kind tag");
-            }
+            document.assets.push_back(readAsset(version));
         }
 
         const std::uint32_t layerCount = limitedCount(m_limits.maximumLayers, "layer");
@@ -1742,49 +1683,211 @@ public:
             readAudio(document);
         }
         if (version.minor >= 5) {
-            const auto dump = readStringWithLimit(DocumentAuthorship::MaximumBytes, "authorship");
-            auto authorship = authorshipFromDump(dump);
-            if (!authorship) m_reader.fail(IiscErrorCode::InvalidData, "invalid authorship metadata");
-            document.authorship = std::move(*authorship);
+            document.authorship = readAuthorship();
         }
         if (version.minor >= 18) {
             const auto count = limitedCount(m_limits.maximumArtboards, "artboard");
             requireCollectionBytes(count, 29);
             document.artboards.reserve(count);
             for (std::uint32_t i = 0; i < count; ++i) {
-                Artboard a;
-                a.id = readString(); a.name = readString();
-                a.region.origin = {m_reader.readI32(), m_reader.readI32()};
-                a.region.extent = {m_reader.readI32(), m_reader.readI32()};
-                std::uint64_t pixels = 0;
-                if (!pixelCountWithin(a.region.extent.width, a.region.extent.height, m_limits.maximumCanvasPixels, pixels))
-                    m_reader.fail(IiscErrorCode::LimitExceeded, "artboard extent exceeds the pixel limit");
-                a.backgroundArgb = m_reader.readU32(); a.visible = readBoolean();
-                document.artboards.push_back(std::move(a));
+                document.artboards.push_back(readArtboard());
             }
         }
         if (version.minor >= 22 && readBoolean()) {
-            PublicationMetadata m;
-            m.title=readMetadataString(); m.description=readMetadataString(); m.coverArtboardId=readMetadataString();
-            const auto count=readMetadataCount("publication canvas");
-            requireCollectionBytes(count,12); m.canvases.reserve(count);
-            for (std::uint32_t i=0;i<count;++i)
-                m.canvases.push_back({readMetadataString(),readMetadataString(),readMetadataString()});
-            const auto settings=readMetadataCount("publication setting");
-            requireCollectionBytes(settings,6);
-            for (std::uint32_t i=0;i<settings;++i) {
-                auto key=readMetadataString(); PublicationSetting value;
-                const auto tag=m_reader.readU8();
-                if (tag==0) value=readMetadataString();
-                else if (tag==1) value=readBoolean();
-                else m_reader.fail(IiscErrorCode::InvalidData,"unknown publication setting type");
-                if (!m.settings.emplace(std::move(key),std::move(value)).second)
-                    m_reader.fail(IiscErrorCode::InvalidData,"duplicate publication setting name");
-            }
-            document.publicationMetadata=std::move(m);
+            document.publicationMetadata = readPublication();
         }
         return document;
     }
+
+    void readHeader(Document &document, FormatVersion version)
+    {
+        document.formatVersion = version;
+        document.extent = {m_reader.readI32(), m_reader.readI32()};
+        if (version.minor >= 1) {
+            const std::uint8_t canvasMode = m_reader.readU8();
+            if (canvasMode == 1U) {
+                document.canvasMode = CanvasMode::Infinite;
+                document.infiniteCanvas.origin = {m_reader.readI32(), m_reader.readI32()};
+                document.infiniteCanvas.chunkSize = m_reader.readI32();
+            } else if (canvasMode != 0U) {
+                m_reader.fail(IiscErrorCode::InvalidData, "unknown canvas mode tag");
+            }
+        }
+        document.timeline.frameRate = {m_reader.readU32(), m_reader.readU32()};
+        document.timeline.frameCount = m_reader.readU32();
+
+        std::uint64_t canvasPixels = 0;
+        if (!pixelCountWithin(document.extent.width,
+                              document.extent.height,
+                              m_limits.maximumCanvasPixels,
+                              canvasPixels)) {
+            m_reader.fail(IiscErrorCode::LimitExceeded,
+                          "decoded canvas pixel count exceeds the configured limit");
+        }
+    }
+
+    Asset readAsset(FormatVersion version)
+    {
+        const std::uint8_t kind = m_reader.readU8();
+        const std::string id = readString();
+        if (kind == 0) {
+            return RasterAsset{id, readRaster(id)};
+        } else if (kind == 1) {
+            return readVector(id);
+        } else if (kind == 2 && version.minor >= 1) {
+            return readChunkedRaster(id);
+        } else if (kind == 10 && version.minor >= 13) {
+            return readNormalMapAsset(id);
+        } else if (kind == 11 && version.minor >= 14) {
+            return readShuffleAsset(id);
+        } else if (kind == 12 && version.minor >= 15) {
+            return readTileAsset(id);
+        } else if (kind == 14 && version.minor >= 17) {
+            return readIpAdapterAsset(id);
+        } else if (kind == 13 && version.minor >= 16) {
+            return readReferenceAsset(id);
+        } else if (kind == 9 && version.minor >= 12) {
+            return readMlsdAsset(id);
+        } else if (kind == 7 && version.minor >= 11) {
+            return readCannyAsset(id);
+        } else if (kind == 8 && version.minor >= 11) {
+            return readScribbleAsset(id);
+        } else if (kind == 6 && version.minor >= 10) {
+            return readLineArtAsset(id);
+        } else if (kind == 5 && version.minor >= 9) {
+            return readDepthAsset(id);
+        } else if (kind == 4 && version.minor >= 8) {
+            return readPoseAsset(id);
+        } else if (kind == 3 && version.minor >= 6) {
+            VideoAsset video;
+            video.id = id;
+            video.frameRate = {m_reader.readU32(), m_reader.readU32()};
+            const auto count = m_reader.readU32();
+            addTotal(m_totals.videoFrames, count, m_limits.maximumTotalVideoFrames, "video frame");
+            requireCollectionBytes(count, 25);
+            video.frames.reserve(count);
+            for (std::uint32_t frame = 0; frame < count; ++frame) { video.frames.push_back(readRaster()); }
+            return std::move(video);
+        } else {
+            m_reader.fail(IiscErrorCode::InvalidData, "unknown asset kind tag");
+        }
+    }
+
+    DocumentAuthorship readAuthorship()
+    {
+        const auto dump = readStringWithLimit(DocumentAuthorship::MaximumBytes, "authorship");
+        auto authorship = authorshipFromDump(dump);
+        if (!authorship) m_reader.fail(IiscErrorCode::InvalidData, "invalid authorship metadata");
+        return std::move(*authorship);
+    }
+
+    Artboard readArtboard()
+    {
+        Artboard a;
+        a.id = readString(); a.name = readString();
+        a.region.origin = {m_reader.readI32(), m_reader.readI32()};
+        a.region.extent = {m_reader.readI32(), m_reader.readI32()};
+        std::uint64_t pixels = 0;
+        if (!pixelCountWithin(a.region.extent.width, a.region.extent.height, m_limits.maximumCanvasPixels, pixels))
+            m_reader.fail(IiscErrorCode::LimitExceeded, "artboard extent exceeds the pixel limit");
+        a.backgroundArgb = m_reader.readU32(); a.visible = readBoolean();
+        return a;
+    }
+
+    PublicationMetadata readPublication()
+    {
+        PublicationMetadata m;
+        m.title=readMetadataString(); m.description=readMetadataString(); m.coverArtboardId=readMetadataString();
+        const auto count=readMetadataCount("publication canvas");
+        requireCollectionBytes(count,12); m.canvases.reserve(count);
+        for (std::uint32_t i=0;i<count;++i)
+            m.canvases.push_back({readMetadataString(),readMetadataString(),readMetadataString()});
+        const auto settings=readMetadataCount("publication setting");
+        requireCollectionBytes(settings,6);
+        for (std::uint32_t i=0;i<settings;++i) {
+            auto key=readMetadataString(); PublicationSetting value;
+            const auto tag=m_reader.readU8();
+            if (tag==0) value=readMetadataString();
+            else if (tag==1) value=readBoolean();
+            else m_reader.fail(IiscErrorCode::InvalidData,"unknown publication setting type");
+            if (!m.settings.emplace(std::move(key),std::move(value)).second)
+                m_reader.fail(IiscErrorCode::InvalidData,"duplicate publication setting name");
+        }
+        return m;
+    }
+
+    AudioAsset readAudioAsset()
+    {
+        AudioAsset asset;
+        asset.id = readString();
+        asset.sampleRate = m_reader.readU32();
+        asset.channelCount = m_reader.readU16();
+        const auto count = m_reader.readU64();
+        addTotal(m_totals.audioSamples, count,
+                 std::min(m_limits.maximumTotalAudioSamples,
+                          m_limits.maximumContainerBytes / 2), "audio sample");
+        requireCollectionBytes(count, sizeof(std::int16_t));
+        if (count > asset.samples.max_size()) {
+            m_reader.fail(IiscErrorCode::LimitExceeded,
+                          "audio sample count exceeds the platform address space");
+        }
+        asset.samples.reserve(static_cast<std::size_t>(count));
+        for (std::uint64_t sample = 0; sample < count; ++sample) {
+            asset.samples.push_back(std::bit_cast<std::int16_t>(m_reader.readU16()));
+        }
+        return asset;
+    }
+
+    AudioTrackLayer readAudioTrack()
+    {
+        AudioTrackLayer track;
+        track.id = readString();
+        track.name = readString();
+        track.muted = readBoolean();
+        track.gainDb = m_reader.readDouble();
+        const auto clipCount = m_reader.readU32();
+        addTotal(m_totals.audioClips, clipCount,
+                 m_limits.maximumTotalAudioClips, "audio clip");
+        requireCollectionBytes(clipCount, 37);
+        track.clips.reserve(clipCount);
+        for (std::uint32_t clipIndex = 0; clipIndex < clipCount; ++clipIndex) {
+            AudioClip clip;
+            clip.id = readString();
+            clip.name = readString();
+            clip.assetId = readString();
+            clip.startFrame = m_reader.readU32();
+            clip.durationFrames = m_reader.readU32();
+            clip.sourceOffsetSamples = m_reader.readU64();
+            clip.gainDb = m_reader.readDouble();
+            clip.enabled = readBoolean();
+            track.clips.push_back(std::move(clip));
+        }
+        return track;
+    }
+
+    Layer readEditedLayer(const Document &document, FormatVersion version,
+                          std::map<FrameIndex, std::vector<Keyframe>> &keys)
+    {
+        auto layer = readLayer(document, 0, version);
+        for (auto &key : m_pendingKeyframes)
+            keys[key.frame].push_back({layerProperties(layer).id, std::move(key.assetId)});
+        m_pendingKeyframes.clear();
+        return layer;
+    }
+
+    std::optional<StableDiffusionMetadata> readOptionalMetadata(FormatVersion version)
+    {
+        if (version.minor >= 2 && readBoolean()) return readStableDiffusionMetadata();
+        return std::nullopt;
+    }
+
+    std::optional<PublicationMetadata> readOptionalPublication(FormatVersion version)
+    {
+        if (version.minor >= 22 && readBoolean()) return readPublication();
+        return std::nullopt;
+    }
+
+    RasterLayer readEditTile(int width, int height) { return readRaster({}, {}, CanvasExtent{width, height}); }
 
 private:
     void requireCollectionBytes(std::uint64_t count, std::uint64_t minimumBytes)
@@ -1801,52 +1904,13 @@ private:
         requireCollectionBytes(assetCount, 18);
         document.audioAssets.reserve(assetCount);
         for (std::uint32_t index = 0; index < assetCount; ++index) {
-            AudioAsset asset;
-            asset.id = readString();
-            asset.sampleRate = m_reader.readU32();
-            asset.channelCount = m_reader.readU16();
-            const auto count = m_reader.readU64();
-            addTotal(m_totals.audioSamples, count,
-                     std::min(m_limits.maximumTotalAudioSamples,
-                              m_limits.maximumContainerBytes / 2), "audio sample");
-            requireCollectionBytes(count, sizeof(std::int16_t));
-            if (count > asset.samples.max_size()) {
-                m_reader.fail(IiscErrorCode::LimitExceeded,
-                              "audio sample count exceeds the platform address space");
-            }
-            asset.samples.reserve(static_cast<std::size_t>(count));
-            for (std::uint64_t sample = 0; sample < count; ++sample) {
-                asset.samples.push_back(std::bit_cast<std::int16_t>(m_reader.readU16()));
-            }
-            document.audioAssets.push_back(std::move(asset));
+            document.audioAssets.push_back(readAudioAsset());
         }
         const auto trackCount = limitedCount(m_limits.maximumAudioTracks, "audio track");
         requireCollectionBytes(trackCount, 21);
         document.audioTracks.reserve(trackCount);
         for (std::uint32_t index = 0; index < trackCount; ++index) {
-            AudioTrackLayer track;
-            track.id = readString();
-            track.name = readString();
-            track.muted = readBoolean();
-            track.gainDb = m_reader.readDouble();
-            const auto clipCount = m_reader.readU32();
-            addTotal(m_totals.audioClips, clipCount,
-                     m_limits.maximumTotalAudioClips, "audio clip");
-            requireCollectionBytes(clipCount, 37);
-            track.clips.reserve(clipCount);
-            for (std::uint32_t clipIndex = 0; clipIndex < clipCount; ++clipIndex) {
-                AudioClip clip;
-                clip.id = readString();
-                clip.name = readString();
-                clip.assetId = readString();
-                clip.startFrame = m_reader.readU32();
-                clip.durationFrames = m_reader.readU32();
-                clip.sourceOffsetSamples = m_reader.readU64();
-                clip.gainDb = m_reader.readDouble();
-                clip.enabled = readBoolean();
-                track.clips.push_back(std::move(clip));
-            }
-            document.audioTracks.push_back(std::move(track));
+            document.audioTracks.push_back(readAudioTrack());
         }
     }
 
@@ -2052,10 +2116,13 @@ private:
     }
 
     RasterLayer readRaster(std::string_view asset = {},
-                           std::optional<CanvasOrigin> chunk = {})
+                           std::optional<CanvasOrigin> chunk = {},
+                           std::optional<CanvasExtent> requiredExtent = {})
     {
         const std::int32_t width = m_reader.readI32();
         const std::int32_t height = m_reader.readI32();
+        if (requiredExtent && *requiredExtent != CanvasExtent{width, height})
+            m_reader.fail(IiscErrorCode::InvalidData, "raster edit geometry does not match its target");
         const std::uint64_t declaredPixels = m_reader.readU64();
         std::uint64_t expectedPixels = 0;
         if (!pixelCountWithin(width,
@@ -3176,5 +3243,7 @@ IiscDecodeResult decodeIisc(std::span<const std::uint8_t> bytes,
         return {{}, makeError(failure.code, failure.offset, failure.what())};
     }
 }
+
+#include "Serialization/IiscEdit_p.hpp"
 
 } // namespace iiSharedCanvas

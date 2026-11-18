@@ -15,8 +15,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <limits>
 #include <new>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -70,13 +72,98 @@ struct BitmapHistorySeed {
 };
 }
 namespace {
-enum class Field { Name, Visible, Opacity, Transform, Blend, Order };
-using Value = std::variant<std::string, bool, double, AffineTransform, RasterBlendMode, std::size_t>;
-struct LayerChange {
-    std::string id;
-    Field field;
-    Value before, after;
-};
+bool sameTransform(const AffineTransform &a, const AffineTransform &b) noexcept {
+    return a.m11==b.m11 && a.m12==b.m12 && a.m21==b.m21 && a.m22==b.m22 &&
+           a.translationX==b.translationX && a.translationY==b.translationY;
+}
+}
+
+LayerChangeValue LayerChange::read(const Document &document, const Layer &layer, LayerChangeField field)
+{
+    const auto &p=layerProperties(layer);
+    switch (field) {
+    case LayerChangeField::Name: return p.name;
+    case LayerChangeField::Visible: return p.visible;
+    case LayerChangeField::Opacity: return p.opacity;
+    case LayerChangeField::Transform: return p.transform;
+    case LayerChangeField::Blend: return p.blendMode;
+    case LayerChangeField::Order: return layerIndex(document,p.id).value_or(document.layers.size());
+    }
+    return false;
+}
+bool LayerChange::same(LayerChangeField field, const LayerChangeValue &a, const LayerChangeValue &b) noexcept
+{
+    if (a.index()!=b.index()) return false;
+    switch (field) {
+    case LayerChangeField::Name: { auto x=std::get_if<std::string>(&a); return x && *x==std::get<std::string>(b); }
+    case LayerChangeField::Visible: { auto x=std::get_if<bool>(&a); return x && *x==std::get<bool>(b); }
+    case LayerChangeField::Opacity: { auto x=std::get_if<double>(&a); return x && *x==std::get<double>(b); }
+    case LayerChangeField::Transform: { auto x=std::get_if<AffineTransform>(&a); return x && sameTransform(*x,std::get<AffineTransform>(b)); }
+    case LayerChangeField::Blend: { auto x=std::get_if<RasterBlendMode>(&a); return x && *x==std::get<RasterBlendMode>(b); }
+    case LayerChangeField::Order: { auto x=std::get_if<std::size_t>(&a); return x && *x==std::get<std::size_t>(b); }
+    }
+    return false;
+}
+DocumentEditResult LayerChange::apply(DocumentEditor &editor, bool forward) const
+{
+    return applyValue(editor,forward ? after : before);
+}
+DocumentEditResult LayerChange::applyValue(DocumentEditor &editor, const LayerChangeValue &value) const
+{
+    switch (field) {
+    case LayerChangeField::Name: if (const auto *v=std::get_if<std::string>(&value)) return editor.setLayerName(id,*v); break;
+    case LayerChangeField::Visible: if (const auto *v=std::get_if<bool>(&value)) return editor.setLayerVisible(id,*v); break;
+    case LayerChangeField::Opacity: if (const auto *v=std::get_if<double>(&value)) return editor.setLayerOpacity(id,*v); break;
+    case LayerChangeField::Transform: if (const auto *v=std::get_if<AffineTransform>(&value)) return editor.setLayerTransform(id,*v); break;
+    case LayerChangeField::Blend: if (const auto *v=std::get_if<RasterBlendMode>(&value)) return editor.setLayerBlendMode(id,*v); break;
+    case LayerChangeField::Order: if (const auto *v=std::get_if<std::size_t>(&value)) return editor.moveLayer(id,*v); break;
+    }
+    return {DocumentEditCode::InvalidArgument,false,{},"layer change value does not match its field"};
+}
+bool LayerChange::swapProperty(LayerProperties &p, LayerChangeField field, LayerChangeValue &value) noexcept
+{
+    using std::swap;
+    switch (field) {
+    case LayerChangeField::Name: if (auto *v=std::get_if<std::string>(&value)) {swap(p.name,*v);return true;} break;
+    case LayerChangeField::Visible: if (auto *v=std::get_if<bool>(&value)) {swap(p.visible,*v);return true;} break;
+    case LayerChangeField::Opacity: if (auto *v=std::get_if<double>(&value)) {swap(p.opacity,*v);return true;} break;
+    case LayerChangeField::Transform: if (auto *v=std::get_if<AffineTransform>(&value)) {swap(p.transform,*v);return true;} break;
+    case LayerChangeField::Blend: if (auto *v=std::get_if<RasterBlendMode>(&value)) {swap(p.blendMode,*v);return true;} break;
+    case LayerChangeField::Order: break;
+    }
+    return false;
+}
+std::size_t LayerChange::retainedBytes() const noexcept
+{
+    const auto extra=[](const LayerChangeValue &value) {
+        const auto *text=std::get_if<std::string>(&value);
+        return text ? text->capacity() : std::size_t{};
+    };
+    return sizeof(*this)+id.capacity()+extra(before)+extra(after);
+}
+LayerPropertyGuard::LayerPropertyGuard(Document &document, Layer &layer, LayerChangeField field)
+    : document_(document), properties_(layerProperties(layer)), field_(field),
+      value_(LayerChange::read(document,layer,field)), authorship_(document.authorship),
+      version_(document.formatVersion)
+{
+    if (!LayerChange::swapProperty(properties_,field_,value_))
+        throw std::invalid_argument("a layer property guard requires a property field");
+    static_assert(std::is_nothrow_swappable_v<DocumentAuthorship>);
+    using std::swap;
+    swap(document_.authorship,authorship_);
+}
+LayerPropertyGuard::~LayerPropertyGuard() noexcept
+{
+    if (!active_) return;
+    if (!LayerChange::swapProperty(properties_,field_,value_)) std::terminate();
+    using std::swap;
+    swap(document_.authorship,authorship_);
+    document_.formatVersion=version_;
+}
+
+namespace {
+using Field = LayerChangeField;
+using Value = LayerChangeValue;
 struct LayerStructureChange {
     Layer layer;
     std::vector<KeyframePlacement> keys;
@@ -120,10 +207,6 @@ bool sameTimeline(const Timeline &a,const Timeline &b) noexcept {
     const auto &[rateA,countA]=a; const auto &[rateB,countB]=b;
     const auto &[numeratorA,denominatorA]=rateA; const auto &[numeratorB,denominatorB]=rateB;
     return numeratorA==numeratorB && denominatorA==denominatorB && countA==countB;
-}
-bool sameTransform(const AffineTransform &a, const AffineTransform &b) noexcept {
-    return a.m11==b.m11 && a.m12==b.m12 && a.m21==b.m21 && a.m22==b.m22 &&
-           a.translationX==b.translationX && a.translationY==b.translationY;
 }
 bool validTransform(const AffineTransform &v) noexcept {
     return std::isfinite(v.m11) && std::isfinite(v.m12) && std::isfinite(v.m21) &&
@@ -197,54 +280,18 @@ bool layerStructureSize(std::size_t &total,const Layer &layer,
     return true;
 }
 bool sameValue(Field field, const Value &a, const Value &b) {
-    switch (field) {
-    case Field::Name: return std::get<std::string>(a)==std::get<std::string>(b);
-    case Field::Visible: return std::get<bool>(a)==std::get<bool>(b);
-    case Field::Opacity: return std::get<double>(a)==std::get<double>(b);
-    case Field::Transform: return sameTransform(std::get<AffineTransform>(a),std::get<AffineTransform>(b));
-    case Field::Blend: return std::get<RasterBlendMode>(a)==std::get<RasterBlendMode>(b);
-    case Field::Order: return std::get<std::size_t>(a)==std::get<std::size_t>(b);
-    }
-    return false;
+    return LayerChange::same(field,a,b);
 }
 Value currentValue(Field field, const Document &document, const Layer &layer) {
-    const auto &p = layerProperties(layer);
-    switch (field) {
-    case Field::Name: return p.name;
-    case Field::Visible: return p.visible;
-    case Field::Opacity: return p.opacity;
-    case Field::Transform: return p.transform;
-    case Field::Blend: return p.blendMode;
-    case Field::Order: return *layerIndex(document,p.id);
-    }
-    return false;
+    return LayerChange::read(document,layer,field);
 }
 DocumentEditResult editValue(DocumentEditor &editor, const LayerChange &change, const Value &value) {
-    switch (change.field) {
-    case Field::Name: return editor.setLayerName(change.id,std::get<std::string>(value));
-    case Field::Visible: return editor.setLayerVisible(change.id,std::get<bool>(value));
-    case Field::Opacity: return editor.setLayerOpacity(change.id,std::get<double>(value));
-    case Field::Transform: return editor.setLayerTransform(change.id,std::get<AffineTransform>(value));
-    case Field::Blend: return editor.setLayerBlendMode(change.id,std::get<RasterBlendMode>(value));
-    case Field::Order: return editor.moveLayer(change.id,std::get<std::size_t>(value));
-    }
-    return {DocumentEditCode::InvalidArgument,false,{},"unknown layer field"};
+    return change.applyValue(editor,value);
 }
 
 // In-memory DocumentEditor operations can allocate while updating authorship.
 // Work on copies of only the affected structural values and restore the exact
 // original buffers on rejection or exception, without copying raster assets.
-struct PropertiesGuard {
-    Document &document; LayerProperties &target; LayerProperties saved;
-    DocumentAuthorship author; FormatVersion version; bool published = false;
-    PropertiesGuard(Document &d, LayerProperties &p)
-        : document(d),target(p),saved(p),author(d.authorship),version(d.formatVersion) {
-        using std::swap; swap(target,saved); swap(document.authorship,author);
-    }
-    ~PropertiesGuard() noexcept {
-        if (!published) { using std::swap; swap(target,saved); swap(document.authorship,author); document.formatVersion=version; }
-    }
-};
 struct LayersGuard {
     Document &document; std::vector<Layer> saved; DocumentAuthorship author;
     FormatVersion version; bool published = false;
@@ -447,12 +494,12 @@ public:
             guard.published=true; return DocumentHistoryCode::None;
         }
         auto *editable=findLayer(*memory,change.id);
-        PropertiesGuard guard(*memory,layerProperties(*editable));
+        LayerPropertyGuard guard(*memory,*editable,change.field);
         DocumentEditor editor(*memory);
         const auto result=editValue(editor,change,next);
         if (!result.ok()) return layerFailure(result,nullptr);
         if (!result.changed) return DocumentHistoryCode::Conflict;
-        guard.published=true; return DocumentHistoryCode::None;
+        guard.commit(); return DocumentHistoryCode::None;
     }
     DocumentHistoryResult layer(Field field, std::string_view id, Value next, std::string_view label) {
         if (busy) return {DocumentHistoryCode::Reentrant};

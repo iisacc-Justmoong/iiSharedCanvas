@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace iiSharedCanvas {
 
@@ -95,6 +96,24 @@ public:
     [[nodiscard]] const DocumentFileResult &lastResult() const noexcept;
     [[nodiscard]] DocumentFileWriteStatistics lastWriteStatistics() const noexcept;
 
+#ifdef IISHAREDCANVAS_NATIVE_API
+    // Atomically publish only one layer's properties plus the supplied
+    // authorship and format version from a separate in-memory document. The
+    // caller must supply the expected file metadata and storage revision.
+    // Current tiled storage and current/previous model formats are supported;
+    // unsupported formats are rejected without a whole-document fallback.
+    DocumentFileResult publishLayerProperties(const Document &source, std::string_view layerId,
+        const DocumentAuthorship &expectedAuthorship, FormatVersion expectedVersion,
+        std::uint64_t expectedRevision);
+    // Replace a complete, validated checkpoint without inventing a new
+    // authorship change. Ordinary editing must use scoped transactions.
+    DocumentFileResult replaceSnapshot(const Document &source, std::uint64_t expectedRevision);
+    // Persist an already-edited projection at the exact expected revision.
+    // Its authorship is authoritative. Retain unchanged objects in memory
+    // and only write changed working-file rows and tiles.
+    DocumentFileResult publishEdit(const Document &source, std::uint64_t expectedRevision);
+#endif
+
     // The draft is temporary and must not escape the callback. Returning true
     // validates and durably commits all changes together; false/throw discards it.
     DocumentFileResult edit(const std::function<bool(Document &)> &edit);
@@ -116,10 +135,16 @@ private:
     friend class detail::IiscInputAccess;
     friend class detail::BitmapHistoryPublication;
     [[nodiscard]] Document *boundDocument() noexcept;
+#ifdef IISHAREDCANVAS_NATIVE_API
+    DocumentFileResult editImpl(const std::function<bool(Document &)> &edit, bool stampAuthorship,
+        const Document *source = nullptr, std::span<const std::uint8_t> changes = {});
+#else
     DocumentFileResult editImpl(const std::function<bool(Document &)> &edit, bool stampAuthorship);
+#endif
 #ifdef IISHAREDCANVAS_NATIVE_API
     DocumentFileResult editLayerPropertiesImpl(const std::string &layerId,
-        const std::function<bool(Document &)> &edit, bool &useDraftFallback);
+        const std::function<bool(Document &)> &edit, bool &useDraftFallback,
+        bool allowFormatTransition = false);
     DocumentFileResult editLayerStructureImpl(const std::function<bool(Document &)> &edit,
         bool changesFrames, bool &useDraftFallback);
     DocumentFileResult editAssetLayerImpl(std::string_view changedAsset,

@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <iostream>
 #include <limits>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 
@@ -217,8 +218,61 @@ void large() {
               << " restored=" << restored << " total_ms=" << elapsed << '\n';
 }
 }
+void sharedLayerChange() {
+    using namespace iiSharedCanvas;
+    auto d=finite();
+    auto* layer=findLayer(d,"paint-layer");
+    expect(layer!=nullptr,"shared layer change: fixture");
+    LayerChange rename{"paint-layer",LayerChangeField::Name,
+                       std::string("Paint"),std::string("Ink")};
+    expect(LayerChange::same(rename.field,LayerChange::read(d,*layer,rename.field),rename.before),
+           "shared layer change: read prior value");
+    DocumentEditor editor(d);
+    expect(rename.apply(editor,true).changed && properties(d,"paint-layer").name=="Ink",
+           "shared layer change: apply");
+    auto saved=rename.before;
+    expect(LayerChange::swapProperty(layerProperties(*layer),rename.field,saved) &&
+           properties(d,"paint-layer").name=="Paint" && std::get<std::string>(saved)=="Ink",
+           "shared layer change: reversible property swap");
+    expect(LayerChange::swapProperty(layerProperties(*layer),rename.field,saved) &&
+           rename.apply(editor,false).changed && properties(d,"paint-layer").name=="Paint",
+           "shared layer change: undo");
+    const std::string stableName="Layer with a sufficiently long and stable name";
+    expect(editor.setLayerName("paint-layer",stableName).changed,"shared layer guard: setup");
+    const auto* originalName=properties(d,"paint-layer").name.data();
+    const auto originalAuthor=d.authorship.dump(); const auto originalVersion=d.formatVersion;
+    {
+        LayerPropertyGuard rollback(d,*layer,LayerChangeField::Name);
+        expect(editor.setLayerName("paint-layer","Transient").changed,"shared layer guard: edit");
+    }
+    expect(properties(d,"paint-layer").name==stableName && properties(d,"paint-layer").name.data()==originalName &&
+           d.authorship.dump()==originalAuthor && d.formatVersion.major==originalVersion.major &&
+           d.formatVersion.minor==originalVersion.minor,"shared layer guard: exact rollback");
+    {
+        LayerPropertyGuard commit(d,*layer,LayerChangeField::Name);
+        expect(editor.setLayerName("paint-layer","Committed").changed,"shared layer guard: committed edit");
+        commit.commit();
+    }
+    expect(properties(d,"paint-layer").name=="Committed","shared layer guard: commit");
+    LayerChange invalid{"paint-layer",LayerChangeField::Opacity,1.0,std::string("bad")};
+    expect(!invalid.apply(editor,true).ok() && !LayerChange::same(invalid.field,invalid.before,invalid.after),
+           "shared layer change: reject mismatched values");
+    LayerChange order{"back-layer",LayerChangeField::Order,std::size_t(1),std::size_t(0)};
+    expect(order.apply(editor,true).changed && layerIndex(d,"back-layer")==0 &&
+           order.apply(editor,false).changed && layerIndex(d,"back-layer")==1,
+           "shared layer change: order");
+    auto index=order.before;
+    expect(!LayerChange::swapProperty(layerProperties(*layer),order.field,index),
+           "shared layer change: order is not a property swap");
+    const auto beforeInvalidGuard=d.authorship.dump();
+    bool rejected=false;
+    try { LayerPropertyGuard invalidGuard(d,*layer,LayerChangeField::Order); }
+    catch (const std::invalid_argument &) { rejected=true; }
+    expect(rejected && d.authorship.dump()==beforeInvalidGuard && layerIndex(d,"back-layer")==1,
+           "shared layer guard: reject structural order without mutation");
+}
 int main(int argc,char **argv) {
     if (argc==2 && std::string_view(argv[1])=="--large") large();
-    else { orderedHistory(); budgetsAndConflicts(); chunks(); fileHistory(); }
+    else { sharedLayerChange(); orderedHistory(); budgetsAndConflicts(); chunks(); fileHistory(); }
     return failures ? 1 : 0;
 }

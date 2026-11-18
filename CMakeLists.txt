@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.35.39 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.35.41 LANGUAGES CXX)
+include(./cmake/ModuleImports.cmake)
 # File creation is owned by iiFileProvider.
 
 

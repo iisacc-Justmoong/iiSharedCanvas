@@ -1,0 +1,71 @@
+#pragma once
+
+// C++ public entry for iiSharedCanvas; the linked components select the API.
+
+#if defined(IISDK_IMPORT_IISHAREDCANVAS_CORE)
+#if defined(IISHAREDCANVAS_NATIVE_API)
+#include <iiSharedCanvasNative.h>
+#else
+#include <iiSharedCanvasCore.h>
+#endif
+#include <Audio/AudioCodec.h>
+#include <Camera/CameraRaw.h>
+#include <Document/Document.h>
+#include <Document/DocumentEditor.h>
+#include <Document/DocumentHistory.h>
+#include <Document/Attribution.h>
+#include <Document/CanvasSampling.h>
+#include <Document/LayerAppearance.h>
+#include <Bitmap/BitmapEdit.h>
+#include <Bitmap/BitmapEditor.h>
+#include <Bitmap/ChunkedBitmapEditor.h>
+#include <Bitmap/BitmapProcessing.h>
+#include <Bitmap/TiledMask.h>
+#include <Bitmap/TiledMaskEditor.h>
+#include <Bitmap/RasterProcessingTypes.h>
+#include <Vector/VectorEditor.h>
+#include <Vector/SvgExport.h>
+#include <Vector/PdfExport.h>
+#include <Render/FrameRenderer.h>
+#include <Render/AsyncFrameRenderQueue.h>
+#include <Render/DocumentPreview.h>
+#include <Serialization/IiscCodec.h>
+#include <Timeline/TimelineEditor.h>
+#include <Timeline/TimelineProject.h>
+#include <Timeline/TimelineInterchange.h>
+#include <Video/VideoFrameDecoder.h>
+#include <Video/VideoFrameEncoder.h>
+#include <Validation/Validation.h>
+#include <Metadata/StableDiffusionMetadata.h>
+#include <Metadata/StableDiffusionGenerationParameters.h>
+#include <Metadata/PublicationMetadata.h>
+#include <File/DocumentFile.h>
+#include <File/IiscUpgrade.h>
+#include <Media/MediaIo.h>
+#include <Bitmap/BitmapCodec.h>
+#include <Layered/LayeredDocumentCodec.h>
+#include <ControlNet/BinaryLineMask.h>
+#include <ControlNet/Canny.h>
+#include <ControlNet/ControlNet.h>
+#include <ControlNet/ControlNetParameters.h>
+#include <ControlNet/Depth.h>
+#include <ControlNet/IpAdapter.h>
+#include <ControlNet/LineArt.h>
+#include <ControlNet/Mlsd.h>
+#include <ControlNet/NormalMap.h>
+#include <ControlNet/Pose.h>
+#include <ControlNet/Reference.h>
+#include <ControlNet/Scribble.h>
+#include <ControlNet/SemanticSegment.h>
+#include <ControlNet/Shuffle.h>
+#include <ControlNet/Tile.h>
+#endif
+
+#if defined(IISDK_IMPORT_IISHAREDCANVAS_QUICK)
+#include <QtAdapter/CanvasItem.h>
+#include <QtAdapter/BitmapItem.h>
+#endif
+
+#if defined(IISDK_IMPORT_IISHAREDCANVAS_QT)
+#include <iiSharedCanvas.h>
+#endif

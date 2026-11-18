@@ -5,6 +5,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <span>
 #include <string>
 #include <vector>
@@ -102,5 +103,38 @@ IISHAREDCANVAS_EXPORT IiscEncodeResult encodeIisc(
 IISHAREDCANVAS_EXPORT IiscDecodeResult decodeIisc(
     std::span<const std::uint8_t> bytes,
     SerializationLimits limits = {});
+
+struct IiscRasterChange {
+    std::string asset;
+    std::vector<CanvasRegion> regions;
+};
+
+struct IiscEditImpact {
+    bool changed = false;
+    bool header = false;
+    std::vector<std::string> layers, assets, audioTracks, artboards;
+    std::vector<IiscRasterChange> pixels;
+};
+
+// Report the document records and local pixel regions touched by an edit.
+IISHAREDCANVAS_EXPORT IiscError describeIiscEdit(
+    std::span<const std::uint8_t> bytes, IiscEditImpact &impact, SerializationLimits limits = {});
+
+// A versioned transaction against a known document revision. The caller owns
+// revision ordering. Portable records and raster tiles carry only the edit.
+IISHAREDCANVAS_EXPORT IiscEncodeResult encodeIiscEdit(
+    const Document &before, const Document &after, SerializationLimits limits = {});
+
+// For a journal which guarantees that only this existing bitmap and authorship
+// changed, restrict comparison to the bitmap and its optional local bounds.
+IISHAREDCANVAS_EXPORT IiscEncodeResult encodeIiscBitmapEdit(
+    const Document &before, const Document &after, const std::string &asset,
+    std::optional<CanvasRegion> dirty = {}, SerializationLimits limits = {});
+
+// Retains unchanged backing storage. A rejected accept callback, invalid edit,
+// or exception restores the input. The callback must not reenter the document.
+IISHAREDCANVAS_EXPORT IiscError applyIiscEdit(
+    Document &document, std::span<const std::uint8_t> bytes,
+    SerializationLimits limits = {}, const std::function<bool(const Document &)> &accept = {});
 
 } // namespace iiSharedCanvas

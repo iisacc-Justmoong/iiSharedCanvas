@@ -10,6 +10,8 @@
 #include <optional>
 #include <span>
 #include <string_view>
+#include <string>
+#include <variant>
 #include <vector>
 
 struct StrokePoint;
@@ -45,6 +47,47 @@ struct DocumentHistoryStatistics {
     std::size_t undoEntries = 0, redoEntries = 0;
     // Logical retained command storage; not allocator overhead or process RSS.
     std::size_t retainedBytes = 0;
+};
+
+// A document-domain layer change. It contains no history cursor, UI selection,
+// file owner or application policy, so one definition can be used by any
+// coordinator that needs to order changes with other commands.
+enum class LayerChangeField { Name, Visible, Opacity, Transform, Blend, Order };
+using LayerChangeValue = std::variant<std::string, bool, double, AffineTransform,
+                                      RasterBlendMode, std::size_t>;
+struct IISHAREDCANVAS_EXPORT LayerChange final {
+    std::string id;
+    LayerChangeField field;
+    LayerChangeValue before, after;
+
+    [[nodiscard]] static LayerChangeValue read(const Document &, const Layer &, LayerChangeField);
+    [[nodiscard]] static bool same(LayerChangeField, const LayerChangeValue &, const LayerChangeValue &) noexcept;
+    [[nodiscard]] DocumentEditResult apply(DocumentEditor &, bool forward) const;
+    [[nodiscard]] DocumentEditResult applyValue(DocumentEditor &, const LayerChangeValue &) const;
+    // Order is structural and cannot be swapped through LayerProperties.
+    [[nodiscard]] static bool swapProperty(LayerProperties &, LayerChangeField, LayerChangeValue &) noexcept;
+    [[nodiscard]] std::size_t retainedBytes() const noexcept;
+};
+
+// Restores one property and document metadata unless explicitly committed.
+// The document and layer must outlive the guard. Structural order is excluded.
+class IISHAREDCANVAS_EXPORT LayerPropertyGuard final {
+public:
+    LayerPropertyGuard(Document &, Layer &, LayerChangeField);
+    ~LayerPropertyGuard() noexcept;
+    LayerPropertyGuard(const LayerPropertyGuard &)=delete;
+    LayerPropertyGuard &operator=(const LayerPropertyGuard &)=delete;
+    void commit() noexcept { active_=false; }
+    [[nodiscard]] const DocumentAuthorship &beforeAuthorship() const noexcept { return authorship_; }
+    [[nodiscard]] FormatVersion beforeVersion() const noexcept { return version_; }
+private:
+    Document &document_;
+    LayerProperties &properties_;
+    LayerChangeField field_;
+    LayerChangeValue value_;
+    DocumentAuthorship authorship_;
+    FormatVersion version_;
+    bool active_=true;
 };
 
 // Single-threaded coordinator. The document or file must outlive this object.

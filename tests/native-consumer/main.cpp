@@ -8,6 +8,12 @@ int main(int argc,char** argv){CHECK(argc==2);using namespace iiSharedCanvas;
     auto path=(temporary.path()/"relocated.iisc").u8string();std::string filename(path.begin(),path.end());
     Document document;document.extent={16,16};document.assets.emplace_back(RasterAsset{"pixels",makeRasterLayer(16,16,0xffff0000)});
     document.layers.emplace_back(StaticBitmapLayer{{"layer","Layer"},StaticSource{"pixels"}});
+    auto *layer=findLayer(document,"layer");DocumentEditor memory(document);
+    LayerChange rename{"layer",LayerChangeField::Name,std::string("Layer"),std::string("Ink")};
+    {LayerPropertyGuard rollback(document,*layer,rename.field);CHECK(rename.apply(memory,true).changed);}
+    CHECK(layerProperties(*layer).name=="Layer");
+    {LayerPropertyGuard commit(document,*layer,rename.field);CHECK(rename.apply(memory,true).changed);commit.commit();}
+    CHECK(layerProperties(*layer).name=="Ink"&&rename.apply(memory,false).changed);
     DocumentFile file;CHECK(file.create(filename,document).ok());const auto before=file.revision();
     CHECK(file.edit([](Document& draft){std::get<RasterAsset>(draft.assets[0]).pixels.pixels[0]=0xff0000ff;return true;}).ok());CHECK(file.revision()==before+1);
     const auto encoded=encodeIisc(*file.document());CHECK(encoded.ok()&&decodeIisc(encoded.bytes).ok());file.close();
@@ -19,5 +25,19 @@ int main(int argc,char** argv){CHECK(argc==2);using namespace iiSharedCanvas;
     CHECK(bitmap.ok()&&bitmap.asset.pixels.pixels==whole.pixels.pixels);
     const auto psd_path=(temporary.path()/"relocated.psd").u8string();std::string psd_name(psd_path.begin(),psd_path.end());
     CHECK(exportPsd(*file.document(),psd_name).ok());CHECK(importLayeredDocument(psd_name).ok());
+    Document checkpoint=*file.document();
+    std::get<RasterAsset>(checkpoint.assets[0]).pixels.pixels[1]=0xff887766;
+    const auto author=checkpoint.authorship.dump();const auto snapshot=encodeIisc(checkpoint).bytes;
+    CHECK(file.replaceSnapshot(checkpoint,file.revision()).changed && file.document()->authorship.dump()==author &&
+          encodeIisc(*file.document()).bytes==snapshot);
+    auto edited = checkpoint;
+    std::get<RasterAsset>(edited.assets[0]).pixels.pixels[2]=0xff223399;
+    const auto edit = encodeIiscEdit(checkpoint, edited);
+    IiscEditImpact impact;
+    CHECK(edit.ok() && describeIiscEdit(edit.bytes, impact).code==IiscErrorCode::None &&
+          impact.pixels.size()==1);
+    CHECK(applyIiscEdit(checkpoint, edit.bytes).code==IiscErrorCode::None);
+    CHECK(file.publishEdit(checkpoint,file.revision()).changed &&
+          encodeIisc(*file.document()).bytes==encodeIisc(edited).bytes);
     std::cout<<"RELOCATED_CANVAS_OK direct_file=true pixel_delta=true tiles=true qt=false\n";
 }

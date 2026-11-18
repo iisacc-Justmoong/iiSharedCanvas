@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/LAYER_FILE_EDITS.md",
-    "sha256": "d12e96a58be761fa0dcae00ab28f6945cdc0868fb4538ffd9042ec95ed0b8b5f",
-    "bytes": 7141,
-    "line_count": 88,
+    "sha256": "75e92036191b33c1eac9bcaf3b675ed2b7e1a3dab214520d8b4a4f4e1ce8064e",
+    "bytes": 9796,
+    "line_count": 104,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -246,6 +246,124 @@
       "start_line": 86,
       "end_line": 88,
       "raw": "파일을 동기 저장하는 회귀 검사의 CTest 제한 시간은 느린 저장 장치에서도 완료할 수\n있도록 기능별로 별도 설정한다. 제한 시간은 교착 상태를 찾기 위한 장치이며 제품의\n저장 지연 보장은 아니다.\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "heading",
+      "start_line": 90,
+      "end_line": 90,
+      "raw": "## 명시적 레이어 속성 이력 게시 명세\n",
+      "level": 2,
+      "title": "명시적 레이어 속성 이력 게시 명세"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 91,
+      "end_line": 91,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 92,
+      "end_line": 92,
+      "raw": "분리된 편집 문서의 지정 레이어 속성과 작성 정보·모델 버전을 파일에 원자적으로 게시한다. 예상 파일 리비전과 작성 정보·버전이 일치해야 하며, 실패·충돌·무변경은 파일과 리비전을 보존한다. 래스터 전체나 문서 객체를 복사하지 않으며 현재 모델과 바로 이전 모델 사이의 버전 전환을 지원한다. 다른 문서 구조나 자산은 게시하지 않는다.\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "blank",
+      "start_line": 93,
+      "end_line": 93,
+      "raw": "\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 94,
+      "end_line": 94,
+      "raw": "같은 모델 버전에서는 레이어와 작성 정보 레코드만 기록하며, 버전이 바뀌면 형식 전환에 필요한 메타데이터 레코드도 함께 처리한다. 이 경로는 변경 여부와 문서 유효성을 확인하기 위해 전체 문서의 메타데이터를 순회하므로, 문서 크기에 독립적인 처리 시간이나 다른 편집 명령의 부분 저장을 보장하지 않는다. 레이어 속성 시험은 잠금 해제 후 재시도, 두 모델 버전의 파일 재열기, 큰 래스터에 대한 C++ 할당량을 확인한다.\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 95,
+      "end_line": 95,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "heading",
+      "start_line": 96,
+      "end_line": 96,
+      "raw": "## 외부 체크포인트 복원\n",
+      "level": 2,
+      "title": "외부 체크포인트 복원"
+    },
+    {
+      "id": "b000040",
+      "kind": "blank",
+      "start_line": 97,
+      "end_line": 97,
+      "raw": "\n"
+    },
+    {
+      "id": "b000041",
+      "kind": "paragraph",
+      "start_line": 98,
+      "end_line": 98,
+      "raw": "Native 0.35.40에서 외부 전체 체크포인트를 정확히 복원할 때 `DocumentFile::replaceSnapshot`은 기대 리비전을 검사하고 전달된 문서와 저작 정보를 수정 없이 원자적으로 저장한다. 이 API는 전체 문서를 교체하므로 초기 동기화·명시적 복원에만 사용하고 일반 영역 편집에는 사용하지 않는다. 충돌·검증·저장 실패 시 기존 문서와 리비전을 보존한다.\n"
+    },
+    {
+      "id": "b000042",
+      "kind": "blank",
+      "start_line": 99,
+      "end_line": 99,
+      "raw": "\n"
+    },
+    {
+      "id": "b000043",
+      "kind": "heading",
+      "start_line": 100,
+      "end_line": 100,
+      "raw": "## 편집 이벤트 레코드\n",
+      "level": 2,
+      "title": "편집 이벤트 레코드"
+    },
+    {
+      "id": "b000044",
+      "kind": "blank",
+      "start_line": 101,
+      "end_line": 101,
+      "raw": "\n"
+    },
+    {
+      "id": "b000045",
+      "kind": "paragraph",
+      "start_line": 102,
+      "end_line": 102,
+      "raw": "Native 0.35.41은 특정 기준 리비전에 적용할 변경분을 `encodeIiscEdit`로 만든다. 변경된 IISC 레코드와 위치, 추가·제거, 같은 자산의 64×64 픽셀 타일, 청크의 존재를 저장한다. `encodeIiscBitmapEdit`는 저널이 한 자산의 변경 범위를 보장할 때 그 자산과 저작 정보만 검사한다. `describeIiscEdit`로 변경된 식별자와 픽셀 범위를 읽을 수 있다. 이벤트를 전송하는 쪽이 리비전 순서를 관리한다.\n"
+    },
+    {
+      "id": "b000046",
+      "kind": "blank",
+      "start_line": 103,
+      "end_line": 103,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "paragraph",
+      "start_line": 104,
+      "end_line": 104,
+      "raw": "`applyIiscEdit`는 변경된 데이터와 교환할 값만 보관하고 기존 픽셀 할당을 유지한다. 검증, 승인 함수 또는 작업 파일 커밋이 실패하면 변경을 역순으로 되돌린다. `DocumentFile::publishEdit`는 기대 리비전을 검사한 다음 변경 레코드와 타일을 같은 SQLite 트랜잭션에 저장한다. 일반 편집에서는 편집 결과의 문서 전체를 복제하거나 정규 IISC 스냅샷으로 만들 필요가 없다. 형식 버전과 저작 정보도 이벤트의 값을 보존한다.\n"
     }
   ],
   "outline": [
@@ -280,6 +398,30 @@
       "title": "회귀 검사와 계측 범위",
       "anchor": "회귀-검사와-계측-범위",
       "start_line": 63
+    },
+    {
+      "block_id": "b000033",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "명시적 레이어 속성 이력 게시 명세",
+      "anchor": "명시적-레이어-속성-이력-게시-명세",
+      "start_line": 90
+    },
+    {
+      "block_id": "b000039",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "외부 체크포인트 복원",
+      "anchor": "외부-체크포인트-복원",
+      "start_line": 96
+    },
+    {
+      "block_id": "b000043",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "편집 이벤트 레코드",
+      "anchor": "편집-이벤트-레코드",
+      "start_line": 100
     }
   ],
   "indexes": {

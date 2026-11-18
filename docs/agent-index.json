@@ -168,7 +168,7 @@
       "document_id": "urn:iisacc:document:0ba38f8da3b6222e0a5cf7561270c7a432d6c31262d6820d1128ce29eafc3ef7",
       "source": "docs/DOCUMENT_HISTORY.md",
       "agent_json": "docs/DOCUMENT_HISTORY.agent.json",
-      "source_sha256": "f4b5b71af92a926df9f10f61955cb983317b1f9b8309e14c29c8e7d0993af732",
+      "source_sha256": "7f7e50d69ecb956f9f388f898d04b004bb6b769ee4245609cd579cfac08f6270",
       "role": "history"
     },
     {
@@ -259,7 +259,7 @@
       "document_id": "urn:iisacc:document:f591098bcac8f7bc10b55b5dfd61f22d5c12abf976bd16b6965b44b202130617",
       "source": "docs/LAYER_FILE_EDITS.md",
       "agent_json": "docs/LAYER_FILE_EDITS.agent.json",
-      "source_sha256": "d12e96a58be761fa0dcae00ab28f6945cdc0868fb4538ffd9042ec95ed0b8b5f",
+      "source_sha256": "75e92036191b33c1eac9bcaf3b675ed2b7e1a3dab214520d8b4a4f4e1ce8064e",
       "role": "guide"
     },
     {

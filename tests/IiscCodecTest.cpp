@@ -1,4 +1,7 @@
-#include <iiSharedCanvas.h>
+#include "Serialization/IiscCodec.h"
+#include "Document/DocumentEditor.h"
+#include "Render/FrameRenderer.h"
+#include "Validation/Validation.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -779,6 +782,54 @@ int main()
                && decodeIisc(encoded.bytes, metadataStringLimits).error.code
                    == IiscErrorCode::LimitExceeded,
            "a zero generation metadata string limit must reject non-empty values symmetrically");
+
+    Document base;
+    base.extent = {512, 512};
+    base.assets.emplace_back(RasterAsset{"paint", makeRasterLayer(512, 512)});
+    base.layers.emplace_back(StaticBitmapLayer{{"layer", "Paint"}, {"paint"}});
+    Document edited = base;
+    std::get<RasterAsset>(edited.assets.front()).pixels.pixels[20 * 512 + 10] = 0xff112233;
+    edited.timeline.frameCount = 6;
+    layerProperties(edited.layers.front()).name = "Renamed";
+    const auto patch = encodeIiscEdit(base, edited);
+    const auto* pixels = std::get<RasterAsset>(base.assets.front()).pixels.pixels.data();
+    const auto originalBytes = encodeIisc(base).bytes;
+    const auto refused = applyIiscEdit(base, patch.bytes, {}, [](const Document&) { return false; });
+    expect(patch.ok() && patch.bytes.size() < 1024 && refused.code != IiscErrorCode::None &&
+           encodeIisc(base).bytes == originalBytes, "rejected event must restore changed pixels and records");
+    expect(applyIiscEdit(base, patch.bytes).code == IiscErrorCode::None &&
+           encodeIisc(base).bytes == encodeIisc(edited).bytes &&
+           std::get<RasterAsset>(base.assets.front()).pixels.pixels.data() == pixels,
+           "a sparse event must preserve the existing raster allocation");
+    auto invalidEdit = patch.bytes;
+    if (!invalidEdit.empty()) invalidEdit.pop_back();
+    expect(applyIiscEdit(base, invalidEdit).code != IiscErrorCode::None &&
+           encodeIisc(base).bytes == encodeIisc(edited).bytes, "truncated event changed the document");
+
+    IiscEditImpact impact;
+    expect(describeIiscEdit(patch.bytes, impact).code == IiscErrorCode::None &&
+           impact.layers == std::vector<std::string>{"layer"} && impact.pixels.size() == 1 &&
+           impact.pixels.front().regions == std::vector<CanvasRegion>{{{0,0},{64,64}}},
+           "document event must expose the affected layer and tile");
+    Document sparse;
+    sparse.extent = {1024, 512};
+    ChunkedRasterAsset chunks{"chunks", {{0, 0, makeRasterLayer(256,256)}, {1, 0, makeRasterLayer(256,256)}}};
+    sparse.assets.emplace_back(std::move(chunks));
+    sparse.layers.emplace_back(StaticBitmapLayer{{"layer", "Chunks"}, {"chunks"}});
+    auto modified = sparse;
+    auto &updated = std::get<ChunkedRasterAsset>(modified.assets.front()).chunks;
+    updated.front().pixels.pixels[319] = 0xff8811aa;
+    updated.erase(updated.begin()+1);
+    updated.push_back({2, 0, makeRasterLayer(256,256,0xffaa1188)});
+    const auto chunkEvent = encodeIiscEdit(sparse, modified);
+    const auto chunkBefore = encodeIisc(sparse).bytes;
+    const auto* chunkPixels = std::get<ChunkedRasterAsset>(sparse.assets.front()).chunks.front().pixels.pixels.data();
+    expect(chunkEvent.ok() && applyIiscEdit(sparse, chunkEvent.bytes, {}, [](const Document&) { return false; }).code != IiscErrorCode::None &&
+           encodeIisc(sparse).bytes == chunkBefore, "chunk event refusal must roll back tiles and chunk presence");
+    expect(applyIiscEdit(sparse, chunkEvent.bytes).code == IiscErrorCode::None &&
+           encodeIisc(sparse).bytes == encodeIisc(modified).bytes &&
+           std::get<ChunkedRasterAsset>(sparse.assets.front()).chunks.front().pixels.pixels.data() == chunkPixels,
+           "chunk presence changes must retain unrelated pixel allocations");
 
     return failures == 0 ? 0 : 1;
 }
