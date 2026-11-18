@@ -945,12 +945,12 @@ Premiere Pro, Final Cut Pro and DaVinci Resolve. Details and examples are in
 
 ## License
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 
-The code and documentation written by iiSharedCanvas are distributed under the MIT License ( `MIT` ). The full terms follow [LICENSE](LICENSE). This choice matches the `MIT` license of the iiPaintEngine public dependency.
+iiSharedCanvas is licensed under the [Apache License, Version 2.0](LICENSE) (SPDX `Apache-2.0`). The copyright notice is `Copyright (c) 2026 iisacc`. Attribution for this distribution is in [NOTICE](NOTICE). The Korean statement of the same policy is [docs/License.md](docs/License.md). iiPaintEngine, like every iiSDK module, is Apache-2.0.
 
-Third-party code, libraries, tools, and models retain their respective licenses and copyright notices, and this repository's license does not replace them. Existing dependency and distribution-related notices are
-Follows [NOTICE.md](NOTICE.md)and the [dependency review](docs/DEPENDENCIES.md).
+iisacc products under Product are licensed under the GNU Affero General Public License (AGPL).
+Third-party and vendored code keep their original licenses. Notices follow [NOTICE](NOTICE), [NOTICE.md](NOTICE.md), and the [dependency review](docs/DEPENDENCIES.md).
 
 ### SDK installation layout
 

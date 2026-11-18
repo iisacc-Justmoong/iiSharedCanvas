@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/BLUEPRINT.md",
-    "sha256": "a68b58032b24aa3b05c544e1a258d30140a0238435c8dc2639dc012fd22c64a6",
-    "bytes": 44912,
+    "sha256": "5b193c81de349e85fa5c4729c96639236cdd0304521bbaa6b97e5d5425eca211",
+    "bytes": 44919,
     "line_count": 375,
     "encoding": "utf-8",
     "language": "ko"
@@ -1492,7 +1492,7 @@
       "kind": "paragraph",
       "start_line": 256,
       "end_line": 256,
-      "raw": "iiPaintEngine 0.1.0은 기존 비트맵 전용 엔진으로 RasterLayer, 브러시 래스터화, 블렌드 모드와 변환을 제공하며 Qt / LVRS를 간접적으로 포함한다. iiSharedCanvas와 iiPaintEngine의 자체 코드에는 MIT 라이선스를 적용한다.\n"
+      "raw": "iiPaintEngine 0.1.0은 기존 비트맵 전용 엔진으로 RasterLayer, 브러시 래스터화, 블렌드 모드와 변환을 제공하며 Qt / LVRS를 간접적으로 포함한다. iiSharedCanvas와 iiPaintEngine의 자체 코드에는 Apache-2.0 라이선스를 적용한다.\n"
     },
     {
       "id": "b000180",

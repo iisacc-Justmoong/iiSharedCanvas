@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "NOTICE.md",
-    "sha256": "5e8d8f50225a142a6002af2298e535eee0f06284166cc4403455ee1d3c52b604",
-    "bytes": 1239,
-    "line_count": 23,
+    "sha256": "55ff8fb8ebf9cfff48302077e4ec7ffa8285908e1c6d183743002e56c2a72661",
+    "bytes": 1563,
+    "line_count": 25,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -27,7 +27,7 @@
       "kind": "paragraph",
       "start_line": 1,
       "end_line": 1,
-      "raw": "SPDX-License-Identifier: MIT\n"
+      "raw": "SPDX-License-Identifier: Apache-2.0\n"
     },
     {
       "id": "b000002",
@@ -55,7 +55,7 @@
       "kind": "paragraph",
       "start_line": 5,
       "end_line": 5,
-      "raw": "iiSharedCanvas is licensed under the MIT License. The complete license text is included in LICENSE.\n"
+      "raw": "iiSharedCanvas is licensed under the Apache License, Version 2.0. The complete license text is included in LICENSE. Attribution for this distribution is in NOTICE.\n"
     },
     {
       "id": "b000006",
@@ -68,36 +68,50 @@
       "id": "b000007",
       "kind": "paragraph",
       "start_line": 7,
-      "end_line": 8,
-      "raw": "This license matches the MIT license of the required iiPaintEngine\ndependency.\n"
+      "end_line": 7,
+      "raw": "iiSDK modules, including the required iiPaintEngine dependency, are Apache-2.0. iisacc products under Product remain licensed under the GNU Affero General Public License (AGPL).\n"
     },
     {
       "id": "b000008",
       "kind": "blank",
-      "start_line": 9,
-      "end_line": 9,
+      "start_line": 8,
+      "end_line": 8,
       "raw": "\n"
     },
     {
       "id": "b000009",
       "kind": "paragraph",
-      "start_line": 10,
-      "end_line": 12,
+      "start_line": 9,
+      "end_line": 11,
       "raw": "Working-file persistence additionally links the platform-provided SQLite\nlibrary, whose delivered code is dedicated to the public domain. No SQLite\nsource is vendored here. See docs/DEPENDENCIES.md for the dependency review.\n"
     },
     {
       "id": "b000010",
       "kind": "blank",
-      "start_line": 13,
-      "end_line": 13,
+      "start_line": 12,
+      "end_line": 12,
       "raw": "\n"
     },
     {
       "id": "b000011",
       "kind": "paragraph",
-      "start_line": 14,
-      "end_line": 23,
+      "start_line": 13,
+      "end_line": 22,
       "raw": "SVGZ support links the platform/package-provided zlib under the zlib license.\nOpenRaster ZIP reading links the platform/package-provided libzip under its\nBSD-3-Clause license. No libzip source is vendored. Its optional codec runtime\ndependencies retain their own licenses and must accompany deployed binaries.\nExisting Qt image plugins retain their Qt and third-party codec licenses.\nPSD Smart Object export reuses Qt PDF writing. Optional psd-tools development\nverification is not a product dependency and is not redistributed here.\nThe optional video adapter executes a separately supplied FFmpeg/ffprobe build;\nno FFmpeg binary or source is redistributed by this package. Its LGPL/GPL terms\ndepend on the supplied build. See docs/DEPENDENCIES.md for packaging boundaries.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 24,
+      "end_line": 25,
+      "raw": "The vendored fast_float header under third_party/fast_float keeps the upstream\nMIT License or the Boost License. See third_party/fast_float/LICENSE-MIT.\n"
     }
   ],
   "outline": [],
@@ -106,13 +120,13 @@
       {
         "block_id": "b000007",
         "line": 7,
-        "text": "This license matches the MIT license of the required iiPaintEngine",
+        "text": "iiSDK modules, including the required iiPaintEngine dependency, are Apache-2.0. iisacc products under Product remain licensed under the GNU Affero General Public License (AGPL).",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000011",
-        "line": 17,
+        "line": 16,
         "text": "dependencies retain their own licenses and must accompany deployed binaries.",
         "basis": "lexical_match",
         "context": "paragraph"

@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "README.md",
-    "sha256": "3f7e397d6ea407f8de29de87ecd2263a587a8ab52937f8058e4c212210893ab8",
-    "bytes": 68491,
+    "sha256": "1b4e3bc706f914be74e29e6f40e053b72b3454aa282125c996a8f016632b94f2",
+    "bytes": 68587,
     "line_count": 1133,
     "encoding": "utf-8",
     "language": "ko"
@@ -1703,7 +1703,7 @@
       "kind": "paragraph",
       "start_line": 948,
       "end_line": 948,
-      "raw": "SPDX-License-Identifier: MIT\n"
+      "raw": "SPDX-License-Identifier: Apache-2.0\n"
     },
     {
       "id": "b000216",
@@ -1717,7 +1717,7 @@
       "kind": "paragraph",
       "start_line": 950,
       "end_line": 950,
-      "raw": "The code and documentation written by iiSharedCanvas are distributed under the MIT License ( `MIT` ). The full terms follow [LICENSE](LICENSE). This choice matches the `MIT` license of the iiPaintEngine public dependency.\n"
+      "raw": "iiSharedCanvas is licensed under the [Apache License, Version 2.0](LICENSE) (SPDX `Apache-2.0`). The copyright notice is `Copyright (c) 2026 iisacc`. Attribution for this distribution is in [NOTICE](NOTICE). The Korean statement of the same policy is [docs/License.md](docs/License.md). iiPaintEngine, like every iiSDK module, is Apache-2.0.\n"
     },
     {
       "id": "b000218",
@@ -1731,7 +1731,7 @@
       "kind": "paragraph",
       "start_line": 952,
       "end_line": 953,
-      "raw": "Third-party code, libraries, tools, and models retain their respective licenses and copyright notices, and this repository's license does not replace them. Existing dependency and distribution-related notices are\nFollows [NOTICE.md](NOTICE.md)and the [dependency review](docs/DEPENDENCIES.md).\n"
+      "raw": "iisacc products under Product are licensed under the GNU Affero General Public License (AGPL).\nThird-party and vendored code keep their original licenses. Notices follow [NOTICE](NOTICE), [NOTICE.md](NOTICE.md), and the [dependency review](docs/DEPENDENCIES.md).\n"
     },
     {
       "id": "b000220",
@@ -3427,10 +3427,31 @@
       },
       {
         "block_id": "b000217",
-        "label": "LICENSE",
+        "label": "Apache License, Version 2.0",
         "target": "LICENSE",
         "kind": "relative",
         "line": 950
+      },
+      {
+        "block_id": "b000217",
+        "label": "NOTICE",
+        "target": "NOTICE",
+        "kind": "relative",
+        "line": 950
+      },
+      {
+        "block_id": "b000217",
+        "label": "docs/License.md",
+        "target": "docs/License.md",
+        "kind": "relative",
+        "line": 950
+      },
+      {
+        "block_id": "b000219",
+        "label": "NOTICE",
+        "target": "NOTICE",
+        "kind": "relative",
+        "line": 953
       },
       {
         "block_id": "b000219",

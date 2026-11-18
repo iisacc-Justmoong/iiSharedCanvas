@@ -34,7 +34,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/LAYER_COMPOSITI
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledLayerCompositing")
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "find_package(iiPaintEngine 0.5.1 CONFIG REQUIRED)")
+             "find_package(iiPaintEngine 0.5.4 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "find_package(SQLite3 3.26 REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(ZLIB 1.2.9 REQUIRED)")
@@ -84,7 +84,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/PERSISTENCE.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/DEPENDENCIES.md"
              "sqlite.org/copyright.html")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "project(iiSharedCanvas VERSION 0.32.0 LANGUAGES CXX)")
+             "project(iiSharedCanvas VERSION 0.35.39 LANGUAGES CXX)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "SOVERSION \"\${PROJECT_VERSION_MAJOR}.\${PROJECT_VERSION_MINOR}\"")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -141,9 +141,9 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
-             "find_dependency(iiPaintEngine 0.5.1 CONFIG REQUIRED)")
+             "find_dependency(iiPaintEngine 0.5.4 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The direct project dependencies are iiPaintEngine 0.5.1, SQLite")
+             "The direct project dependencies are iiPaintEngine 0.5.4, SQLite")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`BitmapEditor` binds to a raster asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -165,7 +165,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.32.0")
+             "The current C++ package version is 0.35.14")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -271,17 +271,41 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
              "Vector/VectorEditor.h")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/install.sh"
-             "libiiSharedCanvas.0.32.0.dylib")
+             "libiiSharedCanvas.0.33.2.dylib")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "setLayerFrameRange")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "layerExistsAt")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
-             "MIT License")
+             "Apache License")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
+             "Version 2.0, January 2004")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE"
+             "Copyright (c) 2026 iisacc")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE"
+             "Apache License, Version 2.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
-             "SPDX-License-Identifier: MIT")
+             "SPDX-License-Identifier: Apache-2.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
+             "Copyright (c) 2026 iisacc")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "SPDX-License-Identifier: Apache-2.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/License.md"
+             "Apache License 2.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENT.md"
+             "Apache License 2.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "set(IISHAREDCANVAS_LICENSE_SPDX \"MIT\")")
+             "set(IISHAREDCANVAS_LICENSE_SPDX \"Apache-2.0\")")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "install(FILES LICENSE NOTICE NOTICE.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
+             "set(iiSharedCanvas_SPDX_LICENSE \"Apache-2.0\")")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasNativeConfig.cmake.in"
+             "set(iiSharedCanvasNative_SPDX_LICENSE \"Apache-2.0\")")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasNative.cmake"
+             "install(FILES LICENSE NOTICE NOTICE.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/third_party/fast_float/LICENSE-MIT"
+             "MIT License")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakePresets.json"
              "\"binaryDir\": \"\${sourceDir}/build\"")
 
@@ -300,9 +324,9 @@ foreach(public_header IN LISTS public_headers)
 endforeach()
 
 # The repository contract keeps iiSharedCanvas upstream and product-neutral.
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENT.md"
              "직렬화 표준인 공식 캔버스 문서")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENT.md"
              "소비자 채택은 병렬 호환성 실행이 아니라 순차적")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "iiSharedCanvas는 iisacc의 표준 캔버스 표준")
@@ -338,6 +362,20 @@ foreach(module Audio Bitmap Camera Document File Layered Media Metadata QtAdapte
             require_text("${module_header}" "IISHAREDCANVAS_NATIVE_API")
             continue()
         endif()
+        # Bitmap history values are aggregates. Their behavior lives in the journal.
+        if(module STREQUAL "Bitmap" AND source_name STREQUAL "BitmapEdit")
+            require_text("${module_header}" "enum class BitmapHistoryState")
+            require_text("${module_header}" "struct BitmapPatch")
+            continue()
+        endif()
+        # The polygon rasterizer is declared for bitmap callers and defined with
+        # the other mask operations.
+        if(module STREQUAL "Bitmap" AND source_name STREQUAL "SelectionPolygon_p")
+            require_text("${module_header}" "selectionPolygonRegion")
+            require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapProcessing.cpp"
+                         "detail::selectionPolygonRegion")
+            continue()
+        endif()
         if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.cpp")
             message(FATAL_ERROR "${module_header} must have a co-located implementation")
         endif()
@@ -345,6 +383,7 @@ foreach(module Audio Bitmap Camera Document File Layered Media Metadata QtAdapte
     foreach(module_implementation IN LISTS module_implementations)
         get_filename_component(source_name "${module_implementation}" NAME_WE)
         if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.h"
+           AND NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.hpp"
            AND NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}_p.hpp")
             message(FATAL_ERROR "${module_implementation} must have a co-located public or private header")
         endif()
@@ -388,8 +427,6 @@ endforeach()
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "appendRasterDabs")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
-             "paintRasterSamples")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/ChunkedBitmapEditor.cpp"
              "projectBrushDabs")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Render/FrameRenderer.h"

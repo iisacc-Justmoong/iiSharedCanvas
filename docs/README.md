@@ -44,6 +44,7 @@ Markdown is the maintained human source. Agent JSON is a structured, source-trac
 | [`docs/LAYER_COMPOSITING.md`](LAYER_COMPOSITING.md) | [JSON](LAYER_COMPOSITING.agent.json) |
 | [`docs/LAYER_FILE_EDITS.md`](LAYER_FILE_EDITS.md) | [JSON](LAYER_FILE_EDITS.agent.json) |
 | [`docs/LINE_ART.md`](LINE_ART.md) | [JSON](LINE_ART.agent.json) |
+| [`docs/License.md`](License.md) | [JSON](License.agent.json) |
 | [`docs/MASK_REGIONS.md`](MASK_REGIONS.md) | [JSON](MASK_REGIONS.agent.json) |
 | [`docs/MEDIA_IO.md`](MEDIA_IO.md) | [JSON](MEDIA_IO.agent.json) |
 | [`docs/MLSD.md`](MLSD.md) | [JSON](MLSD.agent.json) |

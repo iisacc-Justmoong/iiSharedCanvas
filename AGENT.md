@@ -4,6 +4,14 @@ C++23과 표준·iiSDK의 공개 인터페이스를 사용한다. SDK 소스와 
 
 빌드·설치 스테이징·검사는 저장소의 build/ 안에서 수행한다. 소스 변경 시 관련 docs/와 tests/를 함께 갱신한다. README.md는 영어, docs/ 문서는 한국어로 작성한다. 기존 작업과 사용자 파일을 보존한다. 플랫폼별 소스 이식과 실제 실행 검증을 구분한다.
 
+## 라이선스
+
+이 모듈은 Apache License 2.0이다. 자사 코드, 문서, 도구, 테스트가 포함된다. 저작권 표시는 `Copyright (c) 2026 iisacc`이고 고지는 루트 `NOTICE`에 있다. 사람용 한국어 설명은 [docs/License.md](docs/License.md)이다. iiPaintEngine을 포함한 iiSDK 모듈은 Apache-2.0이다.
+
+`Product` 아래의 iisacc 제품은 GNU Affero General Public License(AGPL)이다.
+
+제3자와 벤더 코드는 원래 라이선스를 유지한다. `third_party/fast_float`의 MIT 라이선스와 외부 원본은 보존한다.
+
 ## 보존한 AGENTS.md 프로젝트 지침
 
 <a id="iisharedcanvas-engineering-contract"></a>
