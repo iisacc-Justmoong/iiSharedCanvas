@@ -4,7 +4,7 @@ project(iiSharedCanvas VERSION 0.35.39 LANGUAGES CXX)
 
 
 
-set(IISHAREDCANVAS_LICENSE_SPDX "MIT")
+set(IISHAREDCANVAS_LICENSE_SPDX "Apache-2.0")
 
 if(PROJECT_IS_TOP_LEVEL AND CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
     set(_sdk_home "$ENV{HOME}")
@@ -43,6 +43,10 @@ if(BUILD_TESTING)
         "-DCONFIGURATION=$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeResourceInstall.cmake")
     set_tests_properties(iiSharedCanvas.ResourcesInstall PROPERTIES TIMEOUT 900
         SKIP_REGULAR_EXPRESSION "SKIP: Resource install test requires a relative install data directory")
+    add_test(NAME iiSharedCanvas.ProjectContract
+        COMMAND ${CMAKE_COMMAND}
+            -DIISHAREDCANVAS_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/ProjectContractTest.cmake)
 endif()
 if(NOT IISHAREDCANVAS_BUILD_QT_API)
     include(cmake/iiSharedCanvasNative.cmake)
@@ -469,11 +473,11 @@ install(EXPORT iiSharedCanvasTargets
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 install(FILES cmake/iiSharedCanvasAppleQtCompatibility.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
-install(FILES LICENSE NOTICE.md
+install(FILES LICENSE NOTICE NOTICE.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
 install(FILES third_party/fast_float/LICENSE-MIT third_party/fast_float/UPSTREAM.md
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas/fast_float)
-install(FILES docs/LAYER_COMPOSITING.md docs/PHOTOSHOP_LAYER_COMPARISON.md docs/FOUR_LAYER_TYPES.md docs/DYNAMIC_FRAME_CONTENT.md docs/ARTBOARDS.md docs/ARTBOARD_PRESENTATION.md docs/CONTROLNET_PARAMETERS.md docs/IP_ADAPTER.md docs/REFERENCE.md docs/TILE.md docs/SHUFFLE.md docs/NORMAL_MAP.md docs/MLSD.md docs/BINARY_LINE_CONTROL.md docs/LINE_ART.md docs/DEPTH.md docs/POSE.md docs/SEMANTIC_SEGMENT.md docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/PERSISTENCE.md docs/MEDIA_IO.md docs/BuildComponents.md
+install(FILES docs/LAYER_COMPOSITING.md docs/PHOTOSHOP_LAYER_COMPARISON.md docs/FOUR_LAYER_TYPES.md docs/DYNAMIC_FRAME_CONTENT.md docs/ARTBOARDS.md docs/ARTBOARD_PRESENTATION.md docs/CONTROLNET_PARAMETERS.md docs/IP_ADAPTER.md docs/REFERENCE.md docs/TILE.md docs/SHUFFLE.md docs/NORMAL_MAP.md docs/MLSD.md docs/BINARY_LINE_CONTROL.md docs/LINE_ART.md docs/DEPTH.md docs/POSE.md docs/SEMANTIC_SEGMENT.md docs/CANVAS_MEDIA.md docs/AUDIO_TIMELINE.md README.md docs/API.md docs/BLUEPRINT.md docs/FORMAT.md docs/DEPENDENCIES.md docs/License.md docs/PERSISTENCE.md docs/MEDIA_IO.md docs/BuildComponents.md
         docs/RASTER_SAMPLING.md docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md docs/IISC_UPGRADE_CLI.md
         docs/DOCUMENT_PREVIEWS.md
@@ -746,10 +750,6 @@ if(BUILD_TESTING)
     add_test(NAME iiSharedCanvas.AsyncFrameRenderer
             COMMAND iiSharedCanvasAsyncFrameRendererTest)
 
-    add_test(NAME iiSharedCanvas.ProjectContract
-            COMMAND ${CMAKE_COMMAND}
-                    -DIISHAREDCANVAS_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR}
-                    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/ProjectContractTest.cmake)
 endif()
 
 if(BUILD_TESTING)

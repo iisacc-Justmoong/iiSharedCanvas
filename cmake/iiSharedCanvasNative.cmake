@@ -375,5 +375,7 @@ configure_package_config_file(cmake/iiSharedCanvasNativeConfig.cmake.in
     PATH_VARS CMAKE_INSTALL_DATADIR)
 write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasNativeConfigVersion.cmake"
     VERSION ${PROJECT_VERSION} COMPATIBILITY SameMinorVersion)
+install(FILES LICENSE NOTICE NOTICE.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasNativeConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasNativeConfigVersion.cmake"
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvasNative)

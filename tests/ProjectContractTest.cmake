@@ -277,11 +277,35 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/main.cpp"
              "layerExistsAt")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
-             "MIT License")
+             "Apache License")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/LICENSE"
+             "Version 2.0, January 2004")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE"
+             "Copyright (c) 2026 iisacc")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE"
+             "Apache License, Version 2.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
-             "SPDX-License-Identifier: MIT")
+             "SPDX-License-Identifier: Apache-2.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/NOTICE.md"
+             "Copyright (c) 2026 iisacc")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
+             "SPDX-License-Identifier: Apache-2.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/License.md"
+             "Apache License 2.0")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENT.md"
+             "Apache License 2.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "set(IISHAREDCANVAS_LICENSE_SPDX \"MIT\")")
+             "set(IISHAREDCANVAS_LICENSE_SPDX \"Apache-2.0\")")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "install(FILES LICENSE NOTICE NOTICE.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
+             "set(iiSharedCanvas_SPDX_LICENSE \"Apache-2.0\")")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasNativeConfig.cmake.in"
+             "set(iiSharedCanvasNative_SPDX_LICENSE \"Apache-2.0\")")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasNative.cmake"
+             "install(FILES LICENSE NOTICE NOTICE.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/third_party/fast_float/LICENSE-MIT"
+             "MIT License")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakePresets.json"
              "\"binaryDir\": \"\${sourceDir}/build\"")
 
