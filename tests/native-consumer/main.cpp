@@ -8,6 +8,9 @@ int main(int argc,char** argv){CHECK(argc==2);using namespace iiSharedCanvas;
     auto path=(temporary.path()/"relocated.iisc").u8string();std::string filename(path.begin(),path.end());
     Document document;document.extent={16,16};document.assets.emplace_back(RasterAsset{"pixels",makeRasterLayer(16,16,0xffff0000)});
     document.layers.emplace_back(StaticBitmapLayer{{"layer","Layer"},StaticSource{"pixels"}});
+    // Exercise the exported timeline contract using the installed native package.
+    CHECK((staticLayerTimelineRange(document, document.layers.front()) == LayerFrameRange{0, 0}));
+    CHECK((defaultDynamicLayerTimelineRange({30000, 1001}) == LayerFrameRange{0, 149}));
     auto *layer=findLayer(document,"layer");DocumentEditor memory(document);
     LayerChange rename{"layer",LayerChangeField::Name,std::string("Layer"),std::string("Ink")};
     {LayerPropertyGuard rollback(document,*layer,rename.field);CHECK(rename.apply(memory,true).changed);}

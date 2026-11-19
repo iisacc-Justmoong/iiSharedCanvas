@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.35.41 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.35.43 LANGUAGES CXX)
 include(./cmake/ModuleImports.cmake)
 # File creation is owned by iiFileProvider.
 
@@ -492,13 +492,19 @@ configure_package_config_file(
 write_basic_package_version_file(
         "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY ExactVersion)
+        COMPATIBILITY SameMinorVersion)
 install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasConfig.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasConfigVersion.cmake"
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvas)
 
 if(BUILD_TESTING)
+    add_test(NAME iiSharedCanvas.PackageVersion COMMAND "${CMAKE_COMMAND}"
+        "-DVERSION_FILE=${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasConfigVersion.cmake"
+        "-DTEST_DIRECTORY=${CMAKE_CURRENT_BINARY_DIR}/tests/package-version"
+        "-DCANVAS_VERSION=${PROJECT_VERSION}" "-DCANVAS_MAJOR=${PROJECT_VERSION_MAJOR}"
+        "-DCANVAS_MINOR=${PROJECT_VERSION_MINOR}" "-DCANVAS_PATCH=${PROJECT_VERSION_PATCH}"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/PackageVersion.cmake")
     if(IISHAREDCANVAS_BUILD_SHARED)
         foreach(canvas_target IN ITEMS iiSharedCanvas iiSharedCanvasCore)
             add_test(NAME ${canvas_target}.shared_type COMMAND "${CMAKE_COMMAND}"

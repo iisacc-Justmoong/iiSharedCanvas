@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/LAYER_COMPOSITING.md",
-    "sha256": "de34c6a5195a12baf88f526b631633f27524b6962984a44ee88106d12b4c9309",
-    "bytes": 8550,
-    "line_count": 57,
+    "sha256": "faa67b766eccf87f88c80919ff7c472148bfecefbe61e4424fd6923f445c4a87",
+    "bytes": 9500,
+    "line_count": 63,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -364,6 +364,50 @@
       "start_line": 57,
       "end_line": 57,
       "raw": "`LayerCompositingTest` covers all native/PSD blend tags, real mask pixels, density, inversion, disabled and linked/unlinked masks, combined vector masks, feather seams, filter ordering and filter masks, Fill/Opacity multiplication, clipping over opaque unrelated backgrounds, Blend If, legacy canonical bytes, edit rollback, asset reference protection, configurable filter limits, and durable file-bound reopens. iiPaintEngine's `LayerBlendModesTest` supplies independent opaque/partial-alpha reference pixels and repeatable Dissolve checks. See [Photoshop evidence comparison](PHOTOSHOP_LAYER_COMPARISON.md) for provenance and remaining differences.\n"
+    },
+    {
+      "id": "b000048",
+      "kind": "blank",
+      "start_line": 58,
+      "end_line": 58,
+      "raw": "\n"
+    },
+    {
+      "id": "b000049",
+      "kind": "heading",
+      "start_line": 59,
+      "end_line": 59,
+      "raw": "## 픽셀 정렬 타일 합성\n",
+      "level": 2,
+      "title": "픽셀 정렬 타일 합성"
+    },
+    {
+      "id": "b000050",
+      "kind": "blank",
+      "start_line": 60,
+      "end_line": 60,
+      "raw": "\n"
+    },
+    {
+      "id": "b000051",
+      "kind": "paragraph",
+      "start_line": 61,
+      "end_line": 61,
+      "raw": "확대·축소나 회전 없이 픽셀 격자에 맞는 래스터 영역은 행을 직접 읽는다. `Smooth`는 이 경우에도 alpha가 0인 픽셀을 0으로 정규화한다. 부분 픽셀 이동, 스케일 및 회전에는 각 요청의 원래 샘플링을 적용한다.\n"
+    },
+    {
+      "id": "b000052",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000053",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 63,
+      "raw": "클리핑이나 Blend If를 적용할 필요가 없는 불투명도 100%의 일반 혼합 레이어는 타일의 각 픽셀을 iiPaintEngine의 `SourceOver` 합성에 전달한다. 브러시의 불투명도와 마스크는 픽셀 alpha에 그대로 반영된다. `FrameCompositionReuse`는 정수 이동된 레이어 경계를 지나는 `Nearest`와 `Smooth` 타일을 원본 픽셀 및 픽셀 합성 참조와 비교한다. 픽셀 경계에 정렬된 단색 사각형 하나로 이루어진 벡터 레이어는 출력 영역 안의 행을 채운다. 이 검사는 잘린 사각형과 반 픽셀 이동 시의 경계 alpha도 비교한다.\n"
     }
   ],
   "outline": [
@@ -422,6 +466,14 @@
       "title": "Verification",
       "anchor": "verification",
       "start_line": 55
+    },
+    {
+      "block_id": "b000049",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "픽셀 정렬 타일 합성",
+      "anchor": "픽셀-정렬-타일-합성",
+      "start_line": 59
     }
   ],
   "indexes": {

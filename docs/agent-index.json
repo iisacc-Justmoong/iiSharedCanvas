@@ -133,7 +133,7 @@
       "document_id": "urn:iisacc:document:e52e16fe39b2a370db307d2fe990556ce5fd6e77c24e942606412eff86cc2e57",
       "source": "docs/BuildComponents.md",
       "agent_json": "docs/BuildComponents.agent.json",
-      "source_sha256": "d138c0a7bc6c455a3f7d52761ad99813d10538782a77794233e5ce7be0cd49b1",
+      "source_sha256": "1e841ce95507802b71b7e0b0112024d073f63e8cb5a75cc9ecec3ac09d0810b5",
       "role": "guide"
     },
     {
@@ -210,7 +210,7 @@
       "document_id": "urn:iisacc:document:77bc597630a1ab1da05fbb1728a92c708a599479b19cd54ab6e8b489ca4304f5",
       "source": "docs/FOUR_LAYER_TYPES.md",
       "agent_json": "docs/FOUR_LAYER_TYPES.agent.json",
-      "source_sha256": "9d5d538156b04bc0a54ffaea9a61f7bf1a894826aa9b52ab67dcf718b3f36a2c",
+      "source_sha256": "302fba5288f883291f1f9b6d6e7f3c61c2c76c5f1a009d32eeb7aa75dd72a7eb",
       "role": "guide"
     },
     {
@@ -252,7 +252,7 @@
       "document_id": "urn:iisacc:document:097d0387ec6a7afb7c0b3235c231244efcd56342a4a5dc2ef7c10e29311ba3ee",
       "source": "docs/LAYER_COMPOSITING.md",
       "agent_json": "docs/LAYER_COMPOSITING.agent.json",
-      "source_sha256": "de34c6a5195a12baf88f526b631633f27524b6962984a44ee88106d12b4c9309",
+      "source_sha256": "faa67b766eccf87f88c80919ff7c472148bfecefbe61e4424fd6923f445c4a87",
       "role": "guide"
     },
     {

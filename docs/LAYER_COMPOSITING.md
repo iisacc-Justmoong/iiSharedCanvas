@@ -55,3 +55,9 @@ PSD pixel-layer import/export maps all 27 documented keys. OpenRaster reads the 
 ## Verification
 
 `LayerCompositingTest` covers all native/PSD blend tags, real mask pixels, density, inversion, disabled and linked/unlinked masks, combined vector masks, feather seams, filter ordering and filter masks, Fill/Opacity multiplication, clipping over opaque unrelated backgrounds, Blend If, legacy canonical bytes, edit rollback, asset reference protection, configurable filter limits, and durable file-bound reopens. iiPaintEngine's `LayerBlendModesTest` supplies independent opaque/partial-alpha reference pixels and repeatable Dissolve checks. See [Photoshop evidence comparison](PHOTOSHOP_LAYER_COMPARISON.md) for provenance and remaining differences.
+
+## 픽셀 정렬 타일 합성
+
+확대·축소나 회전 없이 픽셀 격자에 맞는 래스터 영역은 행을 직접 읽는다. `Smooth`는 이 경우에도 alpha가 0인 픽셀을 0으로 정규화한다. 부분 픽셀 이동, 스케일 및 회전에는 각 요청의 원래 샘플링을 적용한다.
+
+클리핑이나 Blend If를 적용할 필요가 없는 불투명도 100%의 일반 혼합 레이어는 타일의 각 픽셀을 iiPaintEngine의 `SourceOver` 합성에 전달한다. 브러시의 불투명도와 마스크는 픽셀 alpha에 그대로 반영된다. `FrameCompositionReuse`는 정수 이동된 레이어 경계를 지나는 `Nearest`와 `Smooth` 타일을 원본 픽셀 및 픽셀 합성 참조와 비교한다. 픽셀 경계에 정렬된 단색 사각형 하나로 이루어진 벡터 레이어는 출력 영역 안의 행을 채운다. 이 검사는 잘린 사각형과 반 픽셀 이동 시의 경계 alpha도 비교한다.

@@ -37,10 +37,10 @@ symbol lookup. New source consumers retain the old complete CMake target;
 backend consumers explicitly select Core. Prebuilt binaries on other platforms
 must be relinked for the split package; their binary compatibility is unverified.
 
-Document formats and public C++ document values are unchanged. Header and
-library versions must match across a process, including iiSocietyHelper.
-The standalone Core consumer builds with Qt QML and Quick discovery disabled,
-round-trips an IISC document and its metadata, and renders the restored pixels.
+`Core`와 `Quick`의 설치 패키지는 `SameMinorVersion`을 사용한다. 최소 버전 `0.35.39`는 `0.35.41`을 허용하며 `0.35.38`과 다른 메이저·마이너를 거부한다.
+같은 메이저·마이너의 패치는 바이너리 ABI를 유지한다. 같은 프로세스의 소비자는 한 패키지의 헤더와 라이브러리를 사용하며, `EXACT`를 명시하면 요청한 버전을 요구한다.
+독립 Core 소비자는 QML·Quick 탐색을 끄고 IISC 문서와 메타데이터를 왕복하며 복원한 픽셀을 렌더링한다.
+IISC 편집 코덱의 내부 이름은 Qt 키워드 매크로와 구분한다. `install.sh`는 새 설치 경로의 라이브러리와 CMake 설정으로 소비자를 검증한다.
 
 macOS에서 Core 설치 경로가 컴파일러의 암묵적 라이브러리 경로에 포함되면
 Core 대상은 실행 시에도 같은 라이브러리를 찾을 수 있도록 런타임 검색 경로를

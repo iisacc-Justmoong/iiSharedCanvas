@@ -49,9 +49,72 @@ void compare(const Document &document, const std::vector<FrameRenderTileRequest>
     equal(renderFrameTiles(document, 0, requests),
           composeFrameLayers(renderFrameLayers(document, 0, requests)));
 }
+
+// Compare native-resolution tiles against the source pixels and pixel compositor.
+// This crop crosses the translated layer's top and right boundaries.
+void compareAlignedCrop() {
+    auto document = fixture();
+    layerProperties(document.layers[1]).transform = {1, 0, 0, 1, -13, 17};
+    const auto &lower = std::get<RasterAsset>(document.assets[0]).pixels;
+    const auto &upper = std::get<RasterAsset>(document.assets[1]).pixels;
+    const CanvasRegion region{{470, 5}, {42, 64}};
+    for (const auto sampling : {RasterSampling::Nearest, RasterSampling::Smooth}) {
+        const FrameRenderTileRequest request{region, region.extent, sampling};
+        const auto layer = renderFrameLayerTiles(document, 0, 1, {request});
+        const auto frame = renderFrameTiles(document, 0, {request});
+        if (!layer.ok() || !frame.ok() || layer.tiles.size() != 1 || frame.tiles.size() != 1)
+            throw std::runtime_error("pixel-aligned crop failed");
+        for (int y = 0; y < region.extent.height; ++y) {
+            for (int x = 0; x < region.extent.width; ++x) {
+                const int worldX = region.origin.x + x, worldY = region.origin.y + y;
+                const int sourceX = worldX + 13, sourceY = worldY - 17;
+                const auto source = sourceX < upper.width && sourceY >= 0
+                    ? upper.pixels[std::size_t(sourceY) * upper.width + sourceX] : 0U;
+                const auto backdrop = lower.pixels[std::size_t(worldY) * lower.width + worldX];
+                const auto index = std::size_t(y) * region.extent.width + x;
+                if (layer.tiles.front().pixels.pixels[index] != (source >> 24 ? source : 0U))
+                    throw std::runtime_error("pixel-aligned crop changed layer pixels");
+                if (frame.tiles.front().pixels.pixels[index] !=
+                    compositeRasterPixel(source, backdrop, RasterBlendMode::SourceOver))
+                    throw std::runtime_error("pixel-aligned crop changed translucent composition");
+            }
+        }
+    }
+}
+
+// Pixel-aligned fills must agree with integer coverage at a clipped edge.
+// Moving the same fill half a pixel exercises the sampled edge path.
+void compareVectorRectangle() {
+    Document document;
+    document.extent = {32, 20};
+    VectorPath rectangle;
+    rectangle.commands = {MoveTo{{2, 4}}, LineTo{{22, 4}}, LineTo{{22, 28}},
+                          LineTo{{2, 28}}, ClosePath{}};
+    rectangle.fill = SolidPaint{0x806533ffU};
+    document.assets.emplace_back(VectorAsset{"rect", {24, 32}, {rectangle}});
+    document.layers.emplace_back(StaticVectorLayer{{"rect-layer", "Rectangle"}, StaticSource{"rect"}});
+    auto &properties = layerProperties(document.layers.front());
+    const auto region = CanvasRegion{{0, 0}, document.extent};
+    for (const bool fractional : {false, true}) {
+        properties.transform = {0.5, 0, 0, 0.5, fractional ? 20.5 : 20.0, -3};
+        const auto frame = renderFrameRegion(document, 0, region, region.extent, RasterSampling::Smooth);
+        if (!frame.ok()) throw std::runtime_error("vector rectangle failed");
+        for (int y = 0; y < region.extent.height; ++y) {
+            for (int x = 0; x < region.extent.width; ++x) {
+                std::uint32_t expected = 0;
+                if (y < 11 && x >= 21 && x < 31) expected = 0x806533ffU;
+                if (y < 11 && fractional && (x == 21 || x == 31)) expected = 0x406533ffU;
+                if (frame.pixels.pixels[std::size_t(y) * region.extent.width + x] != expected)
+                    throw std::runtime_error("vector rectangle changed translated fill coverage");
+            }
+        }
+    }
+}
 }
 
 int main() try {
+    compareAlignedCrop();
+    compareVectorRectangle();
     for (std::uint32_t alpha = 0; alpha < 256; ++alpha)
         for (std::uint32_t channel = 0; channel < 256; ++channel) {
             const auto pixel = (alpha << 24) | (channel << 16) |

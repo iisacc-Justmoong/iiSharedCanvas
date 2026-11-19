@@ -625,5 +625,15 @@ IISHAREDCANVAS_EXPORT std::vector<AssetReference> assetReferences(
 IISHAREDCANVAS_EXPORT const Asset *resolveAssetAt(const Document &document,
                                                   const Layer &layer,
                                                   FrameIndex frame) noexcept;
+// Returns one inclusive timeline cell at the first active frame of a static asset.
+// Rendering continues to use LayerProperties::frameRange. Dynamic layers and
+// unresolved assets have no static timeline cell.
+IISHAREDCANVAS_EXPORT std::optional<LayerFrameRange> staticLayerTimelineRange(
+    const Document &document, const Layer &layer) noexcept;
+// Returns the default five-second range for a new dynamic layer at frame zero.
+// Round up to a whole number of frames. Invalid rates and lengths outside the
+// document frame count type have no range.
+IISHAREDCANVAS_EXPORT std::optional<LayerFrameRange> defaultDynamicLayerTimelineRange(
+    FrameRate frameRate) noexcept;
 
 } // namespace iiSharedCanvas

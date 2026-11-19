@@ -4,7 +4,7 @@ project(iiSharedCanvasConsumer LANGUAGES CXX)
 include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/iiSharedCanvasTestWorkDir.cmake")
 iisc_configure_test_work_dir(_iisc_test_work "${CMAKE_CURRENT_SOURCE_DIR}/../../resources")
 
-find_package(iiSharedCanvas 0.32.0 CONFIG REQUIRED)
+find_package(iiSharedCanvas CONFIG REQUIRED)
 find_package(SQLite3 3.26 REQUIRED)
 find_program(IISC_UPGRADE_EXECUTABLE NAMES iisc-upgrade
     HINTS "${iiSharedCanvas_DIR}/../../../bin" NO_DEFAULT_PATH REQUIRED)

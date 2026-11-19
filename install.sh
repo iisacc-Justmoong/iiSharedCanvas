@@ -138,11 +138,11 @@ fi
 test -x "${export_timeline_executable}"
 "${export_timeline_executable}" --help
 
-installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 -type f \
-    \( -name 'libiiSharedCanvas.0.33.2.dylib' \
-       -o -name 'libiiSharedCanvas.so.0.33.2' \
+installed_library="$(find "${INSTALL_PREFIX}" -maxdepth 3 \
+    \( -name 'libiiSharedCanvas.dylib' \
+       -o -name 'libiiSharedCanvas.so' \
        -o -name 'iiSharedCanvas.dll' \) -print -quit)"
-if [[ -z "${installed_library}" ]]; then
+if [[ ! -f "${installed_library}" ]]; then
     echo "Installed iiSharedCanvas library was not found under ${INSTALL_PREFIX}" >&2
     exit 1
 fi
@@ -153,6 +153,7 @@ env LIBRARY_PATH="${INSTALL_PREFIX}/lib${LIBRARY_PATH:+:${LIBRARY_PATH}}" cmake 
     -S "${PROJECT_ROOT}/tests/consumer" \
     -B "${CONSUMER_BUILD_DIR}" \
     -DCMAKE_BUILD_TYPE=Release \
+    -DiiSharedCanvas_DIR="${INSTALL_PREFIX}/lib/cmake/iiSharedCanvas" \
     -DCMAKE_PREFIX_PATH="${INSTALL_PREFIX};${DEPENDENCY_PREFIXES}"
 cmake --build "${CONSUMER_BUILD_DIR}" --config Release --parallel
 

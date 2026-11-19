@@ -1,6 +1,7 @@
 #include <iiSharedCanvas.h>
 
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -37,7 +38,7 @@ iiSharedCanvas::Document makeDocument()
     Document document;
     document.extent = {1920, 1080};
     document.timeline = {{24, 1}, 48};
-    document.assets.emplace_back(RasterAsset{"raster-static", makeRasterLayer(64, 64, 0xffffffffU)});
+    document.assets.emplace_back(RasterAsset{"raster-static", makeRasterLayer(64, 64, 0U)});
     document.assets.emplace_back(RasterAsset{"raster-frame-0", makeRasterLayer(64, 64, 0xff000000U)});
     document.assets.emplace_back(RasterAsset{"raster-frame-24", makeRasterLayer(64, 64, 0xffffffffU)});
     document.assets.emplace_back(makeVectorAsset("vector-static", 0xffff0000U));
@@ -76,6 +77,17 @@ iiSharedCanvas::Document makeDocument()
 int main()
 {
     using namespace iiSharedCanvas;
+
+    expect(defaultDynamicLayerTimelineRange({24, 1}) == LayerFrameRange{0, 119}
+               && defaultDynamicLayerTimelineRange({30, 1}) == LayerFrameRange{0, 149},
+           "a new dynamic layer must span five seconds at the document frame rate");
+    expect(defaultDynamicLayerTimelineRange({30000, 1001}) == LayerFrameRange{0, 149}
+               && defaultDynamicLayerTimelineRange({25, 2}) == LayerFrameRange{0, 62}
+               && defaultDynamicLayerTimelineRange({1, 5}) == LayerFrameRange{0, 0},
+           "fractional rates must use the smallest whole-frame range that covers five seconds");
+    expect(!defaultDynamicLayerTimelineRange({0, 1}) && !defaultDynamicLayerTimelineRange({24, 0})
+               && !defaultDynamicLayerTimelineRange({std::numeric_limits<FrameIndex>::max(), 1}),
+           "an invalid rate or unrepresentable dynamic layer length must fail closed");
 
     const Document document = makeDocument();
     expect(validate(document).ok(),
@@ -120,6 +132,15 @@ int main()
     const Asset *staticRaster = resolveAssetAt(document, document.layers[0], 47);
     expect(staticRaster && assetId(*staticRaster) == "raster-static",
            "a static raster layer must resolve at every document frame");
+    expect(staticLayerTimelineRange(document, document.layers[0]) == LayerFrameRange{0, 0}
+               && staticLayerTimelineRange(document, document.layers[1]) == LayerFrameRange{0, 0},
+           "static bitmap and vector layers in a 48-frame document must each author one cell, including empty pixels");
+    expect(!staticLayerTimelineRange(document, document.layers[2])
+               && !staticLayerTimelineRange(document, document.layers[3]),
+           "keyframed layers must not report a static cell");
+    const Layer unresolved = StaticBitmapLayer{{"missing"}, StaticSource{"missing-asset"}};
+    expect(!staticLayerTimelineRange(document, unresolved),
+           "an unresolved static source must not report a cell");
 
     const Asset *rasterBeforeCut = resolveAssetAt(document, document.layers[2], 23);
     const Asset *rasterAfterCut = resolveAssetAt(document, document.layers[2], 24);
@@ -144,6 +165,9 @@ int main()
     layerProperties(ranged.layers[3]).frameRange = LayerFrameRange{6, 28};
     expect(validate(ranged).ok(),
            "static and keyframed layers must accept independent overlapping frame ranges");
+    expect(staticLayerTimelineRange(ranged, ranged.layers[0]) == LayerFrameRange{1, 1}
+               && staticLayerTimelineRange(ranged, ranged.layers[1]) == LayerFrameRange{12, 12},
+           "a static cell must start at the first active frame and span exactly one frame");
     expect(!layerExistsAt(ranged, ranged.layers[0], 0)
                && layerExistsAt(ranged, ranged.layers[0], 1)
                && layerExistsAt(ranged, ranged.layers[0], 24)
@@ -164,6 +188,10 @@ int main()
     const Asset *heldAtRangeStart = resolveAssetAt(ranged, ranged.layers[3], 6);
     expect(heldAtRangeStart && assetId(*heldAtRangeStart) == "vector-frame-0",
            "a keyframed layer must preserve pre-range keys and hold their value at range entry");
+    ranged.assets.emplace_back(VideoAsset{"movie", {24, 1}, {makeRasterLayer(1, 1, 0)}});
+    const Layer video = VideoLayer{{"video"}, StaticSource{"movie"}};
+    expect(resolveAssetAt(ranged, video, 0) && !staticLayerTimelineRange(ranged, video),
+           "video is timed media even though its source holds one asset ID");
 
     Document sparseLookup;
     sparseLookup.extent = {1, 1};

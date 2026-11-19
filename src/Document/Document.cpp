@@ -294,6 +294,38 @@ bool layerExistsAt(const Document &document,
         && (!range || (frame >= range->firstFrame && frame <= range->lastFrame));
 }
 
+// Derive the authored cell from the start of the layer's rendering exposure.
+std::optional<LayerFrameRange> staticLayerTimelineRange(const Document &document,
+                                                        const Layer &layer) noexcept
+{
+    if (layerTiming(layer) != LayerTiming::Static) {
+        return std::nullopt;
+    }
+
+    const auto &exposure = layerProperties(layer).frameRange;
+    const FrameIndex first = exposure ? exposure->firstFrame : 0;
+    if (!resolveAssetAt(document, layer, first)) {
+        return std::nullopt;
+    }
+    return LayerFrameRange{first, first};
+}
+
+// Use the document's rational clock to cover five seconds with whole frames.
+std::optional<LayerFrameRange> defaultDynamicLayerTimelineRange(FrameRate frameRate) noexcept
+{
+    if (!frameRate.numerator || !frameRate.denominator) {
+        return std::nullopt;
+    }
+
+    constexpr std::uint64_t defaultDurationSeconds = 5;
+    const auto scaled = defaultDurationSeconds * frameRate.numerator;
+    const auto count = (scaled + frameRate.denominator - 1) / frameRate.denominator;
+    if (count > std::numeric_limits<FrameIndex>::max()) {
+        return std::nullopt;
+    }
+    return LayerFrameRange{0, static_cast<FrameIndex>(count - 1)};
+}
+
 CanvasOrigin canvasOrigin(const Document &document) noexcept
 {
     return document.canvasMode == CanvasMode::Infinite

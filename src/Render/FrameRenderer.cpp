@@ -466,6 +466,44 @@ Bounds transformBounds(Bounds source,
     return result;
 }
 
+// A single solid rectangle on pixel boundaries has full coverage in every
+// included pixel. Its output over the initially empty tile is the fill color.
+bool fillAlignedRectangle(RasterLayer &target, const VectorPath &path,
+                          const AffineTransform &transform, bool opaqueMask)
+{
+    if (!path.fill || path.stroke || path.commands.size() != 5 ||
+        transform.m12 != 0 || transform.m21 != 0 ||
+        !std::holds_alternative<ClosePath>(path.commands.back())) return false;
+    const auto *start = std::get_if<MoveTo>(&path.commands[0]);
+    const auto *first = std::get_if<LineTo>(&path.commands[1]);
+    const auto *opposite = std::get_if<LineTo>(&path.commands[2]);
+    const auto *last = std::get_if<LineTo>(&path.commands[3]);
+    if (!start || !first || !opposite || !last) return false;
+    const auto [a, b, c, d] = std::array{start->point, first->point, opposite->point, last->point};
+    const bool horizontalFirst = a.y == b.y && b.x == c.x && c.y == d.y && d.x == a.x;
+    const bool verticalFirst = a.x == b.x && b.y == c.y && c.x == d.x && d.y == a.y;
+    if ((!horizontalFirst && !verticalFirst) || a.x == c.x || a.y == c.y) return false;
+
+    const auto begin = transformPoint(transform, {a.x, a.y});
+    const auto end = transformPoint(transform, {c.x, c.y});
+    const auto aligned = [](double coordinate) {
+        return std::isfinite(coordinate) && std::trunc(coordinate) == coordinate;
+    };
+    if (!aligned(begin.x) || !aligned(begin.y) || !aligned(end.x) || !aligned(end.y)) return false;
+
+    const auto argb = opaqueMask ? 0xffffffffU : path.fill->argb;
+    if (argb >> 24) {
+        const int left = floorToExtent(std::min(begin.x, end.x), target.width);
+        const int top = floorToExtent(std::min(begin.y, end.y), target.height);
+        const int right = ceilToExtent(std::max(begin.x, end.x), target.width);
+        const int bottom = ceilToExtent(std::max(begin.y, end.y), target.height);
+        if (left >= right) return true;
+        for (int y = top; y < bottom; ++y)
+            std::fill_n(target.pixels.data() + pixelIndex(target.width, left, y), right - left, argb);
+    }
+    return true;
+}
+
 RasterLayer rasterizeVector(const VectorAsset &asset,
                             const AffineTransform &transform,
                             int outputWidth,
@@ -478,6 +516,8 @@ RasterLayer rasterizeVector(const VectorAsset &asset,
     if (std::abs(determinant) <= std::numeric_limits<double>::epsilon()) {
         return result;
     }
+    if (asset.paths.size() == 1 && fillAlignedRectangle(result, asset.paths.front(), transform, opaqueMask))
+        return result;
 
     for (const VectorPath &path : asset.paths) {
         const std::vector<Contour> contours = flattenPath(path);
@@ -592,6 +632,34 @@ RasterLayer transformedRaster(const RasterSource &source,
     const int top = floorToExtent(bounds.top, outputHeight);
     const int right = ceilToExtent(bounds.right, outputWidth);
     const int bottom = ceilToExtent(bounds.bottom, outputHeight);
+    if (left >= right || top >= bottom) return result;
+
+    // At unit scale with integer offsets, each destination center coincides
+    // with one source center. Smooth sampling only canonicalizes zero alpha.
+    if (transform.m11 == 1 && transform.m22 == 1 && transform.m12 == 0 && transform.m21 == 0 &&
+        std::trunc(transform.translationX) == transform.translationX &&
+        std::trunc(transform.translationY) == transform.translationY) {
+        const int sourceLeft = static_cast<int>(left - transform.translationX);
+        const int sourceTop = static_cast<int>(top - transform.translationY);
+        const int width = right - left;
+        const auto canonical = [](std::uint32_t pixel) { return pixel >> 24 ? pixel : 0U; };
+        for (int y = top; y < bottom; ++y) {
+            const int sourceY = sourceTop + y - top;
+            auto *row = result.pixels.data() + pixelIndex(outputWidth, left, y);
+            if (source.base && !source.overlay) {
+                const auto *first = source.base->pixels.data() + pixelIndex(source.width, sourceLeft, sourceY);
+                if (sampling == RasterSampling::Smooth) std::transform(first, first + width, row, canonical);
+                else std::copy_n(first, width, row);
+            } else {
+                for (int x = 0; x < width; ++x) {
+                    const auto pixel = source.pixel(sourceLeft + x, sourceY);
+                    row[x] = sampling == RasterSampling::Smooth ? canonical(pixel) : pixel;
+                }
+            }
+        }
+        return result;
+    }
+
     const double footprintX = std::hypot(transform.m22, transform.m12) / std::abs(determinant);
     const double footprintY = std::hypot(transform.m21, transform.m11) / std::abs(determinant);
     const bool axisAligned = std::abs(transform.m12) < 1e-12 && std::abs(transform.m21) < 1e-12;
@@ -987,6 +1055,15 @@ RasterProcessResult filterLayer(const RasterLayer &original, const std::vector<L
     return {std::move(current), {}};
 }
 
+// Compose equal-sized, unmasked tiles whose coverage is in the source alpha.
+void compositeNormalTile(RasterLayer &destination, const RasterLayer &source)
+{
+    std::transform(source.pixels.begin(), source.pixels.end(), destination.pixels.begin(),
+                   destination.pixels.begin(), [](std::uint32_t pixel, std::uint32_t backdrop) {
+                       return compositeRasterPixel(pixel, backdrop, RasterBlendMode::SourceOver);
+                   });
+}
+
 FrameRenderResult renderLayerRegion(const Document &document,
                                     const Asset &asset,
                                     const LayerSample &properties,
@@ -1022,12 +1099,7 @@ FrameRenderResult renderLayerRegion(const Document &document,
             // All pieces are visible SourceOver layers at unit opacity.
             // Compose them in the same canonical chunk order without keeping
             // one output-sized surface alive for every visible chunk.
-            for (int y = 0; y < outputExtent.height; ++y) for (int x = 0; x < outputExtent.width; ++x) {
-                const auto index = pixelIndex(outputExtent.width, x, y);
-                streamed.pixels[index] = compositeRasterPixel(pixels.pixels[index], streamed.pixels[index],
-                    RasterBlendMode::SourceOver, 1.0,
-                    static_cast<std::uint32_t>(x) * 0x9e3779b9U ^ static_cast<std::uint32_t>(y));
-            }
+            compositeNormalTile(streamed, pixels);
             return;
         }
         const auto appendLayer = [&](RasterLayer piece) {
@@ -1348,6 +1420,12 @@ void compositeTile(RasterLayer &destination, const RasterLayer &source,
                    const FrameLayerTileRenderResult &layer, const FrameRenderTileRequest &request,
                    double opacity, bool preserveAlpha = false, const RasterLayer *clip = nullptr)
 {
+    if (layer.blendMode == RasterBlendMode::SourceOver && opacity == 1.0 &&
+        !preserveAlpha && !clip && !layer.blendIf) {
+        compositeNormalTile(destination, source);
+        return;
+    }
+
     std::uint32_t idHash = 2166136261U;
     for (unsigned char c : layer.layerId) { idHash ^= c; idHash *= 16777619U; }
     const double dx = double(request.region.extent.width)/request.outputExtent.width;

@@ -1,0 +1,37 @@
+cmake_minimum_required(VERSION 3.31)
+
+# Exercise the generated version file through find_package without loading the
+# Qt component or its dependencies. The actual package config is tested separately.
+file(MAKE_DIRECTORY "${TEST_DIRECTORY}")
+file(CONFIGURE OUTPUT "${TEST_DIRECTORY}/iiSharedCanvasConfig.cmake" CONTENT "")
+file(COPY_FILE "${VERSION_FILE}" "${TEST_DIRECTORY}/iiSharedCanvasConfigVersion.cmake" ONLY_IF_DIFFERENT)
+
+function(check_canvas_version requested expected)
+    unset(iiSharedCanvas_DIR)
+    unset(iiSharedCanvas_DIR CACHE)
+    find_package(iiSharedCanvas "${requested}" ${ARGN} CONFIG QUIET
+        PATHS "${TEST_DIRECTORY}" NO_DEFAULT_PATH)
+    if(expected)
+        if(NOT iiSharedCanvas_FOUND OR NOT iiSharedCanvas_VERSION VERSION_EQUAL CANVAS_VERSION)
+            message(FATAL_ERROR "Canvas ${CANVAS_VERSION} must satisfy ${requested} ${ARGN}")
+        endif()
+    elseif(iiSharedCanvas_FOUND)
+        message(FATAL_ERROR "Canvas ${CANVAS_VERSION} must reject ${requested} ${ARGN}")
+    endif()
+endfunction()
+
+check_canvas_version("${CANVAS_VERSION}" TRUE EXACT)
+check_canvas_version("${CANVAS_MAJOR}.${CANVAS_MINOR}.0" TRUE)
+if(CANVAS_PATCH GREATER 0)
+    check_canvas_version("${CANVAS_MAJOR}.${CANVAS_MINOR}.0" FALSE EXACT)
+endif()
+math(EXPR next_patch "${CANVAS_PATCH} + 1")
+check_canvas_version("${CANVAS_MAJOR}.${CANVAS_MINOR}.${next_patch}" FALSE)
+if(CANVAS_MINOR GREATER 0)
+    math(EXPR previous_minor "${CANVAS_MINOR} - 1")
+    check_canvas_version("${CANVAS_MAJOR}.${previous_minor}.0" FALSE)
+endif()
+if(CANVAS_MAJOR GREATER 0)
+    math(EXPR previous_major "${CANVAS_MAJOR} - 1")
+    check_canvas_version("${previous_major}.0.0" FALSE)
+endif()

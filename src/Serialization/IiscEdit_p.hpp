@@ -73,18 +73,18 @@ void writeChunkEdit(ByteWriter &writer, const ChunkedRasterAsset &before, const 
     std::uint32_t count = 0;
     auto old = before.chunks.begin(), next = after.chunks.begin();
     while (old != before.chunks.end() || next != after.chunks.end()) {
-        const auto emit = [&](const RasterChunk &chunk, std::uint8_t operation) {
+        const auto recordTile = [&](const RasterChunk &chunk, std::uint8_t operation) {
             chunks.writeI32(chunk.column); chunks.writeI32(chunk.row); chunks.writeU8(operation);
             ++count;
         };
         if (next == after.chunks.end() || (old != before.chunks.end() && chunkCoordinate(*old) < chunkCoordinate(*next))) {
-            emit(*old++, 0);
+            recordTile(*old++, 0);
         } else if (old == before.chunks.end() || chunkCoordinate(*next) < chunkCoordinate(*old)) {
-            emit(*next, 1);
+            recordTile(*next, 1);
             writeRaster(chunks, next++->pixels);
         } else {
             if (!sameRasterPixels(old->pixels, next->pixels)) {
-                emit(*next, 2);
+                recordTile(*next, 2);
                 writeRasterEdit(chunks, old->pixels, next->pixels);
             }
             ++old; ++next;
@@ -228,24 +228,24 @@ void editCollection(EditTransaction &transaction, std::vector<T> &values,
     auto rollback = std::make_shared<Reordering>();
     rollback->retained.reserve(size);
     std::vector<std::optional<T>> updated(size);
-    std::vector<std::size_t> slots(size, absent);
+    std::vector<std::size_t> originalIndices(size, absent);
     for (auto &change : changes) {
-        requireEdit(change.position < size && !updated[change.position] && slots[change.position] == absent,
+        requireEdit(change.position < size && !updated[change.position] && originalIndices[change.position] == absent,
                     "edit collection contains an invalid object position");
         if (change.data) updated[change.position] = std::move(change.data);
-        else slots[change.position] = change.original;
+        else originalIndices[change.position] = change.original;
     }
     std::size_t original = 0;
     std::vector<T> reordered;
     reordered.reserve(size);
     for (std::size_t i = 0; i < size; ++i) {
         if (updated[i]) continue;
-        if (slots[i] == absent) {
+        if (originalIndices[i] == absent) {
             while (original < absent && moved[original]) ++original;
             requireEdit(original != absent, "edit collection is missing a retained object");
-            slots[i] = original++;
+            originalIndices[i] = original++;
         }
-        rollback->retained.emplace_back(slots[i], i);
+        rollback->retained.emplace_back(originalIndices[i], i);
     }
     transaction.onRollback([&values, rollback] {
         for (const auto &[old, current] : rollback->retained)
@@ -254,7 +254,7 @@ void editCollection(EditTransaction &transaction, std::vector<T> &values,
     });
     static_assert(std::is_nothrow_move_constructible_v<T> && std::is_nothrow_move_assignable_v<T>);
     for (std::size_t i = 0; i < size; ++i)
-        reordered.push_back(updated[i] ? std::move(*updated[i]) : std::move(values[slots[i]]));
+        reordered.push_back(updated[i] ? std::move(*updated[i]) : std::move(values[originalIndices[i]]));
     rollback->originals.swap(values);
     values.swap(reordered);
 }
