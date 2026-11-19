@@ -1,10 +1,10 @@
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 
 Copyright (c) 2026 iisacc
 
-iiSharedCanvas is licensed under the MIT License. The complete license text is included in LICENSE.
+iiSharedCanvas is licensed under the Apache License 2.0. The complete license text is included in LICENSE.
 
-This license matches the MIT license of the required iiPaintEngine
+This license matches the Apache 2.0 license of the required iiPaintEngine
 dependency.
 
 Working-file persistence additionally links the platform-provided SQLite

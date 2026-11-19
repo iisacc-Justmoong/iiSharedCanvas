@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "README.md",
-    "sha256": "3f7e397d6ea407f8de29de87ecd2263a587a8ab52937f8058e4c212210893ab8",
-    "bytes": 68491,
+    "sha256": "5a4be7d47dd56d0c5cb3e1c483cb96fcd3fa79b040bc10a37625a7dfca78326c",
+    "bytes": 68517,
     "line_count": 1133,
     "encoding": "utf-8",
     "language": "ko"
@@ -1703,7 +1703,7 @@
       "kind": "paragraph",
       "start_line": 948,
       "end_line": 948,
-      "raw": "SPDX-License-Identifier: MIT\n"
+      "raw": "SPDX-License-Identifier: Apache-2.0\n"
     },
     {
       "id": "b000216",
@@ -1717,7 +1717,7 @@
       "kind": "paragraph",
       "start_line": 950,
       "end_line": 950,
-      "raw": "The code and documentation written by iiSharedCanvas are distributed under the MIT License ( `MIT` ). The full terms follow [LICENSE](LICENSE). This choice matches the `MIT` license of the iiPaintEngine public dependency.\n"
+      "raw": "The code and documentation written by iiSharedCanvas are distributed under the Apache License 2.0 (`Apache-2.0`). The full terms follow [LICENSE](LICENSE). This choice matches the `Apache-2.0` license of the iiPaintEngine public dependency.\n"
     },
     {
       "id": "b000218",

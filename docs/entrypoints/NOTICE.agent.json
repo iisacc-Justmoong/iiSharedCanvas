@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "NOTICE.md",
-    "sha256": "5e8d8f50225a142a6002af2298e535eee0f06284166cc4403455ee1d3c52b604",
-    "bytes": 1239,
+    "sha256": "ae92425f80619aa15cf8d8bef6065e3883cc43dfe1dbbcc0660bd2077db4ee70",
+    "bytes": 1260,
     "line_count": 23,
     "encoding": "utf-8",
     "language": "en"
@@ -27,7 +27,7 @@
       "kind": "paragraph",
       "start_line": 1,
       "end_line": 1,
-      "raw": "SPDX-License-Identifier: MIT\n"
+      "raw": "SPDX-License-Identifier: Apache-2.0\n"
     },
     {
       "id": "b000002",
@@ -55,7 +55,7 @@
       "kind": "paragraph",
       "start_line": 5,
       "end_line": 5,
-      "raw": "iiSharedCanvas is licensed under the MIT License. The complete license text is included in LICENSE.\n"
+      "raw": "iiSharedCanvas is licensed under the Apache License 2.0. The complete license text is included in LICENSE.\n"
     },
     {
       "id": "b000006",
@@ -69,7 +69,7 @@
       "kind": "paragraph",
       "start_line": 7,
       "end_line": 8,
-      "raw": "This license matches the MIT license of the required iiPaintEngine\ndependency.\n"
+      "raw": "This license matches the Apache 2.0 license of the required iiPaintEngine\ndependency.\n"
     },
     {
       "id": "b000008",
@@ -106,7 +106,7 @@
       {
         "block_id": "b000007",
         "line": 7,
-        "text": "This license matches the MIT license of the required iiPaintEngine",
+        "text": "This license matches the Apache 2.0 license of the required iiPaintEngine",
         "basis": "lexical_match",
         "context": "paragraph"
       },

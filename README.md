@@ -945,9 +945,9 @@ Premiere Pro, Final Cut Pro and DaVinci Resolve. Details and examples are in
 
 ## License
 
-SPDX-License-Identifier: MIT
+SPDX-License-Identifier: Apache-2.0
 
-The code and documentation written by iiSharedCanvas are distributed under the MIT License ( `MIT` ). The full terms follow [LICENSE](LICENSE). This choice matches the `MIT` license of the iiPaintEngine public dependency.
+The code and documentation written by iiSharedCanvas are distributed under the Apache License 2.0 (`Apache-2.0`). The full terms follow [LICENSE](LICENSE). This choice matches the `Apache-2.0` license of the iiPaintEngine public dependency.
 
 Third-party code, libraries, tools, and models retain their respective licenses and copyright notices, and this repository's license does not replace them. Existing dependency and distribution-related notices are
 Follows [NOTICE.md](NOTICE.md)and the [dependency review](docs/DEPENDENCIES.md).

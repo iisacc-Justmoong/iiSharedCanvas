@@ -28,14 +28,14 @@
       "document_id": "urn:iisacc:document:39609cefb9f27b8afdf3bb52ece6c6bfa112291fd289adabc3ad75605bf68dba",
       "source": "NOTICE.md",
       "agent_json": "docs/entrypoints/NOTICE.agent.json",
-      "source_sha256": "5e8d8f50225a142a6002af2298e535eee0f06284166cc4403455ee1d3c52b604",
+      "source_sha256": "ae92425f80619aa15cf8d8bef6065e3883cc43dfe1dbbcc0660bd2077db4ee70",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:7d20e20504abac33fdc1842f536e63f711ed98e60ec60f3f33fb7bd052b1c8e5",
       "source": "README.md",
       "agent_json": "docs/entrypoints/README.agent.json",
-      "source_sha256": "3f7e397d6ea407f8de29de87ecd2263a587a8ab52937f8058e4c212210893ab8",
+      "source_sha256": "5a4be7d47dd56d0c5cb3e1c483cb96fcd3fa79b040bc10a37625a7dfca78326c",
       "role": "overview"
     },
     {
