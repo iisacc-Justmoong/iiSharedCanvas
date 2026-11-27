@@ -1,6 +1,6 @@
 # 파일에 바인딩된 레이어 편집
 
-iiSharedCanvas Native 0.35.3은 현재 문서 모델 1.22와 작업 저장 형식 2에서
+iiSharedCanvas Native 0.35.3은 당시 문서 모델 1.22와 작업 저장 형식 2에서
 `DocumentEditor`의 레이어 이름·표시·불투명도·변환·혼합 모드 변경을 별도
 전체 `Document` 사본 없이 저장한다. 공개 `DocumentEditor` API, 레이어 순서와
 정규 IISC 형식은 바뀌지 않는다. 비트맵의 영역 이력과는 독립적인 구조 편집이다.

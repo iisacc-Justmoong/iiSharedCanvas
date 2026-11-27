@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/FOUR_LAYER_TYPES.md",
-    "sha256": "302fba5288f883291f1f9b6d6e7f3c61c2c76c5f1a009d32eeb7aa75dd72a7eb",
-    "bytes": 7488,
-    "line_count": 103,
+    "sha256": "ac9520d6c86732e8815f5992f4d06e2923b15ad4ff827dc5b24c8de843be162f",
+    "bytes": 7583,
+    "line_count": 101,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -54,83 +54,73 @@
     },
     {
       "id": "b000005",
-      "kind": "table",
       "start_line": 6,
-      "end_line": 11,
-      "raw": "| Layer | Content | Allowed payload | Frame sampling |\n| --- | --- | --- | --- |\n| `StaticBitmapLayer` | `StaticBitmapContent` | `RasterAsset` or `ChunkedRasterAsset` | One asset throughout the active range |\n| `StaticVectorLayer` | `StaticVectorContent` | `VectorAsset` with native paths/paint | One asset throughout the active range |\n| `DynamicBitmapLayer` | `DynamicBitmapContent` | Frame-selected raster or chunked raster assets | Each content key selects pixels |\n| `DynamicVectorLayer` | `DynamicVectorContent` | Frame-selected native vector assets | Each content key selects paths/paint |\n",
-      "columns": [
-        "Layer",
-        "Content",
-        "Allowed payload",
-        "Frame sampling"
-      ],
-      "rows": [
-        [
-          "`StaticBitmapLayer`",
-          "`StaticBitmapContent`",
-          "`RasterAsset` or `ChunkedRasterAsset`",
-          "One asset throughout the active range"
-        ],
-        [
-          "`StaticVectorLayer`",
-          "`StaticVectorContent`",
-          "`VectorAsset` with native paths/paint",
-          "One asset throughout the active range"
-        ],
-        [
-          "`DynamicBitmapLayer`",
-          "`DynamicBitmapContent`",
-          "Frame-selected raster or chunked raster assets",
-          "Each content key selects pixels"
-        ],
-        [
-          "`DynamicVectorLayer`",
-          "`DynamicVectorContent`",
-          "Frame-selected native vector assets",
-          "Each content key selects paths/paint"
-        ]
+      "end_line": 9,
+      "raw": "- Layer: `StaticBitmapLayer`; Content: `StaticBitmapContent`; Allowed payload: `RasterAsset` or `ChunkedRasterAsset`; Frame sampling: One asset throughout the active range\n- Layer: `StaticVectorLayer`; Content: `StaticVectorContent`; Allowed payload: `VectorAsset` with native paths/paint; Frame sampling: One asset throughout the active range\n- Layer: `DynamicBitmapLayer`; Content: `DynamicBitmapContent`; Allowed payload: Frame-selected raster or chunked raster assets; Frame sampling: Each content key selects pixels\n- Layer: `DynamicVectorLayer`; Content: `DynamicVectorContent`; Allowed payload: Frame-selected native vector assets; Frame sampling: Each content key selects paths/paint\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "Layer: `StaticBitmapLayer`; Content: `StaticBitmapContent`; Allowed payload: `RasterAsset` or `ChunkedRasterAsset`; Frame sampling: One asset throughout the active range",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Layer: `StaticVectorLayer`; Content: `StaticVectorContent`; Allowed payload: `VectorAsset` with native paths/paint; Frame sampling: One asset throughout the active range",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Layer: `DynamicBitmapLayer`; Content: `DynamicBitmapContent`; Allowed payload: Frame-selected raster or chunked raster assets; Frame sampling: Each content key selects pixels",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Layer: `DynamicVectorLayer`; Content: `DynamicVectorContent`; Allowed payload: Frame-selected native vector assets; Frame sampling: Each content key selects paths/paint",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000006",
       "kind": "blank",
-      "start_line": 12,
-      "end_line": 12,
+      "start_line": 10,
+      "end_line": 10,
       "raw": "\n"
     },
     {
       "id": "b000007",
       "kind": "paragraph",
-      "start_line": 13,
-      "end_line": 19,
+      "start_line": 11,
+      "end_line": 17,
       "raw": "`content.assetId` belongs to either static content type. `content.frameIndices`\nbelongs to either dynamic content type. The common source bases only share\nreference/index storage. The four content types cannot be substituted for one\nanother. The document owns full asset payloads and `Document::frames` owns exact\n`{layerId, assetId}` keys; content does not duplicate those payloads or keys.\nValidation checks every referenced asset against the concrete layer type and\nchecks the complete increasing frame index against the frame-owned keys.\n"
     },
     {
       "id": "b000008",
       "kind": "blank",
-      "start_line": 20,
-      "end_line": 20,
+      "start_line": 18,
+      "end_line": 18,
       "raw": "\n"
     },
     {
       "id": "b000009",
       "kind": "paragraph",
-      "start_line": 21,
-      "end_line": 26,
+      "start_line": 19,
+      "end_line": 24,
       "raw": "Static means the same content across the timeline, rather than immutable pixels.\nMotion and an existence range are independent of content identity. Dynamic keys\nuse hold sampling, begin at frame zero, and may be present on every frame. A\none-key dynamic layer retains its dynamic type. `setDynamicFrameContent` commits a\nfresh raster/vector payload and the exact-frame key atomically. Editing one\nindependent asset does not modify other frame assets.\n"
     },
     {
       "id": "b000010",
       "kind": "blank",
-      "start_line": 27,
-      "end_line": 27,
+      "start_line": 25,
+      "end_line": 25,
       "raw": "\n"
     },
     {
       "id": "b000011",
       "kind": "fenced_code",
-      "start_line": 28,
-      "end_line": 40,
+      "start_line": 26,
+      "end_line": 38,
       "raw": "```cpp\nDocument document;\ndocument.extent = {640, 480};\ndocument.timeline.frameCount = 24;\nDocumentEditor editor(document);\neditor.insertAsset(RasterAsset{\"background\", makeRasterLayer(640, 480, 0xff000000U)});\neditor.insertLayer(StaticBitmapLayer{{\"background-layer\"}, StaticBitmapContent{\"background\"}});\neditor.insertDynamicLayer({\"animation\"}, LayerRepresentation::Bitmap, {{0, \"background\"}});\neditor.setDynamicFrameContent(\"animation\", 1,\n    RasterAsset{\"frame-1\", makeRasterLayer(640, 480, 0xffff0000U)});\nconst auto *animation = findDynamicBitmapLayer(document, \"animation\");\n// animation->content.frameIndices == {0, 1}\n```\n",
       "language": "cpp",
       "code": "Document document;\ndocument.extent = {640, 480};\ndocument.timeline.frameCount = 24;\nDocumentEditor editor(document);\neditor.insertAsset(RasterAsset{\"background\", makeRasterLayer(640, 480, 0xff000000U)});\neditor.insertLayer(StaticBitmapLayer{{\"background-layer\"}, StaticBitmapContent{\"background\"}});\neditor.insertDynamicLayer({\"animation\"}, LayerRepresentation::Bitmap, {{0, \"background\"}});\neditor.setDynamicFrameContent(\"animation\", 1,\n    RasterAsset{\"frame-1\", makeRasterLayer(640, 480, 0xffff0000U)});\nconst auto *animation = findDynamicBitmapLayer(document, \"animation\");\n// animation->content.frameIndices == {0, 1}\n",
@@ -139,15 +129,15 @@
     {
       "id": "b000012",
       "kind": "blank",
-      "start_line": 41,
-      "end_line": 41,
+      "start_line": 39,
+      "end_line": 39,
       "raw": "\n"
     },
     {
       "id": "b000013",
       "kind": "heading",
-      "start_line": 42,
-      "end_line": 42,
+      "start_line": 40,
+      "end_line": 40,
       "raw": "## Editing and migration\n",
       "level": 2,
       "title": "Editing and migration"
@@ -155,71 +145,71 @@
     {
       "id": "b000014",
       "kind": "blank",
-      "start_line": 43,
-      "end_line": 43,
+      "start_line": 41,
+      "end_line": 41,
       "raw": "\n"
     },
     {
       "id": "b000015",
       "kind": "paragraph",
-      "start_line": 44,
-      "end_line": 48,
+      "start_line": 42,
+      "end_line": 46,
       "raw": "Use `DocumentEditor::setStaticSource` or `setKeyframedSource` to convert timing.\nThey replace the concrete layer alternative and its content together, retain\nproperties, rebuild/remove frame-owned keys, and validate atomically. Failure\nrestores the previous type, frame records, revision and authorship. File-bound\nedits commit synchronously through the existing incremental transaction.\n"
     },
     {
       "id": "b000016",
       "kind": "blank",
-      "start_line": 49,
-      "end_line": 49,
+      "start_line": 47,
+      "end_line": 47,
       "raw": "\n"
     },
     {
       "id": "b000017",
       "kind": "paragraph",
-      "start_line": 50,
-      "end_line": 53,
+      "start_line": 48,
+      "end_line": 51,
       "raw": "`findStaticBitmapLayer`, `findStaticVectorLayer`, `findDynamicBitmapLayer` and\n`findDynamicVectorLayer` return only their exact alternative. `layerKind` returns\n`std::optional<LayerKind>` containing one of the four values for artwork.\n`layerTiming` and `layerRepresentation` remain independent queries.\n"
     },
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 54,
-      "end_line": 54,
+      "start_line": 52,
+      "end_line": 52,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "paragraph",
-      "start_line": 55,
-      "end_line": 62,
+      "start_line": 53,
+      "end_line": 60,
       "raw": "This is a breaking C++ model/API change: rebuild against package **0.28.0**, ABI\n**0.28**. Replace `BitmapLayer`/`VectorLayer` with the appropriate concrete type and\nreplace `.source` with `.content`. `layerSource` now returns a detached source\nvalue; assigning to it does not mutate a document. `staticLayerSource` and\n`keyframedLayerSource` borrow reference/index storage without allocating.\n`makeBitmapLayer`/`makeVectorLayer` convert a source carrier into the correct\nconcrete aggregate. `setLayerSource` performs aggregate conversion but does not\nvalidate or manage document-owned keys; use the editor for structural edits.\n"
     },
     {
       "id": "b000020",
       "kind": "blank",
-      "start_line": 63,
-      "end_line": 63,
+      "start_line": 61,
+      "end_line": 61,
       "raw": "\n"
     },
     {
       "id": "b000021",
       "kind": "paragraph",
-      "start_line": 64,
-      "end_line": 68,
+      "start_line": 62,
+      "end_line": 66,
       "raw": "Video and existing ControlNet specializations retain their media/conditioning\ncontracts. Video reports dynamic bitmap identity; spatial conditioning maps its\ntiming and representation to the same four visual kinds. IP-Adapter tensor\nconditioning has `LayerRepresentation::Embedding` and `layerKind == nullopt`;\nit does not add artwork kinds or masquerade as bitmap/vector pixels.\n"
     },
     {
       "id": "b000022",
       "kind": "blank",
-      "start_line": 69,
-      "end_line": 69,
+      "start_line": 67,
+      "end_line": 67,
       "raw": "\n"
     },
     {
       "id": "b000023",
       "kind": "heading",
-      "start_line": 70,
-      "end_line": 70,
+      "start_line": 68,
+      "end_line": 68,
       "raw": "## Persistence and verification\n",
       "level": 2,
       "title": "Persistence and verification"
@@ -227,57 +217,57 @@
     {
       "id": "b000024",
       "kind": "blank",
-      "start_line": 71,
-      "end_line": 71,
+      "start_line": 69,
+      "end_line": 69,
       "raw": "\n"
     },
     {
       "id": "b000025",
       "kind": "paragraph",
-      "start_line": 72,
-      "end_line": 77,
+      "start_line": 70,
+      "end_line": 75,
       "raw": "Native **1.19** records store the explicit visual type byte immediately after\nartboard membership. Tags 0/1/2/3 mean static bitmap/static vector/dynamic bitmap/\ndynamic vector. Tag 255 identifies nonspatial conditioning. Decoders reject an\nunknown tag or a declared type that disagrees with source/asset/role, even when\nthe checksum is valid. Working-file schema remains 1 and stores the same typed\nlayer record in its existing incremental store.\n"
     },
     {
       "id": "b000026",
       "kind": "blank",
-      "start_line": 78,
-      "end_line": 78,
+      "start_line": 76,
+      "end_line": 76,
       "raw": "\n"
     },
     {
       "id": "b000027",
       "kind": "paragraph",
-      "start_line": 79,
-      "end_line": 81,
+      "start_line": 77,
+      "end_line": 79,
       "raw": "All legacy 1.0–1.18 versions infer concrete memory types from their existing\nsource/asset/role fields. Re-encoding an untouched legacy document retains its\nversion and canonical bytes. An accepted editor change advances to 1.19.\n"
     },
     {
       "id": "b000028",
       "kind": "blank",
-      "start_line": 82,
-      "end_line": 82,
+      "start_line": 80,
+      "end_line": 80,
       "raw": "\n"
     },
     {
       "id": "b000029",
       "kind": "paragraph",
-      "start_line": 83,
-      "end_line": 89,
+      "start_line": 81,
+      "end_line": 87,
       "raw": "`iiSharedCanvas.FourLayerType` verifies distinct compile-time content types,\nall four rendered behaviors, canonical current/legacy round trips, valid-checksum\ntype corruption rejection, successful/failed concrete conversions, and working\nfile reopen. Existing per-frame content, rendering, conditioning, layered media,\nartboard and installed-package suites cover the migrated paths. The standalone\nconsumer also runs `iiSharedCanvas.InstalledFourLayerType` against the installed\nheaders and shared library.\n"
     },
     {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 90,
-      "end_line": 90,
+      "start_line": 88,
+      "end_line": 88,
       "raw": "\n"
     },
     {
       "id": "b000031",
       "kind": "heading",
-      "start_line": 91,
-      "end_line": 91,
+      "start_line": 89,
+      "end_line": 89,
       "raw": "## 정적 레이어의 타임라인 셀\n",
       "level": 2,
       "title": "정적 레이어의 타임라인 셀"
@@ -285,57 +275,57 @@
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 92,
-      "end_line": 92,
+      "start_line": 90,
+      "end_line": 90,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "paragraph",
-      "start_line": 93,
-      "end_line": 93,
+      "start_line": 91,
+      "end_line": 91,
       "raw": "iiSharedCanvas Native 0.35.42의 `staticLayerTimelineRange(document, layer)`는 유효한 정적 레이어에 대해 `firstFrame`과 `lastFrame`이 같은 범위를 반환한다. 시작 위치는 레이어 활성 범위의 첫 프레임이며, 범위가 생략되면 인덱스 0이다. 연결된 자산이 투명해도 셀 한 칸을 차지한다. 동적 레이어, 영상 레이어, 자산을 해석할 수 없는 레이어에는 빈 결과를 반환한다.\n"
     },
     {
       "id": "b000034",
+      "kind": "blank",
+      "start_line": 92,
+      "end_line": 92,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 93,
+      "end_line": 93,
+      "raw": "편집기는 이 범위로 타임라인 셀을 배치한다. 합성과 재생에서 정적 자산이 보이는 구간은 `LayerProperties::frameRange`가 정한다. 활성 범위가 생략된 레이어는 문서 전 구간에서 같은 자산을 제공한다.\n"
+    },
+    {
+      "id": "b000036",
       "kind": "blank",
       "start_line": 94,
       "end_line": 94,
       "raw": "\n"
     },
     {
-      "id": "b000035",
+      "id": "b000037",
       "kind": "paragraph",
       "start_line": 95,
       "end_line": 95,
-      "raw": "편집기는 이 범위로 타임라인 셀을 배치한다. 합성과 재생에서 정적 자산이 보이는 구간은 `LayerProperties::frameRange`가 정한다. 활성 범위가 생략된 레이어는 문서 전 구간에서 같은 자산을 제공한다.\n"
+      "raw": "`iiSharedCanvas.Native.DocumentModel`은 여러 프레임의 문서에서 정적 비트맵과 벡터의 셀이 각각 한 칸인지, 활성 범위가 지정된 경우 위치가 맞는지, 활성 범위의 이후 프레임에서도 자산을 해석하는지 검증한다. `NativeCanvas.Relocated`는 설치된 헤더와 라이브러리로 같은 API를 호출한다.\n"
     },
     {
-      "id": "b000036",
+      "id": "b000038",
       "kind": "blank",
       "start_line": 96,
       "end_line": 96,
       "raw": "\n"
     },
     {
-      "id": "b000037",
-      "kind": "paragraph",
-      "start_line": 97,
-      "end_line": 97,
-      "raw": "`iiSharedCanvas.Native.DocumentModel`은 여러 프레임의 문서에서 정적 비트맵과 벡터의 셀이 각각 한 칸인지, 활성 범위가 지정된 경우 위치가 맞는지, 활성 범위의 이후 프레임에서도 자산을 해석하는지 검증한다. `NativeCanvas.Relocated`는 설치된 헤더와 라이브러리로 같은 API를 호출한다.\n"
-    },
-    {
-      "id": "b000038",
-      "kind": "blank",
-      "start_line": 98,
-      "end_line": 98,
-      "raw": "\n"
-    },
-    {
       "id": "b000039",
       "kind": "heading",
-      "start_line": 99,
-      "end_line": 99,
+      "start_line": 97,
+      "end_line": 97,
       "raw": "## 새 동적 레이어의 기본 길이\n",
       "level": 2,
       "title": "새 동적 레이어의 기본 길이"
@@ -343,29 +333,29 @@
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 100,
-      "end_line": 100,
+      "start_line": 98,
+      "end_line": 98,
       "raw": "\n"
     },
     {
       "id": "b000041",
       "kind": "paragraph",
-      "start_line": 101,
-      "end_line": 101,
+      "start_line": 99,
+      "end_line": 99,
       "raw": "iiSharedCanvas Native 0.35.43의 `defaultDynamicLayerTimelineRange(frameRate)`는 새 동적 레이어의 기본 범위를 반환한다. 범위는 프레임 0에서 시작한다. 프레임 수는 문서의 유리수 프레임레이트에 5초를 곱한 값 이상인 최소 정수이다. 예를 들어 24fps면 120프레임이고 30000/1001fps면 150프레임이다. 유효하지 않은 프레임레이트나 표현 가능한 프레임 수를 초과하는 입력은 빈 결과를 반환한다.\n"
     },
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 102,
-      "end_line": 102,
+      "start_line": 100,
+      "end_line": 100,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 103,
-      "end_line": 103,
+      "start_line": 101,
+      "end_line": 101,
       "raw": "편집기는 반환된 범위를 새 레이어의 `LayerProperties::frameRange`에 저장한다. 문서가 이 범위보다 짧으면 `DocumentEditor::setFrameCount`로 끝을 확장한다. 프레임 0에 빈 초기 자산을 연결하고, 그 뒤의 프레임은 편집할 때 키프레임을 기록할 수 있다. 파일을 여는 경우와 기존 레이어를 가져오는 경우에는 저장된 범위와 키프레임을 사용한다.\n"
     }
   ],
@@ -384,7 +374,7 @@
       "level": 2,
       "title": "Editing and migration",
       "anchor": "editing-and-migration",
-      "start_line": 42
+      "start_line": 40
     },
     {
       "block_id": "b000023",
@@ -392,7 +382,7 @@
       "level": 2,
       "title": "Persistence and verification",
       "anchor": "persistence-and-verification",
-      "start_line": 70
+      "start_line": 68
     },
     {
       "block_id": "b000031",
@@ -400,7 +390,7 @@
       "level": 2,
       "title": "정적 레이어의 타임라인 셀",
       "anchor": "정적-레이어의-타임라인-셀",
-      "start_line": 91
+      "start_line": 89
     },
     {
       "block_id": "b000039",
@@ -408,50 +398,14 @@
       "level": 2,
       "title": "새 동적 레이어의 기본 길이",
       "anchor": "새-동적-레이어의-기본-길이",
-      "start_line": 99
+      "start_line": 97
     }
   ],
   "indexes": {
     "directive_candidates": [],
     "commands": [],
     "links": [],
-    "tables": [
-      {
-        "block_id": "b000005",
-        "columns": [
-          "Layer",
-          "Content",
-          "Allowed payload",
-          "Frame sampling"
-        ],
-        "rows": [
-          [
-            "`StaticBitmapLayer`",
-            "`StaticBitmapContent`",
-            "`RasterAsset` or `ChunkedRasterAsset`",
-            "One asset throughout the active range"
-          ],
-          [
-            "`StaticVectorLayer`",
-            "`StaticVectorContent`",
-            "`VectorAsset` with native paths/paint",
-            "One asset throughout the active range"
-          ],
-          [
-            "`DynamicBitmapLayer`",
-            "`DynamicBitmapContent`",
-            "Frame-selected raster or chunked raster assets",
-            "Each content key selects pixels"
-          ],
-          [
-            "`DynamicVectorLayer`",
-            "`DynamicVectorContent`",
-            "Frame-selected native vector assets",
-            "Each content key selects paths/paint"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

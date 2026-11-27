@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 project(iiSharedCanvasMaskRegionConsumer LANGUAGES CXX)
-find_package(iiSharedCanvasNative 0.35.37 CONFIG REQUIRED)
+find_package(iiSharedCanvasNative 0.40 CONFIG REQUIRED)
 add_executable(mask-region-consumer ../TiledMaskTest.cpp)
 target_compile_features(mask-region-consumer PRIVATE cxx_std_23)
 target_link_libraries(mask-region-consumer PRIVATE iiSharedCanvas::Native)

@@ -1,0 +1,390 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:9857a835cd04f6b0f708be17b757d05bc5f90a51ae093eee564c53c1e9d54720",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/SELECTION_LAYER_RELATIONSHIPS.md",
+    "sha256": "5e06bfd0ae9e63e9ff419b788ab729350e55149e6a282888a65c55c154ef8b85",
+    "bytes": 7109,
+    "line_count": 94,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "선택 채널과 레이어 관계 명세",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 선택 채널과 레이어 관계 명세\n",
+      "level": 1,
+      "title": "선택 채널과 레이어 관계 명세"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 6,
+      "raw": "상태: 구현된 문서 모델과 편집 계약이다. 사용자에게 확인한 범위는 선택 채널과 그룹·링크·잠금을\n문서에 저장하고 문서 Undo/Redo에 포함하는 것이다. 레이어 그룹은 중첩되며 통과와\n격리 합성을 모두 지원한다. 레이어 링크는 관계만 표현하고 어떤 동작을 전파할지는\n호출자가 결정한다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "## 이름 있는 선택 채널\n",
+      "level": 2,
+      "title": "이름 있는 선택 채널"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 15,
+      "raw": "`NamedSelectionChannel`은 안정적인 ID, 이름, 문서 좌표의 0~255 선택 커버리지를\n가진다. 복수 채널은 서로 독립적이며 부드러운 경계와 빈 선택도 보존한다.\n`SelectionChannelStore`는 채널의 생성, 이름 변경, 내용 교체, 삭제, 조회 및\n불러오기를 담당한다. 활성 선택은 편집 세션의 상태이며 채널을 불러올 때 명시적으로\n적용한다. 채널 저장 자체가 레이어 마스크나 원본 픽셀을 변경하지 않는다.\n큰 캔버스에서는 기존 `TiledMask`의 희소 표현을 활용하고 자원 제한을 확인한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "heading",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "## 레이어 검색과 그룹\n",
+      "level": 2,
+      "title": "레이어 검색과 그룹"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 23,
+      "raw": "`LayerQueryIndex`는 레이어 ID, 이름, 종류, 순서와 프레임별 존재·가시성 등 문서\n정보의 읽기 전용 검색 결과를 제공한다. 결과 순서는 캔버스의 레이어 순서와 같다.\n인덱스는 문서의 소유자가 아니며 문서 변경 후 새 상태로 명시적으로 갱신한다.\n이전 스냅샷을 현재 상태로 잘못 제시하지 않도록 문서 소유자와 리비전을 확인한다.\n호출자는 인덱스보다 원본 문서가 오래 살아 있도록 보장해야 한다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 25,
+      "end_line": 30,
+      "raw": "`LayerGroupTree`는 순서가 있는 레이어와 중첩 그룹을 관리한다. 그룹은 유일한 ID와\n이름, 가시성 및 합성 방식을 가지며 순환 부모, 중복 배치와 없는 레이어를 거부한다.\n기존 평면 레이어 순서와 타임라인·아트보드 참조는 보존한다. 통과 그룹은 자식을\n부모의 배경에 직접 합성하며, 격리 그룹은 투명한 중간 결과를 만든 뒤 부모에\n합성한다. 숨긴 조상 그룹의 자손은 합성하지 않는다. 그룹이 없는 문서의 렌더링은\n기존 결과와 같아야 한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 32,
+      "end_line": 33,
+      "raw": "그룹 구조를 아직 보존하지 못하는 PSD 및 타임라인 상호 변환 내보내기는 그룹이\n있으면 `UnsupportedFeature`로 거부한다. 문서 이동과 보존에는 `.iisc`를 사용한다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "paragraph",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "그룹을 가진 아트보드의 복제도 그룹 구조가 빠진 사본을 만들지 않도록 거부한다.\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "blank",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "paragraph",
+      "start_line": 36,
+      "end_line": 42,
+      "raw": "그룹 자손은 기존 아래에서 위 순서에서 연속 구간이어야 하며 한 아트보드 또는\n느슨한 캔버스 한 곳에 속한다. 중첩은 최대 256단계이다. 클리핑 기준 레이어와\n클리핑된 레이어는 같은 직접 그룹에 있어야 한다. 현재 그룹 속성은 ID·이름·부모·\n가시성·통과/격리 모드이다. 그룹 자체의 불투명도와 혼합 모드는 제공하지 않는다.\n`LayerQueryIndex`는 이름 부분 문자열, 역할, 프레임, 유효 가시성과 직접 그룹을\n조합한다. 직접 집계를 수정한 호출자는 저작 리비전을 갱신하고 인덱스를 다시\n생성하거나 `refresh`해야 한다.\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "heading",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "## 연결과 잠금\n",
+      "level": 2,
+      "title": "연결과 잠금"
+    },
+    {
+      "id": "b000021",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 49,
+      "raw": "`LayerLinkGraph`는 문서 내 레이어 사이의 무방향 연결을 관리한다. 중복·자기 연결과\n없는 레이어는 거부하며 연결 성분을 조회할 수 있다. 그래프를 조회하는 것만으로\n이동, 변형, 표시나 삭제가 다른 레이어로 전파되지 않는다. 레이어 삭제와 Undo/Redo는\n해당 연결의 제거와 복원을 원자적으로 처리한다.\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "blank",
+      "start_line": 50,
+      "end_line": 50,
+      "raw": "\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "paragraph",
+      "start_line": 51,
+      "end_line": 56,
+      "raw": "`LayerLockPolicy`는 전체·픽셀·투명도·변환·구조 잠금을 구분한다. 그룹의 잠금은\n자손 그룹과 레이어에 상속되며 모든 조상의 잠금과 해당 레이어의 잠금을 합친다.\n전체 잠금은 다섯 범주를 모두 차단한다. 투명도 잠금은 기존 알파 값을 바꾸는 픽셀\n수정을 차단한다. 하나의 자산을 여러 레이어가 공유하는 경우 해당 자산을 참조하는\n잠긴 레이어의 보호를 우회하지 않는다. 잠금 변경 자체는 이력에서 되돌릴 수 있어야\n하며, 거부된 편집은 문서·파일 리비전과 Undo/Redo 커서를 보존한다.\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 64,
+      "raw": "래스터 픽셀·브러시와 기록 재생은 결과 알파를 기존 알파와 비교하므로 투명도만\n잠긴 경우 알파를 보존하는 색상 편집은 허용한다. 벡터나 소유 캔버스의 교체처럼\n알파 보존 여부를 저렴하게 증명할 수 없는 자산 교체는 투명도 잠금에서 거부한다.\n레이어 전체 교체는 해당 레이어에 하나라도 잠금이 있으면 거부한다. 일반적인\n`DocumentEditor`, 비트맵 편집기와 `DocumentHistory` 경로에 잠금을 적용한다.\n공개 집계를 직접 변경하거나 저수준 `DocumentFile::edit` 콜백에서 직접 필드를\n변경하는 호출자는 이 정책을 스스로 적용해야 한다.\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "blank",
+      "start_line": 65,
+      "end_line": 65,
+      "raw": "\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "heading",
+      "start_line": 66,
+      "end_line": 66,
+      "raw": "## 저장과 호환성\n",
+      "level": 2,
+      "title": "저장과 호환성"
+    },
+    {
+      "id": "b000029",
+      "kind": "blank",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "paragraph",
+      "start_line": 68,
+      "end_line": 72,
+      "raw": "새 상태는 정규 `.iisc` 1.24부터 사용하며 기존 작업 파일의 독립 레코드에 보존한다. 기존 파일을 열면\n선택 채널과 관계가 없는 평면 문서로 해석한다. 이전 리더는 새 형식을 안전하게\n거부하며, 잘못된 참조·순환 그룹·리소스 한도 초과는 부분적으로 적용하지 않는다.\n공개 C++ API, 선택적 Python API, 문서·에이전트 JSON과 설치 패키지에 같은 계약을\n노출한다. SDK 간 새 직접 의존성은 추가하지 않는다.\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "blank",
+      "start_line": 73,
+      "end_line": 73,
+      "raw": "\n"
+    },
+    {
+      "id": "b000032",
+      "kind": "heading",
+      "start_line": 74,
+      "end_line": 74,
+      "raw": "## 사용 경로\n",
+      "level": 2,
+      "title": "사용 경로"
+    },
+    {
+      "id": "b000033",
+      "kind": "blank",
+      "start_line": 75,
+      "end_line": 75,
+      "raw": "\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "paragraph",
+      "start_line": 76,
+      "end_line": 80,
+      "raw": "호출자는 `document.relations`를 복사하고 컬렉션을 변경한 뒤\n`DocumentHistory::setSelectionLayerRelations`로 한 번에 제출한다. 이력 예산을\n초과하거나 참조가 유효하지 않으면 문서는 변경되지 않는다. 레이어 삭제는\n멤버십·링크·직접 잠금을 제거하고 Undo에서 함께 복원한다. `DocumentEditor`의\n동일 메서드는 이력을 소유하지 않으므로 편집 세션에서는 `DocumentHistory`를 쓴다.\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "blank",
+      "start_line": 81,
+      "end_line": 81,
+      "raw": "\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "paragraph",
+      "start_line": 82,
+      "end_line": 87,
+      "raw": "Python `CanvasDocument`는 `save_selection`, `selection_coverage`, `set_group`,\n`assign_group`, `link_layers`, `set_layer_lock`, `relationships`, `query_layers`와\n기존 `undo`·`redo`를 제공한다. `LayerLocks` 플래그를 조합할 수 있고\n`set_layer_lock(..., group=True)`는 자손에 상속되는 그룹 잠금을 설정한다.\nPython에서 새 선택을 저장할 때는 해당 영역의 바이트를 전달하고, 파일에는 희소\n타일로 기록한다. 저장된 문서에서 다시 열면 선택의 원점과 커버리지가 보존된다.\n"
+    },
+    {
+      "id": "b000037",
+      "kind": "blank",
+      "start_line": 88,
+      "end_line": 88,
+      "raw": "\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "heading",
+      "start_line": 89,
+      "end_line": 89,
+      "raw": "## 필요한 검증\n",
+      "level": 2,
+      "title": "필요한 검증"
+    },
+    {
+      "id": "b000039",
+      "kind": "blank",
+      "start_line": 90,
+      "end_line": 90,
+      "raw": "\n"
+    },
+    {
+      "id": "b000040",
+      "kind": "paragraph",
+      "start_line": 91,
+      "end_line": 94,
+      "raw": "채널의 부분 커버리지·희소 타일·빈 선택 및 저장 왕복, 그룹의 중첩 순서·통과와\n격리 합성의 픽셀 차이, 링크의 비전파와 연결 성분, 각 잠금 및 상속과 공유 자산,\n실패 시 원자성, 이력 분기·Undo/Redo, 이전 문서·손상 입력·파일 이동을 검사한다.\n원본 픽셀과 기존 사용자 파일을 보존하고 설치 소비자와 Python 경로도 별도 검사한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "선택 채널과 레이어 관계 명세",
+      "anchor": "선택-채널과-레이어-관계-명세",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "이름 있는 선택 채널",
+      "anchor": "이름-있는-선택-채널",
+      "start_line": 8
+    },
+    {
+      "block_id": "b000009",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "레이어 검색과 그룹",
+      "anchor": "레이어-검색과-그룹",
+      "start_line": 17
+    },
+    {
+      "block_id": "b000020",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "연결과 잠금",
+      "anchor": "연결과-잠금",
+      "start_line": 44
+    },
+    {
+      "block_id": "b000028",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "저장과 호환성",
+      "anchor": "저장과-호환성",
+      "start_line": 66
+    },
+    {
+      "block_id": "b000032",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "사용 경로",
+      "anchor": "사용-경로",
+      "start_line": 74
+    },
+    {
+      "block_id": "b000038",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "필요한 검증",
+      "anchor": "필요한-검증",
+      "start_line": 89
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0-compatible",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

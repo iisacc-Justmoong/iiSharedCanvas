@@ -12,16 +12,16 @@ if(IISHAREDCANVAS_BUILD_SHARED)
 endif()
 add_library(iiSharedCanvasNative ${_iisc_native_type}
     src/Audio/AudioCodec.cpp src/Camera/CameraRaw.cpp
-    src/Document/Document.cpp src/Document/DocumentEditor.cpp src/Document/DocumentHistory.cpp src/Document/AssetHistorySnapshot_p.cpp src/Document/ArtboardEditor.cpp
-    src/Document/LayerAppearance.cpp src/Document/CanvasSampling.cpp
+    src/Document/Document.cpp src/Document/DocumentEditor.cpp src/Document/DocumentHistory.cpp src/Document/DocumentInfoSnapshot.cpp src/Document/LastEditToggle.cpp src/Document/LinkedAssetResolver.cpp src/Document/SelectionLayerRelations.cpp src/Document/LayerQueryIndex.cpp src/Document/AssetHistorySnapshot_p.cpp src/Document/ArtboardEditor.cpp
+    src/Document/LayerAppearance.cpp src/Document/LayerTransactions.cpp src/Document/ShapeCombinationPlan.cpp src/Document/LayerLayout.cpp src/Document/LayerMaskOperations.cpp src/Document/LayerStyleStack.cpp src/Document/CanvasSampling.cpp src/Document/CanvasGeometry.cpp src/Document/TransparentBoundsScanner.cpp src/Document/CanvasContentBoundsQuery.cpp src/Document/DocumentCloneTransaction.cpp
     src/Bitmap/BitmapEditor.cpp src/Bitmap/ChunkedBitmapEditor.cpp src/Bitmap/BitmapEditJournal_p.cpp
-    src/Bitmap/BitmapProcessing.cpp src/Bitmap/TiledMask.cpp src/Bitmap/TiledMaskEditor.cpp src/Bitmap/RasterProcessingTypes.cpp
-    src/Vector/VectorEditor.cpp src/Vector/SvgExport.cpp src/Vector/PdfExport.cpp src/Render/FrameRenderer.cpp src/Render/DocumentPreview.cpp src/Render/AsyncFrameRenderQueue.cpp
+    src/Bitmap/BitmapProcessing.cpp src/Bitmap/ReeditableRasterChange.cpp src/Bitmap/TiledMask.cpp src/Bitmap/TiledMaskEditor.cpp src/Bitmap/RasterProcessingTypes.cpp
+    src/Bitmap/ChannelExchange.cpp src/Vector/VectorEditor.cpp src/Vector/SvgExport.cpp src/Vector/PdfExport.cpp src/Render/FrameRenderer.cpp src/Render/FrameComposite.cpp src/Render/LayerExchange.cpp src/Render/LayerRasterizationPass.cpp src/Render/LayerSliceBuilder.cpp src/Render/LayerStyleEvaluator.cpp src/Render/DocumentPreview.cpp src/Render/AsyncFrameRenderQueue.cpp
     src/Serialization/IiscCodec.cpp src/Validation/Validation.cpp
-    src/Timeline/TimelineEditor.cpp src/Timeline/TimelineProject.cpp src/Video/VideoFrameDecoder.cpp src/Video/VideoFrameEncoder.cpp
+    src/Timeline/TimelineEditor.cpp src/Timeline/TimelineProject.cpp src/Timeline/TimelineProjectCodec_p.cpp src/Timeline/SequencePlanning.cpp src/Timeline/FrameMatching.cpp src/Timeline/SequenceRasterFlatten.cpp src/Video/VideoFrameDecoder.cpp src/Video/VideoFrameEncoder.cpp src/Video/OpticalFlow.cpp
     src/Metadata/StableDiffusionMetadata.cpp src/Metadata/StableDiffusionGenerationParameters.cpp
     src/Native/DocumentFile.cpp src/Native/WorkingFileTiles_p.cpp src/Native/IiscInput.cpp src/Native/IiscUpgrade.cpp
-    src/Native/Media.cpp src/Native/BitmapCodec.cpp src/Native/VectorPdf.cpp src/Native/TimelineXmlWriter.cpp src/Native/TimelineInterchange.cpp src/Native/PsdParser.cpp src/Native/PsdWriter.cpp src/Native/LayeredDocumentCodec.cpp src/Native/OpenRasterParser.cpp ${_native_control_sources})
+    src/Native/Media.cpp src/Native/PngText.cpp src/Native/Qoi.cpp src/Native/BitmapCodec.cpp src/Native/VectorPdf.cpp src/Native/TimelineXmlWriter.cpp src/Native/TimelineInterchange.cpp src/Native/PsdParser.cpp src/Native/PsdWriter.cpp src/Native/LayeredDocumentCodec.cpp src/Native/OpenRasterParser.cpp ${_native_control_sources})
 add_library(iiSharedCanvas::Native ALIAS iiSharedCanvasNative)
 add_library(iiSharedCanvas::Core ALIAS iiSharedCanvasNative)
 target_compile_features(iiSharedCanvasNative PUBLIC cxx_std_23)
@@ -39,12 +39,64 @@ elseif(UNIX)
     set_target_properties(iiSharedCanvasNative PROPERTIES INSTALL_RPATH "$ORIGIN")
 endif()
 target_link_libraries(iiSharedCanvasNative PUBLIC iiPaintEngine::iiPaintEngine iiFileProvider::Native iiSDKCore::Contracts iiFileProvider::Compatibility iiImageCodec::iiImageCodec LibXml2::LibXml2 ZLIB::ZLIB)
+option(IISHAREDCANVAS_BUILD_GUI_ADAPTER "Build the iiGUI canvas presentation and input adapter" OFF)
+if(IISHAREDCANVAS_BUILD_GUI_ADAPTER)
+    find_package(iiGUI CONFIG REQUIRED)
+    add_library(iiSharedCanvasGui STATIC src/Gui/CanvasPresentation.cpp src/Gui/CanvasInteraction.cpp src/Gui/CanvasNativeView.cpp src/Gui/CanvasTileCache.cpp src/Gui/CanvasViewport.cpp)
+    add_library(iiSharedCanvas::Gui ALIAS iiSharedCanvasGui)
+    set_target_properties(iiSharedCanvasGui PROPERTIES EXPORT_NAME Gui POSITION_INDEPENDENT_CODE ON)
+    target_compile_features(iiSharedCanvasGui PUBLIC cxx_std_23)
+    target_compile_definitions(iiSharedCanvasGui INTERFACE IISDK_IMPORT_IISHAREDCANVAS_GUI=1)
+    target_link_libraries(iiSharedCanvasGui PUBLIC iiSharedCanvas::Native iiGUI::iiGUI)
+    install(TARGETS iiSharedCanvasGui EXPORT iiSharedCanvasGuiTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+    install(FILES src/Gui/CanvasPresentation.h src/Gui/CanvasInteraction.h src/Gui/CanvasNativeView.h src/Gui/CanvasTileCache.h src/Gui/CanvasViewport.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas/Gui)
+    install(FILES example/CanvasEditorView.lvui example/CanvasEditorViewModel.h
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasGui/example)
+    install(EXPORT iiSharedCanvasGuiTargets NAMESPACE iiSharedCanvas:: DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvasGui)
+    configure_package_config_file(cmake/iiSharedCanvasGuiConfig.cmake.in
+        "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasGuiConfig.cmake"
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvasGui)
+    write_basic_package_version_file("${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasGuiConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION} COMPATIBILITY SameMinorVersion)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasGuiConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/iiSharedCanvasGuiConfigVersion.cmake"
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/iiSharedCanvasGui)
+    if(BUILD_TESTING)
+        add_executable(iiSharedCanvasNativeCanvasViewportTest tests/NativeCanvasViewportTest.cpp)
+        target_link_libraries(iiSharedCanvasNativeCanvasViewportTest PRIVATE iiSharedCanvas::Gui)
+        add_test(NAME iiSharedCanvas.Native.CanvasViewport COMMAND iiSharedCanvasNativeCanvasViewportTest)
+        add_executable(iiSharedCanvasNativeCanvasTileCacheTest tests/NativeCanvasTileCacheTest.cpp)
+        target_link_libraries(iiSharedCanvasNativeCanvasTileCacheTest PRIVATE iiSharedCanvas::Gui)
+        add_test(NAME iiSharedCanvas.Native.CanvasTileCache COMMAND iiSharedCanvasNativeCanvasTileCacheTest)
+        add_executable(iiSharedCanvasNativeCanvasInteractionTest tests/NativeCanvasInteractionTest.cpp)
+        target_link_libraries(iiSharedCanvasNativeCanvasInteractionTest PRIVATE iiSharedCanvas::Gui)
+        add_test(NAME iiSharedCanvas.Native.CanvasInteraction COMMAND iiSharedCanvasNativeCanvasInteractionTest)
+        add_executable(iiSharedCanvasNativeCanvasPresentationTest tests/NativeCanvasPresentationTest.cpp)
+        target_link_libraries(iiSharedCanvasNativeCanvasPresentationTest PRIVATE iiSharedCanvas::Gui)
+        add_test(NAME iiSharedCanvas.Native.CanvasPresentation COMMAND iiSharedCanvasNativeCanvasPresentationTest)
+        find_package(LVUI CONFIG QUIET)
+        set(_iigui_widget_test_headers "${CMAKE_CURRENT_SOURCE_DIR}/../iiGUI/src/Widgets")
+        if(LVUI_FOUND AND EXISTS "${_iigui_widget_test_headers}/WidgetState.h")
+            lvui_generate(NAME CanvasEditorView SOURCE example/CanvasEditorView.lvui
+                INCLUDES CanvasEditorViewModel.h OUTPUT_VARIABLE _canvas_lvui_generated)
+            add_executable(iiSharedCanvasNativeLvuiCanvasTest tests/NativeLvuiCanvasTest.cpp "${_canvas_lvui_generated}")
+            target_include_directories(iiSharedCanvasNativeLvuiCanvasTest PRIVATE
+                "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/example" "${_iigui_widget_test_headers}")
+            target_link_libraries(iiSharedCanvasNativeLvuiCanvasTest PRIVATE iiSharedCanvas::Gui LVUI::Native)
+            add_test(NAME iiSharedCanvas.Native.LvuiCanvas COMMAND iiSharedCanvasNativeLvuiCanvasTest)
+        endif()
+    endif()
+endif()
 target_include_directories(iiSharedCanvasNative PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas>)
+# Exact timeline algebra uses the pinned, header-only Boost standalone copy.
+target_include_directories(iiSharedCanvasNative PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/boost_multiprecision/include")
+target_compile_definitions(iiSharedCanvasNative PRIVATE BOOST_MP_STANDALONE=1)
 set_target_properties(iiSharedCanvasNative PROPERTIES EXPORT_NAME Native POSITION_INDEPENDENT_CODE ON WINDOWS_EXPORT_ALL_SYMBOLS ON
-    CXX_EXTENSIONS OFF INTERFACE_IISHAREDCANVAS_ABI native)
+    CXX_EXTENSIONS OFF INTERFACE_IISHAREDCANVAS_ABI native VERSION ${PROJECT_VERSION}
+    SOVERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 set_property(TARGET iiSharedCanvasNative APPEND PROPERTY COMPATIBLE_INTERFACE_STRING IISHAREDCANVAS_ABI)
 generate_export_header(iiSharedCanvasNative BASE_NAME iiSharedCanvas
     EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/generated/iiSharedCanvas/Export.h")
@@ -134,13 +186,19 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasNativeMedia tests/NativeMedia.cpp)
     target_link_libraries(iiSharedCanvasNativeMedia PRIVATE iiSharedCanvas::Native)
     add_test(NAME iiSharedCanvas.Native.Media COMMAND iiSharedCanvasNativeMedia "${_iisc_test_work}")
+    add_executable(iiSharedCanvasNativeBitmapTextTest tests/NativeBitmapTextTest.cpp)
+    target_link_libraries(iiSharedCanvasNativeBitmapTextTest PRIVATE iiSharedCanvas::Native ZLIB::ZLIB)
+    add_test(NAME iiSharedCanvas.Native.BitmapText COMMAND iiSharedCanvasNativeBitmapTextTest)
+    add_executable(iiSharedCanvasNativeQoiTest tests/NativeQoiTest.cpp)
+    target_link_libraries(iiSharedCanvasNativeQoiTest PRIVATE iiSharedCanvas::Native)
+    add_test(NAME iiSharedCanvas.Native.Qoi COMMAND iiSharedCanvasNativeQoiTest)
     add_executable(iiSharedCanvasNativeContracts tests/NativeContracts.cpp)
     target_link_libraries(iiSharedCanvasNativeContracts PRIVATE iiSharedCanvas::Native)
     add_test(NAME iiSharedCanvas.Native.Contracts COMMAND iiSharedCanvasNativeContracts "${_iisc_test_work}")
     set_tests_properties(iiSharedCanvas.Native.Contracts PROPERTIES TIMEOUT 60)
     find_package(iiJson 0.1 CONFIG REQUIRED)
     find_package(Threads REQUIRED)
-    foreach(_case FiniteChunkRaster ArtboardRegion AudioPreviewNative CameraRaw NativeIiscUpgrade NativeAsyncFrameRender NativeSvgExport NativePdfExport NativeTimelineXmlWriter NativeTimelineInterchange NativeVideoFrameDecoder NativeVideoFrameEncoder BitmapEditor ProjectedStroke BitmapInput BitmapWetBrush BitmapClock BitmapHistory BitmapHistoryPublication BitmapHistoryPublicationAllocation BitmapHistoryAllocation InteractiveStroke StrokeCompositeBatch BitmapPixelPreview BitmapFileRegion WorkingFileTiles WorkingSnapshotAllocation LayerFileEdit DocumentHistory DocumentHistoryAllocation DocumentHistoryPreview DocumentHistoryPreviewAllocation DocumentStagedPixelPreview DocumentStagedPixelPreviewAllocation DocumentStagedPixelPreview8K BitmapProcessing SelectionGeometry TiledMask TiledMaskEditor GradientRaster MagneticPath CanvasReframe CanvasMedia DocumentAudio DocumentEditor
+    foreach(_case SequenceOperations SequencePersistenceRich SequenceRasterFlatten TimelineSequencePlanning TimelineFrameMatching OpticalFlow ChannelExchange CanvasOperations LayerEditing LayerContentOperations SelectionLayerRelations DocumentAssetControl DocumentLinkedCanvasAllocation FiniteChunkRaster ArtboardRegion AudioPreviewNative CameraRaw NativeIiscUpgrade NativeAsyncFrameRender NativeSvgExport NativePdfExport NativeTimelineXmlWriter NativeTimelineInterchange NativeVideoFrameDecoder NativeVideoFrameEncoder BitmapEditor ProjectedStroke BitmapInput BitmapWetBrush BitmapClock BitmapHistory BitmapHistoryPublication BitmapHistoryPublicationAllocation BitmapHistoryAllocation InteractiveStroke StrokeCompositeBatch BitmapPixelPreview BitmapFileRegion WorkingFileTiles WorkingSnapshotAllocation LayerFileEdit DocumentHistory DocumentHistoryAllocation DocumentHistoryPreview DocumentHistoryPreviewAllocation DocumentStagedPixelPreview DocumentStagedPixelPreviewAllocation DocumentStagedPixelPreview8K BitmapProcessing SelectionGeometry TiledMask TiledMaskEditor GradientRaster MagneticPath CanvasReframe CanvasMedia DocumentAudio DocumentEditor
             DocumentModel DocumentLayerHistory DocumentAssetLayerHistory DocumentAssetLayerHistoryAllocation DocumentStrokeHistory DocumentStrokeHistoryAllocation DocumentGrowingStroke DocumentGrowingStrokeAllocation DocumentGrowingStroke8K DocumentCompoundHistory DocumentCompoundHistoryAllocation FrameRenderer FrameCompositionReuse FrameOverlayRender FrameOverlayRender8K FrameOverlayRenderManyChunks FrameOverlayFile IiscCodec LayerCompositing MaskStack MaskRegion MaskRegionFile8K LayerStructureFile RasterSampling
             StableDiffusionGenerationParameters StableDiffusionMetadata TimelineEditor TimelineProject Validation VectorEditor)
         add_executable(iiSharedCanvasNative${_case}Test "tests/${_case}Test.cpp")
@@ -156,6 +214,12 @@ if(BUILD_TESTING)
         endif()
         set_tests_properties(iiSharedCanvas.Native.${_case} PROPERTIES TIMEOUT 60)
     endforeach()
+    # Exercises multiple synchronous working-file commits and reopenings.
+    set_tests_properties(iiSharedCanvas.Native.CanvasOperations PROPERTIES TIMEOUT 300)
+    set_tests_properties(iiSharedCanvas.Native.ChannelExchange PROPERTIES TIMEOUT 300)
+    set_tests_properties(iiSharedCanvas.Native.SequenceOperations PROPERTIES TIMEOUT 300)
+    set_tests_properties(iiSharedCanvas.Native.SelectionLayerRelations PROPERTIES TIMEOUT 300)
+    set_tests_properties(iiSharedCanvas.Native.LayerContentOperations PROPERTIES TIMEOUT 300)
     target_link_libraries(iiSharedCanvasNativeNativeTimelineInterchangeTest PRIVATE iiJson::iiJson Threads::Threads)
     set_tests_properties(iiSharedCanvas.Native.NativeTimelineInterchange PROPERTIES TIMEOUT 300)
     add_test(NAME iiSharedCanvas.Native.DocumentStagedPixelPreviewFileAllocation
@@ -195,6 +259,13 @@ if(BUILD_TESTING)
         set_tests_properties(iiSharedCanvas.Native.DocumentCompoundHistoryAllocationFile${_operation} PROPERTIES TIMEOUT 900)
     endforeach()
     find_package(Python3 COMPONENTS Interpreter QUIET)
+    find_program(IISHAREDCANVAS_TEST_FFMPEG_EXECUTABLE ffmpeg)
+    if(Python3_Interpreter_FOUND AND IISHAREDCANVAS_TEST_FFMPEG_EXECUTABLE)
+        add_test(NAME iiSharedCanvas.Native.QoiInterop
+            COMMAND "${Python3_EXECUTABLE}" -B "${CMAKE_CURRENT_SOURCE_DIR}/tests/NativeQoiInteropTest.py"
+                "$<TARGET_FILE:iiSharedCanvasNativeQoiTest>" "${IISHAREDCANVAS_TEST_FFMPEG_EXECUTABLE}")
+        set_tests_properties(iiSharedCanvas.Native.QoiInterop PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77)
+    endif()
     if(Python3_Interpreter_FOUND)
         add_test(NAME iiSharedCanvas.Native.TimelineOracle COMMAND ${CMAKE_COMMAND}
             "-DDRIVER=$<TARGET_FILE:iiSharedCanvasNativeNativeTimelineInterchangeTest>"
@@ -317,14 +388,16 @@ endif()
 install(TARGETS iiSharedCanvasNative EXPORT iiSharedCanvasNativeTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR} LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} FRAMEWORK DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES third_party/boost_multiprecision/LICENSE third_party/boost_multiprecision/UPSTREAM.md
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/iiSharedCanvas/boost_multiprecision)
 install(FILES src/iiSharedCanvasNative.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas)
 install(FILES src/iiSharedCanvasNative.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas RENAME iiSharedCanvasCore.h)
 install(FILES src/iiSharedCanvasNative.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iiSharedCanvas RENAME iiSharedCanvas.h)
-set(_native_headers Audio/AudioCodec.h Camera/CameraRaw.h Document/Document.h Document/DocumentEditor.h Document/DocumentHistory.h Document/Attribution.h
-    Document/CanvasSampling.h Document/LayerAppearance.h
-    Bitmap/BitmapEdit.h Bitmap/BitmapEditor.h Bitmap/ChunkedBitmapEditor.h Bitmap/BitmapProcessing.h Bitmap/TiledMask.h Bitmap/TiledMaskEditor.h Bitmap/RasterProcessingTypes.h
-    Vector/VectorEditor.h Vector/SvgExport.h Vector/PdfExport.h Render/FrameRenderer.h Render/AsyncFrameRenderQueue.h Render/DocumentPreview.h Serialization/IiscCodec.h
-    Timeline/TimelineEditor.h Timeline/TimelineProject.h Timeline/TimelineInterchange.h Video/VideoFrameDecoder.h Video/VideoFrameEncoder.h Validation/Validation.h
+set(_native_headers Audio/AudioCodec.h Camera/CameraRaw.h Document/Document.h Document/DocumentEditor.h Document/DocumentHistory.h Document/DocumentInfoSnapshot.h Document/LastEditToggle.h Document/LinkedAssetResolver.h Document/SelectionLayerRelations.h Document/LayerQueryIndex.h Document/Attribution.h
+    Document/CanvasSampling.h Document/CanvasOperations.h Document/CanvasGeometry.h Document/TransparentBoundsScanner.h Document/CanvasContentBoundsQuery.h Document/DocumentCloneTransaction.h Document/LayerTransactions.h Document/ShapeCombinationPlan.h Document/LayerLayout.h Document/LayerAppearance.h Document/LayerMaskOperations.h Document/LayerStyleStack.h
+    Bitmap/BitmapEdit.h Bitmap/BitmapEditor.h Bitmap/ChunkedBitmapEditor.h Bitmap/BitmapProcessing.h Bitmap/ChannelExchange.h Bitmap/ReeditableRasterChange.h Bitmap/TiledMask.h Bitmap/TiledMaskEditor.h Bitmap/RasterProcessingTypes.h
+    Vector/VectorEditor.h Vector/SvgExport.h Vector/PdfExport.h Render/FrameRenderer.h Render/FrameComposite.h Render/LayerExchange.h Render/LayerRasterizationPass.h Render/LayerSliceBuilder.h Render/LayerStyleEvaluator.h Render/AsyncFrameRenderQueue.h Render/DocumentPreview.h Serialization/IiscCodec.h
+    Timeline/TimelineEditor.h Timeline/TimelineProject.h Timeline/SequencePlanning.h Timeline/FrameMatching.h Timeline/SequenceRasterFlatten.h Timeline/TimelineInterchange.h Video/VideoFrameDecoder.h Video/VideoFrameEncoder.h Video/OpticalFlow.h Validation/Validation.h
     Metadata/StableDiffusionMetadata.h Metadata/StableDiffusionGenerationParameters.h Metadata/PublicationMetadata.h
     File/DocumentFile.h File/IiscUpgrade.h Media/MediaIo.h Bitmap/BitmapCodec.h Layered/LayeredDocumentCodec.h)
 file(GLOB _native_control_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_SOURCE_DIR}/src/ControlNet/*.h")
@@ -359,6 +432,8 @@ install(FILES docs/BITMAP_WET_BRUSH.md DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSh
 install(FILES docs/BITMAP_CLOCK.md DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasNative)
 install(FILES docs/BITMAP_HISTORY.md DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasNative)
 install(FILES docs/DOCUMENT_HISTORY.md docs/DOCUMENT_HISTORY.agent.json DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasNative)
+install(FILES docs/LAYER_CONTENT_OPERATIONS.md docs/LAYER_CONTENT_OPERATIONS.agent.json DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasNative)
+install(FILES docs/LAYER_EDIT_OPERATIONS.md docs/LAYER_EDIT_OPERATIONS.agent.json DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasNative)
 install(FILES docs/MASK_REGIONS.md docs/MASK_REGIONS.agent.json DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasNative)
 install(FILES docs/PIXEL_PREVIEW.md DESTINATION ${CMAKE_INSTALL_DATADIR}/iiSharedCanvasNative)
 install(FILES docs/BITMAP_FILE_REGIONS.md docs/BITMAP_FILE_REGIONS.agent.json

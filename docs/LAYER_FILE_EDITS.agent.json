@@ -10,7 +10,7 @@
   },
   "source": {
     "path": "docs/LAYER_FILE_EDITS.md",
-    "sha256": "75e92036191b33c1eac9bcaf3b675ed2b7e1a3dab214520d8b4a4f4e1ce8064e",
+    "sha256": "7d01bdd0678301896926e65f87345bdb097316fb0bf69fe49c7fb9bf9792a2ed",
     "bytes": 9796,
     "line_count": 104,
     "encoding": "utf-8",
@@ -43,7 +43,7 @@
       "kind": "paragraph",
       "start_line": 3,
       "end_line": 6,
-      "raw": "iiSharedCanvas Native 0.35.3은 현재 문서 모델 1.22와 작업 저장 형식 2에서\n`DocumentEditor`의 레이어 이름·표시·불투명도·변환·혼합 모드 변경을 별도\n전체 `Document` 사본 없이 저장한다. 공개 `DocumentEditor` API, 레이어 순서와\n정규 IISC 형식은 바뀌지 않는다. 비트맵의 영역 이력과는 독립적인 구조 편집이다.\n"
+      "raw": "iiSharedCanvas Native 0.35.3은 당시 문서 모델 1.22와 작업 저장 형식 2에서\n`DocumentEditor`의 레이어 이름·표시·불투명도·변환·혼합 모드 변경을 별도\n전체 `Document` 사본 없이 저장한다. 공개 `DocumentEditor` API, 레이어 순서와\n정규 IISC 형식은 바뀌지 않는다. 비트맵의 영역 이력과는 독립적인 구조 편집이다.\n"
     },
     {
       "id": "b000004",

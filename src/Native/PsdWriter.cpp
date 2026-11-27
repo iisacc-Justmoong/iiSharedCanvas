@@ -244,8 +244,18 @@ std::vector<ExportLayer> preflight(const Document &document, const PsdExportOpti
 {
     const auto validation = validate(document);
     if (!validation.ok()) { fail(MediaIoCode::InvalidArgument, validation.issues.front().message); }
+    if (std::any_of(document.assets.begin(), document.assets.end(), [](const Asset &asset) {
+            return std::holds_alternative<LinkedCanvasAsset>(asset);
+        })) fail(MediaIoCode::UnsupportedFeature, "PSD cannot preserve owned linked canvas documents; use .iisc");
+    if (std::any_of(document.assets.begin(),document.assets.end(),[](const Asset &asset) {
+            const auto *vector=std::get_if<VectorAsset>(&asset);
+            return std::holds_alternative<FillLayerContent>(asset) || std::holds_alternative<AdjustmentLayerContent>(asset) ||
+                   (vector && vector->shape.has_value());
+        })) fail(MediaIoCode::UnsupportedFeature,"PSD cannot preserve procedural or compound vector content; use .iisc");
     if (!document.artboards.empty())
         fail(MediaIoCode::UnsupportedFeature, "PSD artboard group export is unavailable; use .iisc or renderArtboard");
+    if (!document.relations.groups.groups().empty())
+        fail(MediaIoCode::UnsupportedFeature, "PSD layer group export is unavailable; use .iisc");
     if (std::any_of(document.layers.begin(), document.layers.end(), [](const Layer &layer) {
             return layerRole(layer) == LayerRole::ControlNet || std::holds_alternative<VideoLayer>(layer) || !layerProperties(layer).motion.empty();
         })) {
@@ -403,7 +413,7 @@ void rawChannels(Writer &out, const RasterLayer &raster, bool perChannelCompress
     }
 }
 
-void imageResources(Writer &out)
+void imageResources(Writer &out,DocumentPixelAspectRatio aspect)
 {
     const auto resources = out.begin32();
     out.text("8BIM"); out.u16(1005); out.u16(0); out.u32(16);
@@ -414,6 +424,11 @@ void imageResources(Writer &out)
     out.text("8BIM"); out.u16(1039); out.u16(0); out.u32(std::uint32_t(profile.size()));
     out.data({reinterpret_cast<const std::uint8_t *>(profile.data()), std::size_t(profile.size())});
     if (profile.size() & 1) { out.u8(0); }
+    if (aspect.numerator!=aspect.denominator) {
+        // PSD resource 1064 stores the width/height ratio as a big-endian double.
+        out.text("8BIM"); out.u16(1064); out.u16(0); out.u32(12);
+        out.u32(2); out.f64(double(aspect.numerator)/aspect.denominator);
+    }
     out.end32(resources);
 }
 
@@ -434,7 +449,7 @@ MediaBytesResult encode(const Document &document, const PsdExportOptions &option
     Writer out(options.limits.maxOutputBytes);
     out.text("8BPS"); out.u16(1); out.zeros(6); out.u16(4);
     out.u32(std::uint32_t(document.extent.height)); out.u32(std::uint32_t(document.extent.width)); out.u16(8); out.u16(3);
-    out.u32(0); imageResources(out);
+    out.u32(0); imageResources(out,document.pixelAspectRatio);
     const auto layerSection = out.begin32(), layerInfo = out.begin32();
     out.u16(std::uint16_t(-std::int32_t(layers.size())));
     for (auto &layer : layers) {

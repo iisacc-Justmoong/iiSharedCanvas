@@ -5,7 +5,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/iiSharedCanvasTestWorkDir.cmake
 iisc_configure_test_work_dir(_iisc_test_work "${CMAKE_CURRENT_SOURCE_DIR}/../../resources")
 set(CMAKE_DISABLE_FIND_PACKAGE_Qt5 ON)
 set(CMAKE_DISABLE_FIND_PACKAGE_Qt6 ON)
-find_package(iiSharedCanvasNative 0.35 CONFIG REQUIRED)
+find_package(iiSharedCanvasNative 0.40 CONFIG REQUIRED)
 if(TARGET Qt6::Core OR TARGET Qt6::Gui OR TARGET Qt5::Core)
     message(FATAL_ERROR "The staged preview consumer imported Qt")
 endif()

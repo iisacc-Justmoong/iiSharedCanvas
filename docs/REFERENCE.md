@@ -21,10 +21,8 @@
 
 `ReferenceSettings`에는 다음이 포함됩니다.
 
-|필드|계약|
-| --- | --- |
-|모드|주의(기본값), AdaIN, 또는 AttentionAdaIN|
-| styleFidelity |유한 [0,1], 기본값 0.5; 어댑터에서 요청된 참조 스타일 충실도|
+- 필드: 모드; 계약: 주의(기본값), AdaIN, 또는 AttentionAdaIN
+- 필드: styleFidelity; 계약: 유한 [0,1], 기본값 0.5; 어댑터에서 요청된 참조 스타일 충실도
 
 주의는 `reference_only`, AdaIN에서 `reference_adain`로, 그리고 AttentionAdaIN에서 `reference_adain+attn`로 매핑됩니다. Fidelity는 불투명도, RGB 필터 또는 픽셀 블렌드가 아닙니다. 알 수 없는 열거형 값, NaN /infinite 충실도 및 범위를 벗어나는 값이 유효하지 않습니다.
 

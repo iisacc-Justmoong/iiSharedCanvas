@@ -28,6 +28,7 @@ public:
         move(destination_.extent, source_.extent);
         move(destination_.canvasMode, source_.canvasMode);
         move(destination_.infiniteCanvas, source_.infiniteCanvas);
+        move(destination_.pixelAspectRatio, source_.pixelAspectRatio);
         move(destination_.timeline, source_.timeline);
         move(destination_.assets, source_.assets);
         move(destination_.layers, source_.layers);
@@ -37,6 +38,9 @@ public:
         move(destination_.audioTracks, source_.audioTracks);
         move(destination_.authorship, source_.authorship);
         move(destination_.artboards, source_.artboards);
+        move(destination_.relations, source_.relations);
+        move(destination_.sequenceProject, source_.sequenceProject);
+        move(destination_.sequenceMedia, source_.sequenceMedia);
         if (source_.publicationMetadata) move(*destination_.publicationMetadata, *source_.publicationMetadata);
         else destination_.publicationMetadata.reset();
         committed_ = true;

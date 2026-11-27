@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.31)
-project(iiSharedCanvas VERSION 0.35.43 LANGUAGES CXX)
+project(iiSharedCanvas VERSION 0.40.0 LANGUAGES CXX)
 include(./cmake/ModuleImports.cmake)
 # File creation is owned by iiFileProvider.
 
@@ -155,6 +155,7 @@ endif()
 
 list(PREPEND CMAKE_PREFIX_PATH "$ENV{HOME}/.local/SDK/iiFileProvider")
 find_package(iiPaintEngine 0.5.4 CONFIG REQUIRED)
+find_package(iiSDKCore 0.18 CONFIG REQUIRED COMPONENTS Contracts)
 find_package(iiFileProvider 0.7.3 CONFIG REQUIRED HINTS "$ENV{IIFILEPROVIDER_PREFIX}" "$ENV{HOME}/.local/SDK/iiFileProvider")
 find_package(iiFileProviderNative 0.8.3 CONFIG REQUIRED)
 option(IISHAREDCANVAS_BUILD_QUICK "Build Qt Quick presentation adapters" ON)
@@ -248,9 +249,37 @@ add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/ControlNet/SemanticSegment.h
         src/Document/Document.cpp
         src/Document/Document.h
+        src/Document/CanvasOperations.h
+        src/Document/CanvasGeometry.h
+        src/Document/CanvasGeometry.cpp
+        src/Document/TransparentBoundsScanner.h
+        src/Document/TransparentBoundsScanner.cpp
+        src/Document/CanvasContentBoundsQuery.h
+        src/Document/CanvasContentBoundsQuery.cpp
+        src/Document/DocumentCloneTransaction.h
+        src/Document/DocumentCloneTransaction.cpp
+        src/Document/LayerTransactions.cpp
+        src/Document/LayerTransactions.h
+        src/Document/LayerLayout.cpp
+        src/Document/LayerLayout.h
+        src/Document/ShapeCombinationPlan.cpp
+        src/Document/ShapeCombinationPlan.h
+        src/Document/LayerMaskOperations.cpp
+        src/Document/LayerMaskOperations.h
+        src/Document/LayerStyleStack.h
+        src/Document/LayerStyleStack.cpp
+        src/Render/LayerRasterizationPass.cpp
+        src/Render/LayerRasterizationPass.h
+        src/Render/LayerSliceBuilder.cpp
+        src/Render/LayerSliceBuilder.h
+        src/Render/LayerStyleEvaluator.cpp
+        src/Render/LayerStyleEvaluator.h
         src/Document/CanvasSampling.cpp
         src/Document/CanvasSampling.h
         src/Document/DocumentEditor.cpp
+        src/Document/LinkedAssetResolver.cpp
+        src/Document/SelectionLayerRelations.cpp
+        src/Document/LayerQueryIndex.cpp
         src/Document/ArtboardEditor.cpp
         src/Document/ArtboardEditor_p.hpp
         src/Document/DocumentEditor.h
@@ -278,6 +307,12 @@ add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Metadata/PublicationMetadata.h
         src/Render/FrameRenderer.cpp
         src/Render/FrameRenderer.h
+        src/Render/FrameComposite.cpp
+        src/Render/FrameComposite.h
+        src/Render/LayerExchange.cpp
+        src/Render/LayerExchange.h
+        src/Bitmap/ChannelExchange.cpp
+        src/Bitmap/ChannelExchange.h
         src/Serialization/IiscCodec.cpp
         src/Serialization/IiscCodec.h
         src/Timeline/TimelineEditor.cpp
@@ -288,6 +323,13 @@ add_library(iiSharedCanvasCore ${IISHAREDCANVAS_LIBRARY_TYPE}
         src/Timeline/TimelineXmlWriter_p.hpp
         src/Timeline/TimelineProject.cpp
         src/Timeline/TimelineProject.h
+        src/Timeline/TimelineProjectCodec_p.cpp
+        src/Timeline/TimelineProjectCodec_p.hpp
+        src/Timeline/TimelineProjectFields_p.hpp
+        src/Timeline/SequencePlanning.cpp
+        src/Timeline/SequencePlanning.h
+        src/Timeline/FrameMatching.cpp
+        src/Timeline/FrameMatching.h
         src/Validation/Validation.cpp
         src/Validation/Validation.h
         src/Vector/VectorEditor.cpp
@@ -337,7 +379,7 @@ target_link_libraries(iiSharedCanvasCore PUBLIC
         iiFileProvider::iiFileProvider
         iiPaintEngine::iiPaintEngine
         Qt6::Core Qt6::Gui)
-target_link_libraries(iiSharedCanvasCore PRIVATE ZLIB::ZLIB libzip::zip iiFileProvider::Native)
+target_link_libraries(iiSharedCanvasCore PRIVATE ZLIB::ZLIB libzip::zip iiFileProvider::Native iiSDKCore::Contracts)
 target_include_directories(iiSharedCanvasCore SYSTEM PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/fast_float")
 if((APPLE OR UNIX) AND NOT EMSCRIPTEN)
@@ -478,6 +520,11 @@ install(FILES docs/LAYER_COMPOSITING.md docs/PHOTOSHOP_LAYER_COMPARISON.md docs/
         docs/RASTER_SAMPLING.md docs/OPENRASTER_IMPORT.md docs/PSD_IMPORT.md docs/LAYERED_IMPORT_CLI.md
         docs/PSD_EXPORT.md docs/PSD_EXPORT_CLI.md docs/IISC_UPGRADE_CLI.md
         docs/DOCUMENT_PREVIEWS.md
+        docs/DOCUMENT_ASSET_CONTROL.md docs/DOCUMENT_ASSET_CONTROL.agent.json
+        docs/SELECTION_LAYER_RELATIONSHIPS.md docs/SELECTION_LAYER_RELATIONSHIPS.agent.json
+        docs/LAYER_EDIT_OPERATIONS.md docs/LAYER_EDIT_OPERATIONS.agent.json
+        docs/CHANNEL_EXCHANGE.md docs/CHANNEL_EXCHANGE.agent.json
+        docs/SEQUENCE_OPERATIONS.md docs/SEQUENCE_OPERATIONS.agent.json
         docs/PUBLICATION_METADATA.md
         docs/BITMAP_INPUT.md
         docs/BITMAP_WET_BRUSH.md
@@ -763,6 +810,13 @@ if(BUILD_TESTING)
     add_executable(iiSharedCanvasAuthorshipTest tests/AuthorshipTest.cpp)
     target_link_libraries(iiSharedCanvasAuthorshipTest PRIVATE iiSharedCanvas::iiSharedCanvas)
     add_test(NAME iiSharedCanvas.Authorship COMMAND iiSharedCanvasAuthorshipTest)
+endif()
+
+if(BUILD_TESTING)
+    add_executable(iiSharedCanvasChannelExchangeTest tests/ChannelExchangeTest.cpp)
+    target_compile_definitions(iiSharedCanvasChannelExchangeTest PRIVATE IISC_EXCHANGE_SKIP_HISTORY=1)
+    target_link_libraries(iiSharedCanvasChannelExchangeTest PRIVATE iiSharedCanvas::Core)
+    add_test(NAME iiSharedCanvas.ChannelExchange COMMAND iiSharedCanvasChannelExchangeTest)
 endif()
 
 if(BUILD_TESTING)

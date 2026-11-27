@@ -18,6 +18,8 @@ namespace iiSharedCanvas {
 namespace {
 MediaIoResult validateAsset(const VectorAsset &asset, const MediaLimits &limits)
 {
+    if (asset.shape) return media_detail::error(MediaIoCode::UnsupportedFeature,
+                                               "SVG cannot preserve the exact compound expression");
     auto extent = media_detail::checkExtent(asset.viewport, limits);
     if (!extent.ok()) return extent;
     std::uint64_t commands = 0;

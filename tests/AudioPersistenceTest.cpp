@@ -155,8 +155,9 @@ int main()
     limits.maximumTotalAudioSamples = original.audioAssets.front().samples.size() - 1;
     limitCheck(limits);
 
-    // Empty native visual/metadata prefix is 30 bytes for model 1.4.
-    const std::size_t audioCountOffset = IiscHeaderSize + 30;
+    // The 1.27 header adds an eight-byte rational pixel aspect before assets.
+    const std::size_t audioCountOffset = IiscHeaderSize + 30
+        + (original.formatVersion.minor >= 27 ? 8 : 0);
     const std::size_t sampleCountOffset = audioCountOffset + 4 + 4
         + original.audioAssets.front().id.size() + 4 + 2;
     auto malicious = encoded.bytes;
@@ -171,9 +172,11 @@ int main()
     expect(decodeIisc(truncated).error.code == IiscErrorCode::TruncatedData,
            "short PCM payloads must fail before allocating the declared buffer");
     auto invalidBoolean = encoded.bytes;
-    // The last audio enabled flag precedes authorship and the empty 1.18 board tail.
+    // The last audio enabled flag precedes authorship and all empty later records.
     const auto followingBytes = 4 + static_cast<std::size_t>(original.authorship.dump().size())
-        + (original.formatVersion.minor >= 18 ? 4 : 0);
+        + (original.formatVersion.minor >= 18 ? 4 : 0)
+        + (original.formatVersion.minor >= 22 ? 1 : 0)
+        + (original.formatVersion.minor >= 24 ? 24 : 0);
     invalidBoolean.at(invalidBoolean.size() - followingBytes - 1) = 2;
     checksum(invalidBoolean);
     expect(decodeIisc(invalidBoolean).error.code == IiscErrorCode::InvalidData,

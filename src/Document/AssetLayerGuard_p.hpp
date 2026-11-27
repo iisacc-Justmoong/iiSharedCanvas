@@ -17,15 +17,17 @@ class AssetLayerGuard final {
     std::vector<Layer> originalLayers_;
     DocumentAuthorship originalAuthorship_;
     FormatVersion originalVersion_;
+    std::optional<SelectionLayerRelations> originalRelations_;
     std::optional<Asset> removed_;
     std::size_t index_=0;
     enum class Change { None, Inserted, Removed } change_=Change::None;
     bool published_=false;
 
 public:
-    explicit AssetLayerGuard(Document &document)
+    explicit AssetLayerGuard(Document &document,bool changesRelations=false)
         : document_(document),originalLayers_(document.layers),
           originalAuthorship_(document.authorship),originalVersion_(document.formatVersion) {
+        if (changesRelations) originalRelations_.emplace(document.relations);
         static_assert(std::is_nothrow_move_constructible_v<Asset>);
         static_assert(std::is_nothrow_move_assignable_v<Asset>);
         static_assert(std::is_nothrow_swappable_v<DocumentAuthorship>);
@@ -60,6 +62,7 @@ public:
         originalAssets_.swap(document_.assets);
         using std::swap; swap(document_.layers,originalLayers_);
         swap(document_.authorship,originalAuthorship_);
+        if (originalRelations_) swap(document_.relations,*originalRelations_);
         document_.formatVersion=originalVersion_;
     }
 };

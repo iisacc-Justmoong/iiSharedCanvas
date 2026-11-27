@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "NOTICE.md",
-    "sha256": "5e8d8f50225a142a6002af2298e535eee0f06284166cc4403455ee1d3c52b604",
-    "bytes": 1239,
+    "sha256": "d39090302a89a1ba04ff447901da9432db8f0b72b8b306fe5137413102f198a2",
+    "bytes": 1386,
     "line_count": 23,
     "encoding": "utf-8",
     "language": "en"
@@ -97,7 +97,7 @@
       "kind": "paragraph",
       "start_line": 14,
       "end_line": 23,
-      "raw": "SVGZ support links the platform/package-provided zlib under the zlib license.\nOpenRaster ZIP reading links the platform/package-provided libzip under its\nBSD-3-Clause license. No libzip source is vendored. Its optional codec runtime\ndependencies retain their own licenses and must accompany deployed binaries.\nExisting Qt image plugins retain their Qt and third-party codec licenses.\nPSD Smart Object export reuses Qt PDF writing. Optional psd-tools development\nverification is not a product dependency and is not redistributed here.\nThe optional video adapter executes a separately supplied FFmpeg/ffprobe build;\nno FFmpeg binary or source is redistributed by this package. Its LGPL/GPL terms\ndepend on the supplied build. See docs/DEPENDENCIES.md for packaging boundaries.\n"
+      "raw": "SVGZ support links the platform/package-provided zlib under the zlib license.\nOpenRaster ZIP reading links the platform/package-provided libzip under its\nBSD-3-Clause license. No libzip source is vendored. Its optional codec runtime\ndependencies retain their own licenses and must accompany deployed binaries.\nExisting Qt image plugins retain their Qt and third-party codec licenses.\nPSD Smart Object export reuses Qt PDF writing. Optional psd-tools development\nverification is not a product dependency and is not redistributed here.\nThe optional video adapter executes a separately supplied FFmpeg/ffprobe build;\nno FFmpeg binary or source is redistributed by this package. Its LGPL/GPL terms\ndepend on the supplied build. See docs/DEPENDENCIES.md for packaging boundaries. Boost.Multiprecision 1.89 and Boost.Config are distributed under the Boost Software License 1.0; their unmodified license accompanies the package.\n"
     }
   ],
   "outline": [],

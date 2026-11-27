@@ -2,6 +2,7 @@
 
 #include <iiCompression/Gzip.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -63,6 +64,64 @@ int main()
     if (path.ok())
         expect(path.asset.pixels.pixels[9] == 0xff00ff00U && path.asset.pixels.pixels[15] == 0,
                "rasterized path occupies its expected pixels");
+    const auto shapes = example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><circle cx='2' cy='2' r='1.5' fill='#ff0000'/>"
+        "<ellipse cx='6' cy='2' rx='1.5' ry='1' fill='#0000ff'/></svg>"), options);
+    expect(shapes.ok() && ((shapes.asset.pixels.pixels[10] >> 16) & 255) > 200
+           && (shapes.asset.pixels.pixels[14] & 255) > 200,
+           "circle and ellipse produce their expected colored regions");
+    const auto polygon = example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><polygon points='0,0 4,0 4,4 0,4' fill='#00ff00'/></svg>"), options);
+    expect(polygon.ok() && path.ok() && polygon.asset.pixels.pixels == path.asset.pixels.pixels,
+           "polygon points match the equivalent closed path");
+    const auto lines = example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><line x1='1' y1='1' x2='7' y2='1' stroke='#00ff00'/>"
+        "<polyline points='1,3 4,3 7,3' fill='none' stroke='#ff0000'/></svg>"), options);
+    expect(lines.ok() && lines.asset.pixels.pixels[11] != 0 && lines.asset.pixels.pixels[27] != 0,
+           "line and polyline are rasterized");
+    expect(!example::rasterizeGuiSvg(bytes("<svg width='8' height='4'><circle r='-1'/></svg>"), options).ok()
+           && !example::rasterizeGuiSvg(bytes("<svg width='8' height='4'><polygon points='1,2 3'/></svg>"), options).ok(),
+           "invalid radius and incomplete point pairs are rejected atomically");
+    auto extended = options; extended.extendedGeometry = true;
+    const auto transformed = example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><g transform='translate(2,0)'><rect width='4' height='4' fill='#00ff00'/></g></svg>"), extended);
+    expect(transformed.ok() && transformed.asset.pixels.pixels[8] == 0
+           && transformed.asset.pixels.pixels[10] == 0xff00ff00U,
+           "opt-in geometry applies validated group transforms");
+    const auto styled = example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><rect width='4' height='4' fill='#ff0000' "
+        "style='fill:#00ff00;stroke:none'/></svg>"), extended);
+    expect(styled.ok() && path.ok() && styled.asset.pixels.pixels == path.asset.pixels.pixels,
+           "opt-in inline paint styles override presentation attributes");
+    const auto arc = example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><path fill='none' stroke='#ff0000' d='M1 2 A2 1 0 0 1 5 2'/></svg>"), extended);
+    expect(arc.ok() && std::any_of(arc.asset.pixels.pixels.begin(), arc.asset.pixels.pixels.end(),
+                                   [](auto pixel) { return pixel != 0; }),
+           "opt-in geometry rasterizes elliptical arcs");
+    const auto compactArc = example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><path fill='none' stroke='#ff0000' d='M1 2 A2 1 0 01 5 2'/></svg>"), extended);
+    expect(compactArc.ok() && arc.ok() && compactArc.asset.pixels.pixels == arc.asset.pixels.pixels,
+           "adjacent SVG arc flags preserve the same arc");
+    expect(!example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><path d='M1 2 A-2 1 0 0 1 5 2'/></svg>"), extended).ok()
+           && !example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><path d='M1 2 A2 1 0 2 1 5 2'/></svg>"), extended).ok()
+           && !example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><g transform='scale(NaN)'><rect width='1' height='1'/></g></svg>"), extended).ok()
+           && !example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><g transform='translate(1),,scale(2)'><rect width='1' height='1'/></g></svg>"), extended).ok()
+           && !example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><rect style='fill:url(https://example.invalid/a)' width='1' height='1'/></svg>"), extended).ok(),
+           "opt-in geometry rejects invalid arc parameters and non-finite transforms");
+    auto tinyBudget = extended; tinyBudget.limits.maxVectorCommands = 2;
+    expect(example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><g transform='translate(2,0) scale(1)'><rect width='4' height='4'/></g></svg>"),
+        tinyBudget).result.code == MediaIoCode::LimitExceeded,
+        "transform and shape commands share the geometry budget");
+    expect(example::rasterizeGuiSvg(bytes(
+        "<svg width='8' height='4'><g transform='scale(1000000)'><g transform='scale(1000000)'>"
+        "<rect width='1' height='1'/></g></g></svg>"), extended).result.code == MediaIoCode::LimitExceeded,
+        "nested transforms must not bypass accumulated matrix limits");
     const auto relative = example::rasterizeGuiSvg(bytes(
         "<svg width='8' height='4'><g fill='#00ff00'><path d='m0 0 4 0 0 4-4 0z'/></g></svg>"), options);
     expect(relative.ok() && path.ok() && relative.asset.pixels.pixels == path.asset.pixels.pixels,

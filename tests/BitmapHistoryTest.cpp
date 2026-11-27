@@ -43,6 +43,22 @@ Document infinite()
     return d;
 }
 auto bytes(const Document &d) { return encodeIisc(d).bytes; }
+void finiteDirtyBounds()
+{
+    auto d = finite(96, 8);
+    BitmapEditor e(d, "paint");
+    std::vector<std::uint32_t> row(96, 0);
+    row[3] = 0xff123456U; row[65] = 0xffabcdefU;
+    expect(e.replacePatch({{0, 2}, 96, 1}, row), "finite dirty: apply sparse row patch");
+    const auto matches = [](DevicePixelRect r) {
+        return r.origin.x == 3 && r.origin.y == 2 && r.width == 63 && r.height == 1;
+    };
+    expect(matches(e.dirtyBounds()), "finite dirty: unchanged row prefix and suffix are excluded");
+    e.clearDirtyBounds();
+    expect(e.undo() && matches(e.dirtyBounds()), "finite dirty: undo reports the changed pixels");
+    e.clearDirtyBounds();
+    expect(e.redo() && matches(e.dirtyBounds()), "finite dirty: redo reports the changed pixels");
+}
 void finitePatches()
 {
     auto d = finite();
@@ -493,6 +509,7 @@ int main(int argc, char **)
     else
     {
         finitePatches();
+        finiteDirtyBounds();
         budgets();
         resize();
         chunks();

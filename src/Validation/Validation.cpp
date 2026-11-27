@@ -1,11 +1,14 @@
 #include "Validation/Validation.h"
 #include "Bitmap/BitmapProcessing.h"
+#include "Document/LayerMaskValidation_p.hpp"
+#include "Document/ShapeCombinationPlan.h"
 
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
@@ -65,26 +68,7 @@ bool isSupportedLayerBlendMode(RasterBlendMode blendMode) noexcept
 
 bool unitValue(double value) { return std::isfinite(value) && value >= 0 && value <= 1; }
 
-std::string validateMask(const Document &document, const std::optional<LayerMask> &mask, bool vectorOnly)
-{
-    if (!mask) return {};
-    const auto *asset = findAsset(document, mask->assetId);
-    if (!asset) return "mask must reference an existing asset";
-    const auto *raster = std::get_if<RasterAsset>(asset);
-    const auto *vector = std::get_if<VectorAsset>(asset);
-    if (vectorOnly ? !vector : !raster) return vectorOnly ? "vector mask requires a vector asset" : "pixel/filter mask requires a raster asset";
-    if (!unitValue(mask->density) || !unitValue(mask->outsideCoverage)
-        || !std::isfinite(mask->featherRadius) || mask->featherRadius < 0 || mask->featherRadius > 128
-        || static_cast<unsigned>(mask->channel) > static_cast<unsigned>(MaskChannel::Alpha)
-        || !hasFiniteTransform(mask->transform)) return "mask parameters must be supported and bounded";
-    const auto &t = mask->transform;
-    const double determinant = t.m11 * t.m22 - t.m12 * t.m21;
-    if (!std::isfinite(determinant) || determinant == 0) return "mask transform must be invertible";
-    const auto extent = raster ? CanvasExtent{raster->pixels.width, raster->pixels.height} : vector->viewport;
-    if (extent.width <= 0 || extent.height <= 0)
-        return "mask asset extent must be positive";
-    return {};
-}
+using detail::validateLayerMask;
 
 std::string validateAppearance(const Document &document, const Layer &layer, std::size_t index)
 {
@@ -93,10 +77,31 @@ std::string validateAppearance(const Document &document, const Layer &layer, std
     if (layerRole(layer) != LayerRole::Artwork && a != LayerAppearance{})
         return "conditioning layers cannot own artwork appearance operations";
     if (!unitValue(a.fillOpacity)) return "fill opacity must be in [0,1]";
+    if (!a.styles.effects.empty() && document.formatVersion.minor<25) return "layer styles require format 1.25";
+    if (auto error=validateLayerStyleStack(a.styles); !error.empty()) return error;
+    // Validate every referenced source, including static or keyed content
+    // outside the layer's current visible frame range. Frame-range edits must
+    // never expose a source combination that the renderer cannot evaluate.
+    const auto allSources=[&](const auto &predicate) {
+        if (const auto *source=staticLayerSource(layer)) return predicate(findAsset(document,source->assetId));
+        if (keyframedLayerSource(layer)) for (const auto &frame:document.frames)
+            for (const auto &key:frame.keyframes)
+                if (key.layerId==p.id && !predicate(findAsset(document,key.assetId))) return false;
+        return true;
+    };
+    const auto adjustmentAllowed=[&](const Asset *asset) {
+        return !asset || !std::holds_alternative<AdjustmentLayerContent>(*asset) ||
+            (a.styles.effects.empty() && a.filters.empty() && !a.clippedToBelow && !a.blendIf &&
+             p.blendMode==RasterBlendMode::SourceOver);
+    };
+    const bool needsAdjustmentCheck=!a.styles.effects.empty() || !a.filters.empty() || a.clippedToBelow ||
+                                    a.blendIf.has_value() || p.blendMode!=RasterBlendMode::SourceOver;
+    if (needsAdjustmentCheck && !allSources(adjustmentAllowed))
+        return "adjustments currently require normal blend and cannot own filters, clipping or styles";
     if (a.filters.size() > 64) return "a layer cannot contain more than 64 filters";
-    if (auto error = validateMask(document, a.rasterMask, false); !error.empty()) return error;
-    if (auto error = validateMask(document, a.vectorMask, true); !error.empty()) return error;
-    if (auto error = validateMask(document, a.filterMask, false); !error.empty()) return error;
+    if (auto error = validateLayerMask(document, a.rasterMask, false); !error.empty()) return error;
+    if (auto error = validateLayerMask(document, a.vectorMask, true); !error.empty()) return error;
+    if (auto error = validateLayerMask(document, a.filterMask, false); !error.empty()) return error;
     if (a.maskStack.size() > 4096) return "mask stack exceeds 4096 operands";
     std::unordered_set<std::string> maskIds;
     for (const auto &entry : a.maskStack) {
@@ -105,7 +110,7 @@ std::string validateAppearance(const Document &document, const Layer &layer, std
             return "unknown mask stack combination";
         const auto *asset = findAsset(document, entry.mask.assetId);
         const bool vector = asset && std::holds_alternative<VectorAsset>(*asset);
-        if (auto error = validateMask(document, entry.mask, vector); !error.empty()) return error;
+        if (auto error = validateLayerMask(document, entry.mask, vector); !error.empty()) return error;
     }
     for (const auto &filter : a.filters) {
         if (!unitValue(filter.opacity) || !isSupportedLayerBlendMode(filter.blendMode))
@@ -118,19 +123,17 @@ std::string validateAppearance(const Document &document, const Layer &layer, std
         if (!error.empty()) return error;
     }
     if (!a.filters.empty()) {
-        const auto checkSource = [&](FrameIndex frame) {
-            const auto *asset = resolveAssetAt(document, layer, frame);
+        const auto checkSource = [&](const Asset *asset) {
             if (!asset) return true; // Missing source is reported by the source validator.
             if (const auto *raster = std::get_if<RasterAsset>(asset))
                 return std::uint64_t(raster->pixels.width) * raster->pixels.height <= 67108864;
             if (const auto *vector = std::get_if<VectorAsset>(asset))
                 return std::uint64_t(vector->viewport.width) * vector->viewport.height <= 67108864;
+            if (const auto *fill = std::get_if<FillLayerContent>(asset))
+                return std::uint64_t(fill->extent.width) * fill->extent.height <= 67108864;
             return std::holds_alternative<VideoAsset>(*asset);
         };
-        if (!checkSource(0)) return "filters require bounded raster, vector or video content";
-        if (const auto *source = keyframedLayerSource(layer))
-            for (auto frame : source->frameIndices) if (!checkSource(frame))
-                return "filters require bounded raster, vector or video content at every keyframe";
+        if (!allSources(checkSource)) return "filters require bounded raster, fill, vector or video content at every keyframe";
     }
     if (a.blendIf) {
         const auto rangeValid = [](const BlendIfRange &r) {
@@ -146,10 +149,23 @@ std::string validateAppearance(const Document &document, const Layer &layer, std
         while (index > 0) {
             const auto &candidate = document.layers[--index];
             if (layerRole(candidate) != LayerRole::Artwork || layerProperties(candidate).artboardId != p.artboardId) continue;
+            if (document.relations.groups.groupOf(layerProperties(candidate).id) != document.relations.groups.groupOf(p.id)) break;
             base = !layerProperties(candidate).appearance.clippedToBelow;
-            if (base) break;
+            if (base) {
+                const auto isAdjustment=[&](const std::string &id) {
+                    const auto *asset=findAsset(document,id);
+                    return asset && std::holds_alternative<AdjustmentLayerContent>(*asset);
+                };
+                if (const auto *source=staticLayerSource(candidate); source && isAdjustment(source->assetId))
+                    return "adjustment layers cannot be clipping bases";
+                if (keyframedLayerSource(candidate)) for (const auto &frame:document.frames)
+                    for (const auto &key:frame.keyframes)
+                        if (key.layerId==layerProperties(candidate).id && isAdjustment(key.assetId))
+                            return "adjustment layers cannot be clipping bases";
+                break;
+            }
         }
-        if (!base) return "clipped layer requires a base in the same artboard composition";
+        if (!base) return "clipped layer requires a base in the same artboard and group composition";
     }
     return {};
 }
@@ -285,6 +301,9 @@ void validateVectorAsset(const VectorAsset &asset,
                  "vector viewport must have a positive extent");
     }
 
+    if (const auto error=validateShapeExpression(asset); !error.empty())
+        addIssue(result,ValidationCode::InvalidVectorAsset,assetPath+".shape",error);
+
     for (std::size_t pathIndex = 0; pathIndex < asset.paths.size(); ++pathIndex) {
         const VectorPath &path = asset.paths[pathIndex];
         const std::string pathLocation = assetPath + ".paths["
@@ -342,6 +361,82 @@ ValidationResult validate(const Document &document)
 {
     ValidationResult result;
 
+    if (document.formatVersion.minor < 28 &&
+        (document.sequenceProject || !document.sequenceMedia.empty()))
+        addIssue(result, ValidationCode::UnsupportedFormatVersion, "sequenceProject",
+                 "document-owned sequence projects require format 1.28");
+    if(document.formatVersion.minor<29 && document.sequenceProject) {
+        bool window=false;
+        for(const auto &sequence:document.sequenceProject->sequences)
+            for(const auto &track:sequence.tracks)
+                std::visit([&](const auto &typed){
+                    window|=typed.properties.effectTimeMap.has_value();
+                    for(const auto &clip:typed.clips){
+                        window|=clip.properties.contentWindow.has_value();
+                        if constexpr(std::is_same_v<std::decay_t<decltype(clip)>,TimelineVideoClip>)
+                            window|=clip.editableOriginal.has_value();
+                    }
+                },track);
+        if(window)addIssue(result,ValidationCode::UnsupportedFormatVersion,"sequenceProject",
+                           "clip windows and track-effect time maps require format 1.29");
+    }
+    if (!document.sequenceProject && !document.sequenceMedia.empty())
+        addIssue(result, ValidationCode::InvalidSequenceProject, "sequenceMedia",
+                 "owned sequence media require a sequence project");
+    std::unordered_set<std::string> ownedSequenceIds;
+    std::unordered_map<std::string, std::uint64_t> ownedSequenceSizes;
+    std::unordered_map<std::string, std::string_view> ownedSequenceTypes;
+    for (std::size_t i = 0; i < document.sequenceMedia.size(); ++i) {
+        const auto &media = document.sequenceMedia[i];
+        if (media.id.empty() || !ownedSequenceIds.insert(media.id).second ||
+            !media.bytes || media.bytes->empty())
+            addIssue(result, ValidationCode::InvalidSequenceProject,
+                     "sequenceMedia[" + std::to_string(i) + "]",
+                     "owned sequence media require a distinct ID and nonempty bytes");
+        if (media.bytes) ownedSequenceSizes.emplace(media.id, std::uint64_t(media.bytes->size()));
+        ownedSequenceTypes.emplace(media.id,media.mediaType);
+    }
+    if (document.sequenceProject) {
+        const auto checked = validateTimelineProject(*document.sequenceProject);
+        for (const auto &issue : checked.issues)
+            addIssue(result, ValidationCode::InvalidSequenceProject,
+                     "sequenceProject." + issue.path, issue.message);
+        for (const auto &source : document.sequenceProject->mediaSources) {
+            for (const auto &representation : source.representations) {
+                if (!representation.uri.empty() ||
+                    (representation.role != TimelineMediaRepresentationRole::OfflinePlaceholder &&
+                     (representation.ownedMediaId.empty() || !ownedSequenceIds.contains(representation.ownedMediaId))) ||
+                    (!representation.ownedMediaId.empty() && !ownedSequenceIds.contains(representation.ownedMediaId)))
+                    addIssue(result, ValidationCode::InvalidSequenceProject,
+                             "sequenceProject.mediaSources", "sequence media must resolve to document-owned bytes");
+                const auto owned = ownedSequenceSizes.find(representation.ownedMediaId);
+                if (representation.fileSizeBytes && owned != ownedSequenceSizes.end() &&
+                    *representation.fileSizeBytes != owned->second)
+                    addIssue(result, ValidationCode::InvalidSequenceProject,
+                             "sequenceProject.mediaSources", "declared media size does not match owned bytes");
+                for (const auto &attachment : representation.attachments)
+                    if (!attachment.uri.empty() || attachment.data.empty())
+                        addIssue(result, ValidationCode::InvalidSequenceProject,
+                                 "sequenceProject.attachments", "sequence attachments must be owned bytes");
+            }
+        }
+        for(const auto &sequence:document.sequenceProject->sequences)
+            for(const auto &track:sequence.tracks)
+                if(const auto *video=std::get_if<TimelineVideoTrack>(&track))
+                    for(const auto &clip:video->clips)
+                        if(clip.editableOriginal){
+                            const auto owned=ownedSequenceTypes.find(clip.editableOriginal->ownedSnapshotId);
+                            if(owned==ownedSequenceTypes.end() || owned->second!="application/vnd.iisacc.ii-shared-canvas")
+                                addIssue(result,ValidationCode::InvalidSequenceProject,"sequenceProject.editableOriginal",
+                                         "editable video sources require a document-owned IISC snapshot");
+                        }
+    }
+
+    if (document.formatVersion.minor < 24 && !document.relations.empty())
+        addIssue(result, ValidationCode::UnsupportedFormatVersion, "relations", "selection and layer relations require format 1.24");
+    if (const auto error=document.relations.validate(document); !error.empty())
+        addIssue(result, ValidationCode::InvalidSelectionLayerRelations, "relations", error);
+
     if (document.formatVersion.minor < 5 && !document.authorship.isEmpty()) {
         addIssue(result, ValidationCode::UnsupportedFormatVersion, "authorship",
                  "authorship metadata requires format 1.5");
@@ -355,6 +450,10 @@ ValidationResult validate(const Document &document)
         addIssue(result, ValidationCode::InvalidCanvasExtent, "extent",
                  "canvas extent must be positive");
     }
+    if (!document.pixelAspectRatio.numerator || !document.pixelAspectRatio.denominator)
+        addIssue(result,ValidationCode::InvalidPixelAspectRatio,"pixelAspectRatio","pixel aspect must be a positive rational");
+    if (document.formatVersion.minor<27 && document.pixelAspectRatio!=DocumentPixelAspectRatio{})
+        addIssue(result,ValidationCode::UnsupportedFormatVersion,"pixelAspectRatio","non-default pixel aspect requires format 1.27");
     const std::int64_t canvasRight = static_cast<std::int64_t>(canvasOrigin(document).x)
         + document.extent.width;
     const std::int64_t canvasBottom = static_cast<std::int64_t>(canvasOrigin(document).y)
@@ -388,6 +487,25 @@ ValidationResult validate(const Document &document)
             || std::int64_t(a.region.origin.x) + a.region.extent.width > std::numeric_limits<std::int32_t>::max()
             || std::int64_t(a.region.origin.y) + a.region.extent.height > std::numeric_limits<std::int32_t>::max())
             addIssue(result, ValidationCode::InvalidArtboard, path, "artboards require a stable id and positive bounded geometry");
+        if (a.geometry) {
+            if (document.formatVersion.minor < 27)
+                addIssue(result, ValidationCode::UnsupportedFormatVersion, path, "oriented artboards require format 1.27");
+            const auto &g=*a.geometry; const auto &t=g.transform;
+            const double determinant=t.m11*t.m22-t.m12*t.m21;
+            bool valid=g.extent.width>0 && g.extent.height>0 && std::isfinite(t.m11) &&
+                std::isfinite(t.m12) && std::isfinite(t.m21) && std::isfinite(t.m22) &&
+                std::isfinite(t.translationX) && std::isfinite(t.translationY) &&
+                std::isfinite(determinant) && std::abs(determinant)>1e-12;
+            for (const double x : {0.0,double(g.extent.width)}) for (const double y : {0.0,double(g.extent.height)}) {
+                const double px=t.m11*x+t.m21*y+t.translationX, py=t.m12*x+t.m22*y+t.translationY;
+                valid=valid && std::isfinite(px) && std::isfinite(py) &&
+                    px>=a.region.origin.x && py>=a.region.origin.y &&
+                    px<=double(a.region.origin.x)+a.region.extent.width &&
+                    py<=double(a.region.origin.y)+a.region.extent.height;
+            }
+            if (!valid) addIssue(result, ValidationCode::InvalidArtboard, path,
+                                 "oriented artboard requires an invertible transform inside its enclosing region");
+        }
         if (!artboardIds.insert(a.id).second)
             addIssue(result, ValidationCode::DuplicateArtboardId, path + ".id", "artboard ids must be unique");
     }
@@ -448,10 +566,50 @@ ValidationResult validate(const Document &document)
                      "asset ids must be unique");
         }
 
-        if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
+        if (const auto *fill = std::get_if<FillLayerContent>(&asset)) {
+            std::string error;
+            const auto finitePoint=[](Point p) { return std::isfinite(p.x) && std::isfinite(p.y) &&
+                std::abs(p.x)<=1e9 && std::abs(p.y)<=1e9; };
+            if (document.formatVersion.minor < 25) error="fill content requires format 1.25";
+            else if (fill->extent.width<=0 || fill->extent.height<=0 ||
+                     std::uint64_t(fill->extent.width)*fill->extent.height>67108864)
+                error="fill extent exceeds the supported pixel budget";
+            else if (static_cast<unsigned>(fill->kind)>static_cast<unsigned>(FillLayerKind::Pattern) ||
+                     static_cast<unsigned>(fill->spread)>static_cast<unsigned>(FillGradientSpread::Repeat) ||
+                     !finitePoint(fill->start) || !finitePoint(fill->end) || !finitePoint(fill->patternOrigin))
+                error="fill parameters must be finite and supported";
+            else if (!fill->patternAssetId.empty() && !findRasterAsset(document,fill->patternAssetId))
+                error="fill pattern must reference a document-owned raster asset";
+            else if (fill->kind==FillLayerKind::Pattern && fill->patternAssetId.empty())
+                error="pattern fill requires a document-owned raster asset";
+            else if (fill->stops.size()>256) error="fill has too many retained gradient stops";
+            else {
+                const double dx=fill->end.x-fill->start.x,dy=fill->end.y-fill->start.y;
+                if ((fill->kind==FillLayerKind::LinearGradient || fill->kind==FillLayerKind::RadialGradient) &&
+                    (fill->stops.size()<2 || dx*dx+dy*dy<=1e-18))
+                    error="gradient needs distinct endpoints and 2 to 256 stops";
+                double previous=-1;
+                for (const auto &stop:fill->stops) {
+                    if (!std::isfinite(stop.position) || stop.position<0 || stop.position>1 || stop.position<=previous)
+                        error="gradient stops must be strictly increasing within [0,1]";
+                    previous=stop.position;
+                }
+            }
+            if (!error.empty()) addIssue(result,ValidationCode::InvalidLayerContent,"assets["+std::to_string(index)+"]",error);
+        } else if (const auto *adjustment = std::get_if<AdjustmentLayerContent>(&asset)) {
+            auto error=validateColorAdjustment(adjustment->adjustment);
+            if (document.formatVersion.minor<25) error="adjustment content requires format 1.25";
+            else if (adjustment->extent.width<=0 || adjustment->extent.height<=0 ||
+                     std::uint64_t(adjustment->extent.width)*adjustment->extent.height>67108864)
+                error="adjustment extent exceeds the supported pixel budget";
+            if (!error.empty()) addIssue(result,ValidationCode::InvalidLayerContent,"assets["+std::to_string(index)+"]",error);
+        } else if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
             validateRasterAsset(*raster, index, result);
         } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
             validateVectorAsset(*vector, index, result);
+            if (vector->shape && document.formatVersion.minor < 26)
+                addIssue(result,ValidationCode::InvalidVectorAsset,"assets["+std::to_string(index)+"].shape",
+                         "compound vector shapes require format 1.26");
         } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
             const auto message = validateMlsdAsset(*mlsd);
             if (document.formatVersion.minor < 12 || !message.empty()) {
@@ -506,6 +664,12 @@ ValidationResult validate(const Document &document)
                 addIssue(result, ValidationCode::InvalidIpAdapter, "assets[" + std::to_string(index) + "]",
                     document.formatVersion.minor < 17 ? "ipAdapter assets require format 1.17" : message);
             }
+        } else if (const auto *linked = std::get_if<LinkedCanvasAsset>(&asset)) {
+            // Recursive container integrity and limits are checked by the codec
+            // and resolver. This check only establishes the model shape.
+            if (document.formatVersion.minor < 23 || linked->document.empty())
+                addIssue(result, ValidationCode::InvalidLinkedCanvas, "assets[" + std::to_string(index) + "]",
+                         "linked canvases require format 1.23 and an owned document");
         } else if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
             const auto message = validateDepthAsset(*depth);
             if (document.formatVersion.minor < 9 || !message.empty()) {

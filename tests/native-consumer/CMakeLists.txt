@@ -5,7 +5,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/iiSharedCanvasTestWorkDir.cmake
 iisc_configure_test_work_dir(_iisc_test_work "${CMAKE_CURRENT_SOURCE_DIR}/../../resources")
 set(CMAKE_DISABLE_FIND_PACKAGE_Qt5 ON)
 set(CMAKE_DISABLE_FIND_PACKAGE_Qt6 ON)
-find_package(iiSharedCanvasNative CONFIG REQUIRED)
+find_package(iiSharedCanvasNative 0.40 CONFIG REQUIRED)
 if(TARGET Qt6::Core OR TARGET Qt6::Gui OR TARGET Qt5::Core)
     message(FATAL_ERROR "The native installed consumer imported Qt")
 endif()
@@ -16,6 +16,46 @@ add_test(NAME NativeCanvas.TestWorkDirContract COMMAND "${CMAKE_COMMAND}"
     "-DSOURCE=${CMAKE_CURRENT_SOURCE_DIR}/../.." "-DWORK_DIR=${_iisc_test_work}" "-DBUILD_ROOT=${CMAKE_BINARY_DIR}"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/../NativeTestWorkDirContract.cmake")
 add_test(NAME NativeCanvas.Relocated COMMAND consumer "${_iisc_test_work}")
+add_executable(channel-exchange channel-exchange.cpp)
+target_link_libraries(channel-exchange PRIVATE iiSharedCanvas::Native)
+add_test(NAME NativeCanvas.ChannelExchange COMMAND channel-exchange)
+set_tests_properties(NativeCanvas.ChannelExchange PROPERTIES TIMEOUT 120 ENVIRONMENT_MODIFICATION
+    "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:;DYLD_FRAMEWORK_PATH=unset:;LD_LIBRARY_PATH=unset:")
+add_executable(document-asset-control ../DocumentAssetControlTest.cpp)
+target_link_libraries(document-asset-control PRIVATE iiSharedCanvas::Native)
+target_compile_definitions(document-asset-control PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/installed-asset-control")
+add_test(NAME NativeCanvas.DocumentAssetControl COMMAND document-asset-control)
+set_tests_properties(NativeCanvas.DocumentAssetControl PROPERTIES TIMEOUT 120 ENVIRONMENT_MODIFICATION
+    "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:;DYLD_FRAMEWORK_PATH=unset:;LD_LIBRARY_PATH=unset:")
+add_executable(selection-layer-relations ../SelectionLayerRelationsTest.cpp)
+target_link_libraries(selection-layer-relations PRIVATE iiSharedCanvas::Native)
+target_compile_definitions(selection-layer-relations PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/installed-selection-relations")
+add_test(NAME NativeCanvas.SelectionLayerRelations COMMAND selection-layer-relations)
+set_tests_properties(NativeCanvas.SelectionLayerRelations PROPERTIES TIMEOUT 300 ENVIRONMENT_MODIFICATION
+    "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:;DYLD_FRAMEWORK_PATH=unset:;LD_LIBRARY_PATH=unset:")
+add_executable(layer-content-operations ../LayerContentOperationsTest.cpp)
+target_link_libraries(layer-content-operations PRIVATE iiSharedCanvas::Native)
+target_compile_definitions(layer-content-operations PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/installed-content-operations")
+add_test(NAME NativeCanvas.LayerContentOperations COMMAND layer-content-operations)
+set_tests_properties(NativeCanvas.LayerContentOperations PROPERTIES TIMEOUT 300 ENVIRONMENT_MODIFICATION
+    "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:;DYLD_FRAMEWORK_PATH=unset:;LD_LIBRARY_PATH=unset:")
+add_executable(layer-editing ../LayerEditingTest.cpp)
+target_link_libraries(layer-editing PRIVATE iiSharedCanvas::Native)
+target_compile_definitions(layer-editing PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/installed-layer-editing")
+add_test(NAME NativeCanvas.LayerEditing COMMAND layer-editing)
+set_tests_properties(NativeCanvas.LayerEditing PROPERTIES TIMEOUT 300 ENVIRONMENT_MODIFICATION
+    "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:;DYLD_FRAMEWORK_PATH=unset:;LD_LIBRARY_PATH=unset:")
+add_executable(canvas-operations ../CanvasOperationsTest.cpp)
+target_link_libraries(canvas-operations PRIVATE iiSharedCanvas::Native)
+target_compile_definitions(canvas-operations PRIVATE
+    IISHAREDCANVAS_TEST_OUTPUT_DIR="${_iisc_test_work}/installed-canvas-operations")
+add_test(NAME NativeCanvas.CanvasOperations COMMAND canvas-operations)
+set_tests_properties(NativeCanvas.CanvasOperations PROPERTIES TIMEOUT 300 ENVIRONMENT_MODIFICATION
+    "DYLD_LIBRARY_PATH=unset:;DYLD_FALLBACK_LIBRARY_PATH=unset:;DYLD_FRAMEWORK_PATH=unset:;LD_LIBRARY_PATH=unset:")
 add_executable(async-frame-render ../NativeAsyncFrameRenderTest.cpp)
 target_link_libraries(async-frame-render PRIVATE iiSharedCanvas::Native)
 add_test(NAME NativeCanvas.AsyncFrameRender COMMAND async-frame-render)

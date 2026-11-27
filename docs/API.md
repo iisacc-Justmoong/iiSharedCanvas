@@ -58,7 +58,7 @@ after unlocking; rejected and unchanged edits do not enqueue an update.
 
 `DocumentEditor` 와 `CanvasItem` 은 파일 바인딩된 경우 그들의 변형 가능한 `document()` 오버로드로부터 의도적으로 null 을 반환합니다. 뷰를 위해 const 오버로드를 사용하거나, `file.edit` 또는 파일 바인딩 편집기를 사용하여 변형하십시오. 독립적인 집계 API 는 여전히 메모리에서 작동합니다. 새로운 파일 바인딩 오버로드, `CanvasItem::createFile`, `openFile`, `filePath`, 수명 주기 규칙, 스트로크/실패 취소 동작, 및 레거시 임포트는 [PERSISTENCE .md](PERSISTENCE.md)에 지정되어 있습니다.
 
-`DocumentFile::upgradeFormat()`은 열린 작업 파일의 모델만 현재 IISC 1.20으로
+`DocumentFile::upgradeFormat()`은 열린 작업 파일의 모델만 현재 IISC 1.29로
 갱신하는 동기 작업이다. 콘텐츠와 저작자 기록을 유지하며, 성공한 변경은 저장
 리비전만 한 번 진행시킨다. 현재 형식은 `changed=false`인 무작업이며, 기존 편집의
 충돌·파일 교체·리소스 제한·롤백 규칙을 적용한다. 파일이 열리지 않았으면 `NotOpen`이다.
@@ -77,17 +77,15 @@ after unlocking; rejected and unchanged edits do not enqueue an update.
 
 `Camera/CameraRaw.h`는 수입측 형식 중립 모델입니다. `Document`에 세 번째 콘텐츠 종류를 추가하지 않으며 제조업체 RAW 파일이 이러한 집계가 공통 센서 데이터를 나타낼 수 있다는 이유만으로 디코딩되었다고 주장하지 않습니다.
 
-|데이터|공개 필드|의미|
-| --- | --- | --- |
-| `CameraRawData` | `image`, `color`, `camera`, `lens`, `capture` |1 디코딩됨 RAW 페이로드 및 해당 처리 메타데이터|
-| `CameraRawSensorImage` | `kind`, `extent`, `bitsPerSample`, `samplesPerPixel`, `samples`, `orientation`, `activeArea`, `defaultCrop`, `colorChannels`, `cfaPattern`, `blackLevel`, `whiteLevel` |정수 센서 코드 및 공간/샘플 해석|
-| `CameraRawCfaPattern` | `columns`, `rows`, `channelIndices` |`colorChannels`에 대한 행-열 반복 참조|
-| `CameraRawLevelPattern` | `columns`, `rows`, `values` |행-열-평면 순서로 0-light 값을 반복|
-| `CameraRawColorProfile` | `asShotNeutral`, `calibrations` |옵션 캡처 화이트 밸런스 및 XYZ-카메라 매트릭스|
-| `CameraRawColorCalibration` | `illuminant`, `xyzToCamera` |1행 주요 `colorChannels × 3` 매트릭스 및 해당 발광 라벨|
-| `CameraRawCameraMetadata` | `manufacturer`, `model`, `uniqueModel`, `serialNumber` |제조업체별 태그가 없는 카메라 신원|
-| `CameraRawLensMetadata` |식별 및 초점 및 F값 제한|렌즈 식별 및 선택적 포지티브 광학 범위|
-| `CameraRawCaptureMetadata` |노출, F값, ISO, 초점 거리, 초점 거리, 노출 보정|캡처된 이미지에 대한 선택적 노출 시간 설정|
+- 데이터: `CameraRawData`; 공개 필드: `image`, `color`, `camera`, `lens`, `capture`; 의미: 1 디코딩됨 RAW 페이로드 및 해당 처리 메타데이터
+- 데이터: `CameraRawSensorImage`; 공개 필드: `kind`, `extent`, `bitsPerSample`, `samplesPerPixel`, `samples`, `orientation`, `activeArea`, `defaultCrop`, `colorChannels`, `cfaPattern`, `blackLevel`, `whiteLevel`; 의미: 정수 센서 코드 및 공간/샘플 해석
+- 데이터: `CameraRawCfaPattern`; 공개 필드: `columns`, `rows`, `channelIndices`; 의미: `colorChannels`에 대한 행-열 반복 참조
+- 데이터: `CameraRawLevelPattern`; 공개 필드: `columns`, `rows`, `values`; 의미: 행-열-평면 순서로 0-light 값을 반복
+- 데이터: `CameraRawColorProfile`; 공개 필드: `asShotNeutral`, `calibrations`; 의미: 옵션 캡처 화이트 밸런스 및 XYZ-카메라 매트릭스
+- 데이터: `CameraRawColorCalibration`; 공개 필드: `illuminant`, `xyzToCamera`; 의미: 1행 주요 `colorChannels × 3` 매트릭스 및 해당 발광 라벨
+- 데이터: `CameraRawCameraMetadata`; 공개 필드: `manufacturer`, `model`, `uniqueModel`, `serialNumber`; 의미: 제조업체별 태그가 없는 카메라 신원
+- 데이터: `CameraRawLensMetadata`; 공개 필드: 식별 및 초점 및 F값 제한; 의미: 렌즈 식별 및 선택적 포지티브 광학 범위
+- 데이터: `CameraRawCaptureMetadata`; 공개 필드: 노출, F값, ISO, 초점 거리, 초점 거리, 노출 보정; 의미: 캡처된 이미지에 대한 선택적 노출 시간 설정
 
 샘플은 하나부터 32 유효한 비트까지의 부호 없는 정수이며, 행-픽셀-평면 인터리빙을 사용합니다. CFA 또는 단색 이미지는 픽셀당 하나의 샘플을 가지며, 선형 RAW 이미지는 각 색상 채널마다 하나의 인터리빙 평면을 가집니다. 활성 영역과 자르는 영역은 절대 센서 좌표를 사용합니다. 제외된 경우, 활성 영역은 전체 센서이고 자르는 영역은 활성 영역입니다. CFA 및 블랙 레벨 패턴 기원은 활성 영역의 기원입니다. 제외된 블랙 레벨은 영을 의미하고, 제외된 화이트 레벨은 선언된 비트 깊이의 최대 정수 코드를 의미합니다.
 
@@ -103,16 +101,14 @@ after unlocking; rejected and unchanged edits do not enqueue an update.
 
 `Metadata/StableDiffusionMetadata.h`는 선택적 문서 수준 생성 레시피를 정의합니다. 이는 출처 및 상호 운용성을 위한 메타데이터이지 제3의 계층 유형이나 추론 또는 모델 로딩 인터페이스가 아닙니다.
 
-|데이터|공개 필드|의미|
-| --- | --- | --- |
-| `StableDiffusionMetadata` |프롬프트, 출력 설정, `samplingPasses`, `models`, `loras`, 소프트웨어/출처 문자열, `generationParametersText`, `comfyUi`, `extraParameters`|하나의 완전한 생성 또는 개선 레시피|
-| `StableDiffusionSamplingPass` | `nodeId`, `seed`, `steps`, `cfgScale`, `samplerName`, `scheduler`, `denoiseStrength`, `startStep`, `endStep` |하나의 독립적으로 식별된 샘플러 호출; 여러 패스가 보존됩니다.|
-| `StableDiffusionModelResource` | `role`, `name`, `hash`, `hashType`, `uri` |체크포인트, VAE, ControlNet, 또는 내장된 모델 바이트가 없는 기타 명명된 모델 참조|
-| `StableDiffusionLora` | `name`, `hash`, `modelStrength`, `clipStrength` |하나의 LoRA와 그 2 적용 강점|
-| `ComfyUiMetadata` | `promptJson`, `workflowJson`, `extraPngInfo` |정확한 API 실행 그래프, UI-복원 그래프 및 확장 JSON|
-| `StableDiffusionMetadataEntry` | `key`, `value` |주문된 확장 값; ComfyUI 값은 JSON이고 일반 값은 불투명합니다. UTF-8|
-| `StableDiffusionGenerationParameters` |`rawText`, 프롬프트, 주문됨 `parameters`|무손실 안정 확산 생성 텍스트 및 디코딩된 키/값 보기|
-| `StableDiffusionGenerationParametersParseResult` |`generationParameters`, 공통 `metadata`, 유형 `issues`|안전하게 거부하는 호환성 읽기 및 재사용 가능한 공통 프로젝션|
+- 데이터: `StableDiffusionMetadata`; 공개 필드: 프롬프트, 출력 설정, `samplingPasses`, `models`, `loras`, 소프트웨어/출처 문자열, `generationParametersText`, `comfyUi`, `extraParameters`; 의미: 하나의 완전한 생성 또는 개선 레시피
+- 데이터: `StableDiffusionSamplingPass`; 공개 필드: `nodeId`, `seed`, `steps`, `cfgScale`, `samplerName`, `scheduler`, `denoiseStrength`, `startStep`, `endStep`; 의미: 하나의 독립적으로 식별된 샘플러 호출; 여러 패스가 보존됩니다.
+- 데이터: `StableDiffusionModelResource`; 공개 필드: `role`, `name`, `hash`, `hashType`, `uri`; 의미: 체크포인트, VAE, ControlNet, 또는 내장된 모델 바이트가 없는 기타 명명된 모델 참조
+- 데이터: `StableDiffusionLora`; 공개 필드: `name`, `hash`, `modelStrength`, `clipStrength`; 의미: 하나의 LoRA와 그 2 적용 강점
+- 데이터: `ComfyUiMetadata`; 공개 필드: `promptJson`, `workflowJson`, `extraPngInfo`; 의미: 정확한 API 실행 그래프, UI-복원 그래프 및 확장 JSON
+- 데이터: `StableDiffusionMetadataEntry`; 공개 필드: `key`, `value`; 의미: 주문된 확장 값; ComfyUI 값은 JSON이고 일반 값은 불투명합니다. UTF-8
+- 데이터: `StableDiffusionGenerationParameters`; 공개 필드: `rawText`, 프롬프트, 주문됨 `parameters`; 의미: 무손실 안정 확산 생성 텍스트 및 디코딩된 키/값 보기
+- 데이터: `StableDiffusionGenerationParametersParseResult`; 공개 필드: `generationParameters`, 공통 `metadata`, 유형 `issues`; 의미: 안전하게 거부하는 호환성 읽기 및 재사용 가능한 공통 프로젝션
 
 `parseStableDiffusionGenerationParameters` 는 호스트가 PNG `parameters` 에서 추출한 후 UTF-8 인포텍스트를 EXIF `UserComment` 또는 다른 이미지 캐리어에서 수락합니다. 이미지 파일을 열지 않습니다. 파서는 상위 공급 측 터미널 라인 규칙을 따릅니다: 3 개 이상의 키/값 필드가 파라미터 라인을 다른 프롬프트 라인에서 구별합니다. 프롬프트 라인을 잘라내고 `Negative prompt:` 에서 분할하며, JSON -따로따로 인용된 파라미터 문자열을 디코딩하고, 원본 소스와 순서쌍을 보존합니다. 중복 쌍은 `StableDiffusionGenerationParameters::parameters` 에 유지되며, 타입 변환과 `findStableDiffusionGenerationParameter` 는 최종 발생을 사용합니다.
 
@@ -132,7 +128,7 @@ ComfyUI   `promptJson`  및  `workflowJson` 는 독립적으로 선택 사항입
 
 ## 비디오 편집 타임라인 개체
 
-`TimelineProject` 는 독립적인 공개 집계이며 `Document` 의 구성원이 아닙니다. 프로젝트 메타데이터, `TimelineMediaSource` 엔트리를, `TimelineSequence` 엔트리를, 빈, 및 `TimelineRenderProfile` 전달 구성을 포함합니다. 미디어 소스는 여러 개의 원본, 프록시, 최적화, 또는 사용자 정의 `TimelineMediaRepresentation` 객체를 보유할 수 있습니다. 각 표현은 컨테이너 설명자와 비디오, 오디오, 자막, 또는 데이터 스트림의 `TimelineMediaStream` 변형을 소유합니다.
+`TimelineProject`는 독립적인 공개 집계로 사용하거나 `Document::sequenceProject`에 저장할 수 있습니다. 프로젝트 메타데이터, `TimelineMediaSource` 엔트리를, `TimelineSequence` 엔트리를, 빈, 및 `TimelineRenderProfile` 전달 구성을 포함합니다. 미디어 소스는 여러 개의 원본, 프록시, 최적화, 또는 사용자 정의 `TimelineMediaRepresentation` 객체를 보유할 수 있습니다. 각 표현은 컨테이너 설명자와 비디오, 오디오, 자막, 또는 데이터 스트림의 `TimelineMediaStream` 변형을 소유합니다.
 
 모든 미디어 및 편집 위치는 서명된 틱을 사용합니다. `TimelineTimeBase` 는 틱당 초를 결정하며, `TimelineFrameRate` 는 정밀한 유리수 FPS 를 독립적으로 표현합니다. `timelineTicksToSeconds` 는 확인된 편의 변환이며, 정수 틱 값과 유리수는 여전히 권위 있는 것으로 남아있습니다. 비디오 스트림은 가변 프레임률 샘플 타이밍을 보유할 수 있으며, 시퀀스, 소스, 시간 코드, 및 출력 프레임률은 의도적으로 분리됩니다.
 
@@ -148,7 +144,7 @@ ComfyUI   `promptJson`  및  `workflowJson` 는 독립적으로 선택 사항입
 
 `TimelineEditor` 는 한 caller-owned 프로젝트에 바인딩되고 미디어 소스, 시퀀스, 렌더 프로파일, 타입화된 트랙, 및 타입화된 클립에 대해 stable-id CRUD 를 노출합니다. 또한 `setSequenceFrameRate`, `setRenderContainer`, `setRenderVideoCodec`, 및 `setRenderAudioCodec` 를 제공합니다. 모든 작업은 커밋하기 전에 후보 복사를 유효성 검사합니다. 거절된 편집은 `revision()` 를 절대 진행하지 않으며 프로젝트의 부분적 변형을 절대 수행하지 않습니다. 공공 집계 편집은 허용되지만, 외부에서 무효인 프로젝트는 수정되거나 재바인딩될 때까지 후속 편집자 작업을 차단합니다. 다른 무효인 프로젝트에 바인딩하는 것은 현재 유효한 바인딩이나 그 리비전을 버리지 않고 거절됩니다.
 
-이 모듈의 어떤 기능도 미디어 열기, 컨테이너 탐색, 코덱 디코딩 또는 인코딩, 시퀀스 렌더링, 프로젝트 파일 쓰기 등을 수행하지 않습니다. `TimelineProject`는 `.iisc` 버전 1.3로 인코딩되지 않습니다.
+시퀀스 모델은 `.iisc` 1.28부터 문서 소유 미디어와 함께 저장되며 `DocumentHistory::setSequenceProject`로 한 이력 항목으로 게시한다. 1.29 콘텐츠 창은 루프 위상과 원래의 베지어 맵·자동화 시간 좌표를 보존한다. `SourceFrameMatcher`와 `ReverseFrameMatcher`는 정확한 시간 식과 보간 기여 프레임을 반환한다. `OpticalFlowEstimator`와 `OpticalFlowInterpolator`는 별도 호출되며 입력 프레임과 양방향 필드, 예산을 호출자가 제공한다. `TrackEffectTimeMapper`는 트랙 자동화의 보존된 원본 시각을 반환하며 대응 구간이 없으면 빈 결과를 반환한다. `SequenceRasterFlatten` 계열은 앱이 제공한 임시 경로와 렌더 프레임을 사용하며 문서 소유 원본을 다시 열고 수정·재렌더할 수 있다. Python은 전체 프로젝트 모델 및 소유 미디어, 조회 결과, `estimate_optical_flow`, `interpolate_optical_flow`, `flatten_nested_sequence`, `open_flattened_sequence_source`, `replace_flattened_sequence_source`를 제공한다. 렌더 평탄화의 원본과 프레임은 문서 소유 바이트로 보존되며, 앱이 렌더링을 시작하기 전에 트랙 그룹 메모와 원본 스냅샷의 경로를 명시한다. 미디어 디코딩과 검출 엔진 실행은 별도 어댑터 또는 호출자의 책임이다.
 
 실제 캔버스 애니메이션 탐색 및 교환은 타임라인 작성 모델이 아닌 `Video/VideoCodec.h`에서 진행됩니다.
 
@@ -158,37 +154,35 @@ ComfyUI   `promptJson`  및  `workflowJson` 는 독립적으로 선택 사항입
 
 `Document`는 모든 지속형 캔버스 상태를 소유합니다.
 
-|데이터|공개 필드|의미|
-| --- | --- | --- |
-| `FormatVersion` | `major`, `minor` |물리적/모델 호환성 버전|
-| `CanvasExtent` | `width`, `height` |양수 출력 크기(픽셀)|
-| `CanvasMode` | `Finite`, `Infinite` |할당된 영역이 월드 공간으로의 경계인지 이동 가능한 창인지 여부|
-| `InfiniteCanvas` | `origin`, `chunkSize` |할당된 월드 원점 및 희소 래스터 청크 차원|
-| `Artboard` | `id`, `name`, `region`, `backgroundArgb`, `visible` |한 문서의 독립 대지 영역 및 배경; 중첩 소유 불가|
-| `Document` | `artboards` |아래에서 위로 정렬된 대지 목록; 기존 자산 및 타임라인을 공유|
-| `Timeline` | `frameRate`, `frameCount` |합리적인 재생 속도 및 정수 프레임 도메인|
-| `StableDiffusionMetadata` | `Document::stableDiffusionMetadata` |선택적 형식-1.2 생성 레시피 및 ComfyUI 호환 페이로드|
-| `RasterAsset` | `id`, `pixels` |안정적인 ID 및 iiPaintEngine ARGB 픽셀 저장소|
-| `ChunkedRasterAsset` | `id`, `chunks` |무한 캔버스를 위한 안정적인 ID 및 표준 희소 래스터 청크|
-| `VectorAsset` | `id`, `viewport`, `paths` |안정적인 ID 및 네이티브 벡터 페인트 데이터|
-| `VideoAsset` | `id`, `frameRate`, `frames` |소유 고정 속도 ARGB 비디오 프레임|
-| `MotionValue` | `position`, `scale`, `anchor`, `rotationDegrees`, `opacity` |편집 가능한 로컬 변환 및 불투명도 승수|
-| `MotionKeyframe` | `frame`, `value`, `interpolation` |절대 정수 프레임 속성 키|
-| `VectorPath` | `commands`, `fill`, `stroke` |M/L/Q/C/Z 기하학 및 고체 페인트|
-| `LayerFrameRange` | `firstFrame`, `lastFrame` |선택적 포함 레이어 존재 경계|
-| `LayerProperties` | `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `frameRange`, `motion`, `artboardId`, `appearance` |모든 시각적 계층 유형에서 공유되는 프레젠테이션, 타임라인 존재 상태 및 선택적 대지 소속|
-| `StaticBitmapLayer` | `properties`, `content: StaticBitmapContent` |단일 래스터 자산|
-| `DynamicBitmapLayer` | `properties`, `content: DynamicBitmapContent` |프레임별 래스터 자산|
-| `StaticVectorLayer` | `properties`, `content: StaticVectorContent` |단일 네이티브 벡터 자산|
-| `DynamicVectorLayer` | `properties`, `content: DynamicVectorContent` |프레임별 네이티브 벡터 자산|
-| `VideoLayer` | `properties`, `source`, `playback` |1개의 비디오 소스 및 1개의 소스 트림|
-| `VideoPlayback` | `sourceInFrame`, `sourceOutFrame`, `endBehavior` |반 오픈 소스 범위 및 투명/유지 동작|
-| `Layer` | `StaticBitmapLayer \| StaticVectorLayer \| DynamicBitmapLayer \| DynamicVectorLayer` |유형별 하단에서 상단까지 합성 항목|
-| `StaticSource` | `assetId` |하나의 내구성 있는 자산 참조|
-| `KeyframedSource` | `frameIndices` |이 레이어의 키를 소유하는 정확한 프레임들의 파생 증가 인덱스; 해당 레이어는 `Keyframe`를 소유하지 않습니다.|
-| `Frame` | `index`, `keyframes` |해당 위치의 모든 키를 직접 소유하는 희소 정수 프레임|
-| `Keyframe` | `layerId`, `assetId` |한 대가 소유한 레이어-자산 스위치 `Frame`|
-| `Document` | `frames` |빈 컬렉션일 수 있습니다. 저장된 모든 프레임은 비어 있지 않으며 인덱스는 엄격하게 증가합니다|
+- 데이터: `FormatVersion`; 공개 필드: `major`, `minor`; 의미: 물리적/모델 호환성 버전
+- 데이터: `CanvasExtent`; 공개 필드: `width`, `height`; 의미: 양수 출력 크기(픽셀)
+- 데이터: `CanvasMode`; 공개 필드: `Finite`, `Infinite`; 의미: 할당된 영역이 월드 공간으로의 경계인지 이동 가능한 창인지 여부
+- 데이터: `InfiniteCanvas`; 공개 필드: `origin`, `chunkSize`; 의미: 할당된 월드 원점 및 희소 래스터 청크 차원
+- 데이터: `Artboard`; 공개 필드: `id`, `name`, `region`, `backgroundArgb`, `visible`; 의미: 한 문서의 독립 대지 영역 및 배경; 중첩 소유 불가
+- 데이터: `Document`; 공개 필드: `artboards`; 의미: 아래에서 위로 정렬된 대지 목록; 기존 자산 및 타임라인을 공유
+- 데이터: `Timeline`; 공개 필드: `frameRate`, `frameCount`; 의미: 합리적인 재생 속도 및 정수 프레임 도메인
+- 데이터: `StableDiffusionMetadata`; 공개 필드: `Document::stableDiffusionMetadata`; 의미: 선택적 형식-1.2 생성 레시피 및 ComfyUI 호환 페이로드
+- 데이터: `RasterAsset`; 공개 필드: `id`, `pixels`; 의미: 안정적인 ID 및 iiPaintEngine ARGB 픽셀 저장소
+- 데이터: `ChunkedRasterAsset`; 공개 필드: `id`, `chunks`; 의미: 무한 캔버스를 위한 안정적인 ID 및 표준 희소 래스터 청크
+- 데이터: `VectorAsset`; 공개 필드: `id`, `viewport`, `paths`; 의미: 안정적인 ID 및 네이티브 벡터 페인트 데이터
+- 데이터: `VideoAsset`; 공개 필드: `id`, `frameRate`, `frames`; 의미: 소유 고정 속도 ARGB 비디오 프레임
+- 데이터: `MotionValue`; 공개 필드: `position`, `scale`, `anchor`, `rotationDegrees`, `opacity`; 의미: 편집 가능한 로컬 변환 및 불투명도 승수
+- 데이터: `MotionKeyframe`; 공개 필드: `frame`, `value`, `interpolation`; 의미: 절대 정수 프레임 속성 키
+- 데이터: `VectorPath`; 공개 필드: `commands`, `fill`, `stroke`; 의미: M/L/Q/C/Z 기하학 및 고체 페인트
+- 데이터: `LayerFrameRange`; 공개 필드: `firstFrame`, `lastFrame`; 의미: 선택적 포함 레이어 존재 경계
+- 데이터: `LayerProperties`; 공개 필드: `id`, `name`, `visible`, `opacity`, `transform`, `blendMode`, `frameRange`, `motion`, `artboardId`, `appearance`; 의미: 모든 시각적 계층 유형에서 공유되는 프레젠테이션, 타임라인 존재 상태 및 선택적 대지 소속
+- 데이터: `StaticBitmapLayer`; 공개 필드: `properties`, `content: StaticBitmapContent`; 의미: 단일 래스터 자산
+- 데이터: `DynamicBitmapLayer`; 공개 필드: `properties`, `content: DynamicBitmapContent`; 의미: 프레임별 래스터 자산
+- 데이터: `StaticVectorLayer`; 공개 필드: `properties`, `content: StaticVectorContent`; 의미: 단일 네이티브 벡터 자산
+- 데이터: `DynamicVectorLayer`; 공개 필드: `properties`, `content: DynamicVectorContent`; 의미: 프레임별 네이티브 벡터 자산
+- 데이터: `VideoLayer`; 공개 필드: `properties`, `source`, `playback`; 의미: 1개의 비디오 소스 및 1개의 소스 트림
+- 데이터: `VideoPlayback`; 공개 필드: `sourceInFrame`, `sourceOutFrame`, `endBehavior`; 의미: 반 오픈 소스 범위 및 투명/유지 동작
+- 데이터: `Layer`; 공개 필드: `StaticBitmapLayer \| StaticVectorLayer \| DynamicBitmapLayer \| DynamicVectorLayer`; 의미: 유형별 하단에서 상단까지 합성 항목
+- 데이터: `StaticSource`; 공개 필드: `assetId`; 의미: 하나의 내구성 있는 자산 참조
+- 데이터: `KeyframedSource`; 공개 필드: `frameIndices`; 의미: 이 레이어의 키를 소유하는 정확한 프레임들의 파생 증가 인덱스; 해당 레이어는 `Keyframe`를 소유하지 않습니다.
+- 데이터: `Frame`; 공개 필드: `index`, `keyframes`; 의미: 해당 위치의 모든 키를 직접 소유하는 희소 정수 프레임
+- 데이터: `Keyframe`; 공개 필드: `layerId`, `assetId`; 의미: 한 대가 소유한 레이어-자산 스위치 `Frame`
+- 데이터: `Document`; 공개 필드: `frames`; 의미: 빈 컬렉션일 수 있습니다. 저장된 모든 프레임은 비어 있지 않으며 인덱스는 엄격하게 증가합니다
 
 `Frame::keyframes`는 표준 오름차순 `layerId` 순서를 사용합니다. `layerId`로 키 주소를 지정하세요. `.iisc`는 레이어 주요 와이어에서 문서 레이어 순서를 유지하면서 이 표준 메모리 내 순서로 동시 키를 재구성합니다. 프레임 인덱스와 `(layerId, assetId)` 매핑은 지속 가능한 값입니다.
 
@@ -294,50 +288,44 @@ for (const Frame &frame : decoded.document.frames) {
 
 ## 문서 및 타임라인 작업
 
-|방법|작업|
-| --- | --- |
-| `setCanvasExtent` |양의 출력 범위를 교체하십시오; 이는 자산을 재현하지 않습니다.|
-| `ensureInfiniteCanvasRegion` |요청된 세계 영역을 무한 캔버스로 통합하고 청크 경계에 맞게 성장을 정렬합니다|
-| `setFrameRate` |비0 유리 프레임 속도를 교체하십시오.|
-| `setFrameCount` |정수 프레임 도메인의 크기를 조정하고, 키프레임 또는 명시적인 레이어 경계를 제외하는 축소를 거부합니다.|
-| `setStableDiffusionMetadata` |전체 레시피를 검증하고 원자적으로 부착하여 레거시 형식을 1.2로 업그레이드하십시오.|
-| `clearStableDiffusionMetadata` |렌더링 콘텐츠를 변경하거나 형식을 다운그레이드하지 않고 선택적 레시피를 제거합니다.|
+- 방법: `setCanvasExtent`; 작업: 양의 출력 범위를 교체하십시오; 이는 자산을 재현하지 않습니다.
+- 방법: `ensureInfiniteCanvasRegion`; 작업: 요청된 세계 영역을 무한 캔버스로 통합하고 청크 경계에 맞게 성장을 정렬합니다
+- 방법: `setFrameRate`; 작업: 비0 유리 프레임 속도를 교체하십시오.
+- 방법: `setFrameCount`; 작업: 정수 프레임 도메인의 크기를 조정하고, 키프레임 또는 명시적인 레이어 경계를 제외하는 축소를 거부합니다.
+- 방법: `setStableDiffusionMetadata`; 작업: 전체 레시피를 검증하고 원자적으로 부착하여 레거시 형식을 1.2로 업그레이드하십시오.
+- 방법: `clearStableDiffusionMetadata`; 작업: 렌더링 콘텐츠를 변경하거나 형식을 다운그레이드하지 않고 선택적 레시피를 제거합니다.
 
 <a id="asset-operations"></a>
 
 ## 자산 운영
 
-|방법|작업|
-| --- | --- |
-| `insertRasterAsset` |ID를 입력하고 인덱스 또는 `AppendDocumentIndex`에서 `RasterLayer`를 완성하십시오.|
-| `insertVectorAsset` |ID인 뷰포트를 삽입하고, 정렬된 경로 컬렉션을 입력하십시오.|
-| `replaceRasterPixels` |래스터 치수와 ARGB 저장소를 원자적으로 교체합니다.|
-| `replaceVectorData` |벡터 뷰포트와 모든 경로를 원자적으로 교체합니다|
-| `renameAsset` |ID의 이름을 바꾸고 모든 static/keyframe 참조를 다시 작성하십시오.|
-| `moveAsset` |ID 변경 없이 저장 순서 변경 또는 순서 렌더링|
-| `removeAsset` |참조되지 않은 자산만 제거합니다. 레이어로 계단식으로 배열되지 않음|
+- 방법: `insertRasterAsset`; 작업: ID를 입력하고 인덱스 또는 `AppendDocumentIndex`에서 `RasterLayer`를 완성하십시오.
+- 방법: `insertVectorAsset`; 작업: ID인 뷰포트를 삽입하고, 정렬된 경로 컬렉션을 입력하십시오.
+- 방법: `replaceRasterPixels`; 작업: 래스터 치수와 ARGB 저장소를 원자적으로 교체합니다.
+- 방법: `replaceVectorData`; 작업: 벡터 뷰포트와 모든 경로를 원자적으로 교체합니다
+- 방법: `renameAsset`; 작업: ID의 이름을 바꾸고 모든 static/keyframe 참조를 다시 작성하십시오.
+- 방법: `moveAsset`; 작업: ID 변경 없이 저장 순서 변경 또는 순서 렌더링
+- 방법: `removeAsset`; 작업: 참조되지 않은 자산만 제거합니다. 레이어로 계단식으로 배열되지 않음
 
 <a id="layer-operations"></a>
 
 ## 레이어 작업
 
-|방법|작업|
-| --- | --- |
-| `insertLayer` |아래에서 위로 가는 인덱스에 전체 레이어를 삽입하십시오.|
-| `insertKeyframedLayer` |키프레임이 적용된 레이어와 모든 `KeyframePlacement` 값을 원자적으로 하나의 하단‐위 인덱스에 삽입하십시오.|
-| `replaceLayer` |하나의 레이어를 원자적으로 교체하고 모든 참조의 유효성을 검사합니다.|
-| `renameLayer` |안정적인 레이어 ID 교체|
-| `setLayerName` |사용자에게 보이는 이름을 교체하십시오.|
-| `setLayerVisible` |렌더링 참여 전환|
-| `setLayerOpacity` |0에서 1까지의 유한 불투명도 설정|
-| `setLayerTransform` |완전 유한 아핀 변환을 교체하십시오.|
-| `setLayerBlendMode` |27가지 픽셀 레이어 합성 모드|
-| `setLayerAppearance` |마스크, 필터, Fill, 클리핑과 Blend If를 원자적으로 갱신|
-| `setLayerFrameRange` |선택적 포함 존재 범위를 설정하거나 초기화하고, 커밋된 범위를 1.3형식으로 업그레이드합니다.|
-| `setStaticSource` |소스를 하나의 자산 참조로 교체|
-| `setKeyframedSource` |레이어에 애니메이션을 표시하고 `KeyframePlacement` 입력을 자체 희소 프레임에 원자적으로 배포합니다.|
-| `moveLayer` |아래에서 위로 변경 합성 순서|
-| `removeLayer` |자산을 삭제하지 않고 레이어 제거|
+- 방법: `insertLayer`; 작업: 아래에서 위로 가는 인덱스에 전체 레이어를 삽입하십시오.
+- 방법: `insertKeyframedLayer`; 작업: 키프레임이 적용된 레이어와 모든 `KeyframePlacement` 값을 원자적으로 하나의 하단‐위 인덱스에 삽입하십시오.
+- 방법: `replaceLayer`; 작업: 하나의 레이어를 원자적으로 교체하고 모든 참조의 유효성을 검사합니다.
+- 방법: `renameLayer`; 작업: 안정적인 레이어 ID 교체
+- 방법: `setLayerName`; 작업: 사용자에게 보이는 이름을 교체하십시오.
+- 방법: `setLayerVisible`; 작업: 렌더링 참여 전환
+- 방법: `setLayerOpacity`; 작업: 0에서 1까지의 유한 불투명도 설정
+- 방법: `setLayerTransform`; 작업: 완전 유한 아핀 변환을 교체하십시오.
+- 방법: `setLayerBlendMode`; 작업: 27가지 픽셀 레이어 합성 모드
+- 방법: `setLayerAppearance`; 작업: 마스크, 필터, Fill, 클리핑과 Blend If를 원자적으로 갱신
+- 방법: `setLayerFrameRange`; 작업: 선택적 포함 존재 범위를 설정하거나 초기화하고, 커밋된 범위를 1.3형식으로 업그레이드합니다.
+- 방법: `setStaticSource`; 작업: 소스를 하나의 자산 참조로 교체
+- 방법: `setKeyframedSource`; 작업: 레이어에 애니메이션을 표시하고 `KeyframePlacement` 입력을 자체 희소 프레임에 원자적으로 배포합니다.
+- 방법: `moveLayer`; 작업: 아래에서 위로 변경 합성 순서
+- 방법: `removeLayer`; 작업: 자산을 삭제하지 않고 레이어 제거
 
 <a id="keyframe-operations"></a>
 
@@ -478,12 +466,10 @@ pixels.setPixel(10, 10, 0xffffcc00U);
 
 `LayerKind`는 비트맵 /벡터 아트워크를 4 방식으로 분류합니다:
 
-|종류|표현|타임라인 내용|
-| --- | --- | --- |
-| `StaticBitmap` |비트맵(청크된 래스터 포함)|1픽셀 자산|
-| `StaticVector` |벡터|단일 경로 자산|
-| `DynamicBitmap` | 비트맵 |네이티브 비디오를 포함한 프레임 선택 픽셀|
-| `DynamicVector` |벡터|프레임 선택 경로 자산|
+- 종류: `StaticBitmap`; 표현: 비트맵(청크된 래스터 포함); 타임라인 내용: 1픽셀 자산
+- 종류: `StaticVector`; 표현: 벡터; 타임라인 내용: 단일 경로 자산
+- 종류: `DynamicBitmap`; 표현: 비트맵; 타임라인 내용: 네이티브 비디오를 포함한 프레임 선택 픽셀
+- 종류: `DynamicVector`; 표현: 벡터; 타임라인 내용: 프레임 선택 경로 자산
 
 네 가지 `LayerKind`는 각 실제 레이어와 콘텐츠 타입에 대응한다. `layerKind`는 `std::optional<LayerKind>`를 반환하며 비공간 IP-Adapter에는 값이 없다. 정적 콘텐츠는 `assetId`, 동적 콘텐츠는 `frameIndices`를 가진다. 비디오와 기존 공간 조건부 레이어는 전용 역할을 유지하며 네 가지 시각 분류에 대응한다. [FOUR_LAYER_TYPES.md](FOUR_LAYER_TYPES.md)에 데이터 소유권과 마이그레이션 계약을 정의했다.
 
@@ -575,7 +561,7 @@ auto kind = layerKind(*findLayer(document, "drawing")); // DynamicVector
 ## 자세한 ControlNet 매개변수(0.24.0)
 
 모든 12 조건부 타입은 `getControlNetParameters` 와 `DocumentEditor::controlNetParameters` 를 통해 타입화된 레이어/객체 스냅샷을 노출합니다. `setControlNetParameters` 는 하나의 레이어와 모든 고유한 소스 상태를 원자적으로 적용하며, `patchControlNetSettings` 는 다른 것들을 대체하지 않고 선택된 공통 필드를 편집합니다. 상세 필드, 출력 옵션, 소유권 및 롤백 규칙은 문서화되어 있습니다.
-[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). 현재 네이티브 모델은 명시적 타입과 레이어 외형을 포함한 1.20이다.
+[CONTROLNET_PARAMETERS.md](CONTROLNET_PARAMETERS.md). 네이티브 모델 1.20은 명시적 타입과 레이어 외형을 추가했으며 현재 모델은 1.29이다.
 
 ## Dynamic frame content (0.27.1)
 
@@ -602,7 +588,15 @@ See [ARTBOARDS.md](ARTBOARDS.md) for the complete public contract. Native model 
 
 ## Persistent layer appearance (0.30.0)
 
-`LayerProperties::appearance` is `LayerAppearance`; `DocumentEditor::setLayerAppearance` replaces and validates it atomically, including synchronous file-bound persistence. It contains Fill, clipping/group-blend settings, pixel/vector/filter mask references, ordered `LayerFilter` values and optional split `BlendIf` ranges. Extended `RasterBlendMode` covers 27 pixel-layer modes. `FrameLayerTileRenderResult` carries Fill, clipping and Blend If metadata for `composeFrameLayers`. See [LAYER_COMPOSITING.md](LAYER_COMPOSITING.md). Current native format is **1.20**; the 1.19 four-type extension remains unchanged within the newer layout.
+`LayerProperties::appearance` is `LayerAppearance`; `DocumentEditor::setLayerAppearance` replaces and validates it atomically, including synchronous file-bound persistence. It contains Fill, clipping/group-blend settings, pixel/vector/filter mask references, ordered `LayerFilter` values and optional split `BlendIf` ranges. Extended `RasterBlendMode` covers 27 pixel-layer modes. `FrameLayerTileRenderResult` carries Fill, clipping and Blend If metadata for `composeFrameLayers`. See [LAYER_COMPOSITING.md](LAYER_COMPOSITING.md). Native format 1.20 introduced this appearance model; the current format is 1.29 and retains the 1.19 four-type extension.
+
+`CanvasResizePlan`, `CanvasCropTransaction`, `DocumentResamplingPlan`, and
+`ImageRotationPlan` return detached plans. `DocumentHistory::applyCanvasGeometry`
+or `applyCanvasAffine` commits a supported plan as one Undo/Redo item. The Python
+`CanvasDocument` exposes resize, crop, resampling, rotation, cloning, bounds and
+pixel-aspect operations. See [image and canvas operations](IMAGE_CANVAS_OPERATIONS.md)
+for physical replacement constraints, style restrictions and the bounded
+off-canvas search contract.
 
 `DocumentFile::readRevision(path, revision)` (0.30.2)은 iiFileProvider의 읽기 전용 연결로 작업 파일의 커밋된 저장 리비전만 조회한다. 편집 소유자나 픽셀 스냅샷을 만들지 않고 저널 모드를 변경하지 않는다. 실패 시 출력 값을 보존한다. 지원되는 저장 스키마와 SQLite 무결성을 검사하지만 문서 레코드의 모델·체크섬을 디코딩하지 않으므로, 이 결과는 문서 전체의 가독성을 보장하지 않는다. 직렬화된 IISC 스냅샷에는 저장 리비전이 없으며 UnsupportedFormat으로 보고한다.
 
@@ -652,3 +646,18 @@ See [ARTBOARDS.md](ARTBOARDS.md) for validation, ownership and source-work limit
 ## 네이티브 게시 메타데이터 (0.32.0)
 
 `Document::publicationMetadata`와 `DocumentEditor::setPublicationMetadata` / `clearPublicationMetadata`는 제목·설명·순서 있는 캔버스별 캡션·대체 텍스트·커버·문자열/불리언 게시 설정을 네이티브 문서에 보존한다. 공개 표준 C++ 모델과 단일 파일 저장·편집·호환성 계약은 [게시 메타데이터](PUBLICATION_METADATA.md)를 따른다. 스냅샷과 작업 파일 모두 형식 1.22를 사용하며 별도 메타데이터 파일을 요구하지 않는다.
+
+## 선택 채널과 레이어 관계
+
+`NamedSelectionChannel`, `SelectionChannelStore`, `LayerGroupTree`, `LayerLinkGraph`, `LayerLockPolicy`와 `LayerQueryIndex`는 [선택 채널과 레이어 관계](SELECTION_LAYER_RELATIONSHIPS.md)를 따른다. 이력에 포함할 변경은 분리된 관계 값을 `DocumentHistory::setSelectionLayerRelations`에 제출한다. Python은 `CanvasDocument`와 `LayerLocks`에서 동일한 기능을 제공한다.
+
+`FillLayerContent`, `AdjustmentLayerContent`, `LayerStyleStack`, `LayerStyleEvaluator`,
+`LayerMaskOperations`, `VectorMaskOperations`, `LayerRasterizationPass`,
+`LayerSliceDescriptor`, `LayerSliceBuilder`의 소유권, 이력, 실행 인자 및
+제한은 [레이어 콘텐츠 연산](LAYER_CONTENT_OPERATIONS.md)을 따른다.
+
+`LayerArrangementPlanner`, `LayerAlignmentSolver`, `LayerDistributionSolver`,
+`ShapeCombinationPlan`, `LayerMergeTransaction`, `DocumentFlattenTransaction`와
+Python 대응 명령의 계약은 [레이어 편집 연산](LAYER_EDIT_OPERATIONS.md)을 따른다.
+`prepareVerifiedLayerMerge`는 변경 전후 모든 프레임의 실제 합성을 비교하고
+반환된 계획은 `DocumentHistory::applyLayerTransaction`으로 게시한다.

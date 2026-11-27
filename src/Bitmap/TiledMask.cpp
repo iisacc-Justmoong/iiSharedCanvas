@@ -41,6 +41,48 @@ struct TiledMask::State {
     std::map<Key,Tile> tiles;
     std::size_t denseBytes=0;
 };
+TiledMaskData TiledMask::snapshot() const {
+    TiledMaskData result;
+    if (!state_) return result;
+    result.domain=state_->domain;
+    result.background=state_->background;
+    result.tiles.reserve(state_->tiles.size());
+    for (const auto &[key,tile]:state_->tiles) {
+        TiledMaskTileData out{key.first,key.second,tile.uniform,{}};
+        if (tile.dense) out.dense.assign(tile.dense->begin(),tile.dense->end());
+        result.tiles.push_back(std::move(out));
+    }
+    return result;
+}
+TiledMaskResult TiledMask::fromSnapshot(const TiledMaskData &data,TiledMaskLimits limits) {
+    if (!valid(data.domain) || data.tiles.size()>limits.maximumTiles)
+        return {{},"invalid mask domain or tile budget"};
+    try {
+        auto state=std::make_shared<State>();
+        state->domain=data.domain;
+        state->background=data.background;
+        for (const auto &source:data.tiles) {
+            if (source.column<0 || source.row<0 ||
+                std::int64_t(source.column)*side>=data.domain.extent.width ||
+                std::int64_t(source.row)*side>=data.domain.extent.height ||
+                (!source.dense.empty() && source.dense.size()!=sizeof(Pixels)))
+                return {{},"invalid mask tile"};
+            Tile tile{source.uniform,{}};
+            if (!source.dense.empty()) {
+                if (state->denseBytes>limits.maximumDenseBytes ||
+                    sizeof(Pixels)>limits.maximumDenseBytes-state->denseBytes)
+                    return {{},"mask exceeds dense storage budget"};
+                auto dense=std::make_shared<Pixels>();
+                std::copy(source.dense.begin(),source.dense.end(),dense->begin());
+                tile.dense=std::move(dense);
+                state->denseBytes+=sizeof(Pixels);
+            }
+            if (!state->tiles.emplace(Key{source.column,source.row},std::move(tile)).second)
+                return {{},"duplicate mask tile"};
+        }
+        return {TiledMask(std::move(state)),{}};
+    } catch (const std::bad_alloc&) { return {{},"insufficient memory for tiled mask"}; }
+}
 namespace {
 std::uint8_t at(const Tile* tile,std::uint8_t background,std::size_t i) {
     return !tile ? background : tile->dense ? (*tile->dense)[i] : tile->uniform;

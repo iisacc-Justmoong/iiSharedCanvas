@@ -576,7 +576,8 @@
                 "schema": {
                   "kind": "enumeration",
                   "values": [
-                    "workspace-docs"
+                    "workspace-docs",
+                    "codex"
                   ]
                 }
               },
@@ -896,7 +897,8 @@
                 "schema": {
                   "kind": "enumeration",
                   "values": [
-                    "workspace-docs"
+                    "workspace-docs",
+                    "codex"
                   ]
                 }
               },

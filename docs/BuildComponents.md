@@ -2,10 +2,8 @@
 
 The SDK exports separate CMake components:
 
-| Component | Target | Responsibilities |
-| --- | --- | --- |
-| Core | `iiSharedCanvas::Core` | Document values, edits, validation, codecs, persistence, processing, and CPU rendering |
-| Quick | `iiSharedCanvas::Quick` | Qt Quick items and their asynchronous presentation adapter; depends on Core |
+- Component: Core; Target: `iiSharedCanvas::Core`; Responsibilities: Document values, edits, validation, codecs, persistence, processing, and CPU rendering
+- Component: Quick; Target: `iiSharedCanvas::Quick`; Responsibilities: Qt Quick items and their asynchronous presentation adapter; depends on Core
 
 The existing `iiSharedCanvas::iiSharedCanvas` library combines the components
 available in the installation. Existing source consumers keep their full

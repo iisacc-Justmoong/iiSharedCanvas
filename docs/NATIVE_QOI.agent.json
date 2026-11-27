@@ -1,0 +1,107 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:876e178a18c151cfac6b308e6c89fe4df08a847b27e5da6dbe780a756642119f",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/NATIVE_QOI.md",
+    "sha256": "37c6efa42b39ddf5d2cfca3dce9b31b8854cd01c3c9f6fc9c657a928a7e94a90",
+    "bytes": 994,
+    "line_count": 14,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "네이티브 QOI 비트맵 계약",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 네이티브 QOI 비트맵 계약\n",
+      "level": 1,
+      "title": "네이티브 QOI 비트맵 계약"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 7,
+      "raw": "Qt 경로의 확장 비트맵 기능을 유지하기 위해 네이티브 비트맵 코덱은\n[QOI 1.0](https://qoiformat.org/qoi-specification.pdf)을 메모리에서 읽고 쓴다.\nARGB 픽셀과 투명 픽셀의 RGB를 보존하며 별도 프로세스나 전역 코덱 상태를 쓰지\n않는다. `extendedCodecs`가 꺼져 있으면 QOI를 선택하지 않고, 형식 목록의\n`includeExtended=false`에도 표시하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 12,
+      "raw": "입력·디코딩 픽셀·출력 크기는 기존 `MediaLimits`를 따른다. 헤더와 채널 수,\n색 공간 표식, 청크 길이, 반복 횟수 및 최종 마커가 유효하지 않으면 부분 결과를\n반환하지 않는다. 색 공간 표식이 선형인 입력은 픽셀 값을 바꾸지 않고 경고한다.\nQOI는 텍스트를 저장하지 않으므로 텍스트를 함께 내보내면 경고한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "이 기능은 QOI에 한정되며 다른 확장 형식의 네이티브 동등성을 의미하지 않는다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "네이티브 QOI 비트맵 계약",
+      "anchor": "네이티브-qoi-비트맵-계약",
+      "start_line": 1
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [
+      {
+        "block_id": "b000003",
+        "label": "QOI 1.0",
+        "target": "https://qoiformat.org/qoi-specification.pdf",
+        "kind": "external",
+        "line": 4
+      }
+    ],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "codex",
+    "version": "1.0.0-compatible",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

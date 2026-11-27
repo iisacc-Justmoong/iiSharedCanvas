@@ -18,12 +18,10 @@ FCPXML 는 타이밍의 기초로 하나의 전체 지속 시간 기본 간격�
 
 각 렌더링된 PNG 는 직선이고 프리멀티플라이드 알파가 없는 전체 캔버스 뷰포트 입니다. 레이어 변환과 벡터 경로는 해당 레어 픽셀로 렌더링되지만, 레어 불투명도, 가시성, 블렌드 모드는 별도의 타임라인 속성으로 유지됩니다. 그것들은 PNG 에 두 번째로 적용되지 않습니다. `source.iisc` 는 네이티브 벡터 경로와 변환을 유지하며, PNG 편집은 벡터 편집 가능성을 유지하지 않습니다. XML 형식은 자체적으로 네이티브 개인 메타데이터를 보존하지 않습니다.
 
-|네이티브 블렌드|레거시 `compositemode`|FCPXML `adjust-blend` 모드|
-| --- | --- | --- |
-| SourceOver | `normal` | `0` |
-|곱하다| `multiply` | `4` |
-|스크린| `screen` | `10` |
-|을 놓다| `overlay` | `14` |
+- 네이티브 블렌드: SourceOver; 레거시 `compositemode`: `normal`; FCPXML `adjust-blend` 모드: `0`
+- 네이티브 블렌드: 곱하다; 레거시 `compositemode`: `multiply`; FCPXML `adjust-blend` 모드: `4`
+- 네이티브 블렌드: 스크린; 레거시 `compositemode`: `screen`; FCPXML `adjust-blend` 모드: `10`
+- 네이티브 블렌드: 을 놓다; 레거시 `compositemode`: `overlay`; FCPXML `adjust-blend` 모드: `14`
 
 레거시 불투명도는 `opacity` 에서 0 – 100 스케일에서 독립적인 FCPXML 효과입니다. `adjust-blend amount` 는 0 – 1 스케일에서 사용됩니다. 지원되지 않는 모드 안전하게 거부한다 입니다. 레거시 애플 요소 카탈로그는 Overlay 를 이전 목록에서 생략하지만, 현재 프리미어/리졸브 상호 운용성 문서에는 Overlay 지원이 나열되어 있습니다. 발생한 `overlay` 토큰은 따라서 타겟 편집기 검증을 필요로 하며, FCPXML 는 명시적인 문서화된 숫자 매핑을 가집니다. 다른 편집기의 색상 관리 및 합성 구현은 여전히 다른 픽셀을 생성할 수 있습니다. FCPXML 는 SDR Rec.709 시퀀스와 sRGB 소스 이미지 오버라이드를 선언하며 편집기의 현재 프로젝트나 이미지 프로파일 가정에 의존하지 않습니다.
 

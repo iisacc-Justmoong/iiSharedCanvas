@@ -21,7 +21,7 @@ foreach(call IN LISTS direct_find_packages)
 endforeach()
 list(REMOVE_DUPLICATES direct_dependencies)
 list(SORT direct_dependencies)
-set(reviewed_dependencies Qt6 SQLite3 Threads ZLIB iiFileProvider iiFileProviderNative iiPaintEngine libzip)
+set(reviewed_dependencies Qt6 SQLite3 Threads ZLIB iiFileProvider iiFileProviderNative iiPaintEngine iiSDKCore libzip)
 if(NOT direct_dependencies STREQUAL reviewed_dependencies)
     message(FATAL_ERROR "Unreviewed iiSharedCanvas dependencies: ${direct_dependencies}")
 endif()
@@ -31,10 +31,13 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(Qt6 6.8
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_library(iiSharedCanvas::Core ALIAS iiSharedCanvasCore)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "add_library(iiSharedCanvas::Quick ALIAS iiSharedCanvasQuick)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/LAYER_COMPOSITING.md")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/CHANNEL_EXCHANGE.md docs/CHANNEL_EXCHANGE.agent.json")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "iiSharedCanvas.InstalledLayerCompositing")
 
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
-             "find_package(iiPaintEngine 0.5.1 CONFIG REQUIRED)")
+             "find_package(iiPaintEngine 0.5.4 CONFIG REQUIRED)")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
+             "find_package(iiSDKCore 0.18 CONFIG REQUIRED COMPONENTS Contracts)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "find_package(SQLite3 3.26 REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "find_package(ZLIB 1.2.9 REQUIRED)")
@@ -107,7 +110,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "docs/DYNAMIC_FRAME_C
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/DocumentEditor.h" "setDynamicFrameContent")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/tests/consumer/CMakeLists.txt" "PROPERTIES ENVIRONMENT_MODIFICATION")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "CurrentFormatMinor = 22")
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Document/Document.h" "CurrentFormatMinor = 29")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "src/Bitmap/BitmapEditor.cpp")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
@@ -143,9 +146,9 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/CMakeLists.txt"
              "LINKER:-rpath,$<TARGET_FILE_DIR:iiPaintEngine::iiPaintEngine>")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/cmake/iiSharedCanvasConfig.cmake.in"
-             "find_dependency(iiPaintEngine 0.5.1 CONFIG REQUIRED)")
+             "find_dependency(iiPaintEngine 0.5.4 CONFIG REQUIRED)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The direct project dependencies are iiPaintEngine 0.5.1, SQLite")
+             "The direct project dependencies are iiPaintEngine 0.5.4, SQLite")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`BitmapEditor` binds to a raster asset by id")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -167,7 +170,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`KeyframedSource::frameIndices` is a derived")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
-             "The current C++ package version is 0.32.0")
+             "The current C++ package version is 0.40.0")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "`LayerProperties::frameRange` optionally stores an inclusive")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
@@ -187,7 +190,7 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/README.md"
              "Container and codec identifiers are open strings")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`Layer` | `StaticBitmapLayer \\| StaticVectorLayer \\| DynamicBitmapLayer \\| DynamicVectorLayer`")
+             "`Layer`; 공개 필드: `StaticBitmapLayer \\| StaticVectorLayer \\| DynamicBitmapLayer \\| DynamicVectorLayer`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "`validateCameraRaw` 는 RAW 카메라 집합을 `validate(Document)` 에서 독립적으로")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
@@ -203,9 +206,9 @@ require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "insertKeyframedLayer")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`LayerFrameRange` | `firstFrame`, `lastFrame`")
+             "`LayerFrameRange`; 공개 필드: `firstFrame`, `lastFrame`")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
-             "`setLayerFrameRange` |선택적 포함 존재 범위를 설정하거나 초기화")
+             "`setLayerFrameRange`; 작업: 선택적 포함 존재 범위를 설정하거나 초기화")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
              "`layerExistsAt`는 선택적 포함 범위를 적용한 후")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/API.md"
@@ -302,9 +305,9 @@ foreach(public_header IN LISTS public_headers)
 endforeach()
 
 # The repository contract keeps iiSharedCanvas upstream and product-neutral.
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENT.md"
              "직렬화 표준인 공식 캔버스 문서")
-require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENTS.md"
+require_text("${IISHAREDCANVAS_SOURCE_DIR}/AGENT.md"
              "소비자 채택은 병렬 호환성 실행이 아니라 순차적")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/docs/BLUEPRINT.md"
              "iiSharedCanvas는 iisacc의 표준 캔버스 표준")
@@ -340,6 +343,20 @@ foreach(module Audio Bitmap Camera Document File Layered Media Metadata QtAdapte
             require_text("${module_header}" "IISHAREDCANVAS_NATIVE_API")
             continue()
         endif()
+        # These headers contain only data declarations or aggregate existing
+        # public headers; their behavior is owned by the corresponding modules.
+        if(module STREQUAL "Bitmap" AND source_name STREQUAL "BitmapEdit")
+            require_text("${module_header}" "struct BitmapPreviewTile")
+            continue()
+        endif()
+        if(module STREQUAL "Document" AND source_name STREQUAL "CanvasOperations")
+            require_text("${module_header}" "Document/CanvasGeometry.h")
+            continue()
+        endif()
+        if(module STREQUAL "Bitmap" AND source_name STREQUAL "SelectionPolygon_p")
+            require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapProcessing.cpp" "selectionPolygonRegion")
+            continue()
+        endif()
         if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.cpp")
             message(FATAL_ERROR "${module_header} must have a co-located implementation")
         endif()
@@ -347,6 +364,7 @@ foreach(module Audio Bitmap Camera Document File Layered Media Metadata QtAdapte
     foreach(module_implementation IN LISTS module_implementations)
         get_filename_component(source_name "${module_implementation}" NAME_WE)
         if(NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.h"
+           AND NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}.hpp"
            AND NOT EXISTS "${IISHAREDCANVAS_SOURCE_DIR}/src/${module}/${source_name}_p.hpp")
             message(FATAL_ERROR "${module_implementation} must have a co-located public or private header")
         endif()
@@ -391,7 +409,7 @@ endforeach()
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
              "appendRasterDabs")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/BitmapEditor.cpp"
-             "paintRasterSamples")
+             "edits.preview(*m_document, m_assetId, samples, state.rasterizer.blendMode)")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Bitmap/ChunkedBitmapEditor.cpp"
              "projectBrushDabs")
 require_text("${IISHAREDCANVAS_SOURCE_DIR}/src/Render/FrameRenderer.h"

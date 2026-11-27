@@ -337,10 +337,15 @@ MediaIoResult exportBitmap(const RasterLayer &pixels, const std::string &path, c
 MediaIoResult exportBitmapFrame(const Document &document, FrameIndex frame, const std::string &path,
                                 const BitmapExportOptions &options)
 {
-    auto result = checkExtent(documentViewRegion(document).extent, options.limits);
-    if (!result.ok()) { return result; }
-    auto rendered = renderFrame(document, frame);
+    const auto budget=std::size_t(std::min({options.limits.maxPixelsPerFrame,options.limits.maxDecodedBytes/4,
+                                             std::uint64_t(std::numeric_limits<std::size_t>::max())}));
+    if (!displayPixelExtent(documentViewRegion(document).extent,document.pixelAspectRatio,budget))
+        return {MediaIoCode::LimitExceeded,"display extent exceeds export limits",{}};
+    auto rendered = document.pixelAspectRatio.numerator==document.pixelAspectRatio.denominator
+        ? renderFrame(document,frame) : renderDisplayFrame(document,frame,RasterSampling::Smooth,budget);
     if (!rendered.ok()) { return {MediaIoCode::InvalidArgument, rendered.message, {}}; }
+    auto result = checkExtent({rendered.pixels.width,rendered.pixels.height}, options.limits);
+    if (!result.ok()) { return result; }
     return exportBitmap(rendered.pixels, path, options);
 }
 

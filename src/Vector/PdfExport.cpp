@@ -193,10 +193,12 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
         std::filesystem::path destination;
         check(media_detail::checkDestination(path, options.overwrite, destination));
         check(media_detail::checkExtent(document.extent, options.limits));
-        if (document.extent.width * 0.75 > 14400 || document.extent.height * 0.75 > 14400)
-            fail(MediaIoCode::UnsupportedFeature, "PDF page dimensions exceed 14400 points");
         const auto validation = validate(document);
         if (!validation.ok()) fail(MediaIoCode::InvalidArgument, validation.issues.front().message);
+        const double pixelWidth=0.75*double(document.pixelAspectRatio.numerator)/document.pixelAspectRatio.denominator;
+        const double pageWidth=document.extent.width*pixelWidth,pageHeight=document.extent.height*0.75;
+        if (!std::isfinite(pageWidth) || pageWidth>14400 || pageHeight>14400)
+            fail(MediaIoCode::UnsupportedFeature, "PDF page dimensions exceed 14400 points");
         if (!document.artboards.empty())
             fail(MediaIoCode::UnsupportedFeature, "PDF artboard export is unavailable; select an artboard explicitly");
         const auto last = options.lastFrame.value_or(options.firstFrame);
@@ -204,6 +206,7 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
             || std::uint64_t(last) + 1 - options.firstFrame > options.limits.maxFrames)
             fail(MediaIoCode::InvalidArgument, "invalid PDF page/frame range");
         for (const auto &asset : document.assets) if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
+            if (vector->shape) fail(MediaIoCode::UnsupportedFeature,"PDF cannot preserve the exact compound expression");
             check(media_detail::checkExtent(vector->viewport, options.limits));
             std::uint64_t commands = 0;
             for (const auto &item : vector->paths) {
@@ -219,7 +222,8 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
         for (std::uint64_t index = options.firstFrame; index <= last; ++index) {
             const auto frame = FrameIndex(index);
             Page page(output, options.limits);
-            page.append("q\n0.75 0 0 -0.75 0 "); page.append(number(document.extent.height * 0.75)); page.append(" cm\n");
+            page.append("q\n"); page.append(number(pixelWidth)); page.append(" 0 0 -0.75 0 ");
+            page.append(number(pageHeight)); page.append(" cm\n");
             bool flatten = false;
             for (const auto &layer : document.layers) {
                 if (layerRole(layer) == LayerRole::ControlNet) continue;
@@ -272,7 +276,7 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
             const auto content = output.reserve(), pageId = output.reserve();
             output.stream(content, "", page.content());
             output.object(pageId, "<< /Type /Page /Parent " + std::to_string(pages) + " 0 R /MediaBox [0 0 "
-                + number(document.extent.width * 0.75) + " " + number(document.extent.height * 0.75)
+                + number(pageWidth) + " " + number(pageHeight)
                 + "] /Resources " + page.resources() + " /Contents " + std::to_string(content) + " 0 R >>");
             pageIds.push_back(pageId);
         }

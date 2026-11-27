@@ -1,6 +1,9 @@
 #include "Serialization/IiscCodec.h"
 #include "Serialization/DocumentRecords_p.hpp"
 #include "Bitmap/RasterProcessingFields_p.hpp"
+#include "Bitmap/TiledMask.h"
+#include "Vector/VectorEquality_p.hpp"
+#include "Timeline/TimelineProjectCodec_p.hpp"
 
 #include "Validation/Validation.h"
 
@@ -219,6 +222,9 @@ private:
 };
 
 struct LimitTotals {
+    std::uint64_t selectionTiles = 0;
+    std::uint64_t selectionDenseBytes = 0;
+    std::uint64_t embeddedCanvasBytes = 0;
     std::uint64_t rasterPixels = 0;
     std::uint64_t depthSamples = 0;
     std::uint64_t ipAdapterValues = 0;
@@ -231,6 +237,7 @@ struct LimitTotals {
     std::uint64_t mlsdSegments = 0;
     std::uint64_t rasterChunks = 0;
     std::uint64_t vectorPaths = 0;
+    std::uint64_t shapeNodes = 0;
     std::uint64_t pathCommands = 0;
     std::uint64_t keyframes = 0;
     std::uint64_t stringBytes = 0;
@@ -240,6 +247,8 @@ struct LimitTotals {
     std::uint64_t videoFrames = 0;
     std::uint64_t motionKeyframes = 0;
     std::uint64_t layerFilters = 0;
+    std::uint64_t fillGradientStops = 0;
+    std::uint64_t layerStyles = 0;
     std::uint64_t maskStackEntries = 0;
     std::uint64_t posePeople = 0, poseExpressions = 0, poseDeltas = 0;
     std::uint64_t semanticClasses = 0, semanticRegions = 0, semanticEntries = 0;
@@ -349,6 +358,21 @@ IiscError trackString(const std::string &value,
 IiscError checkDocumentLimits(const Document &document,
                               const SerializationLimits &limits, LimitTotals *output = nullptr)
 {
+    std::uint64_t timelineStringBytes = 0;
+    if (document.sequenceMedia.size() > limits.maximumTimelineMediaAssets ||
+        document.sequenceMedia.size() > std::numeric_limits<std::uint32_t>::max())
+        return makeError(IiscErrorCode::LimitExceeded, 0, "sequence media count exceeds the configured limit");
+    std::uint64_t mediaBytes = 0;
+    for (const auto &media : document.sequenceMedia)
+        if (!media.bytes || !addWithin(mediaBytes, media.bytes->size(),
+                std::min(limits.maximumTimelineMediaBytes, limits.maximumContainerBytes)))
+            return makeError(IiscErrorCode::LimitExceeded, 0, "owned sequence media exceed the configured limit");
+    if (document.sequenceProject) {
+        if (auto error = detail::measureTimelineStrings(*document.sequenceProject, limits, timelineStringBytes);
+            error.code != IiscErrorCode::None) return error;
+        auto encoded = detail::encodeTimelineProject(*document.sequenceProject, limits);
+        if (encoded.error.code != IiscErrorCode::None) return std::move(encoded.error);
+    }
     if (document.artboards.size() > limits.maximumArtboards
         || document.artboards.size() > std::numeric_limits<std::uint32_t>::max())
         return makeError(IiscErrorCode::LimitExceeded, 0, "artboard count exceeds the configured limit");
@@ -382,6 +406,39 @@ IiscError checkDocumentLimits(const Document &document,
     }
 
     LimitTotals totals;
+    if (!addWithin(totals.stringBytes, timelineStringBytes, limits.maximumTotalStringBytes))
+        return makeError(IiscErrorCode::LimitExceeded, 0, "document string bytes exceed the configured limits");
+    for (const auto &media : document.sequenceMedia)
+        for (const auto *text : {&media.id, &media.mediaType})
+            if (auto error = trackString(*text, limits, totals); error.code != IiscErrorCode::None) return error;
+    const auto &relations = document.relations;
+    if (relations.selections.channels().size() > limits.maximumSelectionChannels ||
+        relations.groups.groups().size() > limits.maximumLayerGroups ||
+        relations.groups.memberships().size() > limits.maximumLayers ||
+        relations.links.edges().size() > limits.maximumLayerLinks ||
+        relations.locks.layers().size() > limits.maximumLayers ||
+        relations.locks.groups().size() > limits.maximumLayerGroups)
+        return makeError(IiscErrorCode::LimitExceeded, 0, "selection or relationship count exceeds the configured limit");
+    const auto track = [&](const std::string &value) { return trackString(value, limits, totals); };
+    for (const auto &channel : relations.selections.channels()) {
+        for (const auto *value : {&channel.id, &channel.name})
+            if (auto error=track(*value); error.code!=IiscErrorCode::None) return error;
+        if (!channel.mask || !addWithin(totals.selectionTiles,channel.mask->tile_count(),limits.maximumSelectionTiles) ||
+            !addWithin(totals.selectionDenseBytes,channel.mask->dense_bytes(),limits.maximumSelectionDenseBytes))
+            return makeError(IiscErrorCode::LimitExceeded, 0, "selection mask exceeds the configured limit");
+    }
+    for (const auto &group : relations.groups.groups())
+        for (const auto *value : {&group.id,&group.name,&group.parentId})
+            if (auto error=track(*value); error.code!=IiscErrorCode::None) return error;
+    for (const auto &membership : relations.groups.memberships())
+        for (const auto *value : {&membership.layerId,&membership.groupId})
+            if (auto error=track(*value); error.code!=IiscErrorCode::None) return error;
+    for (const auto &link : relations.links.edges())
+        for (const auto *value : {&link.first,&link.second})
+            if (auto error=track(*value); error.code!=IiscErrorCode::None) return error;
+    for (const auto *entries : {&relations.locks.layers(),&relations.locks.groups()})
+        for (const auto &entry : *entries)
+            if (auto error=track(entry.id); error.code!=IiscErrorCode::None) return error;
     for (const auto &a : document.artboards) {
         std::uint64_t pixels = 0;
         if (!pixelCountWithin(a.region.extent.width, a.region.extent.height, limits.maximumCanvasPixels, pixels))
@@ -441,6 +498,40 @@ IiscError checkDocumentLimits(const Document &document,
         if (IiscError error = trackString(assetId(asset), limits, totals);
             error.code != IiscErrorCode::None) {
             return error;
+        }
+        if (const auto *fill = std::get_if<FillLayerContent>(&asset)) {
+            std::uint64_t pixels=0;
+            if (!pixelCountWithin(fill->extent.width,fill->extent.height,limits.maximumCanvasPixels,pixels) ||
+                fill->stops.size()>256 ||
+                !addWithin(totals.fillGradientStops,fill->stops.size(),limits.maximumTotalFillGradientStops))
+                return makeError(IiscErrorCode::LimitExceeded,0,"fill extent or gradient stop budget exceeded");
+            if (auto error=trackString(fill->patternAssetId,limits,totals); error.code!=IiscErrorCode::None) return error;
+            continue;
+        }
+        if (const auto *adjustment = std::get_if<AdjustmentLayerContent>(&asset)) {
+            std::uint64_t pixels=0;
+            if (!pixelCountWithin(adjustment->extent.width,adjustment->extent.height,limits.maximumCanvasPixels,pixels))
+                return makeError(IiscErrorCode::LimitExceeded,0,"adjustment extent exceeds the canvas budget");
+            continue;
+        }
+        if (const auto *linked = std::get_if<LinkedCanvasAsset>(&asset)) {
+            if (!limits.maximumEmbeddedCanvasDepth ||
+                !addWithin(totals.embeddedCanvasBytes, linked->document.size(), limits.maximumEmbeddedCanvasBytes))
+                return makeError(IiscErrorCode::LimitExceeded, 0, "embedded canvas depth or byte budget exceeded");
+            auto nestedLimits = limits;
+            --nestedLimits.maximumEmbeddedCanvasDepth;
+            const auto nested = decodeIisc(linked->document, nestedLimits);
+            if (!nested.ok()) return makeError(nested.error.code, 0, "embedded canvas: " + nested.error.message);
+            if (linked->frame >= nested.document.timeline.frameCount)
+                return makeError(IiscErrorCode::InvalidDocument, 0, "embedded canvas frame is out of range");
+            // Artboards can extend the rendered view beyond the base canvas;
+            // check the union at every level using the caller's same budget.
+            const auto view = documentViewRegion(nested.document);
+            std::uint64_t viewPixels = 0;
+            if (!pixelCountWithin(view.extent.width, view.extent.height,
+                                  limits.maximumCanvasPixels, viewPixels))
+                return makeError(IiscErrorCode::LimitExceeded, 0, "embedded canvas view exceeds the pixel budget");
+            continue;
         }
         if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
             const std::uint64_t pixels = raster->pixels.pixels.size();
@@ -591,6 +682,8 @@ IiscError checkDocumentLimits(const Document &document,
                                  "vector command count exceeds the configured limit");
             }
         }
+        if (vector.shape && !addWithin(totals.shapeNodes,vector.shape->nodes.size(),limits.maximumTotalShapeNodes))
+            return makeError(IiscErrorCode::LimitExceeded,0,"shape expression node budget exceeded");
     }
 
     std::unordered_map<std::string_view, std::uint64_t> keyframeCountsByLayer;
@@ -598,6 +691,9 @@ IiscError checkDocumentLimits(const Document &document,
     for (const Layer &layer : document.layers) {
         const LayerProperties &properties = layerProperties(layer);
         const auto &appearance = properties.appearance;
+        if (appearance.styles.effects.size()>limits.maximumStylesPerLayer ||
+            !addWithin(totals.layerStyles,appearance.styles.effects.size(),limits.maximumTotalLayerStyles))
+            return makeError(IiscErrorCode::LimitExceeded,0,"layer style budget exceeded");
         if (appearance.filters.size() > limits.maximumFiltersPerLayer
             || !addWithin(totals.layerFilters, appearance.filters.size(), limits.maximumTotalLayerFilters))
             return makeError(IiscErrorCode::LimitExceeded, 0, "layer filter budget exceeded");
@@ -962,6 +1058,14 @@ void writeLayerAppearance(ByteWriter &writer, const LayerAppearance &a, FormatVe
             writer.writeU8(static_cast<std::uint8_t>(entry.combine)); mask(entry.mask);
         }
     }
+    if (version.minor >= 25) {
+        writer.writeU32(static_cast<std::uint32_t>(a.styles.effects.size()));
+        for (const auto &effect:a.styles.effects) {
+            writer.writeU8(static_cast<std::uint8_t>(effect.kind)); writer.writeU8(effect.enabled);
+            writer.writeU32(effect.color); writer.writeDouble(effect.opacity); writer.writeDouble(effect.radius);
+            writer.writeDouble(effect.offsetX); writer.writeDouble(effect.offsetY);
+        }
+    }
 }
 
 void writeRaster(ByteWriter &writer, const RasterLayer &raster, bool compress = true,
@@ -1025,7 +1129,7 @@ void writeRaster(ByteWriter &writer, const RasterLayer &raster, bool compress = 
     }
 }
 
-void writeVector(ByteWriter &writer, const VectorAsset &vector)
+void writeVector(ByteWriter &writer, const VectorAsset &vector, FormatVersion version)
 {
     writer.writeI32(vector.viewport.width);
     writer.writeI32(vector.viewport.height);
@@ -1043,6 +1147,19 @@ void writeVector(ByteWriter &writer, const VectorAsset &vector)
         if (path.stroke) {
             writer.writeU32(path.stroke->paint.argb);
             writer.writeDouble(path.stroke->width);
+        }
+    }
+    if (version.minor>=26) {
+        writer.writeU8(vector.shape ? 1 : 0);
+        if (vector.shape) {
+            writer.writeU32(vector.shape->root); writer.writeU32(vector.shape->color);
+            writer.writeU32(static_cast<std::uint32_t>(vector.shape->nodes.size()));
+            for (const auto &node:vector.shape->nodes) {
+                writer.writeU8(static_cast<std::uint8_t>(node.kind));
+                writer.writeU32(node.first); writer.writeU32(node.second);
+                for (auto value:{node.transform.m11,node.transform.m12,node.transform.m21,node.transform.m22,
+                                 node.transform.translationX,node.transform.translationY}) writer.writeDouble(value);
+            }
         }
     }
 }
@@ -1212,6 +1329,14 @@ bool unchangedAsset(const Asset &asset, const Document *previous)
     // A same-document comparison has the identical live asset on both sides.
     // Avoid traversing raster/video payloads when only document metadata changes.
     if (prior == &asset) return true;
+    if (const auto *vector=std::get_if<VectorAsset>(&asset))
+        return vector_detail::same(*vector,std::get<VectorAsset>(*prior));
+    if (const auto *fill = std::get_if<FillLayerContent>(&asset))
+        return *fill == std::get<FillLayerContent>(*prior);
+    if (const auto *adjustment = std::get_if<AdjustmentLayerContent>(&asset))
+        return *adjustment == std::get<AdjustmentLayerContent>(*prior);
+    if (const auto *linked = std::get_if<LinkedCanvasAsset>(&asset))
+        return *linked == std::get<LinkedCanvasAsset>(*prior);
     if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
         const auto &old = std::get<MlsdAsset>(*prior);
         return mlsd->viewport.width==old.viewport.width && mlsd->viewport.height==old.viewport.height && mlsd->segments==old.segments;
@@ -1299,7 +1424,151 @@ void writeDocumentHeader(ByteWriter &writer, const Document &document, bool work
     writer.writeU32(document.timeline.frameRate.numerator);
     writer.writeU32(document.timeline.frameRate.denominator);
     writer.writeU32(document.timeline.frameCount);
+    if (document.formatVersion.minor>=27) {
+        writer.writeU32(document.pixelAspectRatio.numerator);
+        writer.writeU32(document.pixelAspectRatio.denominator);
+    }
     writer.writeU32(static_cast<std::uint32_t>(document.assets.size()));
+}
+
+// Version 1.24 stores sparse selection masks and relationship values in a
+// single independently replaceable record, after publication metadata.
+void writeSelectionLayerRelations(ByteWriter &writer, const SelectionLayerRelations &value)
+{
+    writer.writeU32(static_cast<std::uint32_t>(value.selections.channels().size()));
+    for (const auto &channel : value.selections.channels()) {
+        writer.writeString(channel.id); writer.writeString(channel.name);
+        const auto mask=channel.mask->snapshot();
+        writer.writeI32(mask.domain.origin.x); writer.writeI32(mask.domain.origin.y);
+        writer.writeI32(mask.domain.extent.width); writer.writeI32(mask.domain.extent.height);
+        writer.writeU8(mask.background); writer.writeU32(static_cast<std::uint32_t>(mask.tiles.size()));
+        for (const auto &tile : mask.tiles) {
+            writer.writeI32(tile.column); writer.writeI32(tile.row);
+            writer.writeU8(tile.dense.empty() ? 0 : 1); writer.writeU8(tile.uniform);
+            if (!tile.dense.empty()) writer.writeBytes(tile.dense);
+        }
+    }
+    writer.writeU32(static_cast<std::uint32_t>(value.groups.groups().size()));
+    for (const auto &group : value.groups.groups()) {
+        writer.writeString(group.id); writer.writeString(group.name); writer.writeString(group.parentId);
+        writer.writeU8(static_cast<std::uint8_t>(group.mode)); writer.writeU8(group.visible ? 1 : 0);
+    }
+    writer.writeU32(static_cast<std::uint32_t>(value.groups.memberships().size()));
+    for (const auto &item : value.groups.memberships()) { writer.writeString(item.layerId); writer.writeString(item.groupId); }
+    writer.writeU32(static_cast<std::uint32_t>(value.links.edges().size()));
+    for (const auto &edge : value.links.edges()) { writer.writeString(edge.first); writer.writeString(edge.second); }
+    for (const auto *entries : {&value.locks.layers(),&value.locks.groups()}) {
+        writer.writeU32(static_cast<std::uint32_t>(entries->size()));
+        for (const auto &entry : *entries) { writer.writeString(entry.id); writer.writeU8(static_cast<std::uint8_t>(entry.flags)); }
+    }
+}
+
+// Encode one asset using the same canonical representation as a document.
+// History can retain only changed assets, rather than a complete document dump.
+void writeAsset(ByteWriter &writer,const Asset &asset,FormatVersion version,
+                bool compress,bool separateRasters)
+{
+    const std::uint8_t kind = std::holds_alternative<FillLayerContent>(asset) ? 16U :
+        std::holds_alternative<AdjustmentLayerContent>(asset) ? 17U :
+        std::holds_alternative<LinkedCanvasAsset>(asset) ? 15U : std::holds_alternative<RasterAsset>(asset)
+        ? 0U
+        : (std::holds_alternative<VectorAsset>(asset) ? 1U
+            : (std::holds_alternative<ChunkedRasterAsset>(asset) ? 2U : (std::holds_alternative<VideoAsset>(asset) ? 3U : (std::holds_alternative<PoseAsset>(asset) ? 4U : (std::holds_alternative<DepthAsset>(asset) ? 5U : (std::holds_alternative<LineArtAsset>(asset) ? 6U : (std::holds_alternative<CannyAsset>(asset) ? 7U : (std::holds_alternative<ScribbleAsset>(asset) ? 8U : (std::holds_alternative<MlsdAsset>(asset) ? 9U : (std::holds_alternative<NormalMapAsset>(asset) ? 10U : (std::holds_alternative<ShuffleAsset>(asset) ? 11U : (std::holds_alternative<TileAsset>(asset) ? 12U : (std::holds_alternative<ReferenceAsset>(asset) ? 13U : 14U)))))))))))));
+    writer.writeU8(kind);
+    writer.writeString(assetId(asset));
+    if (const auto *fill = std::get_if<FillLayerContent>(&asset)) {
+        writer.writeI32(fill->extent.width); writer.writeI32(fill->extent.height);
+        writer.writeU8(static_cast<std::uint8_t>(fill->kind)); writer.writeU32(fill->color);
+        writePoint(writer,fill->start); writePoint(writer,fill->end);
+        writer.writeU8(static_cast<std::uint8_t>(fill->spread));
+        writer.writeU32(static_cast<std::uint32_t>(fill->stops.size()));
+        for (const auto &stop:fill->stops) { writer.writeDouble(stop.position); writer.writeU32(stop.argb); }
+        writer.writeString(fill->patternAssetId); writePoint(writer,fill->patternOrigin);
+    } else if (const auto *adjustment = std::get_if<AdjustmentLayerContent>(&asset)) {
+        writer.writeI32(adjustment->extent.width); writer.writeI32(adjustment->extent.height);
+        detail::visitColorAdjustmentFields(adjustment->adjustment,[&](const auto &value) {
+            using T=std::remove_cvref_t<decltype(value)>;
+            if constexpr (std::is_same_v<T,double>) writer.writeDouble(value);
+            else if constexpr (std::is_same_v<T,bool>) writer.writeU8(value);
+            else writer.writeI32(value);
+        });
+    } else if (const auto *linked = std::get_if<LinkedCanvasAsset>(&asset)) {
+        writer.writeU32(linked->frame); writer.writeU64(linked->document.size()); writer.writeBytes(linked->document);
+    } else if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
+        writeRaster(writer, raster->pixels, compress, separateRasters);
+    } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
+        writer.writeI32(mlsd->viewport.width); writer.writeI32(mlsd->viewport.height);
+        writer.writeU32(static_cast<std::uint32_t>(mlsd->segments.size()));
+        for (const auto &line:mlsd->segments) {
+            writer.writeString(line.id); writer.writeDouble(line.x1); writer.writeDouble(line.y1);
+            writer.writeDouble(line.x2); writer.writeDouble(line.y2); writer.writeDouble(line.confidence);
+            writer.writeU8(line.enabled?1:0);
+        }
+    } else if (const auto *canny = std::get_if<CannyAsset>(&asset)) {
+        writer.writeI32(canny->viewport.width); writer.writeI32(canny->viewport.height);
+        writer.writeU64(canny->mask.size());
+        for (std::uint8_t value : canny->mask) writer.writeU8(value);
+    } else if (const auto *scribble = std::get_if<ScribbleAsset>(&asset)) {
+        writer.writeI32(scribble->viewport.width); writer.writeI32(scribble->viewport.height);
+        writer.writeU64(scribble->mask.size());
+        for (std::uint8_t value : scribble->mask) writer.writeU8(value);
+    } else if (const auto *lineArt = std::get_if<LineArtAsset>(&asset)) {
+        writer.writeI32(lineArt->viewport.width); writer.writeI32(lineArt->viewport.height);
+        writer.writeU64(lineArt->coverage.size());
+        for (double value : lineArt->coverage) writer.writeDouble(value);
+    } else if (const auto *normalMap = std::get_if<NormalMapAsset>(&asset)) {
+        writer.writeI32(normalMap->viewport.width); writer.writeI32(normalMap->viewport.height);
+        writer.writeU64(normalMap->samples.size());
+        for (const auto &sample : normalMap->samples) {
+            writer.writeDouble(sample.x); writer.writeDouble(sample.y); writer.writeDouble(sample.z);
+            writer.writeU8(sample.valid ? 1 : 0);
+        }
+    } else if (const auto *shuffle = std::get_if<ShuffleAsset>(&asset)) {
+        writer.writeI32(shuffle->viewport.width); writer.writeI32(shuffle->viewport.height);
+        writer.writeU64(shuffle->colors.size());
+        for (const auto &sample : shuffle->colors) {
+            writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
+        }
+    } else if (const auto *tile = std::get_if<TileAsset>(&asset)) {
+        writer.writeI32(tile->viewport.width); writer.writeI32(tile->viewport.height);
+        writer.writeU64(tile->colors.size());
+        for (const auto &sample : tile->colors) {
+            writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
+        }
+    } else if (const auto *reference = std::get_if<ReferenceAsset>(&asset)) {
+        writer.writeI32(reference->viewport.width); writer.writeI32(reference->viewport.height);
+        writer.writeU64(reference->colors.size());
+        for (const auto &sample : reference->colors) {
+            writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
+        }
+    } else if (const auto *ipAdapter = std::get_if<IpAdapterAsset>(&asset)) {
+        const auto &d=ipAdapter->descriptor;
+        writer.writeU8(static_cast<std::uint8_t>(d.stage));
+        for (const auto *text:{&d.encoderId,&d.encoderRevision,&d.adapterId,&d.adapterRevision,&d.baseModelId,&d.preprocessingId}) writer.writeString(*text);
+        const auto writeTensor=[&](const IpAdapterTensor &tensor) {
+            writer.writeU32(tensor.tokenCount); writer.writeU32(tensor.channelCount);
+            writer.writeU64(tensor.values.size());
+            static_assert(sizeof(float)==4 && std::numeric_limits<float>::is_iec559);
+            for (float value:tensor.values) writer.writeU32(std::bit_cast<std::uint32_t>(value));
+        };
+        writeTensor(ipAdapter->conditional); writer.writeU8(ipAdapter->unconditional?1:0);
+        if (ipAdapter->unconditional) writeTensor(*ipAdapter->unconditional);
+    } else if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
+        writer.writeI32(depth->viewport.width); writer.writeI32(depth->viewport.height);
+        writer.writeU64(depth->values.size());
+        for (double value : depth->values) writer.writeDouble(value);
+    } else if (const auto *pose = std::get_if<PoseAsset>(&asset)) {
+        writePoseAsset(writer,*pose);
+    } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
+        writeVector(writer, *vector, version);
+    } else if (const auto *video = std::get_if<VideoAsset>(&asset)) {
+        writer.writeU32(video->frameRate.numerator);
+        writer.writeU32(video->frameRate.denominator);
+        writer.writeU32(static_cast<std::uint32_t>(video->frames.size()));
+        for (const auto &frame : video->frames) { writeRaster(writer, frame, compress); }
+    } else {
+        writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset), compress, separateRasters);
+    }
 }
 
 void writePayload(ByteWriter &writer, const Document &document,
@@ -1307,7 +1576,8 @@ void writePayload(ByteWriter &writer, const Document &document,
                   const Document *previous = nullptr, bool separateRasters = false,
                   std::string_view forceAsset = {},
                   const std::set<std::string_view> *rasterEdits = nullptr,
-                  bool portableRecords = false)
+                  bool portableRecords = false,
+                  const SerializationLimits &limits = {})
 {
     const auto record = [&](detail::RecordKind kind, std::string id = {},
                             std::uint32_t position = 0) {
@@ -1324,87 +1594,7 @@ void writePayload(ByteWriter &writer, const Document &document,
             records->push_back({detail::RecordKind::Asset, assetId(asset), assetPosition++, std::nullopt});
             continue;
         }
-        const std::uint8_t kind = std::holds_alternative<RasterAsset>(asset)
-            ? 0U
-            : (std::holds_alternative<VectorAsset>(asset) ? 1U
-                : (std::holds_alternative<ChunkedRasterAsset>(asset) ? 2U : (std::holds_alternative<VideoAsset>(asset) ? 3U : (std::holds_alternative<PoseAsset>(asset) ? 4U : (std::holds_alternative<DepthAsset>(asset) ? 5U : (std::holds_alternative<LineArtAsset>(asset) ? 6U : (std::holds_alternative<CannyAsset>(asset) ? 7U : (std::holds_alternative<ScribbleAsset>(asset) ? 8U : (std::holds_alternative<MlsdAsset>(asset) ? 9U : (std::holds_alternative<NormalMapAsset>(asset) ? 10U : (std::holds_alternative<ShuffleAsset>(asset) ? 11U : (std::holds_alternative<TileAsset>(asset) ? 12U : (std::holds_alternative<ReferenceAsset>(asset) ? 13U : 14U)))))))))))));
-        writer.writeU8(kind);
-        writer.writeString(assetId(asset));
-        if (const auto *raster = std::get_if<RasterAsset>(&asset)) {
-            writeRaster(writer, raster->pixels, portableRecords || !records, separateRasters);
-        } else if (const auto *mlsd = std::get_if<MlsdAsset>(&asset)) {
-            writer.writeI32(mlsd->viewport.width); writer.writeI32(mlsd->viewport.height);
-            writer.writeU32(static_cast<std::uint32_t>(mlsd->segments.size()));
-            for (const auto &line:mlsd->segments) {
-                writer.writeString(line.id); writer.writeDouble(line.x1); writer.writeDouble(line.y1);
-                writer.writeDouble(line.x2); writer.writeDouble(line.y2); writer.writeDouble(line.confidence);
-                writer.writeU8(line.enabled?1:0);
-            }
-        } else if (const auto *canny = std::get_if<CannyAsset>(&asset)) {
-            writer.writeI32(canny->viewport.width); writer.writeI32(canny->viewport.height);
-            writer.writeU64(canny->mask.size());
-            for (std::uint8_t value : canny->mask) writer.writeU8(value);
-        } else if (const auto *scribble = std::get_if<ScribbleAsset>(&asset)) {
-            writer.writeI32(scribble->viewport.width); writer.writeI32(scribble->viewport.height);
-            writer.writeU64(scribble->mask.size());
-            for (std::uint8_t value : scribble->mask) writer.writeU8(value);
-        } else if (const auto *lineArt = std::get_if<LineArtAsset>(&asset)) {
-            writer.writeI32(lineArt->viewport.width); writer.writeI32(lineArt->viewport.height);
-            writer.writeU64(lineArt->coverage.size());
-            for (double value : lineArt->coverage) writer.writeDouble(value);
-        } else if (const auto *normalMap = std::get_if<NormalMapAsset>(&asset)) {
-            writer.writeI32(normalMap->viewport.width); writer.writeI32(normalMap->viewport.height);
-            writer.writeU64(normalMap->samples.size());
-            for (const auto &sample : normalMap->samples) {
-                writer.writeDouble(sample.x); writer.writeDouble(sample.y); writer.writeDouble(sample.z);
-                writer.writeU8(sample.valid ? 1 : 0);
-            }
-        } else if (const auto *shuffle = std::get_if<ShuffleAsset>(&asset)) {
-            writer.writeI32(shuffle->viewport.width); writer.writeI32(shuffle->viewport.height);
-            writer.writeU64(shuffle->colors.size());
-            for (const auto &sample : shuffle->colors) {
-                writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
-            }
-        } else if (const auto *tile = std::get_if<TileAsset>(&asset)) {
-            writer.writeI32(tile->viewport.width); writer.writeI32(tile->viewport.height);
-            writer.writeU64(tile->colors.size());
-            for (const auto &sample : tile->colors) {
-                writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
-            }
-        } else if (const auto *reference = std::get_if<ReferenceAsset>(&asset)) {
-            writer.writeI32(reference->viewport.width); writer.writeI32(reference->viewport.height);
-            writer.writeU64(reference->colors.size());
-            for (const auto &sample : reference->colors) {
-                writer.writeU8(sample.red); writer.writeU8(sample.green); writer.writeU8(sample.blue);
-            }
-        } else if (const auto *ipAdapter = std::get_if<IpAdapterAsset>(&asset)) {
-            const auto &d=ipAdapter->descriptor;
-            writer.writeU8(static_cast<std::uint8_t>(d.stage));
-            for (const auto *text:{&d.encoderId,&d.encoderRevision,&d.adapterId,&d.adapterRevision,&d.baseModelId,&d.preprocessingId}) writer.writeString(*text);
-            const auto writeTensor=[&](const IpAdapterTensor &tensor) {
-                writer.writeU32(tensor.tokenCount); writer.writeU32(tensor.channelCount);
-                writer.writeU64(tensor.values.size());
-                static_assert(sizeof(float)==4 && std::numeric_limits<float>::is_iec559);
-                for (float value:tensor.values) writer.writeU32(std::bit_cast<std::uint32_t>(value));
-            };
-            writeTensor(ipAdapter->conditional); writer.writeU8(ipAdapter->unconditional?1:0);
-            if (ipAdapter->unconditional) writeTensor(*ipAdapter->unconditional);
-        } else if (const auto *depth = std::get_if<DepthAsset>(&asset)) {
-            writer.writeI32(depth->viewport.width); writer.writeI32(depth->viewport.height);
-            writer.writeU64(depth->values.size());
-            for (double value : depth->values) writer.writeDouble(value);
-        } else if (const auto *pose = std::get_if<PoseAsset>(&asset)) {
-            writePoseAsset(writer,*pose);
-        } else if (const auto *vector = std::get_if<VectorAsset>(&asset)) {
-            writeVector(writer, *vector);
-        } else if (const auto *video = std::get_if<VideoAsset>(&asset)) {
-            writer.writeU32(video->frameRate.numerator);
-            writer.writeU32(video->frameRate.denominator);
-            writer.writeU32(static_cast<std::uint32_t>(video->frames.size()));
-            for (const auto &frame : video->frames) { writeRaster(writer, frame, portableRecords || !records); }
-        } else {
-            writeChunkedRaster(writer, std::get<ChunkedRasterAsset>(asset), portableRecords || !records, separateRasters);
-        }
+        writeAsset(writer,asset,document.formatVersion,portableRecords || !records,separateRasters);
         record(detail::RecordKind::Asset, assetId(asset), assetPosition++);
     }
 
@@ -1586,6 +1776,15 @@ void writePayload(ByteWriter &writer, const Document &document,
             writer.writeI32(a.region.origin.x); writer.writeI32(a.region.origin.y);
             writer.writeI32(a.region.extent.width); writer.writeI32(a.region.extent.height);
             writer.writeU32(a.backgroundArgb); writer.writeU8(a.visible ? 1U : 0U);
+            if (document.formatVersion.minor >= 27) {
+                writer.writeU8(a.geometry ? 1U : 0U);
+                if (a.geometry) {
+                    writer.writeI32(a.geometry->extent.width); writer.writeI32(a.geometry->extent.height);
+                    const auto &t=a.geometry->transform;
+                    writer.writeDouble(t.m11); writer.writeDouble(t.m12); writer.writeDouble(t.m21);
+                    writer.writeDouble(t.m22); writer.writeDouble(t.translationX); writer.writeDouble(t.translationY);
+                }
+            }
             record(detail::RecordKind::Artboard, a.id, static_cast<std::uint32_t>(index));
         }
     }
@@ -1607,6 +1806,37 @@ void writePayload(ByteWriter &writer, const Document &document,
             }
         }
         record(detail::RecordKind::PublicationMetadata);
+    }
+    if (document.formatVersion.minor >= 24) {
+        writeSelectionLayerRelations(writer, document.relations);
+        record(detail::RecordKind::SelectionLayerRelations);
+    }
+    if (document.formatVersion.minor >= 28) {
+        writer.writeU8(document.sequenceProject ? 1U : 0U);
+        if (document.sequenceProject) {
+            auto encoded = detail::encodeTimelineProject(*document.sequenceProject, limits);
+            if (encoded.error.code != IiscErrorCode::None)
+                throw DecodeFailure(encoded.error.code, encoded.error.offset, encoded.error.message);
+            writer.writeU64(encoded.bytes.size());
+            writer.writeBytes(encoded.bytes);
+        }
+        record(detail::RecordKind::SequenceProject);
+        writer.writeU32(static_cast<std::uint32_t>(document.sequenceMedia.size()));
+        record(detail::RecordKind::SequenceMediaCount);
+        for (std::size_t i = 0; i < document.sequenceMedia.size(); ++i) {
+            const auto &media = document.sequenceMedia[i];
+            const auto unchanged = previous && std::any_of(previous->sequenceMedia.begin(), previous->sequenceMedia.end(),
+                [&](const TimelineOwnedMedia &prior) { return prior == media; });
+            if (records && unchanged) {
+                records->push_back({detail::RecordKind::SequenceMedia, media.id, static_cast<std::uint32_t>(i), std::nullopt});
+                continue;
+            }
+            writer.writeString(media.id);
+            writer.writeString(media.mediaType);
+            writer.writeU64(media.bytes->size());
+            writer.writeBytes(*media.bytes);
+            record(detail::RecordKind::SequenceMedia, media.id, static_cast<std::uint32_t>(i));
+        }
     }
 }
 
@@ -1690,13 +1920,46 @@ public:
             requireCollectionBytes(count, 29);
             document.artboards.reserve(count);
             for (std::uint32_t i = 0; i < count; ++i) {
-                document.artboards.push_back(readArtboard());
+                document.artboards.push_back(readArtboard(version));
             }
         }
         if (version.minor >= 22 && readBoolean()) {
             document.publicationMetadata = readPublication();
         }
+        if (version.minor >= 24) document.relations = readSelectionLayerRelations();
+        if (version.minor >= 28) {
+            document.sequenceProject = readOptionalSequenceProject();
+            const auto count = limitedCount(m_limits.maximumTimelineMediaAssets, "sequence media");
+            document.sequenceMedia.reserve(count);
+            for (std::uint32_t i = 0; i < count; ++i) document.sequenceMedia.push_back(readSequenceMedia());
+        }
         return document;
+    }
+
+    std::optional<TimelineProject> readOptionalSequenceProject()
+    {
+        if (!readBoolean()) return {};
+        const auto size = m_reader.readU64();
+        if (size > m_limits.maximumTimelineProjectBytes || size > m_limits.maximumContainerBytes)
+            m_reader.fail(IiscErrorCode::LimitExceeded, "sequence project exceeds the configured limit");
+        auto decoded = detail::decodeTimelineProject(m_reader.readBytes(size), m_limits);
+        if (decoded.error.code != IiscErrorCode::None)
+            m_reader.fail(decoded.error.code, decoded.error.message);
+        return std::move(decoded.project);
+    }
+
+    TimelineOwnedMedia readSequenceMedia()
+    {
+        TimelineOwnedMedia media;
+        media.id = readString();
+        media.mediaType = readString();
+        const auto size = m_reader.readU64();
+        if (size > m_limits.maximumTimelineMediaBytes || size > m_limits.maximumContainerBytes ||
+            !addWithin(m_sequenceMediaBytes, size, m_limits.maximumTimelineMediaBytes))
+            m_reader.fail(IiscErrorCode::LimitExceeded, "owned sequence media exceed the configured limit");
+        const auto bytes = m_reader.readBytes(size);
+        media.bytes = std::make_shared<const std::vector<std::uint8_t>>(bytes.begin(), bytes.end());
+        return media;
     }
 
     void readHeader(Document &document, FormatVersion version)
@@ -1715,6 +1978,8 @@ public:
         }
         document.timeline.frameRate = {m_reader.readU32(), m_reader.readU32()};
         document.timeline.frameCount = m_reader.readU32();
+        if (version.minor>=27)
+            document.pixelAspectRatio={m_reader.readU32(),m_reader.readU32()};
 
         std::uint64_t canvasPixels = 0;
         if (!pixelCountWithin(document.extent.width,
@@ -1730,10 +1995,39 @@ public:
     {
         const std::uint8_t kind = m_reader.readU8();
         const std::string id = readString();
-        if (kind == 0) {
+        if (kind == 16 && version.minor >= 25) {
+            FillLayerContent fill; fill.id=id; fill.extent={m_reader.readI32(),m_reader.readI32()};
+            fill.kind=static_cast<FillLayerKind>(m_reader.readU8()); fill.color=m_reader.readU32();
+            fill.start={m_reader.readDouble(),m_reader.readDouble()}; fill.end={m_reader.readDouble(),m_reader.readDouble()};
+            fill.spread=static_cast<FillGradientSpread>(m_reader.readU8());
+            const auto count=m_reader.readU32();
+            if (count>256) m_reader.fail(IiscErrorCode::LimitExceeded,"fill gradient stop budget exceeded");
+            addTotal(m_totals.fillGradientStops,count,m_limits.maximumTotalFillGradientStops,"fill gradient stop");
+            requireCollectionBytes(count,12); fill.stops.reserve(count);
+            for (std::uint32_t i=0;i<count;++i) fill.stops.push_back({m_reader.readDouble(),m_reader.readU32()});
+            fill.patternAssetId=readString(); fill.patternOrigin={m_reader.readDouble(),m_reader.readDouble()};
+            return fill;
+        } else if (kind == 17 && version.minor >= 25) {
+            AdjustmentLayerContent adjustment; adjustment.id=id;
+            adjustment.extent={m_reader.readI32(),m_reader.readI32()};
+            detail::visitColorAdjustmentFields(adjustment.adjustment,[&](auto &value) {
+                using T=std::remove_cvref_t<decltype(value)>;
+                if constexpr (std::is_same_v<T,double>) value=m_reader.readDouble();
+                else if constexpr (std::is_same_v<T,bool>) value=readBoolean();
+                else value=m_reader.readI32();
+            });
+            return adjustment;
+        } else if (kind == 0) {
             return RasterAsset{id, readRaster(id)};
+        } else if (kind == 15 && version.minor >= 23) {
+            const auto frame = m_reader.readU32();
+            const auto size = m_reader.readU64();
+            addTotal(m_totals.embeddedCanvasBytes, size, m_limits.maximumEmbeddedCanvasBytes, "embedded canvas bytes");
+            if (!m_limits.maximumEmbeddedCanvasDepth) m_reader.fail(IiscErrorCode::LimitExceeded, "embedded canvas depth exceeded");
+            const auto bytes = m_reader.readBytes(size);
+            return LinkedCanvasAsset{id, {bytes.begin(), bytes.end()}, frame};
         } else if (kind == 1) {
-            return readVector(id);
+            return readVector(id,version);
         } else if (kind == 2 && version.minor >= 1) {
             return readChunkedRaster(id);
         } else if (kind == 10 && version.minor >= 13) {
@@ -1781,7 +2075,7 @@ public:
         return std::move(*authorship);
     }
 
-    Artboard readArtboard()
+    Artboard readArtboard(FormatVersion version)
     {
         Artboard a;
         a.id = readString(); a.name = readString();
@@ -1791,7 +2085,82 @@ public:
         if (!pixelCountWithin(a.region.extent.width, a.region.extent.height, m_limits.maximumCanvasPixels, pixels))
             m_reader.fail(IiscErrorCode::LimitExceeded, "artboard extent exceeds the pixel limit");
         a.backgroundArgb = m_reader.readU32(); a.visible = readBoolean();
+        if (version.minor >= 27 && readBoolean()) {
+            ArtboardGeometry geometry;
+            geometry.extent={m_reader.readI32(),m_reader.readI32()};
+            auto &t=geometry.transform;
+            t.m11=m_reader.readDouble(); t.m12=m_reader.readDouble(); t.m21=m_reader.readDouble();
+            t.m22=m_reader.readDouble(); t.translationX=m_reader.readDouble(); t.translationY=m_reader.readDouble();
+            a.geometry=geometry;
+        }
         return a;
+    }
+
+    // Decode bounded sparse masks and reject duplicates, dangling group parents,
+    // cycles and malformed tiles before publishing a document.
+    iiSharedCanvas::SelectionLayerRelations readSelectionLayerRelations()
+    {
+        iiSharedCanvas::SelectionLayerRelations value;
+        const auto channels=limitedCount(m_limits.maximumSelectionChannels,"selection channel");
+        requireCollectionBytes(channels,29);
+        for (std::uint32_t i=0;i<channels;++i) {
+            auto id=readString(); auto name=readString();
+            TiledMaskData mask;
+            mask.domain.origin={m_reader.readI32(),m_reader.readI32()};
+            mask.domain.extent={m_reader.readI32(),m_reader.readI32()};
+            mask.background=m_reader.readU8();
+            const auto tiles=limitedCount(static_cast<std::uint32_t>(std::min<std::uint64_t>(m_limits.maximumSelectionTiles,UINT32_MAX)),"selection tile");
+            addTotal(m_totals.selectionTiles,tiles,m_limits.maximumSelectionTiles,"selection tile");
+            requireCollectionBytes(tiles,10); mask.tiles.reserve(tiles);
+            for (std::uint32_t t=0;t<tiles;++t) {
+                TiledMaskTileData tile; tile.column=m_reader.readI32(); tile.row=m_reader.readI32();
+                const bool dense=readBoolean(); tile.uniform=m_reader.readU8();
+                if (dense) {
+                    addTotal(m_totals.selectionDenseBytes,4096,m_limits.maximumSelectionDenseBytes,"selection dense bytes");
+                    const auto bytes=m_reader.readBytes(4096); tile.dense.assign(bytes.begin(),bytes.end());
+                }
+                mask.tiles.push_back(std::move(tile));
+            }
+            auto restored=TiledMask::fromSnapshot(mask,{static_cast<std::size_t>(m_limits.maximumSelectionTiles),
+                                                       static_cast<std::size_t>(m_limits.maximumSelectionDenseBytes)});
+            if (!restored.ok() || !value.selections.insert({std::move(id),std::move(name),std::make_shared<TiledMask>(std::move(restored.mask))}))
+                m_reader.fail(IiscErrorCode::InvalidData,"invalid or duplicate selection channel");
+        }
+        const auto groups=limitedCount(m_limits.maximumLayerGroups,"layer group"); requireCollectionBytes(groups,14);
+        std::vector<std::pair<std::string,std::string>> parents; parents.reserve(groups);
+        for (std::uint32_t i=0;i<groups;++i) {
+            LayerGroup group; group.id=readString(); group.name=readString();
+            auto parent=readString(); const auto mode=m_reader.readU8(); group.visible=readBoolean();
+            if (mode>1) m_reader.fail(IiscErrorCode::InvalidData,"invalid group mode");
+            group.mode=static_cast<LayerGroupMode>(mode); parents.emplace_back(group.id,std::move(parent));
+            if (!value.groups.insert(std::move(group))) m_reader.fail(IiscErrorCode::InvalidData,"invalid or duplicate group");
+        }
+        for (const auto &[id,parent] : parents)
+            if (!value.groups.setParent(id,parent)) m_reader.fail(IiscErrorCode::InvalidData,"invalid group parent or cycle");
+        const auto memberships=limitedCount(m_limits.maximumLayers,"group membership"); requireCollectionBytes(memberships,8);
+        std::set<std::string> assigned;
+        for (std::uint32_t i=0;i<memberships;++i) {
+            auto layer=readString(); auto group=readString();
+            if (group.empty() || !assigned.insert(layer).second || !value.groups.assign(std::move(layer),std::move(group)))
+                m_reader.fail(IiscErrorCode::InvalidData,"invalid or duplicate group membership");
+        }
+        const auto links=limitedCount(m_limits.maximumLayerLinks,"layer link"); requireCollectionBytes(links,8);
+        for (std::uint32_t i=0;i<links;++i) {
+            auto first=readString(); auto second=readString();
+            if (!value.links.connect(std::move(first),std::move(second))) m_reader.fail(IiscErrorCode::InvalidData,"invalid or duplicate layer link");
+        }
+        for (unsigned kind=0;kind<2;++kind) {
+            const auto count=limitedCount(kind ? m_limits.maximumLayerGroups : m_limits.maximumLayers,"layer lock");
+            requireCollectionBytes(count,5); std::set<std::string> seen;
+            for (std::uint32_t i=0;i<count;++i) {
+                auto id=readString(); const auto flags=m_reader.readU8();
+                if (!flags || flags>static_cast<std::uint8_t>(LayerLock::All) || !seen.insert(id).second ||
+                    !(kind ? value.locks.setGroup(std::move(id),static_cast<LayerLock>(flags)) :
+                              value.locks.setLayer(std::move(id),static_cast<LayerLock>(flags))))
+                    m_reader.fail(IiscErrorCode::InvalidData,"invalid or duplicate layer lock");
+            }
+        }
+        return value;
     }
 
     PublicationMetadata readPublication()
@@ -2221,7 +2590,7 @@ private:
         return raster;
     }
 
-    VectorAsset readVector(std::string id)
+    VectorAsset readVector(std::string id,FormatVersion version)
     {
         VectorAsset vector;
         vector.id = std::move(id);
@@ -2262,6 +2631,21 @@ private:
                                           m_reader.readDouble()};
             }
             vector.paths.push_back(std::move(path));
+        }
+        if (version.minor>=26 && readBoolean()) {
+            ShapeExpression shape; shape.root=m_reader.readU32(); shape.color=m_reader.readU32();
+            const auto count=m_reader.readU32();
+            if (count>4096) m_reader.fail(IiscErrorCode::LimitExceeded,"shape expression node limit exceeded");
+            addTotal(m_totals.shapeNodes,count,m_limits.maximumTotalShapeNodes,"shape expression node");
+            requireCollectionBytes(count,57); shape.nodes.reserve(count);
+            for (std::uint32_t i=0;i<count;++i) {
+                ShapeExpressionNode node; node.kind=static_cast<ShapeExpressionKind>(m_reader.readU8());
+                node.first=m_reader.readU32(); node.second=m_reader.readU32();
+                for (auto *field:{&node.transform.m11,&node.transform.m12,&node.transform.m21,&node.transform.m22,
+                                  &node.transform.translationX,&node.transform.translationY}) *field=m_reader.readDouble();
+                shape.nodes.push_back(node);
+            }
+            vector.shape=std::move(shape);
         }
         return vector;
     }
@@ -2358,6 +2742,19 @@ private:
                 const auto decoded = mask();
                 if (!decoded) m_reader.fail(IiscErrorCode::InvalidData, "mask stack operand requires a mask");
                 entry.mask = *decoded; a.maskStack.push_back(std::move(entry));
+            }
+        }
+        if (version.minor >= 25) {
+            const auto count=m_reader.readU32();
+            if (count>64 || count>m_limits.maximumStylesPerLayer)
+                m_reader.fail(IiscErrorCode::LimitExceeded,"layer style budget exceeded");
+            addTotal(m_totals.layerStyles,count,m_limits.maximumTotalLayerStyles,"layer style");
+            requireCollectionBytes(count,38); a.styles.effects.reserve(count);
+            for (std::uint32_t i=0;i<count;++i) {
+                LayerStyle effect; effect.kind=static_cast<LayerStyleKind>(m_reader.readU8());
+                effect.enabled=readBoolean(); effect.color=m_reader.readU32(); effect.opacity=m_reader.readDouble();
+                effect.radius=m_reader.readDouble(); effect.offsetX=m_reader.readDouble(); effect.offsetY=m_reader.readDouble();
+                a.styles.effects.push_back(effect);
             }
         }
         return a;
@@ -2896,10 +3293,31 @@ private:
     bool m_workingFile = false;
     const detail::WorkingRasterReader *m_rasterReader = nullptr;
     LimitTotals m_totals;
+    std::uint64_t m_sequenceMediaBytes = 0;
     std::vector<PendingKeyframe> m_pendingKeyframes;
 };
 
 } // namespace
+
+std::vector<std::uint8_t> detail::encodeHistoryAsset(const Asset &asset)
+{
+    ByteWriter writer;
+    writeAsset(writer,asset,{CurrentFormatMajor,CurrentFormatMinor},true,false);
+    return writer.takeBytes();
+}
+
+detail::HistoryAssetDecodeResult detail::decodeHistoryAsset(std::span<const std::uint8_t> bytes)
+{
+    try {
+        ByteReader reader(bytes); SerializationLimits limits;
+        DocumentReader document(reader,limits);
+        auto asset=document.readAsset({CurrentFormatMajor,CurrentFormatMinor});
+        if (!reader.empty()) reader.fail(IiscErrorCode::TrailingData,"history asset has trailing bytes");
+        return {std::move(asset),{}};
+    } catch (const DecodeFailure &failure) {
+        return {{},makeError(failure.code,failure.offset,failure.what())};
+    }
+}
 
 detail::WorkingResourceResult detail::workingResourceTotals(const Document &document,
                                                               SerializationLimits limits)
@@ -2971,7 +3389,13 @@ detail::RecordEncodeResult detail::encodeDocumentRecords(
     }
     RecordEncodeResult result;
     ByteWriter writer;
-    writePayload(writer, document, &result.records, previous, separateRasters, forceAsset);
+    try {
+        writePayload(writer, document, &result.records, previous, separateRasters, forceAsset, nullptr, false, limits);
+    } catch (const DecodeFailure &failure) {
+        return {{}, makeError(failure.code, failure.offset, failure.what())};
+    } catch (const std::bad_alloc &) {
+        return {{}, makeError(IiscErrorCode::LimitExceeded, 0, "insufficient memory for document records")};
+    }
     return result;
 }
 
@@ -2989,9 +3413,14 @@ IiscDecodeResult detail::decodeDocumentRecords(
         if (records.size() < 3
             || records.size() > static_cast<std::uint64_t>(limits.maximumAssets)
                                   + limits.maximumLayers + limits.maximumAudioAssets
-                                  + limits.maximumAudioTracks + limits.maximumArtboards + 8) {
+                                  + limits.maximumAudioTracks + limits.maximumArtboards
+                                  + limits.maximumTimelineMediaAssets + 12) {
             invalid("working-file record count is invalid");
         }
+        if (!records.front().data || records.front().data->size()<4)
+            invalid("working-file header is truncated");
+        ByteReader headerBytes(*records.front().data);
+        const FormatVersion storedVersion{headerBytes.readU16(),headerBytes.readU16()};
         std::size_t assetCount = 0;
         std::size_t layerCount = 0;
         std::size_t audioAssetCount = 0;
@@ -3003,6 +3432,10 @@ IiscDecodeResult detail::decodeDocumentRecords(
         bool sawAuthorship = false;
         bool sawArtboardCount = false;
         bool sawPublicationMetadata = false;
+        bool sawSelectionLayerRelations = false;
+        bool sawSequenceProject = false;
+        bool sawSequenceMediaCount = false;
+        std::size_t sequenceMediaCount = 0;
         std::size_t artboardCount = 0;
         ByteWriter writer;
         std::uint64_t total = IiscHeaderSize - 4;
@@ -3064,6 +3497,21 @@ IiscDecodeResult detail::decodeDocumentRecords(
                 valid = sawArtboardCount && !sawPublicationMetadata && record.id.empty() && record.position==0;
                 sawPublicationMetadata = true;
                 break;
+            case RecordKind::SelectionLayerRelations:
+                valid = sawPublicationMetadata && !sawSelectionLayerRelations && record.id.empty() && record.position==0;
+                sawSelectionLayerRelations = true;
+                break;
+            case RecordKind::SequenceProject:
+                valid = sawSelectionLayerRelations && !sawSequenceProject && record.id.empty() && record.position == 0;
+                sawSequenceProject = true;
+                break;
+            case RecordKind::SequenceMediaCount:
+                valid = sawSequenceProject && !sawSequenceMediaCount && record.id.empty() && record.position == 0;
+                sawSequenceMediaCount = true;
+                break;
+            case RecordKind::SequenceMedia:
+                valid = sawSequenceMediaCount && !record.id.empty() && record.position == sequenceMediaCount++;
+                break;
             }
             if (!valid || !record.data) {
                 invalid("working-file record layout is invalid");
@@ -3073,6 +3521,28 @@ IiscDecodeResult detail::decodeDocumentRecords(
                                     "working-file payload exceeds the configured byte limit");
             }
             writer.writeBytes(*record.data);
+            // Model 1.26 added a shape-presence byte to vector assets. A format
+            // upgrade can retain a checksum-verified pre-1.26 working record
+            // byte-for-byte. Its independent record boundary identifies the
+            // legacy no-shape representation; the concatenated decode stream
+            // receives the equivalent explicit false flag in memory only.
+            if (storedVersion.major==CurrentFormatMajor && storedVersion.minor>=26 &&
+                storedVersion.minor<=CurrentFormatMinor && record.kind==RecordKind::Asset &&
+                !record.data->empty() && record.data->front()==1) {
+                try {
+                    ByteReader probe(*record.data);
+                    DocumentReader legacy(probe,limits,true);
+                    const auto asset=legacy.readAsset({CurrentFormatMajor,25});
+                    if (std::holds_alternative<VectorAsset>(asset) && probe.empty()) {
+                        if (!addWithin(total,1,limits.maximumContainerBytes))
+                            throw DecodeFailure(IiscErrorCode::LimitExceeded,0,"working-file payload exceeds the configured byte limit");
+                        writer.writeU8(0);
+                    }
+                } catch (const DecodeFailure &failure) {
+                    if (failure.code==IiscErrorCode::LimitExceeded) throw;
+                    // Let the normal decoder diagnose malformed modern data.
+                }
+            }
         }
         if (records.front().kind != RecordKind::Header
             || !sawMetadata || !sawLayerCount) {
@@ -3095,6 +3565,11 @@ IiscDecodeResult detail::decodeDocumentRecords(
             invalid("working-file artboard records do not match the document version");
         if ((version.minor >= 22) != sawPublicationMetadata)
             invalid("working-file publication metadata does not match the document version");
+        if ((version.minor >= 24) != sawSelectionLayerRelations)
+            invalid("working-file relationships do not match the document version");
+        if ((version.minor >= 28) != (sawSequenceProject && sawSequenceMediaCount) ||
+            (version.minor < 28 && (sawSequenceProject || sawSequenceMediaCount)))
+            invalid("working-file sequence records do not match the document version");
         const auto storedChunkSize = bytes.readI32();
         DocumentReader reader(bytes, limits, true, rasterReader ? &rasterReader : nullptr);
         Document document = reader.read(version);
@@ -3111,6 +3586,8 @@ IiscDecodeResult detail::decodeDocumentRecords(
         }
         if (document.artboards.size() != artboardCount)
             invalid("working-file artboard count does not match the payload");
+        if (document.sequenceMedia.size() != sequenceMediaCount)
+            invalid("working-file sequence media count does not match the payload");
         for (const DocumentRecord &record : records) {
             if (record.kind == RecordKind::Artboard && record.id != document.artboards[record.position].id)
                 invalid("working-file artboard identity does not match its payload");
@@ -3130,6 +3607,9 @@ IiscDecodeResult detail::decodeDocumentRecords(
                 && record.id != document.audioTracks[record.position].id) {
                 invalid("working-file audio track identity does not match its payload");
             }
+            if (record.kind == RecordKind::SequenceMedia &&
+                record.id != document.sequenceMedia[record.position].id)
+                invalid("working-file sequence media identity does not match its payload");
         }
         const ValidationResult validation = validate(document);
         if (!validation.ok()) {
@@ -3137,6 +3617,8 @@ IiscDecodeResult detail::decodeDocumentRecords(
                                 validation.issues.front().path + ": "
                                     + validation.issues.front().message);
         }
+        if (auto error = checkDocumentLimits(document, limits); error.code != IiscErrorCode::None)
+            throw DecodeFailure(error.code, 0, error.message);
         return {std::move(document), {}};
     } catch (const DecodeFailure &failure) {
         return {{}, makeError(failure.code, failure.offset, failure.what())};
@@ -3158,7 +3640,13 @@ IiscEncodeResult encodeIisc(const Document &document, SerializationLimits limits
     }
 
     ByteWriter payloadWriter;
-    writePayload(payloadWriter, document);
+    try {
+        writePayload(payloadWriter, document, nullptr, nullptr, false, {}, nullptr, false, limits);
+    } catch (const DecodeFailure &failure) {
+        return {{}, makeError(failure.code, failure.offset, failure.what())};
+    } catch (const std::bad_alloc &) {
+        return {{}, makeError(IiscErrorCode::LimitExceeded, 0, "insufficient memory for document encoding")};
+    }
     std::vector<std::uint8_t> payload = payloadWriter.takeBytes();
     if (payload.size() > std::numeric_limits<std::uint64_t>::max() - IiscHeaderSize
         || payload.size() + IiscHeaderSize > limits.maximumContainerBytes) {
@@ -3238,6 +3726,8 @@ IiscDecodeResult decodeIisc(std::span<const std::uint8_t> bytes,
                                validation.issues.front().path + ": "
                                    + validation.issues.front().message);
         }
+        if (auto error = checkDocumentLimits(document, limits); error.code != IiscErrorCode::None)
+            payloadReader.fail(error.code, error.message);
         return {std::move(document), {}};
     } catch (const DecodeFailure &failure) {
         return {{}, makeError(failure.code, failure.offset, failure.what())};

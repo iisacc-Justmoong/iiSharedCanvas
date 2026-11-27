@@ -1,0 +1,237 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:17b38ef118f774e8df677096137e189ae9a2938ac29209b7993e7c868f403a88",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/IMAGE_CANVAS_OPERATIONS.md",
+    "sha256": "9c18c0a5bb78fc1eff31667a5b9539e99e6768c3351f1c3e4419dc29479e9978",
+    "bytes": 4726,
+    "line_count": 61,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "이미지와 캔버스 연산 명세",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 이미지와 캔버스 연산 명세\n",
+      "level": 1,
+      "title": "이미지와 캔버스 연산 명세"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "상태: 구현 중이다. 저장·렌더링·이력과 각 변환의 범위는 아래 계약을 따른다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "paragraph",
+      "start_line": 5,
+      "end_line": 6,
+      "raw": "현재 구현은 아래 공통 경로를 제공하지만, 픽셀 교체 방식과 회전의 일부 조합은\n아직 지원하지 않는다. 지원하지 않는 경우 변경 없이 오류를 반환한다.\n"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "heading",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "## 공통 계약\n",
+      "level": 2,
+      "title": "공통 계약"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 10,
+      "end_line": 13,
+      "raw": "계획 객체는 입력 문서와 버퍼를 변경하지 않는 값으로 결과를 반환한다. 외부 제어기는\n의존 데이터의 수명과 실행 순서를 관리하고, 문서에 적용할 때 전체 변경을 하나의\nUndo/Redo로 기록한다. 잘못된 입력, 잠금, 리비전 충돌, 지원하지 않는 표현, 메모리\n또는 이력 예산 초과는 원본 문서와 이력을 변경하지 않는다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "## 문서 크기와 회전\n",
+      "level": 2,
+      "title": "문서 크기와 회전"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 43,
+      "raw": "`DocumentResamplingPlan`은 지정한 해상도로 문서 전체를 재표본화한다. 래스터,\n타임라인 프레임, 마스크와 아트보드에 변환이 적용되며 벡터는 편집 가능해야 한다.\n원본 래스터를 새 픽셀로 교체하는 방식과 원본을 보존하고 렌더링 시 표본화하는\n방식을 모두 지원해야 한다.\n현재 원본 보존 방식은 레이어 변환과 선택 채널을 조정한다. 픽셀 교체 방식은\n래스터·비디오 프레임의 출력 크기를 가장 가까운 양의 정수로 정하고 최근접\n표본화한다. 각 자산의 실제 크기에 따라 좌표를 보정하며 이전·이후 자산을\n하나의 이력 항목으로 보관한다. 청크 래스터는 음수 좌표와 캔버스 바깥의 원본을\n포함해 희소 청크로 재표본화한다. 하나의 동적 레이어에서 프레임별 실제 크기 비율이\n다른 경우와 연결 캔버스, 패턴 채우기와 공간·위치 의존 래스터 효과 필터는\n아직 픽셀 교체를 지원하지 않는다. 포즈·직선 제어 벡터와 비공간 임베딩은 원본을\n편집 가능하게 보존하고 레이어 변환을 적용한다. 비활성 필터와 좌표에 무관한 색상\n조정, 반전, 회색조, 솔라라이즈, 디헤이즈 필터는 유지하며 활성 디졸브 필터는\n픽셀 교체를 거부한다.\n깊이·선화·에지·스크리블·노멀·셔플·타일·참조 맵의 조밀 샘플도 최근접 표본화하고\n원래 자료형과 편집 가능성을 보존한다.\n비등방 스케일에서 페더가 있는 래스터 마스크도 오류를 반환한다.\n`CanvasResizePlan`은 콘텐츠를 다시 표본화하지 않고 캔버스 영역을 변경한다.\n`ImageRotationPlan`은 전체 문서 요소를 임의 각도로 회전한다. 기울어진 아트보드\n경계도 편집 가능하게 저장한다.\n현재 회전은 원본 픽셀을 보존하여 렌더링할 때 표본화하며, 물리 픽셀 종횡비를\n고려해 캔버스를 확장한다. 비활성 스타일, 불투명도 0인 스타일과 색상 오버레이는\n그대로 보존한다. 그 밖의 활성 레이어 스타일이나 디졸브 혼합을 사용하는 문서는\n회전과 리샘플을 거부한다.\n기울어진 아트보드는 로컬 사각형과 문서 좌표로 가는 가역 아핀 변환을 저장한다.\n축 정렬 영역은 그 사각형을 포함하는 정수 경계이며 레이어, 마스크, 배경은 실제\n변환된 경계에 맞춰 합성한다. 기존 아트보드는 로컬 원점의 평행 이동으로 해석한다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 44,
+      "end_line": 44,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "## 크롭과 경계\n",
+      "level": 2,
+      "title": "크롭과 경계"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 47,
+      "end_line": 52,
+      "raw": "`CanvasCropTransaction`은 캔버스 영역을 줄이되 잘린 바깥 원본 콘텐츠를 보존한다.\n`TransparentBoundsScanner`는 입력 픽셀의 알파를 검사하고 비어 있는 결과를 명시한다.\n`CanvasContentBoundsQuery`는 보이는 합성과 숨겨진 레이어·캔버스 밖 콘텐츠를\n포함하는 범위 중 하나를 명시적으로 선택할 수 있어야 한다.\n숨겨진·캔버스 밖 콘텐츠를 조사하는 경우에는 유한한 월드 좌표 검색 영역을\n호출자가 지정해야 하며, 작업 픽셀 예산을 초과하면 오류를 반환한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 53,
+      "end_line": 53,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "heading",
+      "start_line": 54,
+      "end_line": 54,
+      "raw": "## 복제와 픽셀 종횡비\n",
+      "level": 2,
+      "title": "복제와 픽셀 종횡비"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 55,
+      "end_line": 55,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 56,
+      "end_line": 61,
+      "raw": "`DocumentCloneTransaction`은 문서의 독립된 복사본을 반환한다. 복제본은 저작자·생성·게시 메타데이터를 보존하며\n원본의 Undo/Redo 이력과 활성 편집자 세션은 복제하지 않는다. `DocumentPixelAspectRatio`는 양의\n유리수로 저장하며 표시와 내보내기에서 픽셀 종횡비를 반영한다.\n타임라인 교환은 원본 유리수를 `source.iisc`에 보존하고 출력 PNG와 XML의 가로\n해상도를 정사각 픽셀 기준으로 변환한다. 변환된 해상도에도 출력 제한을 적용한다.\nPDF는 페이지의 물리적 너비와 페이지 좌표 변환에 픽셀 종횡비를 반영한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "이미지와 캔버스 연산 명세",
+      "anchor": "이미지와-캔버스-연산-명세",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000007",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "공통 계약",
+      "anchor": "공통-계약",
+      "start_line": 8
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "문서 크기와 회전",
+      "anchor": "문서-크기와-회전",
+      "start_line": 15
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "크롭과 경계",
+      "anchor": "크롭과-경계",
+      "start_line": 45
+    },
+    {
+      "block_id": "b000019",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "복제와 픽셀 종횡비",
+      "anchor": "복제와-픽셀-종횡비",
+      "start_line": 54
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0-compatible",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

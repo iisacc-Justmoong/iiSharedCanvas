@@ -19,6 +19,19 @@ struct TiledMaskLimits {
 };
 struct TiledMaskResult;
 struct TiledMaskPatch { CanvasOrigin origin; RasterMask pixels; };
+// Portable sparse representation. Dense tiles contain exactly 64 x 64 bytes;
+// tile coordinates are relative to the domain rather than document origin.
+struct TiledMaskTileData {
+    std::int32_t column = 0;
+    std::int32_t row = 0;
+    std::uint8_t uniform = 0;
+    std::vector<std::uint8_t> dense;
+};
+struct TiledMaskData {
+    CanvasRegion domain{};
+    std::uint8_t background = 0;
+    std::vector<TiledMaskTileData> tiles;
+};
 // Immutable, copyable mask in document coordinates. A tile can be implicit,
 // uniformly covered, or hold 64x64 alpha samples; copies share immutable data.
 class IISHAREDCANVAS_EXPORT TiledMask final {
@@ -34,6 +47,10 @@ public:
     // Import a bounded coverage image at document coordinates; other domain pixels use outsideCoverage.
     static TiledMaskResult fromRaster(CanvasRegion domain, CanvasOrigin origin, const RasterMask&,
                                       std::uint8_t outsideCoverage = 0, TiledMaskLimits limits = {});
+    // Export and restore the immutable sparse representation without expanding
+    // an implicitly covered canvas into a full-size bitmap.
+    [[nodiscard]] TiledMaskData snapshot() const;
+    static TiledMaskResult fromSnapshot(const TiledMaskData&, TiledMaskLimits limits = {});
     [[nodiscard]] TiledMaskResult combine(const TiledMask&, MaskOperation,
                                            TiledMaskLimits limits = {}) const;
     [[nodiscard]] TiledMaskResult inverted(TiledMaskLimits limits = {}) const;

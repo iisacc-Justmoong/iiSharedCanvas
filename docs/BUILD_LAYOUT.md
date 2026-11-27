@@ -14,7 +14,7 @@ Windows SDK의 `min`·`max` 매크로가 활성화된 소비자에서도 문서�
 삭제하지 않는다. 이전 빌드에서 출처가 불명확한 문서·스크립트·데이터는
 `resources/.recovery/`에 보존하고 Git에서 제외한다.
 설치 패키지에는 공개 리소스만 포함하며 어느 깊이에서든 `.recovery`, `.state`,
-`.iisacc-*` 디렉터리와 파일은 제외한다. 설치된 iiFileProvider Python 바인딩이
+`.iisacc-*` 디렉터리와 파일 및 Finder의 `.DS_Store` 메타데이터는 제외한다. 설치된 iiFileProvider Python 바인딩이
 있는 환경에서 `python3 tests/ResourceInstallPolicyTest.py`를 실행하면 독립된
 CMake 설치 구성으로 공개 리소스는 유지되고 이 작업 자료는 제외되는지 검증한다.
 실제 SDK의 설치 결과도 `iiSharedCanvas.ResourcesInstall` 테스트가 확인한다.

@@ -6,7 +6,7 @@
 
 The 27 modes are Normal (`SourceOver`), Dissolve, Darken, Multiply, ColorBurn, LinearBurn, DarkerColor, Lighten, Screen, ColorDodge, LinearDodge, LighterColor, Overlay, SoftLight, HardLight, VividLight, LinearLight, PinLight, HardMix, Difference, Exclusion, Subtract, Divide, Hue, Saturation, Color and Luminosity. The iiPaintEngine 0.4.1 compositor owns their CPU RGB math. It uses straight ARGB32 and encoded RGB channels with correct source-only/overlap/backdrop-only alpha weighting. Hard Mix thresholds the sum of the two 8-bit channel values at 255, including equality. Dissolve uses a stable layer-ID/document-coordinate key, independent of tile subdivision. It is a repeatable native policy, not a reproduction of Photoshop's private random sequence.
 
-`fillOpacity` multiplies content coverage. Layer `opacity` and sampled motion opacity apply during composition. These values remain separately editable and serializable. There are no layer-style effects in this model; Photoshop's eight special Fill-slider blend algorithms and style-specific Fill behavior are not claimed.
+`fillOpacity` multiplies content coverage. Layer `opacity` and sampled motion opacity apply during composition. These values remain separately editable and serializable. Native style effects use the original shape before fill opacity; Photoshop's eight special Fill-slider blend algorithms are not claimed. See [layer content operations](LAYER_CONTENT_OPERATIONS.md) for the current effects and their limits.
 
 ## Masks
 
@@ -22,7 +22,7 @@ The 27 modes are Normal (`SourceOver`), Dissolve, Darken, Multiply, ColorBurn, L
 
 The 18 effects are GaussianBlur, MotionBlur, LensBlur, Texture, Clarity, Dehaze, Vignette, Grain, Sharpen, Noise, LuminanceDenoise, ColorDenoise, LensDistortion, ChromaticAberration, Average, Solarize, Invert and Grayscale. ColorAdjustment retains all existing exposure, tonal, white-balance, saturation, grading and curve parameters. Average uses per-channel integer mean with half-up rounding. Solarize uses the recovered 8-bit rule: values below 128 remain unchanged; other values become 255-value. Invert and Grayscale are independent native operations.
 
-Filters support raster assets, rasterized vector assets and native video frames. Source raster/vector processing is bounded to 64 million pixels; sparse chunked or conditioning content rejects a filter stack. The existing GaussianBlur/LensBlur implementations approximate RGB blur with repeated box passes and preserve source alpha. They do not reproduce Photoshop's entire filter host, blur transparency expansion, 16-bit scale, HDR behavior, lens model or every named native filter.
+Filters support raster assets, procedural fill content, rasterized vector assets and native video frames. Source raster/vector processing is bounded to 64 million pixels; sparse chunked or conditioning content rejects a filter stack. The existing GaussianBlur/LensBlur implementations approximate RGB blur with repeated box passes and preserve source alpha. They do not reproduce Photoshop's entire filter host, blur transparency expansion, 16-bit scale, HDR behavior, lens model or every named native filter.
 
 ## Clipping and Blend If
 
@@ -61,3 +61,14 @@ PSD pixel-layer import/export maps all 27 documented keys. OpenRaster reads the 
 확대·축소나 회전 없이 픽셀 격자에 맞는 래스터 영역은 행을 직접 읽는다. `Smooth`는 이 경우에도 alpha가 0인 픽셀을 0으로 정규화한다. 부분 픽셀 이동, 스케일 및 회전에는 각 요청의 원래 샘플링을 적용한다.
 
 클리핑이나 Blend If를 적용할 필요가 없는 불투명도 100%의 일반 혼합 레이어는 타일의 각 픽셀을 iiPaintEngine의 `SourceOver` 합성에 전달한다. 브러시의 불투명도와 마스크는 픽셀 alpha에 그대로 반영된다. `FrameCompositionReuse`는 정수 이동된 레이어 경계를 지나는 `Nearest`와 `Smooth` 타일을 원본 픽셀 및 픽셀 합성 참조와 비교한다. 픽셀 경계에 정렬된 단색 사각형 하나로 이루어진 벡터 레이어는 출력 영역 안의 행을 채운다. 이 검사는 잘린 사각형과 반 픽셀 이동 시의 경계 alpha도 비교한다.
+
+## 중첩 레이어 그룹
+
+`LayerGroupTree`의 통과 그룹은 부모의 현재 배경에 자손을 직접 합성하고 격리 그룹은 투명 중간 결과를 합성한다. 조상 가시성과 같은 그룹 내 클리핑 경계를 적용한다. 순서·아트보드 범위 및 아직 지원하지 않는 그룹 속성은 [선택 채널과 레이어 관계](SELECTION_LAYER_RELATIONSHIPS.md)를 따른다.
+
+## 채우기·조정과 스타일
+
+IISC 1.25는 문서 소유 패턴을 포함한 채우기와 그룹 배경에 작용하는 조정
+콘텐츠, 순서가 있는 스타일을 보존한다. 독립 래스터화는 배경이 필요한 조정,
+클리핑 및 Blend If를 거부한다. 조정의 제한과 CPU 효과 범위, 타일 처리 및
+Python API는 [레이어 콘텐츠 연산](LAYER_CONTENT_OPERATIONS.md)에 명시한다.

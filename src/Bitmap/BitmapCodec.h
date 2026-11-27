@@ -27,7 +27,7 @@ struct BitmapExportOptions {
     MediaLimits limits;
 };
 
-// Actual Qt plugins plus installed extended codecs; excludes vector rasterizers.
+// Available bitmap codecs in the selected build; excludes vector rasterizers.
 IISHAREDCANVAS_EXPORT std::vector<MediaFormatCapability> bitmapFormats(
     const MediaBackendOptions &backend = {}, bool includeExtended = true);
 IISHAREDCANVAS_EXPORT BitmapImportResult decodeBitmap(
@@ -38,6 +38,8 @@ IISHAREDCANVAS_EXPORT MediaBytesResult encodeBitmap(
     const RasterLayer &pixels, const BitmapExportOptions &options = {});
 IISHAREDCANVAS_EXPORT MediaIoResult exportBitmap(
     const RasterLayer &pixels, const std::string &path, const BitmapExportOptions &options = {});
+// Exports the document view as square pixels, applying its pixel aspect ratio.
+// Original document pixels remain unchanged; non-square output is resampled.
 IISHAREDCANVAS_EXPORT MediaIoResult exportBitmapFrame(
     const Document &document, FrameIndex frame, const std::string &path,
     const BitmapExportOptions &options = {});

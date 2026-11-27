@@ -13,43 +13,50 @@
     {
       "document_id": "urn:iisacc:document:ab915574f426f04811739bb6486cfec4e2beb22e52474a99c323544f49389a4c",
       "source": "AGENT.md",
-      "agent_json": "docs/entrypoints/AGENT.agent.json",
+      "agent_json": "docs/Entrypoints/AGENT.agent.json",
       "source_sha256": "f6b2649a589ad1ddd765bb44763dbd8b4b8185640fd36a551f709a2299965e64",
       "role": "instructions"
     },
     {
       "document_id": "urn:iisacc:document:fd62d949dea91e2137a13bd98c7c21bdba2e010b9248dcf7b51b3453f4b3a2f9",
       "source": "AGENTS.md",
-      "agent_json": "docs/entrypoints/AGENTS.agent.json",
+      "agent_json": "docs/Entrypoints/AGENTS.agent.json",
       "source_sha256": "826aa4109dd5d4515b8ef7be1f56e318ea80fe241e66ddaed44d320befbefe2a",
       "role": "compatibility"
     },
     {
       "document_id": "urn:iisacc:document:39609cefb9f27b8afdf3bb52ece6c6bfa112291fd289adabc3ad75605bf68dba",
       "source": "NOTICE.md",
-      "agent_json": "docs/entrypoints/NOTICE.agent.json",
-      "source_sha256": "5e8d8f50225a142a6002af2298e535eee0f06284166cc4403455ee1d3c52b604",
+      "agent_json": "docs/Entrypoints/NOTICE.agent.json",
+      "source_sha256": "d39090302a89a1ba04ff447901da9432db8f0b72b8b306fe5137413102f198a2",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:7d20e20504abac33fdc1842f536e63f711ed98e60ec60f3f33fb7bd052b1c8e5",
       "source": "README.md",
-      "agent_json": "docs/entrypoints/README.agent.json",
-      "source_sha256": "3f7e397d6ea407f8de29de87ecd2263a587a8ab52937f8058e4c212210893ab8",
+      "agent_json": "docs/Entrypoints/README.agent.json",
+      "source_sha256": "02d3ddd44c65806f529c53f95392534a171fd4a2beec6681d7927a17f7c0b464",
       "role": "overview"
+    },
+    {
+      "document_id": "urn:iisacc:document:96a0c6d7a43ba0a6e55048d5f1d3c3da1bb6083aa9447f6cbfcb86706c8bf20e",
+      "source": "docs/AGENT_DOCUMENT_SCHEMA.md",
+      "agent_json": "docs/AGENT_DOCUMENT_SCHEMA.agent.json",
+      "source_sha256": "e09d1f178196603bf17ebd20c06af4d1bbedd47827abaa6f30d97be7a1c18c98",
+      "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:5cd3b373b11beca00ae7744869bbb368e01a8fe4b8c5a1fc71b48ba3472b3490",
       "source": "docs/API.md",
       "agent_json": "docs/API.agent.json",
-      "source_sha256": "579f483c8947e0a3a082cce08fc26fd68e527b13b866d6ba6fb13aacbf81c309",
+      "source_sha256": "cf24df3774c15147b1172b754d60f5fb5dcab81eee8c072a260aeba62abc2b38",
       "role": "reference"
     },
     {
       "document_id": "urn:iisacc:document:bb16f4ac62f8938060154254a87baf4b77dcd430f8836e5be0ddcff57932bab3",
       "source": "docs/ARTBOARDS.md",
       "agent_json": "docs/ARTBOARDS.agent.json",
-      "source_sha256": "f29834190c4c56d2f8d0cd314eb48d40db5b7349fb573c633d0bbc13549704b0",
+      "source_sha256": "142a549cf822152e1f894970d271d5932b5e41021a2ad12fcdb30fde530a38db",
       "role": "guide"
     },
     {
@@ -70,7 +77,7 @@
       "document_id": "urn:iisacc:document:a21673123f45dc0fb8b3eec04b67f2ec0a257d080e462aa8b29ddf60326490eb",
       "source": "docs/BINARY_LINE_CONTROL.md",
       "agent_json": "docs/BINARY_LINE_CONTROL.agent.json",
-      "source_sha256": "5907300a37bba3f3805d8296cdc20595a217db7bb177a33291790be305c7119e",
+      "source_sha256": "a6e37148b1b4acac1b8da3c9ec75e317ce8542b9f9974d7bda3f2f3eae8e3a55",
       "role": "guide"
     },
     {
@@ -98,7 +105,7 @@
       "document_id": "urn:iisacc:document:9f50c3e9dd168efbbc2283678201fb2aa45556292019344b5b10c419dffbd7fc",
       "source": "docs/BITMAP_INPUT.md",
       "agent_json": "docs/BITMAP_INPUT.agent.json",
-      "source_sha256": "fddb17a72957de8d5b30371a6fe41f81c74f1d8859b6ae166e983a24c2378aca",
+      "source_sha256": "ba8a2f6290fc462c8756520755b2186726d3ece9c89bcfaddbe453c0748c71b6",
       "role": "guide"
     },
     {
@@ -119,21 +126,21 @@
       "document_id": "urn:iisacc:document:7fa0ed71abacb3ffed0a6cf6f63faecc10cdc21568af19b70d4a3453fa82a82c",
       "source": "docs/BLUEPRINT.md",
       "agent_json": "docs/BLUEPRINT.agent.json",
-      "source_sha256": "a68b58032b24aa3b05c544e1a258d30140a0238435c8dc2639dc012fd22c64a6",
+      "source_sha256": "653750c439810d1900d7d62c7de85456c5adb224d9cd493942e63718639fcedb",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:53c42d731bd5bfc3c937d4c00ff639748241791dbf1718a24cbdb2e6ee971f0a",
       "source": "docs/BUILD_LAYOUT.md",
       "agent_json": "docs/BUILD_LAYOUT.agent.json",
-      "source_sha256": "4fa645ae70f18cd83a8dbec4f55aa443fbe941e870c5567e758ab4d2745ae852",
+      "source_sha256": "3a04fff35f4f1ea56e3ee072b9d5586d9ba453396db012916998c20e28188737",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:e52e16fe39b2a370db307d2fe990556ce5fd6e77c24e942606412eff86cc2e57",
       "source": "docs/BuildComponents.md",
       "agent_json": "docs/BuildComponents.agent.json",
-      "source_sha256": "1e841ce95507802b71b7e0b0112024d073f63e8cb5a75cc9ecec3ac09d0810b5",
+      "source_sha256": "f2d8f92c899a5b35f759afbebe17ef1aabe5d1f2e17615da0dc36c0c78ee8ec2",
       "role": "guide"
     },
     {
@@ -144,17 +151,24 @@
       "role": "guide"
     },
     {
+      "document_id": "urn:iisacc:document:805b9156efea9083aa925f6f36aeee4fa6ad03591323333fbaac9a214b1003e1",
+      "source": "docs/CHANNEL_EXCHANGE.md",
+      "agent_json": "docs/CHANNEL_EXCHANGE.agent.json",
+      "source_sha256": "a417827ac4f75d9a9036f5e76c86a5035265211001a818c3527ef4c670926a7f",
+      "role": "guide"
+    },
+    {
       "document_id": "urn:iisacc:document:138726b161b362df02b9f18c8a85f0d85ae75df2e4504b4d49370ad613be9cc2",
       "source": "docs/CONTROLNET_PARAMETERS.md",
       "agent_json": "docs/CONTROLNET_PARAMETERS.agent.json",
-      "source_sha256": "2163c1c7791b1589527ebeacfc4a60969ba71cbba95d1fb2130d5f9378344d89",
+      "source_sha256": "9a00ed202d4d24d61fdce1bac1b0a80f9f14e8628176f5b7b6eaaf1f46495b9e",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:a1f739cd5c743858aeb22f6ef195f2fde00eb9c33dae089af0e49a434b5eff6d",
       "source": "docs/DEPENDENCIES.md",
       "agent_json": "docs/DEPENDENCIES.agent.json",
-      "source_sha256": "6ce5d4a0064f0bc9793dc488ebad70f12ff9df9d50f8b7bd5be7a081f86986ae",
+      "source_sha256": "322d110a2a33f965a296f9c03893a5f24e9bcf226d4f30fa0c3b4dd08b2bf712",
       "role": "guide"
     },
     {
@@ -165,10 +179,17 @@
       "role": "guide"
     },
     {
+      "document_id": "urn:iisacc:document:32229eef5a4ff4ba14689d446739218e36f1f295aa5e29f13039c0e0e0a1035d",
+      "source": "docs/DOCUMENT_ASSET_CONTROL.md",
+      "agent_json": "docs/DOCUMENT_ASSET_CONTROL.agent.json",
+      "source_sha256": "43b92486792a3746e34be401ed650567b13d030cd64c730e30747bbd7f617311",
+      "role": "guide"
+    },
+    {
       "document_id": "urn:iisacc:document:0ba38f8da3b6222e0a5cf7561270c7a432d6c31262d6820d1128ce29eafc3ef7",
       "source": "docs/DOCUMENT_HISTORY.md",
       "agent_json": "docs/DOCUMENT_HISTORY.agent.json",
-      "source_sha256": "7f7e50d69ecb956f9f388f898d04b004bb6b769ee4245609cd579cfac08f6270",
+      "source_sha256": "bfcee65135bf9a951a1ee028af0e43efb3ed0b1b77619952d51a8deed21de71a",
       "role": "history"
     },
     {
@@ -203,14 +224,14 @@
       "document_id": "urn:iisacc:document:dc9c8ff32fc0234bed5ade5967025330b117f6bb63677beef351dac30c586a82",
       "source": "docs/FORMAT.md",
       "agent_json": "docs/FORMAT.agent.json",
-      "source_sha256": "1169ac6c5a79a06f86a8d2ddb1a98c2743bd0e3b5a194d9273cbc07931ff96a2",
+      "source_sha256": "5cfb545ebb83f20292ed092b97bc8116c3a76e1accd29afe761f4a9c33d35a58",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:77bc597630a1ab1da05fbb1728a92c708a599479b19cd54ab6e8b489ca4304f5",
       "source": "docs/FOUR_LAYER_TYPES.md",
       "agent_json": "docs/FOUR_LAYER_TYPES.agent.json",
-      "source_sha256": "302fba5288f883291f1f9b6d6e7f3c61c2c76c5f1a009d32eeb7aa75dd72a7eb",
+      "source_sha256": "ac9520d6c86732e8815f5992f4d06e2923b15ad4ff827dc5b24c8de843be162f",
       "role": "guide"
     },
     {
@@ -235,6 +256,13 @@
       "role": "guide"
     },
     {
+      "document_id": "urn:iisacc:document:17b38ef118f774e8df677096137e189ae9a2938ac29209b7993e7c868f403a88",
+      "source": "docs/IMAGE_CANVAS_OPERATIONS.md",
+      "agent_json": "docs/IMAGE_CANVAS_OPERATIONS.agent.json",
+      "source_sha256": "9c18c0a5bb78fc1eff31667a5b9539e99e6768c3351f1c3e4419dc29479e9978",
+      "role": "guide"
+    },
+    {
       "document_id": "urn:iisacc:document:1b7666276431babda58e05c145fabf907b114cf3449cd78c440ca8e81554ffe1",
       "source": "docs/IP_ADAPTER.md",
       "agent_json": "docs/IP_ADAPTER.agent.json",
@@ -252,14 +280,28 @@
       "document_id": "urn:iisacc:document:097d0387ec6a7afb7c0b3235c231244efcd56342a4a5dc2ef7c10e29311ba3ee",
       "source": "docs/LAYER_COMPOSITING.md",
       "agent_json": "docs/LAYER_COMPOSITING.agent.json",
-      "source_sha256": "faa67b766eccf87f88c80919ff7c472148bfecefbe61e4424fd6923f445c4a87",
+      "source_sha256": "c32761a67e2f61a950570f04f09e3edfdf467a342188f4305a7edb413bf0d916",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:5b8c5561acc01d22632c95155963c99737577d35a14c2b18990f488dfdb03bc3",
+      "source": "docs/LAYER_CONTENT_OPERATIONS.md",
+      "agent_json": "docs/LAYER_CONTENT_OPERATIONS.agent.json",
+      "source_sha256": "39a6001bab5ae923b2833c635dc5bd44db19b7c00af08fa3b0aab3bfef743442",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:1ddba1b6551bfe0cce351ce3e4f3d49372ec84c38aab329b5f019bcd6d57f9b0",
+      "source": "docs/LAYER_EDIT_OPERATIONS.md",
+      "agent_json": "docs/LAYER_EDIT_OPERATIONS.agent.json",
+      "source_sha256": "e3e050b8276f8a3d6104b282b43e7a1480d420790bc8565c92ba206a1a691493",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:f591098bcac8f7bc10b55b5dfd61f22d5c12abf976bd16b6965b44b202130617",
       "source": "docs/LAYER_FILE_EDITS.md",
       "agent_json": "docs/LAYER_FILE_EDITS.agent.json",
-      "source_sha256": "75e92036191b33c1eac9bcaf3b675ed2b7e1a3dab214520d8b4a4f4e1ce8064e",
+      "source_sha256": "7d01bdd0678301896926e65f87345bdb097316fb0bf69fe49c7fb9bf9792a2ed",
       "role": "guide"
     },
     {
@@ -294,7 +336,28 @@
       "document_id": "urn:iisacc:document:3820b8c00286d71fad4f6371653df57dff1c25d2c38054db37835d013a99203e",
       "source": "docs/NATIVE.md",
       "agent_json": "docs/NATIVE.agent.json",
-      "source_sha256": "316ebd1a6985c31b67964b5ed8ef8cfb390437f5295344f9e2c7dc61f352d400",
+      "source_sha256": "779e4744b2d9aebc6d6d61fdc829d8e02a8f3b4154a4f77245b87802bec24a32",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:380d8010e84786dde1569af3f6fec313b3d241cbf65d2bbc0e08c3f450ef0f0e",
+      "source": "docs/NATIVE_CANVAS_PRESENTATION.md",
+      "agent_json": "docs/NATIVE_CANVAS_PRESENTATION.agent.json",
+      "source_sha256": "cf73407bd55d9e74ee29ccb6ce025e7746a3e67f6cc6a174b6909f125de41016",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:0dc969eade8c39021cf9ffddc9eaf86cb590d7dac0c105c56235378bb7bfd266",
+      "source": "docs/NATIVE_PNG_TEXT.md",
+      "agent_json": "docs/NATIVE_PNG_TEXT.agent.json",
+      "source_sha256": "b8d29161a782df459a5fffca977fedadd9134b9672631f915b02d2ceb214cfcb",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:876e178a18c151cfac6b308e6c89fe4df08a847b27e5da6dbe780a756642119f",
+      "source": "docs/NATIVE_QOI.md",
+      "agent_json": "docs/NATIVE_QOI.agent.json",
+      "source_sha256": "37c6efa42b39ddf5d2cfca3dce9b31b8854cd01c3c9f6fc9c657a928a7e94a90",
       "role": "guide"
     },
     {
@@ -308,21 +371,21 @@
       "document_id": "urn:iisacc:document:2c72a8dc066878c12da7426e5f523d6c3a73a240adbf093258b1472fa9a9f325",
       "source": "docs/OPENRASTER_IMPORT.md",
       "agent_json": "docs/OPENRASTER_IMPORT.agent.json",
-      "source_sha256": "17a82acdb7856e6bc2777fd700e69ae6c0d7016372f17c71cf00004759091344",
+      "source_sha256": "3e67a6cdda3b6dddb1b48ae9165eed942eda2872929e4d22026de7dc4667834f",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:04fef76954bd1bbb765be05fe7929dfbd1d459f23439a75848aba8ce78597b94",
       "source": "docs/PERSISTENCE.md",
       "agent_json": "docs/PERSISTENCE.agent.json",
-      "source_sha256": "ab5902b81026b7315d81e20e0ef96f3b14ea5248e48164e71715659485fdbb3d",
+      "source_sha256": "605714cdd2e176a29d8e9c00ab1ac288faaaeb9ec89a9f247af52e49239b5975",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:1b077103ef123adbbd96089d3c846a982dfcc5e3a922b277dd5042bc68cee46e",
       "source": "docs/PHOTOSHOP_LAYER_COMPARISON.md",
       "agent_json": "docs/PHOTOSHOP_LAYER_COMPARISON.agent.json",
-      "source_sha256": "02c627b5a902a8229aee8c26b17fa63879dbb7c9c57c0133c0853384f959fe44",
+      "source_sha256": "8340e893f098c0a5b2a57d39130aec591086eded098955d0f7bd7d1878fd6739",
       "role": "guide"
     },
     {
@@ -336,14 +399,14 @@
       "document_id": "urn:iisacc:document:cd0d2fd7c80a16f99e055819bcb0634e093fe6c32c75f8db0d8545d7887e8e87",
       "source": "docs/POSE.md",
       "agent_json": "docs/POSE.agent.json",
-      "source_sha256": "e58a65e5ae9cd7e4ac544c94e66c503c738220bb0f39fe374f90a090d46556e3",
+      "source_sha256": "2284e456e2c5843abaebfaae48489b05e10567830e8180e2237825a5611eac93",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:dabe487301e03a6b6d5a63be959a4c4ff7650423b022f77cc93329c4d8426ffb",
       "source": "docs/PSD_EXPORT.md",
       "agent_json": "docs/PSD_EXPORT.agent.json",
-      "source_sha256": "57065d46d994b60913252712347482cd5dc262f5669380fcd68df714b8874975",
+      "source_sha256": "cce7e50dbc1d6b4b39430061aa918725dfd52f62d71e87f0a1985acde2a35f8d",
       "role": "guide"
     },
     {
@@ -371,7 +434,7 @@
       "document_id": "urn:iisacc:document:bd95206b05588e56312723a359e87a142abaac636943feefd44db9fb3a5e0523",
       "source": "docs/QT_MIGRATION.md",
       "agent_json": "docs/QT_MIGRATION.agent.json",
-      "source_sha256": "05cb53eb83b20a2583038b18e886d2583ebb4d17986e3d9b6f7c361341914566",
+      "source_sha256": "89d9493eb88d38ec250336b7b232c7b3fb5552c7193139d8dfd07dfb7cf97877",
       "role": "guide"
     },
     {
@@ -385,21 +448,35 @@
       "document_id": "urn:iisacc:document:fdedf11f6e46de99ce8c1fe21601571c07d89f201af7d6f8c4d5805bce78d27d",
       "source": "docs/README.md",
       "agent_json": "docs/README.agent.json",
-      "source_sha256": "20ecc2694f4751f954a7b25df7a76c243cffe4b7522bb1df34089e2b2cc07742",
+      "source_sha256": "8b39af116d1c6d97215836aac6c18b7b170e72a5de2d20342fff3bb9e7af502e",
       "role": "overview"
     },
     {
       "document_id": "urn:iisacc:document:94fb8c2a6321b7f97986dd50066d8a49534168172844034b44e2ae6ea89f28c1",
       "source": "docs/REFERENCE.md",
       "agent_json": "docs/REFERENCE.agent.json",
-      "source_sha256": "9c9913388ae480f735a6dd94e6ad87f047436b5b5453d023dee8811682418bf7",
+      "source_sha256": "16b72dacbbabf28d6fc9c5b5c665089becd2ceb75c0ac31fc0b44a81dbf760c0",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:9857a835cd04f6b0f708be17b757d05bc5f90a51ae093eee564c53c1e9d54720",
+      "source": "docs/SELECTION_LAYER_RELATIONSHIPS.md",
+      "agent_json": "docs/SELECTION_LAYER_RELATIONSHIPS.agent.json",
+      "source_sha256": "5e06bfd0ae9e63e9ff419b788ab729350e55149e6a282888a65c55c154ef8b85",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:1467fd77f114fc188ed2bad6b7ccde42ed6d54b2e95a74c69b56338a68e6668f",
       "source": "docs/SEMANTIC_SEGMENT.md",
       "agent_json": "docs/SEMANTIC_SEGMENT.agent.json",
-      "source_sha256": "a1bea42f0d0a773638a88f898ace19667c17db9f294d405f9774511c63d53a1e",
+      "source_sha256": "0e78e10fe78d4a4ad8642e7701df67622f8d6df2d492dcc999c7ddd2fff6db31",
+      "role": "guide"
+    },
+    {
+      "document_id": "urn:iisacc:document:cf5dbf86d9b6deb9da0a1ba11a346adcea55e4094ad860d9fd53e8bebf9acd99",
+      "source": "docs/SEQUENCE_OPERATIONS.md",
+      "agent_json": "docs/SEQUENCE_OPERATIONS.agent.json",
+      "source_sha256": "d2415e51bc19dbe6618d209c48bb863c01c7748b51389ff6d9826d657c37b492",
       "role": "guide"
     },
     {
@@ -420,7 +497,7 @@
       "document_id": "urn:iisacc:document:ea9555b1731594425f3a46a3b150ebb26b8379e5fb1b373abda90164824db3b1",
       "source": "docs/TIMELINE_INTERCHANGE.md",
       "agent_json": "docs/TIMELINE_INTERCHANGE.agent.json",
-      "source_sha256": "73bf4fa5ebfd73b3e4abae47f87eedb54c15fee60d0ad02c65099041dd60309c",
+      "source_sha256": "161ef675e4fa55eb0b25a090442f7a2b4cb24b1bde8b2e25baf5cac87b3b6d40",
       "role": "history"
     },
     {
@@ -434,14 +511,14 @@
       "document_id": "urn:iisacc:document:4dbc15525a1a35ab022742c8175a75e27a79d900828ee8a4f887135053e53cb2",
       "source": "docs/TIMELINE_XML.md",
       "agent_json": "docs/TIMELINE_XML.agent.json",
-      "source_sha256": "4ed7ce29df36e091a3fee6a75e3376b19e5cf35af308d036f7f12a97e08007e5",
+      "source_sha256": "4ed53422e5251c3f71c43acbf5d55c63dc555a62899952f152da098186185d65",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:65b50c9e13e1f66db913f430b2fb48259a30db6767f48e9ec2554392afdb5ac9",
       "source": "docs/VIDEO_FRAME_DECODER.md",
       "agent_json": "docs/VIDEO_FRAME_DECODER.agent.json",
-      "source_sha256": "73702f7cab8d7841b2be6f302e949b168f6ff42b18917be06c9d8049a7b9a2f7",
+      "source_sha256": "11b5db914dc290a24917c1d36ddedb1f13259e22c47c2f23dd43dbbe31bb1d76",
       "role": "guide"
     },
     {
@@ -476,20 +553,20 @@
       "document_id": "urn:iisacc:document:8c364e40a6a5156682390ccdb33bace0cb5c7a42ede0df815d328daf80e09835",
       "source": "docs/XML_SVG_IMPORT.md",
       "agent_json": "docs/XML_SVG_IMPORT.agent.json",
-      "source_sha256": "100a0971fdb8a699cb7564b392426a11bca67b6130ae0ce8c53bdd41d4b3b072",
+      "source_sha256": "07dc41d6a53341fd0281863480713f85092528cebbd9b0642366d1f3e16ec79e",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:feb5dc0c8bc67e48a83ca8efdab66bcad41a4de1b2a66cca86c6ed1cd7790c34",
       "source": "docs/documentation-structure.md",
       "agent_json": "docs/documentation-structure.agent.json",
-      "source_sha256": "8355066414eb4b1933e45a8dcd763a7ed090ab83a89825d0e77b807472eea9d2",
+      "source_sha256": "6c411c082d66c4c09b0ec908bebc23e8ef6c0a42509486ea8c360ec089527845",
       "role": "guide"
     },
     {
       "document_id": "urn:iisacc:document:51b8fb79cc7462bb912f36e1e27f9d7ecf2b0aa63b3f6cc895c62cdf096302b7",
       "source": "example/README.md",
-      "agent_json": "docs/mirrors/example/README.agent.json",
+      "agent_json": "docs/Mirrors/Example/README.agent.json",
       "source_sha256": "0e2b5a7ae0cd2ab067a4958061e53ef0786846d19198a04c0aa28aeedd3274c3",
       "role": "overview"
     }
@@ -502,8 +579,8 @@
     "source_authority": "markdown"
   },
   "provenance": {
-    "generator": "workspace-docs",
-    "version": "1.0.0",
+    "generator": "codex",
+    "version": "1.0.0-compatible",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

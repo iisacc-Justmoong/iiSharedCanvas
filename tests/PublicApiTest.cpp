@@ -161,7 +161,7 @@ static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::canvasMode),
                              iiSharedCanvas::CanvasMode>);
 static_assert(std::is_same_v<decltype(iiSharedCanvas::Document::infiniteCanvas),
                              iiSharedCanvas::InfiniteCanvas>);
-static_assert(std::variant_size_v<iiSharedCanvas::Asset> == 15);
+static_assert(std::variant_size_v<iiSharedCanvas::Asset> == 18);
 static_assert(std::variant_size_v<iiSharedCanvas::Layer> == 17);
 static_assert(std::is_same_v<std::variant_alternative_t<0, iiSharedCanvas::Layer>,
                              iiSharedCanvas::StaticBitmapLayer>);
@@ -238,7 +238,7 @@ static_assert(!std::is_base_of_v<QQuickPaintedItem, iiSharedCanvas::CanvasItem>)
 int main()
 {
     return iiSharedCanvas::CurrentFormatMajor == 1
-        && iiSharedCanvas::CurrentFormatMinor == 22
+        && iiSharedCanvas::CurrentFormatMinor == 29
         ? 0
         : 1;
 }

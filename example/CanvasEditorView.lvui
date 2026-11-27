@@ -1,0 +1,5 @@
+import vm CanvasEditorViewModel
+
+Window(width: vm.width, height: vm.height) {
+    NativeView(id: "canvas", source: vm.canvas, width: vm.width, height: vm.height)
+}

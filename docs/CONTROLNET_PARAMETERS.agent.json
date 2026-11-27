@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/CONTROLNET_PARAMETERS.md",
-    "sha256": "2163c1c7791b1589527ebeacfc4a60969ba71cbba95d1fb2130d5f9378344d89",
-    "bytes": 8466,
-    "line_count": 84,
+    "sha256": "9a00ed202d4d24d61fdce1bac1b0a80f9f14e8628176f5b7b6eaaf1f46495b9e",
+    "bytes": 9371,
+    "line_count": 82,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -228,118 +228,113 @@
     },
     {
       "id": "b000029",
-      "kind": "table",
       "start_line": 29,
-      "end_line": 42,
-      "raw": "|종류|편집 가능한 객체 데이터|특정 레이어 데이터/출력 API|\n| --- | --- | --- |\n|의미론적 세그먼트|`RasterAsset.pixels`: 치수 및 정확한 식별 색상|분류 ID/버전/소스; 클래스의 ID/키/이름/설명/범주/부모/팔레트/외부 ID/별칭; 지역의 클래스, 마스크 색상, 인스턴스, 신뢰도, 출처, 생성기, 소스, 속성; 무효 색상|\n|포즈|뷰포트; 사람 ID/이름/트랙/활성화; 모든 신체, 손, 얼굴, 눈, 입 앵커(좌표, z, 자신감, 가시성, 잠금); 표현식 ID/이름/중량/델타|`PoseRenderOptions`: 프로필, 신뢰도 필터, 폐색, 포인트 반경, 선 너비, 출력 예산|\n|깊이|뷰포트 및 모든 정규화된 근접 샘플 [0,1]|정확한 깊이 데이터는 디스플레이 불투명도/변환과 무관하게 유지됩니다.|\n|라인 아트|뷰포트 및 모든 적용 범위 샘플 [0,1]|준비된 적용 범위, 암시적 추출 없음|\n|Canny|뷰포트 및 모든 바이너리 에지 샘플|준비된 에지 마스크, 암시적 검출기 없음|\n|낙서|뷰포트 및 모든 이진 스트로크 샘플|준비된 스트로크 마스크, 포인터/브러시 궤적 없음|\n| MLSD |뷰포트; 세그먼트 ID, 끝점, 신뢰도, 활성화된|`MlsdRenderOptions`: 최소 신뢰도, 픽셀 및 래스터 단계 예산|\n|노멀 맵|뷰포트; 서명된 XYZ 단위 정상 및 유효성|`NormalMapRenderOptions`: XYZ/ZYX 주문, flipY, 출력 예산|\n||뷰포트 및 RGB 샘플 셔플|명시적 준비 UV 매핑은 `makeShuffleAsset`를 통해 계속 사용 가능|\n|타일|뷰포트 및 RGB 샘플|기존 전체 이미지 및 한계가 설정된 영역 내보내기 API|\n|참조|뷰포트 및 RGB 샘플|주의/AdaIN/결합 모드 및 스타일 충실도|\n|IP-Adapter|설명자 단계, 인코더/어댑터 ID 및 개정판, 기본 모델 및 전처리 ID; 토큰/채널 차원; 모든 상태에 대한 조건부 및 선택적 무조건 float32 값|어댑터 바인딩 및 공통 규모/일정; `IpAdapterExportOptions`는 CFG 요구 사항 및 출력 예산을 제어합니다.|\n",
-      "columns": [
-        "종류",
-        "편집 가능한 객체 데이터",
-        "특정 레이어 데이터/출력 API"
-      ],
-      "rows": [
-        [
-          "의미론적 세그먼트",
-          "`RasterAsset.pixels`: 치수 및 정확한 식별 색상",
-          "분류 ID/버전/소스; 클래스의 ID/키/이름/설명/범주/부모/팔레트/외부 ID/별칭; 지역의 클래스, 마스크 색상, 인스턴스, 신뢰도, 출처, 생성기, 소스, 속성; 무효 색상"
-        ],
-        [
-          "포즈",
-          "뷰포트; 사람 ID/이름/트랙/활성화; 모든 신체, 손, 얼굴, 눈, 입 앵커(좌표, z, 자신감, 가시성, 잠금); 표현식 ID/이름/중량/델타",
-          "`PoseRenderOptions`: 프로필, 신뢰도 필터, 폐색, 포인트 반경, 선 너비, 출력 예산"
-        ],
-        [
-          "깊이",
-          "뷰포트 및 모든 정규화된 근접 샘플 [0,1]",
-          "정확한 깊이 데이터는 디스플레이 불투명도/변환과 무관하게 유지됩니다."
-        ],
-        [
-          "라인 아트",
-          "뷰포트 및 모든 적용 범위 샘플 [0,1]",
-          "준비된 적용 범위, 암시적 추출 없음"
-        ],
-        [
-          "Canny",
-          "뷰포트 및 모든 바이너리 에지 샘플",
-          "준비된 에지 마스크, 암시적 검출기 없음"
-        ],
-        [
-          "낙서",
-          "뷰포트 및 모든 이진 스트로크 샘플",
-          "준비된 스트로크 마스크, 포인터/브러시 궤적 없음"
-        ],
-        [
-          "MLSD",
-          "뷰포트; 세그먼트 ID, 끝점, 신뢰도, 활성화된",
-          "`MlsdRenderOptions`: 최소 신뢰도, 픽셀 및 래스터 단계 예산"
-        ],
-        [
-          "노멀 맵",
-          "뷰포트; 서명된 XYZ 단위 정상 및 유효성",
-          "`NormalMapRenderOptions`: XYZ/ZYX 주문, flipY, 출력 예산"
-        ],
-        [
-          "",
-          "뷰포트 및 RGB 샘플 셔플",
-          "명시적 준비 UV 매핑은 `makeShuffleAsset`를 통해 계속 사용 가능"
-        ],
-        [
-          "타일",
-          "뷰포트 및 RGB 샘플",
-          "기존 전체 이미지 및 한계가 설정된 영역 내보내기 API"
-        ],
-        [
-          "참조",
-          "뷰포트 및 RGB 샘플",
-          "주의/AdaIN/결합 모드 및 스타일 충실도"
-        ],
-        [
-          "IP-Adapter",
-          "설명자 단계, 인코더/어댑터 ID 및 개정판, 기본 모델 및 전처리 ID; 토큰/채널 차원; 모든 상태에 대한 조건부 및 선택적 무조건 float32 값",
-          "어댑터 바인딩 및 공통 규모/일정; `IpAdapterExportOptions`는 CFG 요구 사항 및 출력 예산을 제어합니다."
-        ]
+      "end_line": 40,
+      "raw": "- 종류: 의미론적 세그먼트; 편집 가능한 객체 데이터: `RasterAsset.pixels`: 치수 및 정확한 식별 색상; 특정 레이어 데이터/출력 API: 분류 ID/버전/소스; 클래스의 ID/키/이름/설명/범주/부모/팔레트/외부 ID/별칭; 지역의 클래스, 마스크 색상, 인스턴스, 신뢰도, 출처, 생성기, 소스, 속성; 무효 색상\n- 종류: 포즈; 편집 가능한 객체 데이터: 뷰포트; 사람 ID/이름/트랙/활성화; 모든 신체, 손, 얼굴, 눈, 입 앵커(좌표, z, 자신감, 가시성, 잠금); 표현식 ID/이름/중량/델타; 특정 레이어 데이터/출력 API: `PoseRenderOptions`: 프로필, 신뢰도 필터, 폐색, 포인트 반경, 선 너비, 출력 예산\n- 종류: 깊이; 편집 가능한 객체 데이터: 뷰포트 및 모든 정규화된 근접 샘플 [0,1]; 특정 레이어 데이터/출력 API: 정확한 깊이 데이터는 디스플레이 불투명도/변환과 무관하게 유지됩니다.\n- 종류: 라인 아트; 편집 가능한 객체 데이터: 뷰포트 및 모든 적용 범위 샘플 [0,1]; 특정 레이어 데이터/출력 API: 준비된 적용 범위, 암시적 추출 없음\n- 종류: Canny; 편집 가능한 객체 데이터: 뷰포트 및 모든 바이너리 에지 샘플; 특정 레이어 데이터/출력 API: 준비된 에지 마스크, 암시적 검출기 없음\n- 종류: 낙서; 편집 가능한 객체 데이터: 뷰포트 및 모든 이진 스트로크 샘플; 특정 레이어 데이터/출력 API: 준비된 스트로크 마스크, 포인터/브러시 궤적 없음\n- 종류: MLSD; 편집 가능한 객체 데이터: 뷰포트; 세그먼트 ID, 끝점, 신뢰도, 활성화된; 특정 레이어 데이터/출력 API: `MlsdRenderOptions`: 최소 신뢰도, 픽셀 및 래스터 단계 예산\n- 종류: 노멀 맵; 편집 가능한 객체 데이터: 뷰포트; 서명된 XYZ 단위 정상 및 유효성; 특정 레이어 데이터/출력 API: `NormalMapRenderOptions`: XYZ/ZYX 주문, flipY, 출력 예산\n- 종류: ; 편집 가능한 객체 데이터: 뷰포트 및 RGB 샘플 셔플; 특정 레이어 데이터/출력 API: 명시적 준비 UV 매핑은 `makeShuffleAsset`를 통해 계속 사용 가능\n- 종류: 타일; 편집 가능한 객체 데이터: 뷰포트 및 RGB 샘플; 특정 레이어 데이터/출력 API: 기존 전체 이미지 및 한계가 설정된 영역 내보내기 API\n- 종류: 참조; 편집 가능한 객체 데이터: 뷰포트 및 RGB 샘플; 특정 레이어 데이터/출력 API: 주의/AdaIN/결합 모드 및 스타일 충실도\n- 종류: IP-Adapter; 편집 가능한 객체 데이터: 설명자 단계, 인코더/어댑터 ID 및 개정판, 기본 모델 및 전처리 ID; 토큰/채널 차원; 모든 상태에 대한 조건부 및 선택적 무조건 float32 값; 특정 레이어 데이터/출력 API: 어댑터 바인딩 및 공통 규모/일정; `IpAdapterExportOptions`는 CFG 요구 사항 및 출력 예산을 제어합니다.\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "종류: 의미론적 세그먼트; 편집 가능한 객체 데이터: `RasterAsset.pixels`: 치수 및 정확한 식별 색상; 특정 레이어 데이터/출력 API: 분류 ID/버전/소스; 클래스의 ID/키/이름/설명/범주/부모/팔레트/외부 ID/별칭; 지역의 클래스, 마스크 색상, 인스턴스, 신뢰도, 출처, 생성기, 소스, 속성; 무효 색상",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: 포즈; 편집 가능한 객체 데이터: 뷰포트; 사람 ID/이름/트랙/활성화; 모든 신체, 손, 얼굴, 눈, 입 앵커(좌표, z, 자신감, 가시성, 잠금); 표현식 ID/이름/중량/델타; 특정 레이어 데이터/출력 API: `PoseRenderOptions`: 프로필, 신뢰도 필터, 폐색, 포인트 반경, 선 너비, 출력 예산",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: 깊이; 편집 가능한 객체 데이터: 뷰포트 및 모든 정규화된 근접 샘플 [0,1]; 특정 레이어 데이터/출력 API: 정확한 깊이 데이터는 디스플레이 불투명도/변환과 무관하게 유지됩니다.",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: 라인 아트; 편집 가능한 객체 데이터: 뷰포트 및 모든 적용 범위 샘플 [0,1]; 특정 레이어 데이터/출력 API: 준비된 적용 범위, 암시적 추출 없음",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: Canny; 편집 가능한 객체 데이터: 뷰포트 및 모든 바이너리 에지 샘플; 특정 레이어 데이터/출력 API: 준비된 에지 마스크, 암시적 검출기 없음",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: 낙서; 편집 가능한 객체 데이터: 뷰포트 및 모든 이진 스트로크 샘플; 특정 레이어 데이터/출력 API: 준비된 스트로크 마스크, 포인터/브러시 궤적 없음",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: MLSD; 편집 가능한 객체 데이터: 뷰포트; 세그먼트 ID, 끝점, 신뢰도, 활성화된; 특정 레이어 데이터/출력 API: `MlsdRenderOptions`: 최소 신뢰도, 픽셀 및 래스터 단계 예산",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: 노멀 맵; 편집 가능한 객체 데이터: 뷰포트; 서명된 XYZ 단위 정상 및 유효성; 특정 레이어 데이터/출력 API: `NormalMapRenderOptions`: XYZ/ZYX 주문, flipY, 출력 예산",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: ; 편집 가능한 객체 데이터: 뷰포트 및 RGB 샘플 셔플; 특정 레이어 데이터/출력 API: 명시적 준비 UV 매핑은 `makeShuffleAsset`를 통해 계속 사용 가능",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: 타일; 편집 가능한 객체 데이터: 뷰포트 및 RGB 샘플; 특정 레이어 데이터/출력 API: 기존 전체 이미지 및 한계가 설정된 영역 내보내기 API",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: 참조; 편집 가능한 객체 데이터: 뷰포트 및 RGB 샘플; 특정 레이어 데이터/출력 API: 주의/AdaIN/결합 모드 및 스타일 충실도",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "종류: IP-Adapter; 편집 가능한 객체 데이터: 설명자 단계, 인코더/어댑터 ID 및 개정판, 기본 모델 및 전처리 ID; 토큰/채널 차원; 모든 상태에 대한 조건부 및 선택적 무조건 float32 값; 특정 레이어 데이터/출력 API: 어댑터 바인딩 및 공통 규모/일정; `IpAdapterExportOptions`는 CFG 요구 사항 및 출력 예산을 제어합니다.",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000030",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "paragraph",
+      "start_line": 42,
+      "end_line": 42,
+      "raw": "모든 기존 타입화된 insert/replace/sample/anchor/expression API 는 공개적으로 유지됩니다. 렌더링/내보내기 옵션 구조는 기존 출력 함수에 제공되며 레이어 매개변수로 영속화되지 않습니다. SDK 가 실행하지 않는 전처리 알고리즘 (예: Canny 추출 임계값) 은 비효율적인 설정으로 발명되지 않습니다. 준비된 픽셀/기하/텐서 데이터는 네이티브 객체 계약입니다.\n"
+    },
+    {
+      "id": "b000032",
       "kind": "blank",
       "start_line": 43,
       "end_line": 43,
       "raw": "\n"
     },
     {
-      "id": "b000031",
-      "kind": "paragraph",
+      "id": "b000033",
+      "kind": "html",
       "start_line": 44,
       "end_line": 44,
-      "raw": "모든 기존 타입화된 insert/replace/sample/anchor/expression API 는 공개적으로 유지됩니다. 렌더링/내보내기 옵션 구조는 기존 출력 함수에 제공되며 레이어 매개변수로 영속화되지 않습니다. SDK 가 실행하지 않는 전처리 알고리즘 (예: Canny 추출 임계값) 은 비효율적인 설정으로 발명되지 않습니다. 준비된 픽셀/기하/텐서 데이터는 네이티브 객체 계약입니다.\n"
+      "raw": "<a id=\"atomic-examples\"></a>\n"
     },
     {
-      "id": "b000032",
+      "id": "b000034",
       "kind": "blank",
       "start_line": 45,
       "end_line": 45,
       "raw": "\n"
     },
     {
-      "id": "b000033",
-      "kind": "html",
-      "start_line": 46,
-      "end_line": 46,
-      "raw": "<a id=\"atomic-examples\"></a>\n"
-    },
-    {
-      "id": "b000034",
-      "kind": "blank",
-      "start_line": 47,
-      "end_line": 47,
-      "raw": "\n"
-    },
-    {
       "id": "b000035",
       "kind": "heading",
-      "start_line": 48,
-      "end_line": 48,
+      "start_line": 46,
+      "end_line": 46,
       "raw": "## 원자적 예\n",
       "level": 2,
       "title": "원자적 예"
@@ -347,29 +342,29 @@
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 49,
-      "end_line": 49,
+      "start_line": 47,
+      "end_line": 47,
       "raw": "\n"
     },
     {
       "id": "b000037",
       "kind": "paragraph",
-      "start_line": 50,
-      "end_line": 50,
+      "start_line": 48,
+      "end_line": 48,
       "raw": "의미 영역 ID와 해당 마스크를 함께 변경합니다.\n"
     },
     {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 51,
-      "end_line": 51,
+      "start_line": 49,
+      "end_line": 49,
       "raw": "\n"
     },
     {
       "id": "b000039",
       "kind": "fenced_code",
-      "start_line": 52,
-      "end_line": 66,
+      "start_line": 50,
+      "end_line": 64,
       "raw": "```cpp\nauto result = editor.controlNetParameters(\"segments\");\nif (!result.ok()) { /* present result.message */ return; }\nauto parameters = std::move(*result.parameters);\nauto &semantic = std::get<SemanticSegmentLayer>(parameters.layer);\nconst auto oldColor = semantic.segmentation.regions.at(0).maskColor;\nconst auto newColor = 0xff336699U; // 다른 영역이나 빈 공간과 충돌해서는 안 된다.\nsemantic.segmentation.regions.at(0).maskColor = newColor;\nfor (auto &asset : parameters.assets) {\n    auto &mask = std::get<RasterAsset>(asset).pixels;\n    for (auto &pixel : mask.pixels) if (pixel == oldColor) pixel = newColor;\n}\nauto applied = editor.setControlNetParameters(\"segments\", std::move(parameters));\n// applied.ok(), applied.changed, applied.path와 applied.message를 확인한다.\n```\n",
       "language": "cpp",
       "code": "auto result = editor.controlNetParameters(\"segments\");\nif (!result.ok()) { /* present result.message */ return; }\nauto parameters = std::move(*result.parameters);\nauto &semantic = std::get<SemanticSegmentLayer>(parameters.layer);\nconst auto oldColor = semantic.segmentation.regions.at(0).maskColor;\nconst auto newColor = 0xff336699U; // 다른 영역이나 빈 공간과 충돌해서는 안 된다.\nsemantic.segmentation.regions.at(0).maskColor = newColor;\nfor (auto &asset : parameters.assets) {\n    auto &mask = std::get<RasterAsset>(asset).pixels;\n    for (auto &pixel : mask.pixels) if (pixel == oldColor) pixel = newColor;\n}\nauto applied = editor.setControlNetParameters(\"segments\", std::move(parameters));\n// applied.ok(), applied.changed, applied.path와 applied.message를 확인한다.\n",
@@ -378,29 +373,29 @@
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 67,
-      "end_line": 67,
+      "start_line": 65,
+      "end_line": 65,
       "raw": "\n"
     },
     {
       "id": "b000041",
       "kind": "paragraph",
-      "start_line": 68,
-      "end_line": 68,
+      "start_line": 66,
+      "end_line": 66,
       "raw": "지정되지 않은 설정을 바꾸지 않고 공통 매개변수를 변경합니다.\n"
     },
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 69,
-      "end_line": 69,
+      "start_line": 67,
+      "end_line": 67,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "fenced_code",
-      "start_line": 70,
-      "end_line": 76,
+      "start_line": 68,
+      "end_line": 74,
       "raw": "```cpp\nControlNetSettingsPatch patch;\npatch.conditioningScale = 0.65;\npatch.guidanceStart = 0.1;\npatch.guidanceEnd = 0.85;\nauto applied = editor.patchControlNetSettings(\"pose\", patch);\n```\n",
       "language": "cpp",
       "code": "ControlNetSettingsPatch patch;\npatch.conditioningScale = 0.65;\npatch.guidanceStart = 0.1;\npatch.guidanceEnd = 0.85;\nauto applied = editor.patchControlNetSettings(\"pose\", patch);\n",
@@ -409,43 +404,43 @@
     {
       "id": "b000044",
       "kind": "blank",
-      "start_line": 77,
-      "end_line": 77,
+      "start_line": 75,
+      "end_line": 75,
       "raw": "\n"
     },
     {
       "id": "b000045",
       "kind": "paragraph",
-      "start_line": 78,
-      "end_line": 78,
+      "start_line": 76,
+      "end_line": 76,
       "raw": "하나의 포즈 자산 스냅샷을 통해 세부 표현과 여러 앵커를 변경하거나 동일한 방식으로 IP-Adapter 모델 바인딩 및 모든 참조 상태 설명자를 변경합니다. 라이브 문서를 직접 변경할 필요는 없습니다.\n"
     },
     {
       "id": "b000046",
+      "kind": "blank",
+      "start_line": 77,
+      "end_line": 77,
+      "raw": "\n"
+    },
+    {
+      "id": "b000047",
+      "kind": "html",
+      "start_line": 78,
+      "end_line": 78,
+      "raw": "<a id=\"validation-and-persistence\"></a>\n"
+    },
+    {
+      "id": "b000048",
       "kind": "blank",
       "start_line": 79,
       "end_line": 79,
       "raw": "\n"
     },
     {
-      "id": "b000047",
-      "kind": "html",
-      "start_line": 80,
-      "end_line": 80,
-      "raw": "<a id=\"validation-and-persistence\"></a>\n"
-    },
-    {
-      "id": "b000048",
-      "kind": "blank",
-      "start_line": 81,
-      "end_line": 81,
-      "raw": "\n"
-    },
-    {
       "id": "b000049",
       "kind": "heading",
-      "start_line": 82,
-      "end_line": 82,
+      "start_line": 80,
+      "end_line": 80,
       "raw": "## 검증 및 지속성\n",
       "level": 2,
       "title": "검증 및 지속성"
@@ -453,15 +448,15 @@
     {
       "id": "b000050",
       "kind": "blank",
-      "start_line": 83,
-      "end_line": 83,
+      "start_line": 81,
+      "end_line": 81,
       "raw": "\n"
     },
     {
       "id": "b000051",
       "kind": "paragraph",
-      "start_line": 84,
-      "end_line": 84,
+      "start_line": 82,
+      "end_line": 82,
       "raw": "거부된 편집은 레이어/에셋, 형식 버전, 작성 정보와 편집기 리비전을 보존한다. 의미 팔레트 일관성, 자세 앵커/표정, 이진 마스크, 단위 법선, 유한한 텐서와 IP-Adapter 프레임 간 호환성을 포함한 모든 타입별 불변 조건을 계속 적용한다. 잘못된 참조, 중복/누락된 에셋, 작품 데이터와 만료된 파일 바인딩은 명시적으로 실패한다. 성공한 파일 연결 편집은 기존 `DocumentFile` 트랜잭션을 통해 동기적으로 커밋한다. 공통 항목만 바꾸는 패치에서는 변경되지 않은 에셋 레코드를 재사용한다. 테스트는 스냅샷과 작업 파일 양쪽의 12개 타입 전체, 여러 상태의 원자적 편집과 롤백을 검사한다.\n"
     }
   ],
@@ -504,7 +499,7 @@
       "level": 2,
       "title": "원자적 예",
       "anchor": "원자적-예",
-      "start_line": 48
+      "start_line": 46
     },
     {
       "block_id": "b000049",
@@ -512,85 +507,14 @@
       "level": 2,
       "title": "검증 및 지속성",
       "anchor": "검증-및-지속성",
-      "start_line": 82
+      "start_line": 80
     }
   ],
   "indexes": {
     "directive_candidates": [],
     "commands": [],
     "links": [],
-    "tables": [
-      {
-        "block_id": "b000029",
-        "columns": [
-          "종류",
-          "편집 가능한 객체 데이터",
-          "특정 레이어 데이터/출력 API"
-        ],
-        "rows": [
-          [
-            "의미론적 세그먼트",
-            "`RasterAsset.pixels`: 치수 및 정확한 식별 색상",
-            "분류 ID/버전/소스; 클래스의 ID/키/이름/설명/범주/부모/팔레트/외부 ID/별칭; 지역의 클래스, 마스크 색상, 인스턴스, 신뢰도, 출처, 생성기, 소스, 속성; 무효 색상"
-          ],
-          [
-            "포즈",
-            "뷰포트; 사람 ID/이름/트랙/활성화; 모든 신체, 손, 얼굴, 눈, 입 앵커(좌표, z, 자신감, 가시성, 잠금); 표현식 ID/이름/중량/델타",
-            "`PoseRenderOptions`: 프로필, 신뢰도 필터, 폐색, 포인트 반경, 선 너비, 출력 예산"
-          ],
-          [
-            "깊이",
-            "뷰포트 및 모든 정규화된 근접 샘플 [0,1]",
-            "정확한 깊이 데이터는 디스플레이 불투명도/변환과 무관하게 유지됩니다."
-          ],
-          [
-            "라인 아트",
-            "뷰포트 및 모든 적용 범위 샘플 [0,1]",
-            "준비된 적용 범위, 암시적 추출 없음"
-          ],
-          [
-            "Canny",
-            "뷰포트 및 모든 바이너리 에지 샘플",
-            "준비된 에지 마스크, 암시적 검출기 없음"
-          ],
-          [
-            "낙서",
-            "뷰포트 및 모든 이진 스트로크 샘플",
-            "준비된 스트로크 마스크, 포인터/브러시 궤적 없음"
-          ],
-          [
-            "MLSD",
-            "뷰포트; 세그먼트 ID, 끝점, 신뢰도, 활성화된",
-            "`MlsdRenderOptions`: 최소 신뢰도, 픽셀 및 래스터 단계 예산"
-          ],
-          [
-            "노멀 맵",
-            "뷰포트; 서명된 XYZ 단위 정상 및 유효성",
-            "`NormalMapRenderOptions`: XYZ/ZYX 주문, flipY, 출력 예산"
-          ],
-          [
-            "",
-            "뷰포트 및 RGB 샘플 셔플",
-            "명시적 준비 UV 매핑은 `makeShuffleAsset`를 통해 계속 사용 가능"
-          ],
-          [
-            "타일",
-            "뷰포트 및 RGB 샘플",
-            "기존 전체 이미지 및 한계가 설정된 영역 내보내기 API"
-          ],
-          [
-            "참조",
-            "뷰포트 및 RGB 샘플",
-            "주의/AdaIN/결합 모드 및 스타일 충실도"
-          ],
-          [
-            "IP-Adapter",
-            "설명자 단계, 인코더/어댑터 ID 및 개정판, 기본 모델 및 전처리 ID; 토큰/채널 차원; 모든 상태에 대한 조건부 및 선택적 무조건 float32 값",
-            "어댑터 바인딩 및 공통 규모/일정; `IpAdapterExportOptions`는 CFG 요구 사항 및 출력 예산을 제어합니다."
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

@@ -659,6 +659,10 @@ std::vector<AssetReference> assetReferences(const Document &document,
             if (staticSource->assetId == referencedAssetId) {
                 references.push_back({layerPosition, std::nullopt, std::nullopt});
             }
+            const auto *source=findAsset(document,staticSource->assetId);
+            const auto *fill=source ? std::get_if<FillLayerContent>(source) : nullptr;
+            if (fill && fill->patternAssetId==referencedAssetId && !referencedAssetId.empty())
+                references.push_back({layerPosition,std::nullopt,std::nullopt,AssetReferenceKind::FillPattern});
         }
     }
     for (std::size_t framePosition = 0;
@@ -676,6 +680,11 @@ std::vector<AssetReference> assetReferences(const Document &document,
                         {owner->second, framePosition, keyframePosition});
                 }
             }
+            const auto owner=layerIndices.find(keyframe.layerId);
+            const auto *source=findAsset(document,keyframe.assetId);
+            const auto *fill=source ? std::get_if<FillLayerContent>(source) : nullptr;
+            if (owner!=layerIndices.end() && fill && fill->patternAssetId==referencedAssetId && !referencedAssetId.empty())
+                references.push_back({owner->second,framePosition,keyframePosition,AssetReferenceKind::FillPattern});
         }
     }
     return references;

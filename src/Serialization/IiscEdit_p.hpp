@@ -113,12 +113,12 @@ using RecordKey = std::pair<detail::RecordKind, std::string_view>;
 bool isCollection(detail::RecordKind kind)
 {
     using enum detail::RecordKind;
-    return kind == Asset || kind == Layer || kind == AudioAsset || kind == AudioTrack || kind == Artboard;
+    return kind == Asset || kind == Layer || kind == AudioAsset || kind == AudioTrack || kind == Artboard || kind == SequenceMedia;
 }
 bool isSeparateCount(detail::RecordKind kind)
 {
     using enum detail::RecordKind;
-    return kind == LayerCount || kind == AudioAssetCount || kind == AudioTrackCount || kind == ArtboardCount;
+    return kind == LayerCount || kind == AudioAssetCount || kind == AudioTrackCount || kind == ArtboardCount || kind == SequenceMediaCount;
 }
 
 class EditTransaction final {
@@ -146,7 +146,8 @@ std::vector<EditRecord> readEditRecords(ByteReader &reader, const SerializationL
 {
     const auto count = reader.readU32();
     const auto maximum = std::uint64_t(limits.maximumAssets) * 2 + limits.maximumLayers +
-                         limits.maximumAudioAssets + limits.maximumAudioTracks + limits.maximumArtboards + 8;
+                         limits.maximumAudioAssets + limits.maximumAudioTracks + limits.maximumArtboards +
+                         limits.maximumTimelineMediaAssets + 12;
     requireEdit(count <= maximum && count <= reader.remaining() / 17, "invalid edit record count");
     std::vector<EditRecord> result;
     result.reserve(count);
@@ -163,7 +164,7 @@ std::vector<EditRecord> readEditRecords(ByteReader &reader, const SerializationL
         if (kind == RasterTilesRecord) {
             requireEdit(!id.empty() && position == 0 && !data.empty(), "invalid raster edit record");
         } else {
-            requireEdit(kind <= static_cast<std::uint8_t>(detail::RecordKind::PublicationMetadata), "unknown edit record");
+            requireEdit(kind <= static_cast<std::uint8_t>(detail::RecordKind::SequenceMedia), "unknown edit record");
             const auto recordKind = static_cast<detail::RecordKind>(kind);
             requireEdit(!isSeparateCount(recordKind), "collection count is not an edit record");
             if (isCollection(recordKind))
@@ -377,8 +378,14 @@ IiscEncodeResult encodeIiscEdit(const Document &before, const Document &after, S
     }
     std::vector<detail::DocumentRecord> source, target;
     ByteWriter recordWriter;
-    writePayload(recordWriter, before, &source, &before, false, {}, nullptr, true);
-    writePayload(recordWriter, after, &target, &before, false, {}, &tiled, true);
+    try {
+        writePayload(recordWriter, before, &source, &before, false, {}, nullptr, true, limits);
+        writePayload(recordWriter, after, &target, &before, false, {}, &tiled, true, limits);
+    } catch (const DecodeFailure &failure) {
+        return {{}, makeError(failure.code, failure.offset, failure.what())};
+    } catch (const std::bad_alloc &) {
+        return {{}, makeError(IiscErrorCode::LimitExceeded, 0, "insufficient memory for document edit encoding")};
+    }
     std::map<RecordKey, const detail::DocumentRecord *> previous;
     for (const auto &item : source) previous.emplace(RecordKey{item.kind, item.id}, &item);
     ByteWriter payload;
@@ -462,6 +469,36 @@ IiscError applyIiscEdit(Document &document, std::span<const std::uint8_t> bytes,
                 if (record.kind == static_cast<std::uint8_t>(kind)) result.push_back(record);
             return result;
         };
+        // Check the complete post-edit owned-media budget before decoding any
+        // new payload. Individual record readers cannot enforce an aggregate
+        // limit when a transaction replaces several media values at once.
+        std::uint64_t mediaBytes = 0;
+        std::map<std::string_view, std::uint64_t> existingMedia;
+        for (const auto &media : document.sequenceMedia) {
+            const auto size = media.bytes ? std::uint64_t(media.bytes->size()) : 0;
+            if (!addWithin(mediaBytes, size, std::numeric_limits<std::uint64_t>::max()))
+                throw DecodeFailure(IiscErrorCode::LimitExceeded, 0, "owned sequence media exceed the configured limit");
+            existingMedia.emplace(media.id, size);
+        }
+        for (const auto &record : records) {
+            if (record.kind != static_cast<std::uint8_t>(SequenceMedia) ||
+                (record.position != RemovedRecord && record.data.empty())) continue;
+            if (const auto found = existingMedia.find(record.id); found != existingMedia.end()) mediaBytes -= found->second;
+        }
+        for (const auto &record : records) {
+            if (record.kind != static_cast<std::uint8_t>(SequenceMedia) || record.data.empty()) continue;
+            if (record.position == RemovedRecord) continue;
+            ByteReader probe(record.data);
+            probe.readBytes(probe.readU32()); // ID; identity and UTF-8 are checked by the decoder.
+            probe.readBytes(probe.readU32()); // Media type.
+            const auto size = probe.readU64();
+            if (!addWithin(mediaBytes, size, limits.maximumTimelineMediaBytes))
+                throw DecodeFailure(IiscErrorCode::LimitExceeded, 0, "owned sequence media exceed the configured limit");
+            probe.readBytes(size);
+            requireEdit(probe.empty(), "sequence media edit has trailing data");
+        }
+        if (mediaBytes > limits.maximumTimelineMediaBytes)
+            throw DecodeFailure(IiscErrorCode::LimitExceeded, 0, "owned sequence media exceed the configured limit");
         EditTransaction transaction;
         const auto decode = [&](const EditRecord &record, const auto &read) {
             ByteReader recordReader(record.data);
@@ -487,6 +524,7 @@ IiscError applyIiscEdit(Document &document, std::span<const std::uint8_t> bytes,
             transaction.replace(document.canvasMode, result.canvasMode);
             transaction.replace(document.infiniteCanvas, result.infiniteCanvas);
             transaction.replace(document.timeline, result.timeline);
+            transaction.replace(document.pixelAspectRatio, result.pixelAspectRatio);
         }
         transaction.replace(document.formatVersion, after);
         editCollection(transaction, document.assets, each(Asset), limits.maximumAssets,
@@ -569,6 +607,15 @@ IiscError applyIiscEdit(Document &document, std::span<const std::uint8_t> bytes,
         optional(PublicationMetadata, document.publicationMetadata, [&](auto &d) { return d.readOptionalPublication(after); });
         if (after.minor < 22 && before.minor >= 22)
             transaction.replace(document.publicationMetadata, std::optional<iiSharedCanvas::PublicationMetadata>{});
+        optional(detail::RecordKind::SelectionLayerRelations, document.relations, [](auto &d) { return d.readSelectionLayerRelations(); });
+        if (after.minor < 24 && before.minor >= 24)
+            transaction.replace(document.relations, iiSharedCanvas::SelectionLayerRelations{});
+        optional(SequenceProject, document.sequenceProject, [](auto &d) { return d.readOptionalSequenceProject(); });
+        if (after.minor < 28 && before.minor >= 28)
+            transaction.replace(document.sequenceProject, std::optional<iiSharedCanvas::TimelineProject>{});
+        editCollection(transaction, document.sequenceMedia, each(SequenceMedia), limits.maximumTimelineMediaAssets,
+            [](const auto &media) -> const std::string & { return media.id; },
+            [&](const auto &record) { return decode(record, [](auto &d) { return d.readSequenceMedia(); }); });
         editCollection(transaction, document.audioAssets, each(AudioAsset), limits.maximumAudioAssets,
             [](const iiSharedCanvas::AudioAsset &asset) -> const std::string & { return asset.id; },
             [&](const auto &record) { return decode(record, [](auto &d) { return d.readAudioAsset(); }); });
@@ -577,7 +624,7 @@ IiscError applyIiscEdit(Document &document, std::span<const std::uint8_t> bytes,
             [&](const auto &record) { return decode(record, [](auto &d) { return d.readAudioTrack(); }); });
         editCollection(transaction, document.artboards, each(Artboard), limits.maximumArtboards,
             [](const auto &board) -> const std::string & { return board.id; },
-            [&](const auto &record) { return decode(record, [](auto &d) { return d.readArtboard(); }); });
+            [&](const auto &record) { return decode(record, [&](auto &d) { return d.readArtboard(after); }); });
 
         const auto validation = validate(document);
         if (!validation.ok()) return makeError(IiscErrorCode::InvalidDocument, 0, validation.issues.front().message);

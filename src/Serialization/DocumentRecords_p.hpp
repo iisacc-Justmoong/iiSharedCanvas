@@ -7,12 +7,19 @@
 
 namespace iiSharedCanvas::detail {
 
+// Canonical single-asset snapshots retain only an edited asset's bytes. The
+// caller validates the owning document and enforces the history byte budget.
+struct HistoryAssetDecodeResult { Asset asset; IiscError error; };
+std::vector<std::uint8_t> encodeHistoryAsset(const Asset &asset);
+HistoryAssetDecodeResult decodeHistoryAsset(std::span<const std::uint8_t> bytes);
+
 // Private working-file records reuse the versioned .iisc field encodings.
 // Raster payloads are raw ARGB32 so one changed pixel never shifts later bytes.
 enum class RecordKind : int {
     Header, Asset, LayerCount, Layer, Metadata,
     AudioAssetCount, AudioAsset, AudioTrackCount, AudioTrack, Authorship,
-    ArtboardCount, Artboard, PublicationMetadata,
+    ArtboardCount, Artboard, PublicationMetadata, SelectionLayerRelations,
+    SequenceProject, SequenceMediaCount, SequenceMedia,
 };
 
 struct DocumentRecord {

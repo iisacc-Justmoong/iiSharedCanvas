@@ -7,9 +7,13 @@ the decoded Camera RAW model and validation, and bounded document previews.
 Its `AsyncFrameRenderQueue` accepts an application-owned executor, coalesces
 requests, and delivers independently rendered layers and composite tiles without
 Qt; wakeups run on executor threads and the application owns UI dispatch.
-The application-owned [iiGUI frame example](docs/GUI_FRAME_PRESENTATION.md)
-converts rendered pixels into an immutable display image. Widget integration,
-input and the full Qt Quick editor replacement remain application work.
+The optional `iiSharedCanvas::Gui` package provides an iiGUI/LVUI view source,
+pointer and navigation routing, immutable frame presentation, and a tile cache
+that retains unchanged images across document revisions. Applications supply
+their own document, editor, callbacks, scheduling and accessibility semantics;
+rotated or reflected views use full-frame presentation. See the [canvas
+presentation contract](docs/NATIVE_CANVAS_PRESENTATION.md). The complete Qt
+Quick editor workflow has not yet been replaced.
 The native package exports its editable path model as SVG or gzip SVGZ, and
 exports timeline pages to PDF with vector paths and transparent raster content.
 Non-normal blends and layer appearances require explicit page rasterization.
@@ -37,8 +41,9 @@ For video, the native `VideoFrameDecoder` interface lets applications inject a
 codec and convert bounded, display-oriented frames into a video asset or
 dynamic bitmap document. A codec implementation and file I/O remain the
 application's responsibility. The `example/VisualCodecVideoDecoder` adapter
-composes iiVisualCodec 0.4.2 for a limited set of square-pixel, constant-rate
-video, including canonical right-angle display matrices; see [the decoder
+composes iiVisualCodec 0.4.2 for a limited set of video, including canonical
+right-angle display matrices and optional timing and pixel-aspect normalization;
+see [the decoder
 contract](docs/VIDEO_FRAME_DECODER.md) for its limits.
 The matching `VideoFrameEncoder` lets applications encode a selected rendered
 frame range; the iiVisualCodec example supports lossless FFV1 and explicit
@@ -47,7 +52,7 @@ encoder contract](docs/VIDEO_FRAME_ENCODER.md) for its limits.
 The [Qt migration status](docs/QT_MIGRATION.md) records the remaining feature
 and SDK-independence work; the legacy Qt API remains the default for now.
 
-Package release: **0.35.14** (2026-10-28). Native `DocumentHistory` provides a
+Current source package: **0.40.0**. Native `DocumentHistory` provides a
 staged final-pixel preview: borrowed tiles and optional infinite-canvas growth
 remain separate from the owner until one synchronous commit. Cancel leaves the
 document revision unchanged. Synchronous frame, layer, tile, region and
@@ -115,7 +120,7 @@ and atomic multi-patch edits through iiPaintEngine 0.5.4. Undo preserves finite
 asset dimensions and sparse chunk presence; brush previews retain touched pixel
 tiles instead of complete asset snapshots. The default history policy rejects
 over-budget commands before publication. Explicit eviction reports its count.
-Rebuild consumers that used older editor layouts; IISC remains 1.22. See
+Rebuild consumers that used older editor layouts; this history feature used IISC 1.22. See
 [bitmap region history](docs/BITMAP_HISTORY.md) for budgets, conflict handling,
 file-transaction boundaries and remaining full-document operations. Native file-bound
 same-size bitmap edits commit touched tiles directly, without cloning the document;
@@ -239,18 +244,16 @@ See [IISC_UPGRADE_CLI.md](docs/IISC_UPGRADE_CLI.md) for usage and failure semant
 
 ## Content contract
 
-| Authoring input | Stored render content | Initial behavior |
-| --- | --- | --- |
-| Bitmap image | iiPaintEngine RasterLayer | Static layer |
-| iiPaintEngine brush | Committed ARGB pixels | Static or keyframed raster asset |
-| Infinite raster paint | Committed ARGB pixels in touched world chunks | Static sparse raster layer |
-| Decoded Camera RAW | Unsigned sensor samples plus calibration and capture metadata | Import-side aggregate, not a document layer |
-| Stable Diffusion recipe | Typed generation settings plus exact workflow metadata | Optional document metadata, never render content |
-| Vector path | M/L/Q/C/Z path commands with solid fill or stroke | Static layer |
-| Raster keyframes | Frame-owned raster asset references | Integer-frame hold sampling |
-| Vector keyframes | Frame-owned vector asset references | Integer-frame hold sampling |
-| Video | `VideoAsset` owning constant-rate ARGB frames | Typed `VideoLayer`, rational timing and source trim |
-| Motion graphics | Layer-local transform/opacity keys over any visual layer | Hold, linear or smooth interpolation |
+- Authoring input: Bitmap image; Stored render content: iiPaintEngine RasterLayer; Initial behavior: Static layer
+- Authoring input: iiPaintEngine brush; Stored render content: Committed ARGB pixels; Initial behavior: Static or keyframed raster asset
+- Authoring input: Infinite raster paint; Stored render content: Committed ARGB pixels in touched world chunks; Initial behavior: Static sparse raster layer
+- Authoring input: Decoded Camera RAW; Stored render content: Unsigned sensor samples plus calibration and capture metadata; Initial behavior: Import-side aggregate, not a document layer
+- Authoring input: Stable Diffusion recipe; Stored render content: Typed generation settings plus exact workflow metadata; Initial behavior: Optional document metadata, never render content
+- Authoring input: Vector path; Stored render content: M/L/Q/C/Z path commands with solid fill or stroke; Initial behavior: Static layer
+- Authoring input: Raster keyframes; Stored render content: Frame-owned raster asset references; Initial behavior: Integer-frame hold sampling
+- Authoring input: Vector keyframes; Stored render content: Frame-owned vector asset references; Initial behavior: Integer-frame hold sampling
+- Authoring input: Video; Stored render content: `VideoAsset` owning constant-rate ARGB frames; Initial behavior: Typed `VideoLayer`, rational timing and source trim
+- Authoring input: Motion graphics; Stored render content: Layer-local transform/opacity keys over any visual layer; Initial behavior: Hold, linear or smooth interpolation
 
 Brush trajectories, dab sequences, and replay commands are never part of the
 iiSharedCanvas format. iiPaintEngine rasterizes brush input immediately, and
@@ -394,22 +397,20 @@ container, and video/audio codecs atomically; a rejected edit preserves both
 the project and editor revision. An invalid rebind also preserves the existing
 binding and revision instead of detaching the editor.
 
-These timeline objects remain standard-library-only authoring data, not a
+These timeline objects remain native authoring data, not a
 sequence renderer or audio mixer. The separate `Video/VideoCodec.h` adapter
 now probes, decodes and encodes canvas animation using an optional FFmpeg
-runtime. `TimelineProject` is not encoded by `.iisc`; persisted canvas audio uses the smaller `AudioTrackLayer` contract.
+runtime. `.iisc` 1.28 introduced an optional `TimelineProject` and document-owned media. Version 1.29 preserves exact clip and track time mappings and editable originals of rendered nested video; the caller supplies the renderer and both application-owned temporary paths. Canvas audio keeps the smaller `AudioTrackLayer` contract.
 
 ## Layered document, bitmap, vector and video interchange
 
 The installed public API includes real byte/file import and export adapters:
 
-| Content | Import | Export |
-| --- | --- | --- |
-| Layered document | OpenRaster PNG layers; PSD v1 8-bit RGB pixel layers, with names, order, visibility, opacity, offsets and supported blending | PSD at frame zero; vectors as embedded PDF Smart Objects, bitmaps as pixel layers; native `.iisc` through `DocumentFile::create` or `encodeIisc` |
-| Bitmap | Qt readers: PNG, JPEG, BMP, TIFF, WebP, HEIC, JP2, icons and portable bitmaps; optional extended TGA/QOI/EXR/DPX/HDR/PCX/SGI, PSD composite and DDS | Available Qt writers plus extended TGA/QOI/EXR/DPX/HDR/PCX/SGI; alpha matte and PNG text controls |
-| Editable vector | Solid SVG/SVGZ paths, shapes, transforms, linear/quadratic/cubic segments and arc conversion | Native SVG/SVGZ; PDF with vector paths and separate bitmap drawing |
-| Rasterized vector | Explicit SVG/PDF page rasterization through an installed Qt plugin | Bitmap/frame output at the canvas extent |
-| Canvas animation | FFmpeg local video/animation to a bitmap layer with frame-owned keys | FFV1/Matroska, MP4/H.264 or HEVC, WebM/VP9, MOV/ProRes or Animation, AVI, GIF, APNG and other supported container/encoder combinations |
+- Content: Layered document; Import: OpenRaster PNG layers; PSD v1 8-bit RGB pixel layers, with names, order, visibility, opacity, offsets and supported blending; Export: PSD at frame zero; vectors as embedded PDF Smart Objects, bitmaps as pixel layers; native `.iisc` through `DocumentFile::create` or `encodeIisc`
+- Content: Bitmap; Import: Qt readers: PNG, JPEG, BMP, TIFF, WebP, HEIC, JP2, icons and portable bitmaps; optional extended TGA/QOI/EXR/DPX/HDR/PCX/SGI, PSD composite and DDS; Export: Available Qt writers plus extended TGA/QOI/EXR/DPX/HDR/PCX/SGI; alpha matte and PNG text controls
+- Content: Editable vector; Import: Solid SVG/SVGZ paths, shapes, transforms, linear/quadratic/cubic segments and arc conversion; Export: Native SVG/SVGZ; PDF with vector paths and separate bitmap drawing
+- Content: Rasterized vector; Import: Explicit SVG/PDF page rasterization through an installed Qt plugin; Export: Bitmap/frame output at the canvas extent
+- Content: Canvas animation; Import: FFmpeg local video/animation to a bitmap layer with frame-owned keys; Export: FFV1/Matroska, MP4/H.264 or HEVC, WebM/VP9, MOV/ProRes or Animation, AVI, GIF, APNG and other supported container/encoder combinations
 
 `bitmapFormats()` and `videoCapabilities()` report actual runtime support,
 separately for reading and writing. They do not promise every profile/subtype
@@ -742,10 +743,10 @@ are header-inline. Windows shared-library consumers therefore do not depend on
 an unexported member symbol when inspecting a result returned by an exported
 operation.
 
-The current C++ package version is 0.35.14 with SOVERSION 0.35. The legacy CMake
+The current C++ package version is 0.40.0 with SOVERSION 0.40. The legacy CMake
 package matches exact versions; Native accepts compatible patches within the
 same minor version. Consumers must rebuild against 0.34 or later to use the new editor
-layouts. The canonical snapshot model is version 1.22;
+layouts. The canonical snapshot model is version 1.29;
 1.0 through 1.5 compatibility is tested with fixed legacy goldens. Working-file
 schema 2 has its own SQLite header and application id and can read schema 1.
 
@@ -1121,7 +1122,15 @@ Native layer composition in 0.30.0 adds a persistent `LayerAppearance`, 27 blend
 
 ### Native working-file tiles and agent interface (0.35.0)
 
-The Qt-free Native package stores editable bitmap pixels in independently checked tiles (private working storage v2), while preserving canonical IISC 1.22 and reading existing v1 working files. `DocumentFile::readStorageInfo`, `storageVersion`, and `upgradeStorage` expose inspection and explicit migration. The installed `iisc-working inspect|verify|upgrade-storage PATH` CLI emits JSON and supports a source-preserving `--dry-run`. See [the storage contract](docs/WORKING_FILE_TILES.md) for integrity, limits, compatibility, and the remaining full-draft cost of general edits.
+The Qt-free Native package stores editable bitmap pixels in independently checked tiles (private working storage v2), using canonical IISC 1.29 and reading earlier snapshots and v1 working files. `DocumentFile::readStorageInfo`, `storageVersion`, and `upgradeStorage` expose inspection and explicit migration. The installed `iisc-working inspect|verify|upgrade-storage PATH` CLI emits JSON and supports a source-preserving `--dry-run`. See [the storage contract](docs/WORKING_FILE_TILES.md) for integrity, limits, compatibility, and the remaining full-draft cost of general edits.
+
+Owned linked canvases, detached document information, last-edit toggles, and raster changes that reapply settings from original pixels are described in [document asset control](docs/DOCUMENT_ASSET_CONTROL.md). A linked asset contains an independent document copy; moving the parent file does not depend on an external path. The 0.40 ABI requires consumers to rebuild.
+
+Image and canvas operations include reversible crop and resize, document cloning,
+alpha and content bounds, rational pixel aspect, and document transform plans.
+The two resampling modes and arbitrary rotation currently reject some content
+configurations; see [image and canvas operations](docs/IMAGE_CANVAS_OPERATIONS.md)
+for the supported scope and remaining limitations.
 
 <!-- workspace-docs:readme:start -->
 ## Documentation entry points
@@ -1131,3 +1140,37 @@ The Qt-free Native package stores editable bitmap pixels in independently checke
 - Human documentation: [documentation index](docs/README.md).
 - Structured agent documentation: [agent index](docs/agent-index.json).
 <!-- workspace-docs:readme:end -->
+
+## Named selections and layer relationships
+
+Native documents preserve named, sparse selection channels, nested pass-through or isolated groups, undirected layer links, and inherited layer/group locks in IISC 1.24. Publish a modified `Document::relations` value through `DocumentHistory::setSelectionLayerRelations` to validate and record it as one undoable change. `LayerQueryIndex` checks document revision before returning ordered results. Python `CanvasDocument` exposes the same state and history. See [selection and layer relationships](docs/SELECTION_LAYER_RELATIONSHIPS.md) for composition, editing and limitations.
+
+IISC 1.25 adds editable solid, gradient and document-owned pattern fills,
+group-backdrop adjustments, bounded layer styles, mask operations and detached
+layer/composite slices. C++ and Python use the same document history and CPU
+renderer. See [layer content operations](docs/LAYER_CONTENT_OPERATIONS.md) for
+the effect algorithms, unsupported combinations and resource limits.
+
+IISC 1.26 stores exact symbolic Boolean shape expressions with their original
+Bezier operands and transforms; raster previews sample the expression. Layer
+ordering, alignment, distribution, verified merge and full-timeline flatten
+are available in C++ and Python with undo/redo. See [layer editing operations](docs/LAYER_EDIT_OPERATIONS.md)
+for contracts, export limits, asset ownership and merge verification.
+
+Channel and exchange operations provide aligned image and channel blending,
+selected and merged frame composites, CSS declarations with explicit losses,
+and standalone SVG with editable vector paths or embedded raster fallback.
+The native Python API can publish image edits and named selections through
+document history. See [channel and exchange contracts](docs/CHANNEL_EXCHANGE.md).
+
+The optional `iiSharedCanvas::Gui` adapter converts native rendered regions and
+iiGUI editor input into detached presentation and pointer values. An LVUI
+`NativeView` example and its ViewModel show the composition; applications
+still own editing, scheduling, and view publication. See the
+[presentation contract](docs/NATIVE_CANVAS_PRESENTATION.md). Native PNG
+encoding and decoding retain bounded Unicode text metadata; see
+[PNG text metadata](docs/NATIVE_PNG_TEXT.md). These additions do not complete
+the removal of the legacy Qt API or replace all of its features.
+
+The native extended bitmap path also reads and writes QOI without an external
+process; see the [QOI contract](docs/NATIVE_QOI.md).

@@ -1,5 +1,6 @@
 #pragma once
 #include "Bitmap/RasterProcessingTypes.h"
+#include "Document/LayerStyleStack.h"
 #include <Core/RasterBlendMode.h>
 #include <Transform/Transform.h>
 #include <optional>
@@ -61,6 +62,7 @@ struct LayerAppearance {
     std::optional<BlendIf> blendIf;
     std::vector<LayerMaskEntry> maskStack; // Multiplied with the legacy raster/vector masks.
     bool maskStackEnabled = true; // Bypass without losing editable operands.
+    LayerStyleStack styles; // Ordered, editable layer effects.
     bool operator==(const LayerAppearance &) const = default;
 };
 } // namespace iiSharedCanvas

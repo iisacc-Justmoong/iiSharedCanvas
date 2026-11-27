@@ -2,6 +2,7 @@
 """Exercise the real resource install rule without launching an application."""
 import os
 import errno
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -34,8 +35,8 @@ class ResourceInstallPolicyTest(unittest.TestCase):
         token = uuid.uuid4().hex
         resources = ROOT/"resources"
         workspace = resources/(".iisacc-resource-policy-" + token)
-        build = ROOT/"build"/("resource-policy-" + token)/"build"
-        if any(path.is_symlink() or path.exists() for path in (workspace, build.parent)):
+        build = ROOT/"build"/("resource-policy-" + token)
+        if any(path.is_symlink() or path.exists() for path in (workspace, build)):
             self.fail("Refusing to replace an existing fixture")
         provider.mkdir(workspace, parents=True)
         try:
@@ -44,6 +45,8 @@ class ResourceInstallPolicyTest(unittest.TestCase):
             stage = workspace/"stage"
             for relative, contents in {
                 "public/readme.txt": "public resource",
+                ".DS_Store": "finder metadata",
+                "public/.DS_Store": "nested finder metadata",
                 ".recovery/private.txt": "previous work",
                 ".state/private.txt": "runtime cache",
                 ".iisacc-tests-private/private.txt": "temporary test data",
@@ -53,22 +56,38 @@ class ResourceInstallPolicyTest(unittest.TestCase):
                 provider.mkdir(destination.parent, parents=True, exist_ok=True)
                 provider.write_text(destination, contents)
             module = (ROOT/"cmake/iiSharedCanvasInstallResources.cmake").as_posix()
+            provider.mkdir(source/"src", parents=True, exist_ok=True)
             provider.write_text(source/"CMakeLists.txt",
-                'cmake_minimum_required(VERSION 3.31)\nproject(ResourcePolicy NONE)\n'
+                'cmake_minimum_required(VERSION 3.31)\nproject(ResourcePolicy LANGUAGES CXX)\n'
+                'find_package(iiSDKCore 0.18 CONFIG REQUIRED COMPONENTS Contracts)\n'
+                'add_library(ResourcePolicy INTERFACE)\n'
+                'target_link_libraries(ResourcePolicy INTERFACE iiSDKCore::Contracts)\n'
                 f'include("{module}")\n'
                 'iisc_install_resources("${CMAKE_CURRENT_SOURCE_DIR}/fixtures" resources)\n')
+            platform = "macos" if sys.platform == "darwin" else "windows" if os.name == "nt" else "linux"
+            builder = os.environ.get("IISDKBUILDER_EXECUTABLE") or str(
+                Path.home()/".local/SDK/iiSDKBuilder/bin"/("iisdk-builder.exe" if os.name == "nt" else "iisdk-builder"))
+            core = os.environ.get("IISDKCORE_PREFIX") or str(Path.home()/".local/SDK/iiSDKCore")
+            manifest = {
+                "schema": 1, "mode": "library",
+                "project": {"name": "ResourcePolicy", "source": str(source)},
+                "buildRoot": str(build), "configuration": "Release",
+                "kits": [{"id": "host-policy", "platform": platform, "prefixes": [core]}],
+            }
+            manifest_file = workspace/"manifest.json"
+            provider.write_text(manifest_file, json.dumps(manifest))
             environment = dict(os.environ, TMPDIR=str(workspace), PYTHONDONTWRITEBYTECODE="1")
-            for command in (["cmake", "-S", str(source), "-B", str(build)],
-                            ["cmake", "--install", str(build), "--prefix", str(stage)]):
-                subprocess.run(command, env=environment, capture_output=True, text=True, check=True)
+            subprocess.run([builder, "build", "--manifest", str(manifest_file)], env=environment,
+                           capture_output=True, text=True, check=True)
+            stage = build/"kits/host-policy/Release/prefix/ResourcePolicy"
             files = {p.relative_to(stage/"resources").as_posix()
                      for p in (stage/"resources").rglob("*") if p.is_file()}
             self.assertIn("public/readme.txt", files)
-            self.assertFalse(any(part in {".recovery", ".state"} or part.startswith(".iisacc-")
+            self.assertFalse(any(part in {".recovery", ".state", ".DS_Store"} or part.startswith(".iisacc-")
                                  for file in files for part in Path(file).parts))
         finally:
-            if build.parent.is_dir() and not build.parent.is_symlink():
-                remove_owned(build.parent)
+            if build.is_dir() and not build.is_symlink():
+                remove_owned(build)
             if workspace.is_dir() and not workspace.is_symlink():
                 remove_owned(workspace)
 

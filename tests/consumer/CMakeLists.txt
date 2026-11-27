@@ -35,6 +35,10 @@ target_include_directories(iiSharedCanvasConsumer BEFORE PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/../foreign-headers")
 
 enable_testing()
+add_executable(iiSharedCanvasInstalledChannelExchange ../ChannelExchangeTest.cpp)
+target_compile_definitions(iiSharedCanvasInstalledChannelExchange PRIVATE IISC_EXCHANGE_SKIP_HISTORY=1)
+target_link_libraries(iiSharedCanvasInstalledChannelExchange PRIVATE iiSharedCanvas::Core)
+add_test(NAME iiSharedCanvas.InstalledChannelExchange COMMAND iiSharedCanvasInstalledChannelExchange)
 add_executable(iiSharedCanvasInstalledCanvasPresentation ../CanvasItemRenderTest.cpp)
 target_link_libraries(iiSharedCanvasInstalledCanvasPresentation PRIVATE iiSharedCanvas::iiSharedCanvas)
 target_compile_definitions(iiSharedCanvasInstalledCanvasPresentation PRIVATE

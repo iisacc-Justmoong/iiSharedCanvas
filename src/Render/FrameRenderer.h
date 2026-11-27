@@ -38,6 +38,11 @@ struct FrameRenderResult {
 // Presentation policy, never persisted in the document or applied to source assets.
 enum class RasterSampling { Nearest, Smooth };
 
+// Compute a square-pixel extent using a positive rational pixel aspect and a
+// caller-provided pixel budget. Failure means invalid or excessive geometry.
+IISHAREDCANVAS_EXPORT std::optional<CanvasExtent> displayPixelExtent(CanvasExtent extent,
+    DocumentPixelAspectRatio aspect,std::size_t maximumPixels=256ULL*1024*1024) noexcept;
+
 // A borrowed, synchronous view of final asset pixels. Each tile is a
 // BitmapPreviewTileSide square row-major tile aligned to that grid, in finite
 // asset or chunk-grid space.
@@ -86,6 +91,9 @@ struct FrameLayerTileRenderResult {
     bool clippedToBelow = false;
     bool blendClippedAsGroup = true;
     std::optional<BlendIf> blendIf;
+    // Present only for a backdrop-dependent adjustment. Tiles contain its
+    // transformed coverage; the operation is evaluated during composition.
+    std::optional<ColorAdjustment> adjustment;
 
     [[nodiscard]] bool ok() const noexcept
     {
@@ -99,6 +107,7 @@ struct FrameLayerBatchRenderResult {
     FrameRenderStatus status = FrameRenderStatus::Success;
     std::string message;
     std::vector<Artboard> artboards; // Detached composition metadata, in document order.
+    LayerGroupTree groups; // Detached nested-group composition metadata.
 
     [[nodiscard]] bool ok() const noexcept
     {
@@ -110,6 +119,13 @@ IISHAREDCANVAS_EXPORT FrameRenderResult renderFrame(const Document &document,
                                                      FrameIndex frame);
 IISHAREDCANVAS_EXPORT FrameRenderResult renderFrame(const Document &document,
     FrameIndex frame, std::span<const FrameBitmapOverlay> overlays);
+// Render the complete view at square-pixel display proportions. Native
+// renderFrame retains document pixel coordinates for editing and serialization.
+// Width is rounded to the nearest integer, at least one; requests exceeding
+// the supplied output-pixel budget fail before allocating the display buffer.
+IISHAREDCANVAS_EXPORT FrameRenderResult renderDisplayFrame(const Document &document,
+    FrameIndex frame,RasterSampling sampling=RasterSampling::Smooth,
+    std::size_t maximumPixels=256ULL*1024*1024);
 // Only this artboard's background and owned artwork; loose/other artwork is excluded.
 IISHAREDCANVAS_EXPORT FrameRenderResult renderArtboard(
     const Document &document, FrameIndex frame, const std::string &artboardId);

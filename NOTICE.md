@@ -20,4 +20,4 @@ PSD Smart Object export reuses Qt PDF writing. Optional psd-tools development
 verification is not a product dependency and is not redistributed here.
 The optional video adapter executes a separately supplied FFmpeg/ffprobe build;
 no FFmpeg binary or source is redistributed by this package. Its LGPL/GPL terms
-depend on the supplied build. See docs/DEPENDENCIES.md for packaging boundaries.
+depend on the supplied build. See docs/DEPENDENCIES.md for packaging boundaries. Boost.Multiprecision 1.89 and Boost.Config are distributed under the Boost Software License 1.0; their unmodified license accompanies the package.

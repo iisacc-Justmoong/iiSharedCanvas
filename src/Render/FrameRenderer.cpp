@@ -1,7 +1,10 @@
 #include "Render/FrameRenderDispatch_p.hpp"
 #include "Render/FrameRenderer.h"
 #include "Document/CanvasSampling.h"
+#include "Document/CanvasAffine_p.hpp"
+#include "Document/LinkedAssetResolver.h"
 #include "Bitmap/BitmapProcessing.h"
+#include "Render/LayerStyleEvaluator.h"
 
 #include "Validation/Validation.h"
 
@@ -16,8 +19,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <functional>
 #include <limits>
 #include <map>
+#include <numeric>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -516,6 +521,36 @@ RasterLayer rasterizeVector(const VectorAsset &asset,
     if (std::abs(determinant) <= std::numeric_limits<double>::epsilon()) {
         return result;
     }
+    // Compound paths retain their exact symbolic operands; only this preview
+    // converts curves to the renderer's existing finite sampling geometry.
+    if (asset.shape) {
+        std::vector<std::vector<Contour>> contours;
+        contours.reserve(asset.paths.size());
+        for (const auto &path:asset.paths) contours.push_back(flattenPath(path));
+        const auto evaluate=[&](const auto &self,std::uint32_t index,Point point)->bool {
+            const auto &node=asset.shape->nodes[index];
+            switch (node.kind) {
+            case ShapeExpressionKind::Path: return insideEvenOddFill(contours[node.first],point);
+            case ShapeExpressionKind::Transform: {
+                const auto &t=node.transform; const double det=t.m11*t.m22-t.m21*t.m12;
+                if (!std::isfinite(det) || det==0) return false;
+                const auto local=inverseTransformPoint(t,point);
+                return std::isfinite(local.x) && std::isfinite(local.y) && self(self,node.first,local);
+            }
+            case ShapeExpressionKind::Union: return self(self,node.first,point) || self(self,node.second,point);
+            case ShapeExpressionKind::Subtract: return self(self,node.first,point) && !self(self,node.second,point);
+            case ShapeExpressionKind::Intersect: return self(self,node.first,point) && self(self,node.second,point);
+            case ShapeExpressionKind::ExclusiveOr: return self(self,node.first,point)!=self(self,node.second,point);
+            }
+            return false;
+        };
+        paintCoverage(result,{0,0,double(outputWidth),double(outputHeight)},
+            opaqueMask ? 0xffffffffU : asset.shape->color,[&](Point point) {
+                const auto local=inverseTransformPoint(transform,point);
+                return std::isfinite(local.x) && std::isfinite(local.y) && evaluate(evaluate,asset.shape->root,local);
+            });
+        return result;
+    }
     if (asset.paths.size() == 1 && fillAlignedRectangle(result, asset.paths.front(), transform, opaqueMask))
         return result;
 
@@ -808,11 +843,24 @@ double artboardCoverage(CanvasRegion clip, const FrameRenderTileRequest &request
         * std::clamp((std::min(top + dy, bottom) - std::max(top, double(clip.origin.y))) / dy, 0.0, 1.0);
 }
 
-void clipToArtboard(RasterLayer &pixels, CanvasRegion clip, const FrameRenderTileRequest &request)
+void clipToArtboard(RasterLayer &pixels, const Artboard &board, const FrameRenderTileRequest &request)
 {
     for (int y = 0; y < pixels.height; ++y) for (int x = 0; x < pixels.width; ++x) {
         auto &pixel = pixels.pixels[pixelIndex(pixels.width, x, y)];
-        const auto alpha = std::uint32_t(std::lround((pixel >> 24) * artboardCoverage(clip, request, x, y)));
+        double coverage=0;
+        if (!board.geometry) coverage=artboardCoverage(board.region,request,x,y);
+        else {
+            // Fixed sample grid gives stable edge antialiasing in output pixel space.
+            constexpr int grid=4;
+            for (int sy=0;sy<grid;++sy) for (int sx=0;sx<grid;++sx) {
+                const Point world{request.region.origin.x+(x+(sx+0.5)/grid)*request.region.extent.width/request.outputExtent.width,
+                                  request.region.origin.y+(y+(sy+0.5)/grid)*request.region.extent.height/request.outputExtent.height};
+                const auto local=inverseTransformPoint(board.geometry->transform,world);
+                if (local.x>=0 && local.y>=0 && local.x<board.geometry->extent.width && local.y<board.geometry->extent.height)
+                    coverage+=1.0/(grid*grid);
+            }
+        }
+        const auto alpha = std::uint32_t(std::lround((pixel >> 24) * coverage));
         pixel = alpha ? ((pixel & 0x00ffffffU) | (alpha << 24)) : 0;
     }
 }
@@ -967,8 +1015,9 @@ std::optional<PreparedMask> prepareMask(const Document &document, const std::opt
     p.outside = mask->outsideCoverage; p.density = mask->density; p.inverted = mask->inverted;
     p.transform = mask->linkedToLayer ? concatenate(sampled.transform, mask->transform) : mask->transform;
     if (!mask->linkedToLayer && properties.artboardId) {
-        const auto &origin = findArtboard(document, *properties.artboardId)->region.origin;
-        p.transform.translationX += origin.x; p.transform.translationY += origin.y;
+        const auto &board = *findArtboard(document, *properties.artboardId);
+        if (board.geometry) p.transform=concatenate(board.geometry->transform,p.transform);
+        else { p.transform.translationX += board.region.origin.x; p.transform.translationY += board.region.origin.y; }
     }
     const auto *asset = findAsset(document, mask->assetId);
     if (const auto *bitmap = std::get_if<RasterAsset>(asset)) {
@@ -1226,7 +1275,8 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
     FrameIndex frame,
     std::size_t layerIndex,
     const std::vector<FrameRenderTileRequest> &requests,
-    const PreparedOverlays *overlays = nullptr)
+    const PreparedOverlays *overlays = nullptr,
+    bool applyStyles = true)
 {
     const iiSharedCanvas::Layer &documentLayer = document.layers[layerIndex];
     const LayerProperties &properties = layerProperties(documentLayer);
@@ -1270,6 +1320,114 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
 
     const auto *videoLayer = std::get_if<VideoLayer>(&documentLayer);
     const auto *videoFrame = videoLayer ? resolveVideoFrameAt(document, *videoLayer, frame) : nullptr;
+    std::optional<FrameRenderResult> linkedFrame;
+    std::optional<RasterLayer> procedural;
+    auto contentSampled = sampled;
+    if (const auto *fill = std::get_if<FillLayerContent>(asset)) {
+        if (fill->kind == FillLayerKind::Solid) {
+            procedural = makeRasterLayer(fill->extent.width,fill->extent.height,fill->color);
+        } else if (fill->kind == FillLayerKind::Pattern) {
+            const auto *patternAsset=findAsset(document,fill->patternAssetId);
+            const auto *pattern=patternAsset ? std::get_if<RasterAsset>(patternAsset) : nullptr;
+            if (!pattern) {
+                result.status=FrameRenderStatus::AssetResolutionFailed;
+                result.message="fill pattern was not found"; return result;
+            }
+            procedural=makeRasterLayer(fill->extent.width,fill->extent.height);
+            const RasterSource patternSource{&pattern->pixels,pattern->pixels.width,pattern->pixels.height,
+                                             overlays ? overlays->get(patternAsset) : nullptr};
+            const auto wrap=[](double value,int size) {
+                double remainder=std::fmod(std::floor(value),double(size));
+                if (remainder<0) remainder+=size;
+                return static_cast<int>(remainder);
+            };
+            for (int y=0;y<fill->extent.height;++y) for (int x=0;x<fill->extent.width;++x) {
+                const int sx=wrap(x+.5-fill->patternOrigin.x,pattern->pixels.width);
+                const int sy=wrap(y+.5-fill->patternOrigin.y,pattern->pixels.height);
+                procedural->pixels[pixelIndex(fill->extent.width,x,y)]=patternSource.pixel(sx,sy);
+            }
+        } else {
+            GradientDefinition gradient; gradient.start=fill->start; gradient.end=fill->end;
+            gradient.kind=fill->kind==FillLayerKind::LinearGradient ? GradientKind::Linear : GradientKind::Radial;
+            gradient.spread=fill->spread==FillGradientSpread::Pad ? GradientSpread::Pad : GradientSpread::Repeat;
+            for (const auto &stop:fill->stops) gradient.stops.push_back({stop.position,stop.argb});
+            auto made=gradientRaster(fill->extent,gradient);
+            if (!made.ok()) { result.status=FrameRenderStatus::AssetResolutionFailed; result.message=std::move(made.error); return result; }
+            procedural=std::move(made.pixels);
+        }
+        videoFrame=&*procedural;
+    } else if (const auto *adjustment=std::get_if<AdjustmentLayerContent>(asset)) {
+        procedural=makeRasterLayer(adjustment->extent.width,adjustment->extent.height,0xffffffffU);
+        videoFrame=&*procedural;
+        result.adjustment=adjustment->adjustment;
+    }
+    if (applyStyles && !appearance.styles.effects.empty()) {
+        if (result.adjustment) {
+            result.status=FrameRenderStatus::InvalidDocument;
+            result.message="adjustment layer styles require backdrop-aware evaluation"; return result;
+        }
+        // Keep the padded request on exactly the same sampling grid as the
+        // original. This preserves the convolution halo at tile boundaries.
+        for (const auto &request:requests) {
+            const double sx=double(request.outputExtent.width)/request.region.extent.width;
+            const double sy=double(request.outputExtent.height)/request.region.extent.height;
+            double haloX=0,haloY=0;
+            for (const auto &effect:appearance.styles.effects) if (effect.enabled) {
+                haloX=std::max(haloX,(3*effect.radius+std::abs(effect.offsetX))*sx+2);
+                haloY=std::max(haloY,(3*effect.radius+std::abs(effect.offsetY))*sy+2);
+            }
+            if (!std::isfinite(haloX) || !std::isfinite(haloY) || haloX>2048 || haloY>2048) {
+                result.status=FrameRenderStatus::InvalidRegion; result.message="style halo exceeds evaluation budget"; return result;
+            }
+            const auto padding=[](int world,int output,double halo) {
+                const auto divisor=std::gcd(world,output);
+                const std::int64_t outUnit=output/divisor,worldUnit=world/divisor;
+                const auto steps=static_cast<std::int64_t>(std::ceil(halo/outUnit));
+                return std::pair{steps*worldUnit,steps*outUnit};
+            };
+            const auto [wx,px]=padding(request.region.extent.width,request.outputExtent.width,haloX);
+            const auto [wy,py]=padding(request.region.extent.height,request.outputExtent.height,haloY);
+            const std::int64_t x=std::int64_t(request.region.origin.x)-wx,y=std::int64_t(request.region.origin.y)-wy;
+            const std::int64_t w=std::int64_t(request.region.extent.width)+2*wx,h=std::int64_t(request.region.extent.height)+2*wy;
+            const std::int64_t ow=std::int64_t(request.outputExtent.width)+2*px,oh=std::int64_t(request.outputExtent.height)+2*py;
+            if (x<std::numeric_limits<std::int32_t>::min() || y<std::numeric_limits<std::int32_t>::min() ||
+                x+w>std::numeric_limits<std::int32_t>::max() || y+h>std::numeric_limits<std::int32_t>::max() ||
+                w>std::numeric_limits<std::int32_t>::max() || h>std::numeric_limits<std::int32_t>::max() ||
+                ow>16777216 || oh>16777216 || ow*oh>16777216) {
+                result.status=FrameRenderStatus::InvalidRegion; result.message="padded style region exceeds evaluation budget"; return result;
+            }
+            FrameRenderTileRequest padded{{{static_cast<int>(x),static_cast<int>(y)},
+                {static_cast<int>(w),static_cast<int>(h)}},{static_cast<int>(ow),static_cast<int>(oh)},request.sampling};
+            auto base=renderValidatedFrameLayerTiles(document,frame,layerIndex,{padded},overlays,false);
+            if (!base.ok() || base.tiles.empty()) {
+                result.status=base.ok()?FrameRenderStatus::AssetResolutionFailed:base.status;
+                result.message=base.ok()?"style source did not produce a tile":std::move(base.message); return result;
+            }
+            auto styled=LayerStyleEvaluator{}(base.tiles[0].pixels,appearance.styles,appearance.fillOpacity,sx,sy);
+            if (!styled.ok()) { result.status=FrameRenderStatus::AssetResolutionFailed; result.message=std::move(styled.error); return result; }
+            auto cropped=makeRasterLayer(request.outputExtent.width,request.outputExtent.height);
+            for (int row=0;row<request.outputExtent.height;++row)
+                std::copy_n(styled.pixels.pixels.begin()+(py+row)*ow+px,request.outputExtent.width,
+                            cropped.pixels.begin()+std::size_t(row)*request.outputExtent.width);
+            if (properties.artboardId) clipToArtboard(cropped,*findArtboard(document,*properties.artboardId),request);
+            result.tiles.push_back({request.region,std::move(cropped)});
+        }
+        result.fillOpacity=1;
+        return result;
+    }
+    if (const auto *linked = std::get_if<LinkedCanvasAsset>(asset)) {
+        linkedFrame = LinkedAssetResolver::resolve(*linked);
+        if (!linkedFrame->ok()) {
+            result.status = FrameRenderStatus::AssetResolutionFailed;
+            result.message = linkedFrame->message;
+            return result;
+        }
+        // The child's output raster begins at its document-local origin.
+        auto &t = contentSampled.transform;
+        t.translationX += t.m11 * linkedFrame->origin.x + t.m21 * linkedFrame->origin.y;
+        t.translationY += t.m12 * linkedFrame->origin.x + t.m22 * linkedFrame->origin.y;
+        videoFrame = &linkedFrame->pixels;
+    }
     const auto *overlay = overlays ? overlays->get(asset) : nullptr;
     MaskTileCache maskCache;
     std::size_t maskId=0;
@@ -1312,12 +1470,12 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
     for (const FrameRenderTileRequest &request : requests) {
         FrameRenderResult tile = renderLayerRegion(document,
                                                    *asset,
-                                                   sampled,
+                                                   contentSampled,
                                                    request.region,
                                                    request.outputExtent,
                                                    videoFrame, request.sampling, overlay);
         if (filtered) {
-            auto processed = renderLayerRegion(document,*asset,sampled,request.region,request.outputExtent,&*filtered,request.sampling,nullptr);
+            auto processed = renderLayerRegion(document,*asset,contentSampled,request.region,request.outputExtent,&*filtered,request.sampling,nullptr);
             if (filterMask) {
                 RasterMask coverage{request.outputExtent,{}}; coverage.alpha.resize(tile.pixels.pixels.size());
                 for (int y = 0; y < request.outputExtent.height; ++y) for (int x = 0; x < request.outputExtent.width; ++x)
@@ -1364,7 +1522,7 @@ FrameLayerTileRenderResult renderValidatedFrameLayerTiles(
             }
         }
         if (properties.artboardId)
-            clipToArtboard(tile.pixels, findArtboard(document, *properties.artboardId)->region, request);
+            clipToArtboard(tile.pixels, *findArtboard(document, *properties.artboardId), request);
         result.tiles.push_back({request.region, std::move(tile.pixels)});
     }
     return result;
@@ -1474,6 +1632,7 @@ FrameLayerBatchRenderResult preflightFrameLayerRender(
     FrameLayerBatchRenderResult result;
     result.requests = requests;
     result.artboards = document.artboards;
+    result.groups = document.relations.groups;
     return result;
 }
 
@@ -1506,6 +1665,26 @@ FrameRenderResult renderFrame(const Document &document, FrameIndex frame,
     result.origin = view.origin;
     result.pixels = std::move(tiles.tiles.front().pixels);
     return result;
+}
+
+std::optional<CanvasExtent> displayPixelExtent(CanvasExtent extent,DocumentPixelAspectRatio aspect,
+    std::size_t maximumPixels) noexcept
+{
+    if (extent.width<=0 || extent.height<=0 || !aspect.numerator || !aspect.denominator) return std::nullopt;
+    const auto scaled=std::uint64_t(extent.width)*aspect.numerator;
+    const auto width=std::max<std::uint64_t>(1,(scaled+aspect.denominator/2)/aspect.denominator);
+    if (width>std::uint64_t(std::numeric_limits<std::int32_t>::max()) ||
+        width>maximumPixels/std::uint64_t(extent.height)) return std::nullopt;
+    return CanvasExtent{static_cast<std::int32_t>(width),extent.height};
+}
+FrameRenderResult renderDisplayFrame(const Document &document,FrameIndex frame,
+    RasterSampling sampling,std::size_t maximumPixels)
+{
+    const auto view=documentViewRegion(document);
+    const auto output=displayPixelExtent(view.extent,document.pixelAspectRatio,maximumPixels);
+    if (!output)
+        return errorResult(FrameRenderStatus::InvalidRegion,"display extent exceeds its output budget");
+    return renderFrameRegion(document,frame,view,*output,sampling);
 }
 
 FrameRenderResult renderArtboard(const Document &document, FrameIndex frame, const std::string &id)
@@ -1549,6 +1728,7 @@ FrameRenderResult renderArtboardRegion(const Document &document, FrameIndex fram
     FrameLayerBatchRenderResult batch;
     batch.requests = requests;
     batch.artboards = {*a};
+    batch.groups = document.relations.groups;
     batch.layers.reserve(document.layers.size());
     for (std::size_t index = 0; index < document.layers.size(); ++index) {
         if (layerProperties(document.layers[index]).artboardId == id) {
@@ -1707,21 +1887,34 @@ static FrameTileRenderResult composeFrameLayersImpl(
             || std::int64_t(a.region.origin.x) + a.region.extent.width > std::numeric_limits<std::int32_t>::max()
             || std::int64_t(a.region.origin.y) + a.region.extent.height > std::numeric_limits<std::int32_t>::max())
             return {{}, FrameRenderStatus::InvalidDocument, "artboard composition metadata is invalid"};
+        if (a.geometry) {
+            const auto bounds=canvas_affine_detail::bounds({{},a.geometry->extent},a.geometry->transform);
+            if (!bounds || bounds->origin.x<a.region.origin.x || bounds->origin.y<a.region.origin.y ||
+                std::int64_t(bounds->origin.x)+bounds->extent.width>std::int64_t(a.region.origin.x)+a.region.extent.width ||
+                std::int64_t(bounds->origin.y)+bounds->extent.height>std::int64_t(a.region.origin.y)+a.region.extent.height)
+                return {{},FrameRenderStatus::InvalidDocument,"oriented artboard composition metadata is invalid"};
+        }
     }
 
     std::unordered_set<std::string> clippingBases;
+    std::unordered_map<std::string,bool> adjustmentBases;
     for (const auto &layer : layers.layers) {
         if (!std::isfinite(layer.opacity) || layer.opacity < 0 || layer.opacity > 1
             || !std::isfinite(layer.fillOpacity) || layer.fillOpacity < 0 || layer.fillOpacity > 1
             || layer.blendMode == RasterBlendMode::DestinationOut
             || static_cast<unsigned>(layer.blendMode) > static_cast<unsigned>(RasterBlendMode::Dissolve)
-            || !validBlendIf(layer.blendIf))
+            || !validBlendIf(layer.blendIf) ||
+            (layer.adjustment && (!validateColorAdjustment(*layer.adjustment).empty() || layer.clippedToBelow ||
+                                  layer.blendMode!=RasterBlendMode::SourceOver || layer.blendIf)))
             return {{}, FrameRenderStatus::InvalidDocument, "layer composition parameters are invalid"};
         if (layer.role == LayerRole::Artwork) {
-            const auto scope = layer.artboardId ? "artboard:" + *layer.artboardId : "world:";
+            const auto scope = (layer.artboardId ? "artboard:" + *layer.artboardId : "world:")
+                + "\n" + std::string(layers.groups.groupOf(layer.layerId));
             if (layer.clippedToBelow && !clippingBases.contains(scope))
                 return {{}, FrameRenderStatus::InvalidDocument, "clipped layer has no base in its composition"};
-            if (!layer.clippedToBelow) clippingBases.insert(scope);
+            if (layer.clippedToBelow && adjustmentBases[scope])
+                return {{}, FrameRenderStatus::InvalidDocument, "adjustment layers cannot be clipping bases"};
+            if (!layer.clippedToBelow) { clippingBases.insert(scope); adjustmentBases[scope]=layer.adjustment.has_value(); }
         }
         if (layer.artboardId && std::none_of(layers.artboards.begin(), layers.artboards.end(),
             [&](const Artboard &a) { return a.id == *layer.artboardId; }))
@@ -1751,12 +1944,12 @@ static FrameTileRenderResult composeFrameLayersImpl(
     // A normal, unmasked bottom layer over transparent black is already the
     // correct starting surface. Only consume owned render results, and keep a
     // clipped group intact because it needs the unmodified base as a mask.
-    bool adoptBase = owned && layers.artboards.empty() && !layers.layers.empty();
+    bool adoptBase = owned && layers.artboards.empty() && layers.groups.groups().empty() && !layers.layers.empty();
     if (adoptBase) {
         const auto &base = layers.layers.front();
         adoptBase = base.visible && base.spatial && base.role == LayerRole::Artwork &&
             !base.artboardId && !base.clippedToBelow && !base.blendIf &&
-            base.opacity == 1 && base.fillOpacity == 1 && base.blendMode == RasterBlendMode::SourceOver;
+            base.opacity == 1 && base.fillOpacity == 1 && base.blendMode == RasterBlendMode::SourceOver && !base.adjustment;
         if (adoptBase) for (std::size_t i = 1; i < layers.layers.size(); ++i) {
             const auto &next = layers.layers[i];
             if (next.role == LayerRole::Artwork && !next.artboardId) {
@@ -1794,15 +1987,110 @@ static FrameTileRenderResult composeFrameLayersImpl(
 
         }
 
+        std::string compositionError;
+        const auto applyAdjustment = [&](RasterLayer &target,const FrameLayerTileRenderResult &layer) {
+            auto adjusted=adjustRaster(target,*layer.adjustment);
+            if (!adjusted.ok()) { compositionError=std::move(adjusted.error); return; }
+            RasterMask coverage{request.outputExtent,{}};
+            const auto &pixels=layer.tiles[requestIndex].pixels.pixels;
+            coverage.alpha.reserve(pixels.size());
+            for (auto pixel:pixels)
+                coverage.alpha.push_back(static_cast<std::uint8_t>(std::lround((pixel>>24)*layer.opacity*layer.fillOpacity)));
+            auto blended=blendRaster(target,adjusted.pixels,coverage);
+            if (!blended.ok()) { compositionError=std::move(blended.error); return; }
+            target=std::move(blended.pixels);
+        };
         const auto appendContent = [&](const std::optional<std::string> &id, RasterLayer &destination) {
             std::vector<const FrameLayerTileRenderResult *> content;
             for (const auto &layer : layers.layers) {
                 if (layer.role == LayerRole::Artwork && layer.artboardId == id) content.push_back(&layer);
             }
+            if (!layers.groups.groups().empty()) {
+                // Build an ordered tree from the already validated flat layer
+                // order. Indices stay stable when the vector reallocates.
+                struct Node {
+                    const LayerGroup *group=nullptr;
+                    const FrameLayerTileRenderResult *layer=nullptr;
+                    std::vector<std::size_t> children;
+                };
+                std::vector<Node> nodes(1);
+                nodes.reserve(1+content.size()+layers.groups.groups().size());
+                std::unordered_map<std::string_view,std::size_t> groupNodes;
+                for (const auto *layer:content) {
+                    std::vector<const LayerGroup *> path;
+                    auto groupId=layers.groups.groupOf(layer->layerId);
+                    while (!groupId.empty()) {
+                        const auto *group=layers.groups.find(groupId);
+                        if (!group || path.size()>layers.groups.groups().size()) break;
+                        path.push_back(group); groupId=group->parentId;
+                    }
+                    std::size_t parent=0;
+                    for (auto group=path.rbegin();group!=path.rend();++group) {
+                        auto found=groupNodes.find((*group)->id);
+                        if (found==groupNodes.end()) {
+                            const auto index=nodes.size(); nodes.push_back(Node{*group,nullptr,{}});
+                            nodes[parent].children.push_back(index); groupNodes.emplace((*group)->id,index);
+                            parent=index;
+                        } else parent=found->second;
+                    }
+                    const auto index=nodes.size(); nodes.push_back(Node{nullptr,layer,{}});
+                    nodes[parent].children.push_back(index);
+                }
+                std::function<void(std::size_t,RasterLayer &)> compose = [&](std::size_t index,RasterLayer &target) {
+                    const auto &children=nodes[index].children;
+                    for (std::size_t i=0;i<children.size();) {
+                        const auto &node=nodes[children[i]];
+                        if (node.group) {
+                            if (node.group->visible) {
+                                if (node.group->mode==LayerGroupMode::PassThrough) compose(children[i],target);
+                                else {
+                                    auto isolated=makeRasterLayer(request.outputExtent.width,request.outputExtent.height,0);
+                                    compose(children[i],isolated);
+                                    FrameLayerTileRenderResult normal;
+                                    compositeTile(target,isolated,normal,request,1);
+                                }
+                            }
+                            ++i; continue;
+                        }
+                        const auto &base=*node.layer;
+                        if (base.clippedToBelow) { ++i; continue; }
+                        if (base.adjustment) { if (base.visible) applyAdjustment(target,base); ++i; continue; }
+                        std::size_t end=i+1;
+                        while (end<children.size() && nodes[children[end]].layer && nodes[children[end]].layer->clippedToBelow) ++end;
+                        if (base.visible) {
+                            const auto &pixels=base.tiles[requestIndex].pixels;
+                            if (end==i+1) compositeTile(target,pixels,base,request,base.opacity*base.fillOpacity);
+                            else if (base.blendClippedAsGroup) {
+                                auto clipped=pixels;
+                                for (auto &p:clipped.pixels) {
+                                    const auto alpha=std::uint32_t(std::lround((p>>24)*base.fillOpacity));
+                                    p=alpha ? (alpha<<24)|(p&0x00ffffffU) : 0;
+                                }
+                                for (auto child=i+1;child<end;++child) {
+                                    const auto &part=*nodes[children[child]].layer;
+                                    if (part.visible) compositeTile(clipped,part.tiles[requestIndex].pixels,part,request,part.opacity*part.fillOpacity,true);
+                                }
+                                compositeTile(target,clipped,base,request,base.opacity);
+                            } else {
+                                compositeTile(target,pixels,base,request,base.opacity*base.fillOpacity);
+                                for (auto child=i+1;child<end;++child) {
+                                    const auto &part=*nodes[children[child]].layer;
+                                    if (part.visible) compositeTile(target,part.tiles[requestIndex].pixels,part,request,
+                                        part.opacity*part.fillOpacity*base.opacity*base.fillOpacity,false,&pixels);
+                                }
+                            }
+                        }
+                        i=end;
+                    }
+                };
+                compose(0,destination);
+                return;
+            }
             for (std::size_t i = 0; i < content.size();) {
                 const auto &base = *content[i];
                 if (adoptBase && &base == &layers.layers.front()) { ++i; continue; }
                 if (base.clippedToBelow) { ++i; continue; }
+                if (base.adjustment) { if (base.visible) applyAdjustment(destination,base); ++i; continue; }
                 std::size_t end = i+1;
                 while (end < content.size() && content[end]->clippedToBelow) ++end;
                 if (base.visible) {
@@ -1843,11 +2131,12 @@ static FrameTileRenderResult composeFrameLayersImpl(
         for (const auto &a : layers.artboards) {
             if (!a.visible) continue;
             auto group = makeRasterLayer(request.outputExtent.width,request.outputExtent.height,a.backgroundArgb);
-            clipToArtboard(group,a.region,request); appendContent(a.id,group);
+            clipToArtboard(group,a,request); appendContent(a.id,group);
             FrameLayerTileRenderResult metadata;
             compositeTile(composed,group,metadata,request,1);
         }
         appendContent(std::nullopt,composed);
+        if (!compositionError.empty()) return {{},FrameRenderStatus::AssetResolutionFailed,std::move(compositionError)};
 
         result.tiles.push_back({
             request.region,

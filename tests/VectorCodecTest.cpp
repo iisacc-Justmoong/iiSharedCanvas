@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QImageReader>
+#include <QRegularExpression>
 #include <QTemporaryDir>
 
 #include <cmath>
@@ -158,6 +159,17 @@ int main(int argc, char **argv)
     expect(pdf.open(QIODevice::ReadOnly) && pdf.peek(8).startsWith("%PDF-"), "real PDF signature");
     const auto pdfData = pdf.readAll();
     expect(!pdfData.contains("/Subtype /Image"), "pure vector PDF must not be a flattened bitmap");
+    auto aspectDocument=document; aspectDocument.pixelAspectRatio={2,1};
+    const auto aspectPath=directory.filePath("aspect.pdf").toStdString();
+    const auto aspectExport=exportPdf(aspectDocument,aspectPath);
+    QFile aspectFile(QString::fromStdString(aspectPath));
+    const bool aspectOpened=aspectFile.open(QIODevice::ReadOnly);
+    const QString aspectBytes=QString::fromLatin1(aspectFile.readAll());
+    const QRegularExpression box(R"(/MediaBox\s*\[\s*0\s+0\s+([0-9.]+)\s+([0-9.]+)\s*\])");
+    const auto match=box.match(aspectBytes);
+    expect(aspectExport.ok() && aspectOpened && match.hasMatch() &&
+           std::abs(match.captured(1).toDouble()-120)<0.1 && std::abs(match.captured(2).toDouble()-45)<0.1,
+           "PDF physical page geometry reflects nonsquare document pixels");
     RasterizedVectorImportOptions rasterOptions;
     rasterOptions.outputExtent = {80, 60};
     auto invalidRasterOptions = rasterOptions;

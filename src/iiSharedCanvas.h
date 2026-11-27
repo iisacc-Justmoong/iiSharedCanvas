@@ -31,6 +31,8 @@
 #include "Timeline/TimelineEditor.h"
 #include "Timeline/TimelineInterchange.h"
 #include "Timeline/TimelineProject.h"
+#include "Timeline/SequencePlanning.h"
+#include "Timeline/FrameMatching.h"
 #include "Validation/Validation.h"
 #include "Vector/VectorEditor.h"
 #include "Vector/VectorCodec.h"

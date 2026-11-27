@@ -1,0 +1,283 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:1ddba1b6551bfe0cce351ce3e4f3d49372ec84c38aab329b5f019bcd6d57f9b0",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/LAYER_EDIT_OPERATIONS.md",
+    "sha256": "e3e050b8276f8a3d6104b282b43e7a1480d420790bc8565c92ba206a1a691493",
+    "bytes": 4895,
+    "line_count": 66,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "레이어 편집 연산 명세",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 레이어 편집 연산 명세\n",
+      "level": 1,
+      "title": "레이어 편집 연산 명세"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "상태: 네이티브 C++와 Python에서 제공하는 계약이다. 현재 저장 형식은 IISC 1.29, 패키지 ABI는 0.40이다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## 순서·정렬·분포\n",
+      "level": 2,
+      "title": "순서·정렬·분포"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 10,
+      "raw": "레이어 순서는 아래에서 위이다. `LayerArrangementPlanner`는 각 직계 그룹 안에서\n선택한 레이어의 상대 순서를 보존하며 한 단계 또는 맨 위·아래로 이동한다.\n여러 그룹의 선택은 각각 처리하며 자식 그룹 전체는 하나의 연속된 묶음이다.\n유효하지 않은 ID·중복·잠금·관계 위반은 거부하며 문서를 변경하지 않는다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 12,
+      "end_line": 17,
+      "raw": "`LayerAlignmentSolver`는 호출자가 계산한 문서 좌표 경계와 명시적인 기준\n경계에서 왼쪽·가운데·오른쪽 또는 위·중간·아래의 이동량을 계산한다.\n`LayerDistributionSolver`는 입력 경계의 양 끝을 고정하고 중심 또는 빈 간격을\n균등하게 나누는 이동량을 계산한다. 경계가 같으면 입력 순서를 보존한다.\n원본 픽셀과 곡선은 변경하지 않으며 레이어 변환 적용과 이력 기록은 외부\n제어기가 담당한다. 입력 좌표·폭·높이가 유한하지 않거나 잘못된 경우 거부한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "heading",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "## 정확한 도형 결합\n",
+      "level": 2,
+      "title": "정확한 도형 결합"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 26,
+      "raw": "`ShapeCombinationPlan`은 채워진 벡터 도형의 합집합·차집합·교집합·배타적\n차집합을 표현한다. 사용자 결정에 따라 교차점의 부동소수점 근사나 곡선의\n다각형 근사를 영구 결과로 저장하지 않는다. 원본 2차·3차 베지어와 각\n좌표계 변환 및 결합 연산식을 문서가 소유하는 벡터 복합 도형으로 보존한다.\n결합 결과를 편집할 때는 보존된 피연산자의 곡선을 편집한다. 표시용 래스터\n샘플은 픽셀 격자에 대한 유한 해상도 미리보기이며 원본 연산식이 아니다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "heading",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "## 병합·평탄화\n",
+      "level": 2,
+      "title": "병합·평탄화"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 30,
+      "end_line": 35,
+      "raw": "`LayerMergeTransaction`은 선택된 레이어를 합성한 래스터 레이어로 교체한다.\n선택 사이의 다른 레이어, 외부 배경에 의존하는 혼합·조정, 그룹 또는 아트보드\n관계 때문에 원래 합성을 보존할 수 없으면 변경 없이 실패한다. 숨겨진 레이어는\n합성에 포함하지 않는다. `DocumentFlattenTransaction`은 문서의 보이는 합성을\n하나의 래스터 레이어로 바꾸고 숨겨진 레이어도 제거한다. 두 작업은 타임라인의\n모든 프레임을 보존하며 오디오는 유지하고 전체 작업을 하나의 Undo/Redo로 기록한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 40,
+      "raw": "외부 제어기가 원본 선택, 프레임 렌더링, 계획 실행과 문서 이력 적용의 순서 및\n데이터 소유권을 관리한다. 잠금, 파일 리비전 충돌, 잘못된 입력, 실패 또는 이력\n예산 초과는 문서와 Undo/Redo 커서를 바꾸지 않는다. 프레임별 결과 및 경계 조건을\n검증하지 않은 상태를 성공으로 보고하지 않는다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 41,
+      "end_line": 41,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 42,
+      "end_line": 45,
+      "raw": "그룹에 속하지 않은 레이어는 루트 그룹의 순서를 따르며, 자식 그룹을 건널 때는\n그 그룹의 모든 자손이 함께 이동한다. 클리핑 기준을 위반하는 결과는 거부한다.\n정렬과 분포는 호출자가 공급한 문서 좌표 경계를 사용하며 계산된 이동량을\n`DocumentHistory::translateLayers`로 한 번에 적용한다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 47,
+      "end_line": 50,
+      "raw": "복합 도형의 각 피연산자는 채워진 폐곡선이며 스트로크는 지원하지 않는다.\n원본 경로 또는 원본 변환의 이진 입력값과 연산식은 손실 없이 저장하지만\n화면과 래스터 내보내기는 유한 해상도의 샘플이다. SVG·PDF·PSD 및 타임라인\n교환에서 이 표현을 보존할 수 없을 때는 조용히 단순화하지 않고 실패한다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 52,
+      "end_line": 56,
+      "raw": "일반 C++ 호출에는 `prepareVerifiedLayerMerge`를 사용한다. 외부 제어기가\n선택 영역을 렌더링하고 분리된 후보 문서를 만들어 모든 프레임의 실제\n변경 전후 픽셀을 비교한다. `LayerMergeTransaction`에 프레임 증거를 직접\n전달하는 저수준 호출은 그 값이 실제 렌더링임을 호출자가 보장해야 한다.\n임시 메모리는 문서와 전체 프레임 크기에 비례할 수 있다.\n"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 57,
+      "end_line": 57,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 58,
+      "end_line": 61,
+      "raw": "병합은 같은 직접 그룹과 아트보드의 연속된 일반 아트워크만 받으며,\n클리핑·배경 의존 혼합·조정 레이어는 거부한다. 문서의 전체 보기 영역이\n캔버스에 들어가지 않는 경우 병합과 평탄화를 거부한다. 제거된 레이어만\n참조하던 자산은 삭제하고 공유 자산은 남긴다. Undo는 원본 자산을 복원한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 62,
+      "end_line": 62,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 63,
+      "end_line": 66,
+      "raw": "Python `CanvasDocument`는 `arrange_layers`, `align_layers`, `distribute_layers`,\n`put_vector`, `combine_shapes`, `vector_command`, `edit_vector_command`,\n`merge_layers`, `flatten`을 제공한다. 계획의 사용 기간 동안 문서가 바뀌면\n리비전 충돌로 거부하며, 공유 데이터와 호출 순서는 외부에서 통제한다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "레이어 편집 연산 명세",
+      "anchor": "레이어-편집-연산-명세",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "순서·정렬·분포",
+      "anchor": "순서정렬분포",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000011",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "정확한 도형 결합",
+      "anchor": "정확한-도형-결합",
+      "start_line": 19
+    },
+    {
+      "block_id": "b000015",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "병합·평탄화",
+      "anchor": "병합평탄화",
+      "start_line": 28
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0-compatible",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

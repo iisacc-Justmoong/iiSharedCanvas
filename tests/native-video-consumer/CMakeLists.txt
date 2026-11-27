@@ -26,15 +26,16 @@ add_executable(frame-decoder ../NativeVideoFrameDecoderTest.cpp)
 target_link_libraries(frame-decoder PRIVATE iiSharedCanvas::Native)
 add_executable(visual-video-decoder ../NativeVisualVideoDecoderTest.cpp
     ../../example/VisualCodecVideoDecoder.cpp)
-target_include_directories(visual-video-decoder PRIVATE ../../example)
+target_include_directories(visual-video-decoder PRIVATE ../../example ../../third_party/boost_multiprecision/include)
 target_link_libraries(visual-video-decoder PRIVATE iiSharedCanvas::Native iiVisualCodec::Video)
 target_compile_definitions(visual-video-decoder PRIVATE
-    IISHAREDCANVAS_VISUAL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../../iiVisualCodec/resources/video")
+    IISHAREDCANVAS_VISUAL_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../../../iiVisualCodec/resources/video" BOOST_MP_STANDALONE=1)
 add_executable(frame-encoder ../NativeVideoFrameEncoderTest.cpp)
 target_link_libraries(frame-encoder PRIVATE iiSharedCanvas::Native)
 add_executable(visual-video-encoder ../NativeVisualVideoEncoderTest.cpp
     ../../example/VisualCodecVideoEncoder.cpp ../../example/VisualCodecVideoDecoder.cpp)
-target_include_directories(visual-video-encoder PRIVATE ../../example)
+target_include_directories(visual-video-encoder PRIVATE ../../example ../../third_party/boost_multiprecision/include)
+target_compile_definitions(visual-video-encoder PRIVATE BOOST_MP_STANDALONE=1)
 target_link_libraries(visual-video-encoder PRIVATE iiSharedCanvas::Native iiVisualCodec::Video)
 
 enable_testing()

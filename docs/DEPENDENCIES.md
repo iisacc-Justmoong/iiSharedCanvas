@@ -17,7 +17,7 @@ interface to observe transaction entry without changing file locking behavior.
 ## macOS 릴리스 호환성(2026-09-09)
 
 부동 소수점 메타데이터 변환 사용
-[fast_float   8.2.10](https://github.com/fastfloat/fast_float/releases/tag/v8.2.10), 2026-06-14에 출시되었습니다. MIT 라이선스가 상위 공급 측 라이선스 옵션에서 선택됩니다. 비밀이고 수정되지 않은 177,375바이트 단일 헤더는 별도의 런타임 의존성이 없으며, 공식 릴리스 디지스트는 `third_party/fast_float/UPSTREAM.md` 에 기록되고 공지사항은 SDK 와 함께 설치됩니다. 유지되는 상위 공급 측 는 로케일 독립적인 `from_chars` 의미를 구현합니다. 이는 Qt 없는 도메인 모델을 보존하고 macOS 12를 지원하며, 컴파일러의 libc++ 부동소수점 오버로드가 사용 불가능합니다. 정수 변환은 변경되지 않았습니다. 표준 iostream 변환도 평가되었지만, 현재 libc++ 런타임 에서 표현 가능한 아정수 값을 실패로 나타냅니다. 회귀 사례는 지수/아정수 값, 범위 오류, 잘못된 접미사, 쉼표 십진 로케일 내의 NUL, 그리고 인용된 공백을 포함합니다.
+[fast_float   8.2.10](https://github.com/fastfloat/fast_float/releases/tag/v8.2.10), 2026-06-14에 출시되었습니다. MIT 라이선스가 상위 공급 측 라이선스 옵션에서 선택됩니다. 비밀이고 수정되지 않은 177,375바이트 단일 헤더는 별도의 런타임 의존성이 없으며, 공식 릴리스 디지스트는 `third_party/fast_float/UPSTREAM.md` 에 기록되고 공지사항은 SDK 와 함께 설치됩니다. 유지되는 상위 공급 측 는 로케일 독립적인 `from_chars` 의미를 구현합니다. 이는 Qt 없는 도메인 모델을 보존하고 macOS 12를 지원하며, 컴파일러의 libc++ 부동소수점 오버로드가 사용 불가능합니다. 정수 변환은 변경되지 않았습니다. 표준 iostream 변환도 평가되었지만, 현재 libc++ 런타임 에서 표현 가능한 아정수 값을 실패로 나타냅니다. 회귀 사례는 지수/아정수 값, 범위 오류, 잘못된 접미사, 쉼표 십진 로케일 내의 NUL, 그리고 인용된 공백을 포함합니다. 정확한 시간 맵 계산에는 [Boost.Multiprecision 1.89 독립형](https://github.com/boostorg/multiprecision/releases/tag/Boost_1_89_0)의 헤더와 포함된 Boost.Config를 사용한다. Boost Software License 1.0은 자체 소스 공개를 요구하지 않으며 별도의 런타임 라이브러리는 없다. 배포 패키지에는 원본 라이선스를 포함한다.
 
 macOS 12 릴리스 빌드는 워크스페이스의 기존 고정 소스(커밋 `6f8a0cdd24a0dc6cce9dac4a7679da784ab124ea`) 에서 libzip 1.11.4 를 사용하고, 시스템 zlib 로 정적으로 빌드하며 선택적 압축 백엔드를 비활성화합니다. 시스템 CommonCrypto 백엔드는 활성화되어 있으므로 테스트가 암호화된 ZIP 픽스처 를 생성하고 거부 여부를 확인할 수 있습니다. 이는 기존 암호화되지 않은 저장/ DEFLATE 만 있는 ORA 계약에 부합하며 호스트의 최신 Homebrew 라이브러리에 대한 런타임 의존성을 제거합니다. 생성된 패키지를 `libzip_DIR` 로 전달하고 애플리케이션 번들에 BSD-3 -조항 공지사항을 보존합니다.
 
@@ -118,3 +118,10 @@ iiFileProvider 0.5는 이제 기존 퍼블릭 도메인 SQLite 종속성을 비�
 Bitmap processing adds no dependencies or runtime executables; its operations use C++23 and the existing raster and brush value types.
 
 The 0.30 layer compositor requires iiPaintEngine 0.4.1 for its standard-C++23 blend operations. iiSharedCanvas declares Qt Core/Gui/Qml/Quick explicitly for its existing file-provider, media and GUI adapter boundaries; Qt is no longer inherited from iiPaintEngine. Mask, filter and blend calculations add no Qt or reverse-engineering-project dependency.
+
+## 공통 iiSDKCore 의존성
+
+네이티브와 레거시 Qt 구성은 iiSDKCore 0.18의 `Contracts` 구성요소를
+명시적으로 사용한다. 채널·교환 출력의 로케일 독립 숫자 표현과 공통
+계약을 이 구성요소에서 가져온다. 설치된 CMake 패키지도 동일한
+의존성을 찾으며 네이티브 경로에 Qt 의존성을 추가하지 않는다.

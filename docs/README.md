@@ -5,74 +5,86 @@
 
 Markdown is the maintained human source. Agent JSON is a structured, source-traceable projection.
 
-| Document | Agent JSON |
-| --- | --- |
-| [`AGENT.md`](../AGENT.md) | [JSON](entrypoints/AGENT.agent.json) |
-| [`AGENTS.md`](../AGENTS.md) | [JSON](entrypoints/AGENTS.agent.json) |
-| [`NOTICE.md`](../NOTICE.md) | [JSON](entrypoints/NOTICE.agent.json) |
-| [`README.md`](../README.md) | [JSON](entrypoints/README.agent.json) |
-| [`docs/API.md`](API.md) | [JSON](API.agent.json) |
-| [`docs/ARTBOARDS.md`](ARTBOARDS.md) | [JSON](ARTBOARDS.agent.json) |
-| [`docs/ARTBOARD_PRESENTATION.md`](ARTBOARD_PRESENTATION.md) | [JSON](ARTBOARD_PRESENTATION.agent.json) |
-| [`docs/AUDIO_TIMELINE.md`](AUDIO_TIMELINE.md) | [JSON](AUDIO_TIMELINE.agent.json) |
-| [`docs/BINARY_LINE_CONTROL.md`](BINARY_LINE_CONTROL.md) | [JSON](BINARY_LINE_CONTROL.agent.json) |
-| [`docs/BITMAP_CLOCK.md`](BITMAP_CLOCK.md) | [JSON](BITMAP_CLOCK.agent.json) |
-| [`docs/BITMAP_FILE_REGIONS.md`](BITMAP_FILE_REGIONS.md) | [JSON](BITMAP_FILE_REGIONS.agent.json) |
-| [`docs/BITMAP_HISTORY.md`](BITMAP_HISTORY.md) | [JSON](BITMAP_HISTORY.agent.json) |
-| [`docs/BITMAP_INPUT.md`](BITMAP_INPUT.md) | [JSON](BITMAP_INPUT.agent.json) |
-| [`docs/BITMAP_PROCESSING.md`](BITMAP_PROCESSING.md) | [JSON](BITMAP_PROCESSING.agent.json) |
-| [`docs/BITMAP_WET_BRUSH.md`](BITMAP_WET_BRUSH.md) | [JSON](BITMAP_WET_BRUSH.agent.json) |
-| [`docs/BLUEPRINT.md`](BLUEPRINT.md) | [JSON](BLUEPRINT.agent.json) |
-| [`docs/BUILD_LAYOUT.md`](BUILD_LAYOUT.md) | [JSON](BUILD_LAYOUT.agent.json) |
-| [`docs/BuildComponents.md`](BuildComponents.md) | [JSON](BuildComponents.agent.json) |
-| [`docs/CANVAS_MEDIA.md`](CANVAS_MEDIA.md) | [JSON](CANVAS_MEDIA.agent.json) |
-| [`docs/CONTROLNET_PARAMETERS.md`](CONTROLNET_PARAMETERS.md) | [JSON](CONTROLNET_PARAMETERS.agent.json) |
-| [`docs/DEPENDENCIES.md`](DEPENDENCIES.md) | [JSON](DEPENDENCIES.agent.json) |
-| [`docs/DEPTH.md`](DEPTH.md) | [JSON](DEPTH.agent.json) |
-| [`docs/DOCUMENT_HISTORY.md`](DOCUMENT_HISTORY.md) | [JSON](DOCUMENT_HISTORY.agent.json) |
-| [`docs/DOCUMENT_PREVIEWS.md`](DOCUMENT_PREVIEWS.md) | [JSON](DOCUMENT_PREVIEWS.agent.json) |
-| [`docs/DYNAMIC_FRAME_CONTENT.md`](DYNAMIC_FRAME_CONTENT.md) | [JSON](DYNAMIC_FRAME_CONTENT.agent.json) |
-| [`docs/DynamicLinking.md`](DynamicLinking.md) | [JSON](DynamicLinking.agent.json) |
-| [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md) | [JSON](FILE_PROVIDER.agent.json) |
-| [`docs/FORMAT.md`](FORMAT.md) | [JSON](FORMAT.agent.json) |
-| [`docs/FOUR_LAYER_TYPES.md`](FOUR_LAYER_TYPES.md) | [JSON](FOUR_LAYER_TYPES.agent.json) |
-| [`docs/FRAME_OVERLAY.md`](FRAME_OVERLAY.md) | [JSON](FRAME_OVERLAY.agent.json) |
-| [`docs/GUI_FRAME_PRESENTATION.md`](GUI_FRAME_PRESENTATION.md) | [JSON](GUI_FRAME_PRESENTATION.agent.json) |
-| [`docs/IISC_UPGRADE_CLI.md`](IISC_UPGRADE_CLI.md) | [JSON](IISC_UPGRADE_CLI.agent.json) |
-| [`docs/IP_ADAPTER.md`](IP_ADAPTER.md) | [JSON](IP_ADAPTER.agent.json) |
-| [`docs/LAYERED_IMPORT_CLI.md`](LAYERED_IMPORT_CLI.md) | [JSON](LAYERED_IMPORT_CLI.agent.json) |
-| [`docs/LAYER_COMPOSITING.md`](LAYER_COMPOSITING.md) | [JSON](LAYER_COMPOSITING.agent.json) |
-| [`docs/LAYER_FILE_EDITS.md`](LAYER_FILE_EDITS.md) | [JSON](LAYER_FILE_EDITS.agent.json) |
-| [`docs/LINE_ART.md`](LINE_ART.md) | [JSON](LINE_ART.agent.json) |
-| [`docs/MASK_REGIONS.md`](MASK_REGIONS.md) | [JSON](MASK_REGIONS.agent.json) |
-| [`docs/MEDIA_IO.md`](MEDIA_IO.md) | [JSON](MEDIA_IO.agent.json) |
-| [`docs/MLSD.md`](MLSD.md) | [JSON](MLSD.agent.json) |
-| [`docs/NATIVE.md`](NATIVE.md) | [JSON](NATIVE.agent.json) |
-| [`docs/NORMAL_MAP.md`](NORMAL_MAP.md) | [JSON](NORMAL_MAP.agent.json) |
-| [`docs/OPENRASTER_IMPORT.md`](OPENRASTER_IMPORT.md) | [JSON](OPENRASTER_IMPORT.agent.json) |
-| [`docs/PERSISTENCE.md`](PERSISTENCE.md) | [JSON](PERSISTENCE.agent.json) |
-| [`docs/PHOTOSHOP_LAYER_COMPARISON.md`](PHOTOSHOP_LAYER_COMPARISON.md) | [JSON](PHOTOSHOP_LAYER_COMPARISON.agent.json) |
-| [`docs/PIXEL_PREVIEW.md`](PIXEL_PREVIEW.md) | [JSON](PIXEL_PREVIEW.agent.json) |
-| [`docs/POSE.md`](POSE.md) | [JSON](POSE.agent.json) |
-| [`docs/PSD_EXPORT.md`](PSD_EXPORT.md) | [JSON](PSD_EXPORT.agent.json) |
-| [`docs/PSD_EXPORT_CLI.md`](PSD_EXPORT_CLI.md) | [JSON](PSD_EXPORT_CLI.agent.json) |
-| [`docs/PSD_IMPORT.md`](PSD_IMPORT.md) | [JSON](PSD_IMPORT.agent.json) |
-| [`docs/PUBLICATION_METADATA.md`](PUBLICATION_METADATA.md) | [JSON](PUBLICATION_METADATA.agent.json) |
-| [`docs/QT_MIGRATION.md`](QT_MIGRATION.md) | [JSON](QT_MIGRATION.agent.json) |
-| [`docs/RASTER_SAMPLING.md`](RASTER_SAMPLING.md) | [JSON](RASTER_SAMPLING.agent.json) |
-| [`docs/REFERENCE.md`](REFERENCE.md) | [JSON](REFERENCE.agent.json) |
-| [`docs/SEMANTIC_SEGMENT.md`](SEMANTIC_SEGMENT.md) | [JSON](SEMANTIC_SEGMENT.agent.json) |
-| [`docs/SHUFFLE.md`](SHUFFLE.md) | [JSON](SHUFFLE.agent.json) |
-| [`docs/TILE.md`](TILE.md) | [JSON](TILE.agent.json) |
-| [`docs/TIMELINE_INTERCHANGE.md`](TIMELINE_INTERCHANGE.md) | [JSON](TIMELINE_INTERCHANGE.agent.json) |
-| [`docs/TIMELINE_INTERCHANGE_CLI.md`](TIMELINE_INTERCHANGE_CLI.md) | [JSON](TIMELINE_INTERCHANGE_CLI.agent.json) |
-| [`docs/TIMELINE_XML.md`](TIMELINE_XML.md) | [JSON](TIMELINE_XML.agent.json) |
-| [`docs/VIDEO_FRAME_DECODER.md`](VIDEO_FRAME_DECODER.md) | [JSON](VIDEO_FRAME_DECODER.agent.json) |
-| [`docs/VIDEO_FRAME_ENCODER.md`](VIDEO_FRAME_ENCODER.md) | [JSON](VIDEO_FRAME_ENCODER.agent.json) |
-| [`docs/WORKING_FILE_TILES.md`](WORKING_FILE_TILES.md) | [JSON](WORKING_FILE_TILES.agent.json) |
-| [`docs/WindowsBuildAndRun.md`](WindowsBuildAndRun.md) | [JSON](WindowsBuildAndRun.agent.json) |
-| [`docs/WindowsDocumentCommit.md`](WindowsDocumentCommit.md) | [JSON](WindowsDocumentCommit.agent.json) |
-| [`docs/XML_SVG_IMPORT.md`](XML_SVG_IMPORT.md) | [JSON](XML_SVG_IMPORT.agent.json) |
-| [`docs/documentation-structure.md`](documentation-structure.md) | [JSON](documentation-structure.agent.json) |
-| [`example/README.md`](../example/README.md) | [JSON](mirrors/example/README.agent.json) |
+- Document: [`AGENT.md`](../AGENT.md); Agent JSON: [JSON](Entrypoints/AGENT.agent.json)
+- Document: [`AGENTS.md`](../AGENTS.md); Agent JSON: [JSON](Entrypoints/AGENTS.agent.json)
+- Document: [`NOTICE.md`](../NOTICE.md); Agent JSON: [JSON](Entrypoints/NOTICE.agent.json)
+- Document: [`README.md`](../README.md); Agent JSON: [JSON](Entrypoints/README.agent.json)
+- Document: [`docs/API.md`](API.md); Agent JSON: [JSON](API.agent.json)
+- Document: [`docs/ARTBOARDS.md`](ARTBOARDS.md); Agent JSON: [JSON](ARTBOARDS.agent.json)
+- Document: [`docs/ARTBOARD_PRESENTATION.md`](ARTBOARD_PRESENTATION.md); Agent JSON: [JSON](ARTBOARD_PRESENTATION.agent.json)
+- Document: [`docs/AUDIO_TIMELINE.md`](AUDIO_TIMELINE.md); Agent JSON: [JSON](AUDIO_TIMELINE.agent.json)
+- Document: [`docs/BINARY_LINE_CONTROL.md`](BINARY_LINE_CONTROL.md); Agent JSON: [JSON](BINARY_LINE_CONTROL.agent.json)
+- Document: [`docs/BITMAP_CLOCK.md`](BITMAP_CLOCK.md); Agent JSON: [JSON](BITMAP_CLOCK.agent.json)
+- Document: [`docs/BITMAP_FILE_REGIONS.md`](BITMAP_FILE_REGIONS.md); Agent JSON: [JSON](BITMAP_FILE_REGIONS.agent.json)
+- Document: [`docs/BITMAP_HISTORY.md`](BITMAP_HISTORY.md); Agent JSON: [JSON](BITMAP_HISTORY.agent.json)
+- Document: [`docs/BITMAP_INPUT.md`](BITMAP_INPUT.md); Agent JSON: [JSON](BITMAP_INPUT.agent.json)
+- Document: [`docs/BITMAP_PROCESSING.md`](BITMAP_PROCESSING.md); Agent JSON: [JSON](BITMAP_PROCESSING.agent.json)
+- Document: [`docs/BITMAP_WET_BRUSH.md`](BITMAP_WET_BRUSH.md); Agent JSON: [JSON](BITMAP_WET_BRUSH.agent.json)
+- Document: [`docs/BLUEPRINT.md`](BLUEPRINT.md); Agent JSON: [JSON](BLUEPRINT.agent.json)
+- Document: [`docs/BUILD_LAYOUT.md`](BUILD_LAYOUT.md); Agent JSON: [JSON](BUILD_LAYOUT.agent.json)
+- Document: [`docs/BuildComponents.md`](BuildComponents.md); Agent JSON: [JSON](BuildComponents.agent.json)
+- Document: [`docs/CANVAS_MEDIA.md`](CANVAS_MEDIA.md); Agent JSON: [JSON](CANVAS_MEDIA.agent.json)
+- Document: [`docs/CHANNEL_EXCHANGE.md`](CHANNEL_EXCHANGE.md); Agent JSON: [JSON](CHANNEL_EXCHANGE.agent.json)
+- Document: [`docs/CONTROLNET_PARAMETERS.md`](CONTROLNET_PARAMETERS.md); Agent JSON: [JSON](CONTROLNET_PARAMETERS.agent.json)
+- Document: [`docs/DEPENDENCIES.md`](DEPENDENCIES.md); Agent JSON: [JSON](DEPENDENCIES.agent.json)
+- Document: [`docs/DEPTH.md`](DEPTH.md); Agent JSON: [JSON](DEPTH.agent.json)
+- Document: [`docs/DOCUMENT_ASSET_CONTROL.md`](DOCUMENT_ASSET_CONTROL.md); Agent JSON: [JSON](DOCUMENT_ASSET_CONTROL.agent.json)
+- Document: [`docs/DOCUMENT_HISTORY.md`](DOCUMENT_HISTORY.md); Agent JSON: [JSON](DOCUMENT_HISTORY.agent.json)
+- Document: [`docs/DOCUMENT_PREVIEWS.md`](DOCUMENT_PREVIEWS.md); Agent JSON: [JSON](DOCUMENT_PREVIEWS.agent.json)
+- Document: [`docs/DYNAMIC_FRAME_CONTENT.md`](DYNAMIC_FRAME_CONTENT.md); Agent JSON: [JSON](DYNAMIC_FRAME_CONTENT.agent.json)
+- Document: [`docs/DynamicLinking.md`](DynamicLinking.md); Agent JSON: [JSON](DynamicLinking.agent.json)
+- Document: [`docs/FILE_PROVIDER.md`](FILE_PROVIDER.md); Agent JSON: [JSON](FILE_PROVIDER.agent.json)
+- Document: [`docs/FORMAT.md`](FORMAT.md); Agent JSON: [JSON](FORMAT.agent.json)
+- Document: [`docs/FOUR_LAYER_TYPES.md`](FOUR_LAYER_TYPES.md); Agent JSON: [JSON](FOUR_LAYER_TYPES.agent.json)
+- Document: [`docs/FRAME_OVERLAY.md`](FRAME_OVERLAY.md); Agent JSON: [JSON](FRAME_OVERLAY.agent.json)
+- Document: [`docs/GUI_FRAME_PRESENTATION.md`](GUI_FRAME_PRESENTATION.md); Agent JSON: [JSON](GUI_FRAME_PRESENTATION.agent.json)
+- Document: [`docs/IISC_UPGRADE_CLI.md`](IISC_UPGRADE_CLI.md); Agent JSON: [JSON](IISC_UPGRADE_CLI.agent.json)
+- Document: [`docs/IMAGE_CANVAS_OPERATIONS.md`](IMAGE_CANVAS_OPERATIONS.md); Agent JSON: [JSON](IMAGE_CANVAS_OPERATIONS.agent.json)
+- Document: [`docs/IP_ADAPTER.md`](IP_ADAPTER.md); Agent JSON: [JSON](IP_ADAPTER.agent.json)
+- Document: [`docs/LAYERED_IMPORT_CLI.md`](LAYERED_IMPORT_CLI.md); Agent JSON: [JSON](LAYERED_IMPORT_CLI.agent.json)
+- Document: [`docs/LAYER_COMPOSITING.md`](LAYER_COMPOSITING.md); Agent JSON: [JSON](LAYER_COMPOSITING.agent.json)
+- Document: [`docs/LAYER_CONTENT_OPERATIONS.md`](LAYER_CONTENT_OPERATIONS.md); Agent JSON: [JSON](LAYER_CONTENT_OPERATIONS.agent.json)
+- Document: [`docs/LAYER_EDIT_OPERATIONS.md`](LAYER_EDIT_OPERATIONS.md); Agent JSON: [JSON](LAYER_EDIT_OPERATIONS.agent.json)
+- Document: [`docs/LAYER_FILE_EDITS.md`](LAYER_FILE_EDITS.md); Agent JSON: [JSON](LAYER_FILE_EDITS.agent.json)
+- Document: [`docs/LINE_ART.md`](LINE_ART.md); Agent JSON: [JSON](LINE_ART.agent.json)
+- Document: [`docs/MASK_REGIONS.md`](MASK_REGIONS.md); Agent JSON: [JSON](MASK_REGIONS.agent.json)
+- Document: [`docs/MEDIA_IO.md`](MEDIA_IO.md); Agent JSON: [JSON](MEDIA_IO.agent.json)
+- Document: [`docs/MLSD.md`](MLSD.md); Agent JSON: [JSON](MLSD.agent.json)
+- Document: [`docs/NATIVE.md`](NATIVE.md); Agent JSON: [JSON](NATIVE.agent.json)
+- Document: [`docs/NORMAL_MAP.md`](NORMAL_MAP.md); Agent JSON: [JSON](NORMAL_MAP.agent.json)
+- Document: [`docs/OPENRASTER_IMPORT.md`](OPENRASTER_IMPORT.md); Agent JSON: [JSON](OPENRASTER_IMPORT.agent.json)
+- Document: [`docs/PERSISTENCE.md`](PERSISTENCE.md); Agent JSON: [JSON](PERSISTENCE.agent.json)
+- Document: [`docs/PHOTOSHOP_LAYER_COMPARISON.md`](PHOTOSHOP_LAYER_COMPARISON.md); Agent JSON: [JSON](PHOTOSHOP_LAYER_COMPARISON.agent.json)
+- Document: [`docs/PIXEL_PREVIEW.md`](PIXEL_PREVIEW.md); Agent JSON: [JSON](PIXEL_PREVIEW.agent.json)
+- Document: [`docs/POSE.md`](POSE.md); Agent JSON: [JSON](POSE.agent.json)
+- Document: [`docs/PSD_EXPORT.md`](PSD_EXPORT.md); Agent JSON: [JSON](PSD_EXPORT.agent.json)
+- Document: [`docs/PSD_EXPORT_CLI.md`](PSD_EXPORT_CLI.md); Agent JSON: [JSON](PSD_EXPORT_CLI.agent.json)
+- Document: [`docs/PSD_IMPORT.md`](PSD_IMPORT.md); Agent JSON: [JSON](PSD_IMPORT.agent.json)
+- Document: [`docs/PUBLICATION_METADATA.md`](PUBLICATION_METADATA.md); Agent JSON: [JSON](PUBLICATION_METADATA.agent.json)
+- Document: [`docs/QT_MIGRATION.md`](QT_MIGRATION.md); Agent JSON: [JSON](QT_MIGRATION.agent.json)
+- Document: [`docs/RASTER_SAMPLING.md`](RASTER_SAMPLING.md); Agent JSON: [JSON](RASTER_SAMPLING.agent.json)
+- Document: [`docs/REFERENCE.md`](REFERENCE.md); Agent JSON: [JSON](REFERENCE.agent.json)
+- Document: [`docs/SEMANTIC_SEGMENT.md`](SEMANTIC_SEGMENT.md); Agent JSON: [JSON](SEMANTIC_SEGMENT.agent.json)
+- Document: [`docs/SELECTION_LAYER_RELATIONSHIPS.md`](SELECTION_LAYER_RELATIONSHIPS.md); Agent JSON: [JSON](SELECTION_LAYER_RELATIONSHIPS.agent.json)
+- Document: [`docs/SEQUENCE_OPERATIONS.md`](SEQUENCE_OPERATIONS.md); Agent JSON: [JSON](SEQUENCE_OPERATIONS.agent.json)
+- Document: [`docs/SHUFFLE.md`](SHUFFLE.md); Agent JSON: [JSON](SHUFFLE.agent.json)
+- Document: [`docs/TILE.md`](TILE.md); Agent JSON: [JSON](TILE.agent.json)
+- Document: [`docs/TIMELINE_INTERCHANGE.md`](TIMELINE_INTERCHANGE.md); Agent JSON: [JSON](TIMELINE_INTERCHANGE.agent.json)
+- Document: [`docs/TIMELINE_INTERCHANGE_CLI.md`](TIMELINE_INTERCHANGE_CLI.md); Agent JSON: [JSON](TIMELINE_INTERCHANGE_CLI.agent.json)
+- Document: [`docs/TIMELINE_XML.md`](TIMELINE_XML.md); Agent JSON: [JSON](TIMELINE_XML.agent.json)
+- Document: [`docs/VIDEO_FRAME_DECODER.md`](VIDEO_FRAME_DECODER.md); Agent JSON: [JSON](VIDEO_FRAME_DECODER.agent.json)
+- Document: [`docs/VIDEO_FRAME_ENCODER.md`](VIDEO_FRAME_ENCODER.md); Agent JSON: [JSON](VIDEO_FRAME_ENCODER.agent.json)
+- Document: [`docs/WORKING_FILE_TILES.md`](WORKING_FILE_TILES.md); Agent JSON: [JSON](WORKING_FILE_TILES.agent.json)
+- Document: [`docs/WindowsBuildAndRun.md`](WindowsBuildAndRun.md); Agent JSON: [JSON](WindowsBuildAndRun.agent.json)
+- Document: [`docs/WindowsDocumentCommit.md`](WindowsDocumentCommit.md); Agent JSON: [JSON](WindowsDocumentCommit.agent.json)
+- Document: [`docs/XML_SVG_IMPORT.md`](XML_SVG_IMPORT.md); Agent JSON: [JSON](XML_SVG_IMPORT.agent.json)
+- Document: [`docs/documentation-structure.md`](documentation-structure.md); Agent JSON: [JSON](documentation-structure.agent.json)
+- Document: [`example/README.md`](../example/README.md); Agent JSON: [JSON](Mirrors/Example/README.agent.json)
 <!-- workspace-docs:document-map:end -->
+
+새 네이티브 경계: [iiGUI 캔버스 표시와 입력](NATIVE_CANVAS_PRESENTATION.md)
+([agent JSON](NATIVE_CANVAS_PRESENTATION.agent.json)),
+[PNG 텍스트 메타데이터](NATIVE_PNG_TEXT.md)
+([agent JSON](NATIVE_PNG_TEXT.agent.json)).
+
+[QOI 네이티브 코덱](NATIVE_QOI.md) ([agent JSON](NATIVE_QOI.agent.json)).

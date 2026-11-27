@@ -1,0 +1,373 @@
+{
+  "format": "iisacc.agent-document",
+  "schema_version": 1,
+  "document_id": "urn:iisacc:document:cf5dbf86d9b6deb9da0a1ba11a346adcea55e4094ad860d9fd53e8bebf9acd99",
+  "project": {
+    "id": "urn:iisacc:project:SDK%2FiiSharedCanvas",
+    "name": "iiSharedCanvas",
+    "root": "SDK/iiSharedCanvas",
+    "kind": "sdk"
+  },
+  "source": {
+    "path": "docs/SEQUENCE_OPERATIONS.md",
+    "sha256": "d2415e51bc19dbe6618d209c48bb863c01c7748b51389ff6d9826d657c37b492",
+    "bytes": 11526,
+    "line_count": 46,
+    "encoding": "utf-8",
+    "language": "ko"
+  },
+  "document": {
+    "title": "시퀀스 편집 명세",
+    "role": "guide",
+    "authority": "markdown_source"
+  },
+  "blocks": [
+    {
+      "id": "b000001",
+      "kind": "heading",
+      "start_line": 1,
+      "end_line": 1,
+      "raw": "# 시퀀스 편집\n",
+      "level": 1,
+      "title": "시퀀스 편집"
+    },
+    {
+      "id": "b000002",
+      "kind": "blank",
+      "start_line": 2,
+      "end_line": 2,
+      "raw": "\n"
+    },
+    {
+      "id": "b000003",
+      "kind": "paragraph",
+      "start_line": 3,
+      "end_line": 3,
+      "raw": "상태: 이 문서는 구현된 범위와 제한을 기술한다. 모든 시간 재매핑, 효과, 중첩 합성 및 리프레임 분석의 전체 구현을 뜻하지 않는다.\n"
+    },
+    {
+      "id": "b000004",
+      "kind": "blank",
+      "start_line": 4,
+      "end_line": 4,
+      "raw": "\n"
+    },
+    {
+      "id": "b000005",
+      "kind": "heading",
+      "start_line": 5,
+      "end_line": 5,
+      "raw": "## 문서와 미디어 소유권\n",
+      "level": 2,
+      "title": "문서와 미디어 소유권"
+    },
+    {
+      "id": "b000006",
+      "kind": "blank",
+      "start_line": 6,
+      "end_line": 6,
+      "raw": "\n"
+    },
+    {
+      "id": "b000007",
+      "kind": "paragraph",
+      "start_line": 7,
+      "end_line": 7,
+      "raw": "`Document::sequenceProject`는 선택적인 `TimelineProject`이고 `Document::sequenceMedia`는 원본 및 대체 표현의 바이트를 문서가 소유하는 저장소이다. 각 온라인 표현은 `ownedMediaId`로 이 저장소를 참조한다. 문서에 포함된 표현의 외부 URI와 바이트가 없는 첨부 파일은 거부한다. 표현에 파일 크기가 명시되어 있으면 소유한 실제 바이트 길이와 일치해야 한다. 별도로 사용하는 독립 `TimelineProject`는 기존 URI 참조를 계속 허용한다.\n"
+    },
+    {
+      "id": "b000008",
+      "kind": "blank",
+      "start_line": 8,
+      "end_line": 8,
+      "raw": "\n"
+    },
+    {
+      "id": "b000009",
+      "kind": "paragraph",
+      "start_line": 9,
+      "end_line": 9,
+      "raw": "정규 `.iisc` 1.28은 시퀀스 메타데이터와 미디어 바이트를 저장한다. 프로젝트 메타데이터는 필드 순서가 고정된 CBOR이고 미디어는 별도 레코드이다. 문서를 이동하거나 원본 외부 파일을 삭제해도 저장된 바이트는 남는다. 기존 버전 문서는 그대로 읽으며 새 기능을 기록할 때 현재 버전 1.29로 올린다. `SerializationLimits`의 프로젝트 바이트, 미디어 총량 및 자산 개수 제한과 기존 컨테이너 제한을 적용한다.\n"
+    },
+    {
+      "id": "b000010",
+      "kind": "blank",
+      "start_line": 10,
+      "end_line": 10,
+      "raw": "\n"
+    },
+    {
+      "id": "b000011",
+      "kind": "paragraph",
+      "start_line": 11,
+      "end_line": 11,
+      "raw": "`DocumentHistory::setSequenceProject`는 새 미디어를 복사하고 프로젝트와 미디어를 하나의 편집으로 게시한다. 기존 미디어가 바뀌지 않은 메타데이터 편집은 동일 바이트를 공유하며 이력 예산에 다시 청구하지 않는다. 추가되거나 제거된 미디어는 이력 예산에 포함되므로 큰 원본을 가져올 때 호출자가 `DocumentHistoryLimits`를 조정해야 할 수 있다. Undo/Redo는 현재 편집 세션에만 존재하고 저장 후 재열면 새 이력으로 시작한다. 이 문서 이력과 Python API는 네이티브 구성에서 제공하며 별도의 UI 프레임워크에 의존하지 않는다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 12,
+      "end_line": 12,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "heading",
+      "start_line": 13,
+      "end_line": 13,
+      "raw": "## 계획과 원본 프레임\n",
+      "level": 2,
+      "title": "계획과 원본 프레임"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 14,
+      "end_line": 14,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 15,
+      "end_line": 15,
+      "raw": "`SequenceSettingsEditor`, `TimelineTrackBatchEdit`, `TimelineSplitPlan`, `TimelineTrimPlan`, `TimelineExtendToPlayheadPlan`, `TimelineLiftPlan`, `TimelineExtractPlan`, `TimelineGapIndex`, `TimelineGapClosePlan`, `TimelineTransitionPlacement`, `DefaultTransitionPolicy`, `SubsequenceExtractor`, `SequenceSimplificationPlan`, `CaptionTrackEditor`, `ThroughEditDetector`, `SourceFrameMatcher`, `ReverseFrameMatcher` 및 `AutoReframeKeyframeApplier`는 분리된 값을 반환한다. 호출자는 검증된 프로젝트 계획을 문서 이력에 게시한다. 트랙이 잠겨 있거나 ID, 시간 범위 또는 필요한 원본 핸들이 맞지 않으면 변경하지 않는다.\n"
+    },
+    {
+      "id": "b000016",
+      "kind": "blank",
+      "start_line": 16,
+      "end_line": 16,
+      "raw": "\n"
+    },
+    {
+      "id": "b000017",
+      "kind": "paragraph",
+      "start_line": 17,
+      "end_line": 17,
+      "raw": "시간 범위는 시작 포함·끝 제외이며 각 시퀀스와 스트림은 유리수 시간 기준을 갖는다. 프레임 조회는 상수 속도와 역재생, 선형·홀드·베지어 시간 맵, 반복·왕복 루프, 중첩 경로 및 실제 가변 프레임 샘플 간격을 처리한다. 베지어 시간축은 단조여야 하며 이진 부동소수점 접선은 정확한 유리수로 해석한다. 원본 시각이 무리수이면 유리수 제어점과 유일한 근의 방정식으로 표현하고 프레임 경계도 정확히 비교한다. Previous는 겹치는 샘플 중 더 늦은 PTS를 선택하며 Nearest의 동률은 앞선 PTS를 선택한다. Blend와 OpticalFlow는 기여 프레임들과 각 중첩 단계의 보간 모드, 원본 시각 및 두 샘플 시각을 반환한다. 역조회는 호출자가 준 프레임 수 예산 안에서 보간에 기여하는 위치도 찾는다. `OpticalFlowEstimator`는 호출자가 공급한 직선 알파 ARGB 프레임에서 지정한 반경·연산 예산의 결정적인 양방향 블록 매칭 필드를 산출한다. `OpticalFlowInterpolator`는 호출자가 제공한 두 프레임과 그 필드 또는 다른 엔진의 필드로 알파를 고려한 중간 프레임을 만든다. 두 객체의 호출 순서, 디코딩 및 데이터 소유권은 호출자가 제어한다.\n"
+    },
+    {
+      "id": "b000018",
+      "kind": "blank",
+      "start_line": 18,
+      "end_line": 18,
+      "raw": "\n"
+    },
+    {
+      "id": "b000019",
+      "kind": "paragraph",
+      "start_line": 19,
+      "end_line": 19,
+      "raw": "분할·트림은 연결 그룹을 함께 변경하고 루프 위상, 시간 맵, 효과 자동화와 페이드가 잘리는 경우 원래 콘텐츠 좌표와 현재 창을 보존한다. `.iisc` 1.29에 이 창을 저장하며 1.28에는 저장할 수 없다. 루프에 명시적 시간 맵이 없으면 원래 콘텐츠 구간 밖으로도 확장할 수 있다. 시간 맵이 있는 클립의 확장은 보존된 원본 창 안으로 제한한다. 전환을 가로지르는 분할은 오류이다. Lift는 빈 구간을 남기고 Extract는 선택 트랙, 동기 잠금 트랙 및 필요한 연결 트랙의 뒤쪽을 당긴다. 공백 닫기와 Extract는 시퀀스 전체 길이와 시퀀스 수준 마커를 줄이지 않는다. 트랙 효과 자동화는 공백을 당기거나 부분 시퀀스로 복사할 때 원본 곡선을 자르거나 근사하지 않고, 출력 구간에서 원래 효과 시각으로 연결하는 구간별 정확한 시간 매핑을 보존한다. `TrackEffectTimeMapper`는 이 매핑을 유리수 시각으로 조회하고 대응 구간이 없는 시간은 빈 결과로 반환한다.\n"
+    },
+    {
+      "id": "b000020",
+      "kind": "blank",
+      "start_line": 20,
+      "end_line": 20,
+      "raw": "\n"
+    },
+    {
+      "id": "b000021",
+      "kind": "paragraph",
+      "start_line": 21,
+      "end_line": 21,
+      "raw": "전환 기본값은 영상의 `builtin.cross-dissolve`와 오디오의 `builtin.equal-power-fade`이며 타입과 길이는 호출자가 지정할 수 있다. 배치는 인접 컷, 정렬, 소스 핸들, 잠금 및 다른 전환과의 충돌을 확인한다. 루프가 지정되고 시간 맵이 없으면 반복 원본을 핸들로 사용할 수 있으며 보존된 콘텐츠 창 내부의 핸들도 허용한다. 연속 컷 판별은 상수 속도의 비디오·오디오, 역재생 및 동일한 정적 처리에 한정된다.\n"
+    },
+    {
+      "id": "b000022",
+      "kind": "blank",
+      "start_line": 22,
+      "end_line": 22,
+      "raw": "\n"
+    },
+    {
+      "id": "b000023",
+      "kind": "paragraph",
+      "start_line": 23,
+      "end_line": 23,
+      "raw": "정리 옵션은 빈 트랙, 비활성 클립, 공통 공백, 중첩 평탄화를 독립적으로 선택한다. 중립적인 영상 중첩은 여러 트랙을 순서대로 펼칠 수 있다. 복잡한 영상 중첩은 `SequenceRasterFlattenPrepare`, `SequenceRasterFlattenTemporaryWriter`, 호출자가 제공한 렌더러 및 `SequenceRasterFlattenCommit`을 외부에서 순서대로 실행한다. 앱은 트랙 그룹 방안의 임시 문서를 자기 앱 저장소에 두고 원본 합성 스냅샷을 지정한 임시 경로에 기록한다. 렌더 요청은 기존 전환에 필요한 경우 보이는 클립 범위 밖의 앞뒤 핸들 프레임도 포함하며, 전환 자체는 편집 가능한 상태로 유지한다. 호출자 렌더러는 요청한 클립의 외부 트랙과 혼합하기 전 프레임을 반환하고 정확하게 렌더할 수 없으면 오류를 내야 한다. 모든 영상 프레임은 문서 소유 무손실 ARGB 미디어로 저장하며 오디오 트랙과 참조는 편집 가능한 상태로 유지한다. 프레임 바이트는 `IISARGB1` 8바이트 매직, little-endian u32 너비·높이, u64 프레임 수와 행 우선 little-endian u32 직선 알파 ARGB 픽셀로 구성된다. 프레임 시각은 별도로 시퀀스 스트림의 정확한 유리수 시간 기준과 샘플 인덱스로 저장하고 `RawSequenceFrameReader`가 개별 프레임을 읽는다. 편집 가능한 원본 IISC 스냅샷도 문서가 소유하므로 임시 파일을 지우거나 문서를 이동해도 `SequenceRasterFlattenOriginal`로 다시 열 수 있다. 편집한 원본은 `SequenceRasterFlattenReplaceOriginal`로 게시하고 다시 렌더할 수 있다. 현재 재렌더는 원본과 대상의 프레임 속도·시간 기준·시퀀스 시작·캔버스 크기·픽셀 종횡비·색상 설정·클립 범위가 같아야 한다. 프레임과 원본 스냅샷은 문서와 이력의 바이트 예산에 포함된다. 실패나 원본 충돌 시 문서를 변경하지 않는다. 새 시퀀스 ID를 제공하면 원본을 유지한다. `SubsequenceExtractor`는 복사와 원본에서 이동을 지원하며 결과 시간을 0부터 다시 시작한다. 보존할 수 없는 전환·마커 또는 관계는 오류로 보고한다.\n"
+    },
+    {
+      "id": "b000024",
+      "kind": "blank",
+      "start_line": 24,
+      "end_line": 24,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "heading",
+      "start_line": 25,
+      "end_line": 25,
+      "raw": "## 자막과 자동 리프레임\n",
+      "level": 2,
+      "title": "자막과 자동 리프레임"
+    },
+    {
+      "id": "b000026",
+      "kind": "blank",
+      "start_line": 26,
+      "end_line": 26,
+      "raw": "\n"
+    },
+    {
+      "id": "b000027",
+      "kind": "paragraph",
+      "start_line": 27,
+      "end_line": 27,
+      "raw": "`CaptionTrackEditor`는 자막 텍스트와 마크업, 스타일, 범위 및 트랙 언어를 검증된 클립 값으로 수정한다. 전환 또는 연결 관계를 남기고 자막을 삭제해야 하는 경우는 거부한다.\n"
+    },
+    {
+      "id": "b000028",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000029",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "`AutoReframeKeyframeApplier`는 호출자가 제공한 중심·배율 키프레임 또는 선택된 피사체의 추적 경계 상자를 편집 가능한 효과 자동화로 저장한다. `AutoReframeSubjectTracker`는 외부 검출기의 분류·신뢰도·상자 결과를 시간과 겹침 비율로 연결한다. `analyzeAutoReframeFrames`와 Python `analyze_reframe_frames`는 호출자가 명시적으로 넘긴 검출기를 각 프레임에 적용하고 결과를 추적 단계로 전달하는 외부 오케스트레이션이다. 피사체 선택과 프레임 디코딩, 검출 엔진의 생성·수명은 호출자의 책임이다. 모델 선택이나 다운로드는 하지 않는다. 이 SDK는 아직 시퀀스 자체를 렌더링하지 않으며 추적 품질은 검출 결과와 추적 정책에 좌우된다.\n"
+    },
+    {
+      "id": "b000030",
+      "kind": "blank",
+      "start_line": 30,
+      "end_line": 30,
+      "raw": "\n"
+    },
+    {
+      "id": "b000031",
+      "kind": "heading",
+      "start_line": 31,
+      "end_line": 31,
+      "raw": "## Python과 검증\n",
+      "level": 2,
+      "title": "Python과 검증"
+    },
+    {
+      "id": "b000032",
+      "kind": "blank",
+      "start_line": 32,
+      "end_line": 32,
+      "raw": "\n"
+    },
+    {
+      "id": "b000033",
+      "kind": "paragraph",
+      "start_line": 33,
+      "end_line": 33,
+      "raw": "Python `CanvasDocument`는 저장된 시퀀스의 조회, 원본 프레임 대응, 설정·트랙 변경, 분할·트림·확장, Lift·Extract·공백, 전환, 복사·이동, 정리, 자막, 추적 및 리프레임을 노출한다. Python 자막 생성은 생성형 텍스트 소스를 사용하며 모든 C++ 자막 스타일 필드와 사용자 속성, 시퀀스 타임코드 설정을 노출한다. Python은 빈 시퀀스 프로젝트를 만들 수 있으며 다른 문서가 소유한 시퀀스 프로젝트와 미디어 전체를 사본으로 가져올 수 있다. 기존 프로젝트를 덮어쓰려면 명시적으로 `replace=True`를 전달하며 복사와 생성은 각각 하나의 세션 이력 항목이다. Python의 `sequence_project_model`과 `timeline_default`는 모든 집계 필드, 선택값, 변형 및 바이트를 형식 태그가 있는 값 트리로 읽고 구성한다. `sequence_owned_media`와 `set_sequence_project_model`은 원본 바이트를 복사하며 프로젝트 교체를 단일 이력으로 게시한다. `edit_sequence_settings`의 `timecode`는 모든 시간코드 필드를 설정하거나 `None`으로 삭제하며 다른 설정과 함께 하나의 이력으로 게시한다. `edit_caption`의 `style`은 글꼴, 세 가지 색, 외곽선, 서식, 정렬, 쓰기 방향 및 모든 형식의 사용자 속성을 한 편집으로 교체한다. `sequence_snapshot`은 저장된 시간코드와 자막 스타일을 반환한다.\n"
+    },
+    {
+      "id": "b000034",
+      "kind": "blank",
+      "start_line": 34,
+      "end_line": 34,
+      "raw": "\n"
+    },
+    {
+      "id": "b000035",
+      "kind": "paragraph",
+      "start_line": 35,
+      "end_line": 35,
+      "raw": "```python\n"
+    },
+    {
+      "id": "b000036",
+      "kind": "heading",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "# canvas와 source는 호출자가 소유하고 닫는 CanvasDocument이다.\n",
+      "level": 1,
+      "title": "canvas와 source는 호출자가 소유하고 닫는 CanvasDocument이다."
+    },
+    {
+      "id": "b000037",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 44,
+      "raw": "canvas.create_sequence_project(\"project\", \"edit\", duration=240,\n                               time_base=(1, 24), frame_rate=(24, 1),\n                               extent=(1920, 1080))\ncanvas.add_sequence_track(\"edit\", \"captions\", kind=\"subtitle\")\ncanvas.edit_caption(\"edit\", \"captions\", identifier=\"first\", text=\"안녕\", start=0, duration=24)\ncanvas.copy_sequence_from(source, replace=True)  # 프로젝트와 소유 미디어를 독립 복사\ncanvas.undo()                                  # 복사 전 프로젝트 복원\n```\n"
+    },
+    {
+      "id": "b000038",
+      "kind": "blank",
+      "start_line": 45,
+      "end_line": 45,
+      "raw": "\n"
+    },
+    {
+      "id": "b000039",
+      "kind": "paragraph",
+      "start_line": 46,
+      "end_line": 46,
+      "raw": "자동 검사는 문서 소유 바이트와 복사 격리, `.iisc` 왕복, 작업 파일과 세션 이력, 혼합 스트림 및 중첩 메타데이터, 편집 계획과 잠금, 원본 프레임 대응, Python 호출을 확인한다. 검출 모델의 실제 정확도와 완성된 시퀀스 렌더링은 이 테스트의 범위가 아니다.\n"
+    }
+  ],
+  "outline": [
+    {
+      "block_id": "b000001",
+      "parent_id": null,
+      "level": 1,
+      "title": "시퀀스 편집",
+      "anchor": "시퀀스-편집",
+      "start_line": 1
+    },
+    {
+      "block_id": "b000005",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "문서와 미디어 소유권",
+      "anchor": "문서와-미디어-소유권",
+      "start_line": 5
+    },
+    {
+      "block_id": "b000013",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "계획과 원본 프레임",
+      "anchor": "계획과-원본-프레임",
+      "start_line": 13
+    },
+    {
+      "block_id": "b000025",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "자막과 자동 리프레임",
+      "anchor": "자막과-자동-리프레임",
+      "start_line": 25
+    },
+    {
+      "block_id": "b000031",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "Python과 검증",
+      "anchor": "python과-검증",
+      "start_line": 31
+    },
+    {
+      "block_id": "b000036",
+      "parent_id": null,
+      "level": 1,
+      "title": "canvas와 source는 호출자가 소유하고 닫는 CanvasDocument이다.",
+      "anchor": "canvas와-source는-호출자가-소유하고-닫는-canvasdocument이다",
+      "start_line": 36
+    }
+  ],
+  "indexes": {
+    "directive_candidates": [],
+    "commands": [],
+    "links": [],
+    "tables": []
+  },
+  "provenance": {
+    "generator": "workspace-docs",
+    "version": "1.0.0-compatible",
+    "profile": "lossless-blocks-v1",
+    "derived": true
+  }
+}

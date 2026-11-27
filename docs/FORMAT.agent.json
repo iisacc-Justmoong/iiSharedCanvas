@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/FORMAT.md",
-    "sha256": "1169ac6c5a79a06f86a8d2ddb1a98c2743bd0e3b5a194d9273cbc07931ff96a2",
-    "bytes": 51136,
-    "line_count": 565,
+    "sha256": "5cfb545ebb83f20292ed092b97bc8116c3a76e1accd29afe761f4a9c33d35a58",
+    "bytes": 57718,
+    "line_count": 627,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -115,7 +115,7 @@
       "kind": "list",
       "start_line": 13,
       "end_line": 19,
-      "raw": "- 확장자: `.iisc`\n- 미디어 유형: `application/vnd.iisacc.ii-shared-canvas`\n- 현재 모델 버전: 메이저 1, 마이너 19\n- 정수 바이트 순서: little-endian\n- 부동소수점 표현: IEEE 754 바이너리64, 리틀 엔디언 비트로 저장됩니다\n- 래스터 채널 표현: 32-bit ARGB는 iiPaintEngine에 의해 정의됩니다.\n- 텍스트 표현: 정형 UTF-8에 작은 엔디안 `u32` 바이트 수가 접두어 있습니다\n",
+      "raw": "- 확장자: `.iisc`\n- 미디어 유형: `application/vnd.iisacc.ii-shared-canvas`\n- 현재 모델 버전: 메이저 1, 마이너 29\n- 정수 바이트 순서: little-endian\n- 부동소수점 표현: IEEE 754 바이너리64, 리틀 엔디언 비트로 저장됩니다\n- 래스터 채널 표현: 32-bit ARGB는 iiPaintEngine에 의해 정의됩니다.\n- 텍스트 표현: 정형 UTF-8에 작은 엔디안 `u32` 바이트 수가 접두어 있습니다\n",
       "items": [
         {
           "marker": "-",
@@ -129,7 +129,7 @@
         },
         {
           "marker": "-",
-          "text": "현재 모델 버전: 메이저 1, 마이너 19",
+          "text": "현재 모델 버전: 메이저 1, 마이너 27",
           "checked": null
         },
         {
@@ -166,7 +166,7 @@
       "kind": "paragraph",
       "start_line": 21,
       "end_line": 21,
-      "raw": "버전 1는 단일 바이너리 컨테이너입니다. ZIP가 아니며 엔트리 이름이나 내부 파일 경로가 없습니다. 이렇게 하면 아카이브 순서, 재귀 및 경로 탐색이 형식에서 제거되며, 아카이브나 JSON 의존성을 추가하지 않습니다.\n"
+      "raw": "버전 1은 단일 바이너리 컨테이너이다. ZIP이 아니며 엔트리 이름이나 내부 파일 경로가 없다. 1.23의 연결 캔버스는 경로가 아닌 소유된 IISC 바이트이며 재귀 깊이와 바이트 예산을 적용한다.\n"
     },
     {
       "id": "b000016",
@@ -221,101 +221,88 @@
     },
     {
       "id": "b000023",
-      "kind": "table",
       "start_line": 29,
-      "end_line": 37,
-      "raw": "|오프셋|크기|필드|계약|\n| ---: | ---: | --- | --- |\n| 0 | 8 |마법| `49 49 53 43 0D 0A 1A 0A` (`IISC\\r\\n\\x1A\\n`) |\n| 8 | 2 |소령|문서 형식 주요|\n| 10 | 2 |미성년자|문서 형식 마이너|\n| 12 | 4 |깃발|0 버전 1|\n| 16 | 8 |페이로드 크기|다음 바이트의 정확한 수|\n| 24 | 4 |검사 합계|페이로드의 CRC-32/ISO-HDLC|\n| 28 | 4 |예약되어 있는|0 버전 1|\n",
-      "columns": [
-        "오프셋",
-        "크기",
-        "필드",
-        "계약"
-      ],
-      "rows": [
-        [
-          "0",
-          "8",
-          "마법",
-          "`49 49 53 43 0D 0A 1A 0A` (`IISC\\r\\n\\x1A\\n`)"
-        ],
-        [
-          "8",
-          "2",
-          "소령",
-          "문서 형식 주요"
-        ],
-        [
-          "10",
-          "2",
-          "미성년자",
-          "문서 형식 마이너"
-        ],
-        [
-          "12",
-          "4",
-          "깃발",
-          "0 버전 1"
-        ],
-        [
-          "16",
-          "8",
-          "페이로드 크기",
-          "다음 바이트의 정확한 수"
-        ],
-        [
-          "24",
-          "4",
-          "검사 합계",
-          "페이로드의 CRC-32/ISO-HDLC"
-        ],
-        [
-          "28",
-          "4",
-          "예약되어 있는",
-          "0 버전 1"
-        ]
+      "end_line": 35,
+      "raw": "- 오프셋: 0; 크기: 8; 필드: 마법; 계약: `49 49 53 43 0D 0A 1A 0A` (`IISC\\r\\n\\x1A\\n`)\n- 오프셋: 8; 크기: 2; 필드: 소령; 계약: 문서 형식 주요\n- 오프셋: 10; 크기: 2; 필드: 미성년자; 계약: 문서 형식 마이너\n- 오프셋: 12; 크기: 4; 필드: 깃발; 계약: 0 버전 1\n- 오프셋: 16; 크기: 8; 필드: 페이로드 크기; 계약: 다음 바이트의 정확한 수\n- 오프셋: 24; 크기: 4; 필드: 검사 합계; 계약: 페이로드의 CRC-32/ISO-HDLC\n- 오프셋: 28; 크기: 4; 필드: 예약되어 있는; 계약: 0 버전 1\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "오프셋: 0; 크기: 8; 필드: 마법; 계약: `49 49 53 43 0D 0A 1A 0A` (`IISC\\r\\n\\x1A\\n`)",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "오프셋: 8; 크기: 2; 필드: 소령; 계약: 문서 형식 주요",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "오프셋: 10; 크기: 2; 필드: 미성년자; 계약: 문서 형식 마이너",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "오프셋: 12; 크기: 4; 필드: 깃발; 계약: 0 버전 1",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "오프셋: 16; 크기: 8; 필드: 페이로드 크기; 계약: 다음 바이트의 정확한 수",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "오프셋: 24; 크기: 4; 필드: 검사 합계; 계약: 페이로드의 CRC-32/ISO-HDLC",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "오프셋: 28; 크기: 4; 필드: 예약되어 있는; 계약: 0 버전 1",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000024",
+      "kind": "blank",
+      "start_line": 36,
+      "end_line": 36,
+      "raw": "\n"
+    },
+    {
+      "id": "b000025",
+      "kind": "paragraph",
+      "start_line": 37,
+      "end_line": 37,
+      "raw": "정확한 페이로드가 즉시 따라옵니다. 리더는 문서를 노출하기 전에 잘린 페이로드, 선언된 페이로드 이후의 바이트,0가 아닌 플래그 또는 예약된 필드, 체크섬 불일치 및 지원되지 않는 버전을 거부합니다.\n"
+    },
+    {
+      "id": "b000026",
       "kind": "blank",
       "start_line": 38,
       "end_line": 38,
       "raw": "\n"
     },
     {
-      "id": "b000025",
-      "kind": "paragraph",
+      "id": "b000027",
+      "kind": "html",
       "start_line": 39,
       "end_line": 39,
-      "raw": "정확한 페이로드가 즉시 따라옵니다. 리더는 문서를 노출하기 전에 잘린 페이로드, 선언된 페이로드 이후의 바이트,0가 아닌 플래그 또는 예약된 필드, 체크섬 불일치 및 지원되지 않는 버전을 거부합니다.\n"
+      "raw": "<a id=\"primitive-encoding\"></a>\n"
     },
     {
-      "id": "b000026",
+      "id": "b000028",
       "kind": "blank",
       "start_line": 40,
       "end_line": 40,
       "raw": "\n"
     },
     {
-      "id": "b000027",
-      "kind": "html",
-      "start_line": 41,
-      "end_line": 41,
-      "raw": "<a id=\"primitive-encoding\"></a>\n"
-    },
-    {
-      "id": "b000028",
-      "kind": "blank",
-      "start_line": 42,
-      "end_line": 42,
-      "raw": "\n"
-    },
-    {
       "id": "b000029",
       "kind": "heading",
-      "start_line": 43,
-      "end_line": 43,
+      "start_line": 41,
+      "end_line": 41,
       "raw": "## 원시 인코딩\n",
       "level": 2,
       "title": "원시 인코딩"
@@ -323,15 +310,15 @@
     {
       "id": "b000030",
       "kind": "blank",
-      "start_line": 44,
-      "end_line": 44,
+      "start_line": 42,
+      "end_line": 42,
       "raw": "\n"
     },
     {
       "id": "b000031",
       "kind": "list",
-      "start_line": 45,
-      "end_line": 49,
+      "start_line": 43,
+      "end_line": 47,
       "raw": "- `u8`, `u16`, `u32`, `u64`, `i16`, 및 `i32`는 고정폭 소수점 값입니다.\n- `f64`는 IEEE 754 `double`의 리틀 엔디언 비트 표현입니다.\n- 불리언 값은 `u8`이며 정확히 0 또는 1이어야 합니다.\n- 문자열은 `u32 byteCount` 뒤에 정확히 그 수의 정규 UTF-8 바이트가 뒤따릅니다. Embedded NUL 바이트는 유효한 UTF-8 데이터이며 문자열을 종료하지 않습니다.\n- 카운트는 `u32`이며, 집계 리더 제한은 `reserve` 또는 픽셀 할당 전에 확인됩니다.\n",
       "items": [
         {
@@ -364,29 +351,29 @@
     {
       "id": "b000032",
       "kind": "blank",
-      "start_line": 50,
-      "end_line": 50,
+      "start_line": 48,
+      "end_line": 48,
       "raw": "\n"
     },
     {
       "id": "b000033",
       "kind": "html",
-      "start_line": 51,
-      "end_line": 51,
+      "start_line": 49,
+      "end_line": 49,
       "raw": "<a id=\"payload-order\"></a>\n"
     },
     {
       "id": "b000034",
       "kind": "blank",
-      "start_line": 52,
-      "end_line": 52,
+      "start_line": 50,
+      "end_line": 50,
       "raw": "\n"
     },
     {
       "id": "b000035",
       "kind": "heading",
-      "start_line": 53,
-      "end_line": 53,
+      "start_line": 51,
+      "end_line": 51,
       "raw": "## 페이로드 순서\n",
       "level": 2,
       "title": "페이로드 순서"
@@ -394,30 +381,30 @@
     {
       "id": "b000036",
       "kind": "blank",
-      "start_line": 54,
-      "end_line": 54,
+      "start_line": 52,
+      "end_line": 52,
       "raw": "\n"
     },
     {
       "id": "b000037",
       "kind": "paragraph",
-      "start_line": 55,
-      "end_line": 55,
+      "start_line": 53,
+      "end_line": 53,
       "raw": "페이로드에는 하나의 정규 서열이 있습니다:\n"
     },
     {
       "id": "b000038",
       "kind": "blank",
-      "start_line": 56,
-      "end_line": 56,
+      "start_line": 54,
+      "end_line": 54,
       "raw": "\n"
     },
     {
       "id": "b000039",
       "kind": "fenced_code",
-      "start_line": 57,
-      "end_line": 91,
-      "raw": "~~~text\ni32 canvasWidth\ni32 canvasHeight\n[if minor >= 1]\n  u8 canvasMode       // 0 finite, 1 infinite\n  [if canvasMode == 1]\n    i32 canvasOriginX\n    i32 canvasOriginY\n    i32 chunkSize\nu32 frameRateNumerator\nu32 frameRateDenominator\nu32 frameCount\n\nu32 assetCount\nAsset assets[assetCount]\n\nu32 layerCount\nLayer layers[layerCount]\n\n[if minor >= 2]\n  bool hasStableDiffusionMetadata\n  [if hasStableDiffusionMetadata]\n    StableDiffusionMetadata generation\n\n[if minor >= 4]\n  u32 audioAssetCount\n  AudioAsset audioAssets[audioAssetCount]\n  u32 audioTrackCount\n  AudioTrackLayer audioTracks[audioTrackCount]\n[if minor >= 5]\n  string authorshipJson\n[if minor >= 18]\n  u32 artboardCount\n  Artboard artboards[artboardCount]\n~~~\n",
+      "start_line": 55,
+      "end_line": 92,
+      "raw": "~~~text\ni32 canvasWidth\ni32 canvasHeight\n[if minor >= 1]\n  u8 canvasMode       // 0 finite, 1 infinite\n  [if canvasMode == 1]\n    i32 canvasOriginX\n    i32 canvasOriginY\n    i32 chunkSize\nu32 frameRateNumerator\nu32 frameRateDenominator\nu32 frameCount\n[if minor >= 27]\n  u32 pixelAspectNumerator\n  u32 pixelAspectDenominator\n\nu32 assetCount\nAsset assets[assetCount]\n\nu32 layerCount\nLayer layers[layerCount]\n\n[if minor >= 2]\n  bool hasStableDiffusionMetadata\n  [if hasStableDiffusionMetadata]\n    StableDiffusionMetadata generation\n\n[if minor >= 4]\n  u32 audioAssetCount\n  AudioAsset audioAssets[audioAssetCount]\n  u32 audioTrackCount\n  AudioTrackLayer audioTracks[audioTrackCount]\n[if minor >= 5]\n  string authorshipJson\n[if minor >= 18]\n  u32 artboardCount\n  Artboard artboards[artboardCount]\n~~~\n",
       "language": "text",
       "code": "i32 canvasWidth\ni32 canvasHeight\n[if minor >= 1]\n  u8 canvasMode       // 0 finite, 1 infinite\n  [if canvasMode == 1]\n    i32 canvasOriginX\n    i32 canvasOriginY\n    i32 chunkSize\nu32 frameRateNumerator\nu32 frameRateDenominator\nu32 frameCount\n\nu32 assetCount\nAsset assets[assetCount]\n\nu32 layerCount\nLayer layers[layerCount]\n\n[if minor >= 2]\n  bool hasStableDiffusionMetadata\n  [if hasStableDiffusionMetadata]\n    StableDiffusionMetadata generation\n\n[if minor >= 4]\n  u32 audioAssetCount\n  AudioAsset audioAssets[audioAssetCount]\n  u32 audioTrackCount\n  AudioTrackLayer audioTracks[audioTrackCount]\n[if minor >= 5]\n  string authorshipJson\n[if minor >= 18]\n  u32 artboardCount\n  Artboard artboards[artboardCount]\n",
       "closed": true
@@ -425,113 +412,113 @@
     {
       "id": "b000040",
       "kind": "blank",
-      "start_line": 92,
-      "end_line": 92,
+      "start_line": 93,
+      "end_line": 93,
       "raw": "\n"
     },
     {
       "id": "b000041",
       "kind": "paragraph",
-      "start_line": 93,
-      "end_line": 93,
+      "start_line": 94,
+      "end_line": 94,
       "raw": "자산과 레이어는 문서 벡터 순서를 유지합니다. 레이어는 아래에서 위로 순서대로 정렬됩니다.\n"
     },
     {
       "id": "b000042",
       "kind": "blank",
-      "start_line": 94,
-      "end_line": 94,
+      "start_line": 95,
+      "end_line": 95,
       "raw": "\n"
     },
     {
       "id": "b000043",
       "kind": "paragraph",
-      "start_line": 95,
-      "end_line": 95,
+      "start_line": 96,
+      "end_line": 96,
       "raw": "버전 1.1 은 영역과 타임라인 사이에 무한 캔버스 메타데이터를 추가합니다. `canvasWidth` 와 `canvasHeight` 는 현재 할당된 렌더링 영역을 설명하며 개념적 경계가 아닙니다. 그 좌상단 월드 좌표는 `(canvasOriginX, canvasOriginY)` 입니다. 섹크 크기는 32 를 통해 4096 픽셀의 2 의 거듭제곱입니다. 버전 1.0 은 이 블록을 생략하며 항상 기원 `(0, 0)` 의 유한 캔버스로 디코딩됩니다.\n"
     },
     {
       "id": "b000044",
       "kind": "blank",
-      "start_line": 96,
-      "end_line": 96,
+      "start_line": 97,
+      "end_line": 97,
       "raw": "\n"
     },
     {
       "id": "b000045",
       "kind": "paragraph",
-      "start_line": 97,
-      "end_line": 97,
+      "start_line": 98,
+      "end_line": 98,
       "raw": "버전 1.2는 레이어 컬렉션 뒤에 옵션인 Stable Diffusion 생성 메타데이터를 추가합니다. 블록을 추가하면 이전의 모든 오프셋과 기록이 변경되지 않습니다. 버전 1.0 및 1.1는 레이어 수집 직후에 종료되며, 따라서 생성 메타데이터 없이 디코딩됩니다.\n"
     },
     {
       "id": "b000046",
       "kind": "blank",
-      "start_line": 98,
-      "end_line": 98,
+      "start_line": 99,
+      "end_line": 99,
       "raw": "\n"
     },
     {
       "id": "b000047",
       "kind": "paragraph",
-      "start_line": 99,
-      "end_line": 99,
+      "start_line": 100,
+      "end_line": 100,
       "raw": "버전 1.3는 해당 레이어의 전체 소스 페이로드 바로 뒤에 각 레이어 레코드에 선택적인 포함 프레임 범위를 추가합니다. 버전 1.0는 1.2 레이어 레코드가 소스 이후에 종료되며 범위 바이트를 포함하지 않으므로 정규 인코딩은 변경되지 않습니다. 생성 메타데이터 블록은 전체 레이어 컬렉션을 계속 따라갑니다.\n"
     },
     {
       "id": "b000048",
       "kind": "blank",
-      "start_line": 100,
-      "end_line": 100,
+      "start_line": 101,
+      "end_line": 101,
       "raw": "\n"
     },
     {
       "id": "b000049",
       "kind": "paragraph",
-      "start_line": 101,
-      "end_line": 101,
+      "start_line": 102,
+      "end_line": 102,
       "raw": "버전 1.4는 전체 메타데이터 블록 뒤에 소유된 PCM16 오디오 자산과 편집 가능한 오디오 트랙 레이어를 추가합니다. 버전 1.0부터 1.3까지는 오디오 테일이 없으며, 빈 오디오 컬렉션으로 디코딩됩니다; 정규 바이트는 변경되지 않습니다. 작가는 오래된 모델 버전의 오디오를 포기하는 대신 거부합니다. 오디오 자산 및 트랙은 시각 레이어와 무관하게 벡터 순서를 유지합니다.\n"
     },
     {
       "id": "b000050",
       "kind": "blank",
-      "start_line": 102,
-      "end_line": 102,
+      "start_line": 103,
+      "end_line": 103,
       "raw": "\n"
     },
     {
       "id": "b000051",
       "kind": "paragraph",
-      "start_line": 103,
-      "end_line": 103,
+      "start_line": 104,
+      "end_line": 104,
       "raw": "기존 1.2 메타데이터 레코드 내에서, `generationParametersText` 는 호환 가능한 이미지 캐리어에서 추출된 완전한 스테이블 디퓨전 생성 매개변수 텍스트를 포함합니다. 생성 매개변수 텍스트는 정준 `.iisc`   왕복 변환 (왕복 변환) 동안 바이트 정밀로 유지되며, 파싱은 별도의 디코딩 뷰를 생성하고 이 문자열을 다시 작성하지 않습니다. PNG   `parameters`, EXIF   `UserComment` 또는 기타 캐리어 식별자는 추출이 가져오는 어댑터에 속하므로 영속화되지 않습니다. 알 수 없는 또는 중복 매개변수 쌍은 최종 의미론적 값이 또한 타입화된 필드로나 `extraParameters` 로 투영되더라도 이 공식 문자열에서 복구 가능합니다. 이 호환성 리더는 1.2 바이너리 필드나 오프셋을 변경하지 않으므로 포맷 버전 증분 없이도 필요합니다.\n"
     },
     {
       "id": "b000052",
       "kind": "blank",
-      "start_line": 104,
-      "end_line": 104,
+      "start_line": 105,
+      "end_line": 105,
       "raw": "\n"
     },
     {
       "id": "b000053",
       "kind": "html",
-      "start_line": 105,
-      "end_line": 105,
+      "start_line": 106,
+      "end_line": 106,
       "raw": "<a id=\"assets\"></a>\n"
     },
     {
       "id": "b000054",
       "kind": "blank",
-      "start_line": 106,
-      "end_line": 106,
+      "start_line": 107,
+      "end_line": 107,
       "raw": "\n"
     },
     {
       "id": "b000055",
       "kind": "heading",
-      "start_line": 107,
-      "end_line": 107,
+      "start_line": 108,
+      "end_line": 108,
       "raw": "## 자산\n",
       "level": 2,
       "title": "자산"
@@ -539,29 +526,29 @@
     {
       "id": "b000056",
       "kind": "blank",
-      "start_line": 108,
-      "end_line": 108,
+      "start_line": 109,
+      "end_line": 109,
       "raw": "\n"
     },
     {
       "id": "b000057",
       "kind": "paragraph",
-      "start_line": 109,
-      "end_line": 109,
+      "start_line": 110,
+      "end_line": 110,
       "raw": "모든 자산은 다음과 같이 시작합니다:\n"
     },
     {
       "id": "b000058",
       "kind": "blank",
-      "start_line": 110,
-      "end_line": 110,
+      "start_line": 111,
+      "end_line": 111,
       "raw": "\n"
     },
     {
       "id": "b000059",
       "kind": "fenced_code",
-      "start_line": 111,
-      "end_line": 114,
+      "start_line": 112,
+      "end_line": 115,
       "raw": "~~~text\nu8 kind       // 0 래스터, 1 벡터, 2 청크형 래스터(minor >= 1)\nstring id\n~~~\n",
       "language": "text",
       "code": "u8 kind       // 0 래스터, 1 벡터, 2 청크형 래스터(minor >= 1)\nstring id\n",
@@ -570,43 +557,43 @@
     {
       "id": "b000060",
       "kind": "blank",
-      "start_line": 115,
-      "end_line": 115,
+      "start_line": 116,
+      "end_line": 116,
       "raw": "\n"
     },
     {
       "id": "b000061",
       "kind": "paragraph",
-      "start_line": 116,
-      "end_line": 116,
+      "start_line": 117,
+      "end_line": 117,
       "raw": "자산 ID 는 문서 식별자이며 경로가 아닙니다.\n"
     },
     {
       "id": "b000062",
       "kind": "blank",
-      "start_line": 117,
-      "end_line": 117,
+      "start_line": 118,
+      "end_line": 118,
       "raw": "\n"
     },
     {
       "id": "b000063",
       "kind": "html",
-      "start_line": 118,
-      "end_line": 118,
+      "start_line": 119,
+      "end_line": 119,
       "raw": "<a id=\"raster-asset\"></a>\n"
     },
     {
       "id": "b000064",
       "kind": "blank",
-      "start_line": 119,
-      "end_line": 119,
+      "start_line": 120,
+      "end_line": 120,
       "raw": "\n"
     },
     {
       "id": "b000065",
       "kind": "heading",
-      "start_line": 120,
-      "end_line": 120,
+      "start_line": 121,
+      "end_line": 121,
       "raw": "### 래스터 자산\n",
       "level": 3,
       "title": "래스터 자산"
@@ -614,15 +601,15 @@
     {
       "id": "b000066",
       "kind": "blank",
-      "start_line": 121,
-      "end_line": 121,
+      "start_line": 122,
+      "end_line": 122,
       "raw": "\n"
     },
     {
       "id": "b000067",
       "kind": "fenced_code",
-      "start_line": 122,
-      "end_line": 129,
+      "start_line": 123,
+      "end_line": 130,
       "raw": "~~~text\ni32 width\ni32 height\nu64 pixelCount\nu8 encoding       // 0 원시 ARGB32, 1 런렝스 ARGB32\nu64 encodedBytes\nu8 data[encodedBytes]\n~~~\n",
       "language": "text",
       "code": "i32 width\ni32 height\nu64 pixelCount\nu8 encoding       // 0 원시 ARGB32, 1 런렝스 ARGB32\nu64 encodedBytes\nu8 data[encodedBytes]\n",
@@ -631,71 +618,71 @@
     {
       "id": "b000068",
       "kind": "blank",
-      "start_line": 130,
-      "end_line": 130,
+      "start_line": 131,
+      "end_line": 131,
       "raw": "\n"
     },
     {
       "id": "b000069",
       "kind": "paragraph",
-      "start_line": 131,
-      "end_line": 131,
+      "start_line": 132,
+      "end_line": 132,
       "raw": "`pixelCount`는 `width * height`와 같아야 합니다. 원시 인코딩은 픽셀당 정확히 하나의 리틀 엔디안 `u32`를 행‐대순으로 포함합니다. 런 길이 인코딩은 `u32 runLength, u32 argb` 레코드를 포함합니다; 런 길이는 양수이며 정확한 픽셀 수를 채우고, 인접한 레코드는 동일한 ARGB 값을 반복할 수 없습니다.\n"
     },
     {
       "id": "b000070",
       "kind": "blank",
-      "start_line": 132,
-      "end_line": 132,
+      "start_line": 133,
+      "end_line": 133,
       "raw": "\n"
     },
     {
       "id": "b000071",
       "kind": "paragraph",
-      "start_line": 133,
-      "end_line": 133,
+      "start_line": 134,
+      "end_line": 134,
       "raw": "라이터는 바이트 수가 원시 ARGB32보다 엄격히 적을 때에만 런-길이 인코딩을 사용합니다. 그렇지 않으면 원시 인코딩을 사용합니다. 독자는 반대 선택을 거부하므로, 하나의 래스터는 하나의 정형 표현을 갖게 됩니다.\n"
     },
     {
       "id": "b000072",
       "kind": "blank",
-      "start_line": 134,
-      "end_line": 134,
+      "start_line": 135,
+      "end_line": 135,
       "raw": "\n"
     },
     {
       "id": "b000073",
       "kind": "paragraph",
-      "start_line": 135,
-      "end_line": 135,
+      "start_line": 136,
+      "end_line": 136,
       "raw": "브러시 궤적, 압력 샘플, 곡선, 댑 및 재생 명령은 여기에서 표시되지 않습니다. iiPaintEngine는 브러시 출력을 먼저 커밋하고, `.iisc`는 생성된 픽셀만 저장합니다.\n"
     },
     {
       "id": "b000074",
       "kind": "blank",
-      "start_line": 136,
-      "end_line": 136,
+      "start_line": 137,
+      "end_line": 137,
       "raw": "\n"
     },
     {
       "id": "b000075",
       "kind": "html",
-      "start_line": 137,
-      "end_line": 137,
+      "start_line": 138,
+      "end_line": 138,
       "raw": "<a id=\"chunked-raster-asset\"></a>\n"
     },
     {
       "id": "b000076",
       "kind": "blank",
-      "start_line": 138,
-      "end_line": 138,
+      "start_line": 139,
+      "end_line": 139,
       "raw": "\n"
     },
     {
       "id": "b000077",
       "kind": "heading",
-      "start_line": 139,
-      "end_line": 139,
+      "start_line": 140,
+      "end_line": 140,
       "raw": "### 청크된 래스터 자산\n",
       "level": 3,
       "title": "청크된 래스터 자산"
@@ -703,15 +690,15 @@
     {
       "id": "b000078",
       "kind": "blank",
-      "start_line": 140,
-      "end_line": 140,
+      "start_line": 141,
+      "end_line": 141,
       "raw": "\n"
     },
     {
       "id": "b000079",
       "kind": "fenced_code",
-      "start_line": 141,
-      "end_line": 147,
+      "start_line": 142,
+      "end_line": 148,
       "raw": "~~~text\nu32 chunkCount\nrepeat chunkCount:\n  i32 column\n  i32 row\n  RasterPayload pixels\n~~~\n",
       "language": "text",
       "code": "u32 chunkCount\nrepeat chunkCount:\n  i32 column\n  i32 row\n  RasterPayload pixels\n",
@@ -720,43 +707,43 @@
     {
       "id": "b000080",
       "kind": "blank",
-      "start_line": 148,
-      "end_line": 148,
+      "start_line": 149,
+      "end_line": 149,
       "raw": "\n"
     },
     {
       "id": "b000081",
       "kind": "paragraph",
-      "start_line": 149,
-      "end_line": 149,
+      "start_line": 150,
+      "end_line": 150,
       "raw": "`RasterPayload` 는 위의 래스터 자산에 의해 정의된 너비, 높이, 픽셀 수, 인코딩, 인코딩된 바이트 수, 및 데이터 시퀀스입니다; 이는 ID 를 반복하지 않습니다. 각 청크는 정확히 `chunkSize` x `chunkSize` 입니다. 청크는 `(column, row)` 가 `[column * chunkSize, (column + 1) * chunkSize)` 월드 픽셀 영역을 `[row * chunkSize, (row + 1) * chunkSize)` 로 식별하며, 음수 좌표를 포함합니다. 청크는 고유하며 행 다음 열 순서로 오름차순으로 인코딩됩니다. 누락된 청크는 투명하며 래스터 페이로드를 소비하지 않습니다. 청크화된 래스터 는 무한 캔버스에서만 유효하며 1.1버전에서 처음 나타납니다.\n"
     },
     {
       "id": "b000082",
       "kind": "blank",
-      "start_line": 150,
-      "end_line": 150,
+      "start_line": 151,
+      "end_line": 151,
       "raw": "\n"
     },
     {
       "id": "b000083",
       "kind": "html",
-      "start_line": 151,
-      "end_line": 151,
+      "start_line": 152,
+      "end_line": 152,
       "raw": "<a id=\"vector-asset\"></a>\n"
     },
     {
       "id": "b000084",
       "kind": "blank",
-      "start_line": 152,
-      "end_line": 152,
+      "start_line": 153,
+      "end_line": 153,
       "raw": "\n"
     },
     {
       "id": "b000085",
       "kind": "heading",
-      "start_line": 153,
-      "end_line": 153,
+      "start_line": 154,
+      "end_line": 154,
       "raw": "### 벡터 자산\n",
       "level": 3,
       "title": "벡터 자산"
@@ -764,15 +751,15 @@
     {
       "id": "b000086",
       "kind": "blank",
-      "start_line": 154,
-      "end_line": 154,
+      "start_line": 155,
+      "end_line": 155,
       "raw": "\n"
     },
     {
       "id": "b000087",
       "kind": "fenced_code",
-      "start_line": 155,
-      "end_line": 160,
+      "start_line": 156,
+      "end_line": 161,
       "raw": "~~~text\ni32 viewportWidth\ni32 viewportHeight\nu32 pathCount\nVectorPath paths[pathCount]\n~~~\n",
       "language": "text",
       "code": "i32 viewportWidth\ni32 viewportHeight\nu32 pathCount\nVectorPath paths[pathCount]\n",
@@ -781,29 +768,29 @@
     {
       "id": "b000088",
       "kind": "blank",
-      "start_line": 161,
-      "end_line": 161,
+      "start_line": 162,
+      "end_line": 162,
       "raw": "\n"
     },
     {
       "id": "b000089",
       "kind": "paragraph",
-      "start_line": 162,
-      "end_line": 162,
+      "start_line": 163,
+      "end_line": 163,
       "raw": "벡터 경로는:\n"
     },
     {
       "id": "b000090",
       "kind": "blank",
-      "start_line": 163,
-      "end_line": 163,
+      "start_line": 164,
+      "end_line": 164,
       "raw": "\n"
     },
     {
       "id": "b000091",
       "kind": "fenced_code",
-      "start_line": 164,
-      "end_line": 171,
+      "start_line": 165,
+      "end_line": 172,
       "raw": "~~~text\nu32 commandCount\nPathCommand commands[commandCount]\nbool hasFill\n[u32 fillArgb]\nbool hasStroke\n[u32 strokeArgb, f64 strokeWidth]\n~~~\n",
       "language": "text",
       "code": "u32 commandCount\nPathCommand commands[commandCount]\nbool hasFill\n[u32 fillArgb]\nbool hasStroke\n[u32 strokeArgb, f64 strokeWidth]\n",
@@ -812,103 +799,98 @@
     {
       "id": "b000092",
       "kind": "blank",
-      "start_line": 172,
-      "end_line": 172,
+      "start_line": 173,
+      "end_line": 173,
       "raw": "\n"
     },
     {
       "id": "b000093",
       "kind": "paragraph",
-      "start_line": 173,
-      "end_line": 173,
+      "start_line": 174,
+      "end_line": 174,
       "raw": "경로 명령 태그 및 필드는 다음과 같습니다:\n"
     },
     {
       "id": "b000094",
       "kind": "blank",
-      "start_line": 174,
-      "end_line": 174,
+      "start_line": 175,
+      "end_line": 175,
       "raw": "\n"
     },
     {
       "id": "b000095",
-      "kind": "table",
-      "start_line": 175,
-      "end_line": 181,
-      "raw": "|태그하다|작업|필드|\n| ---: | --- | --- |\n| 0 | MoveTo | `f64 x, f64 y` |\n| 1 | LineTo | `f64 x, f64 y` |\n| 2 | QuadraticTo |제어점, 종점|\n| 3 | CubicTo |제어 1, 제어 2, 엔드 포인트|\n| 4 | ClosePath |없음|\n",
-      "columns": [
-        "태그하다",
-        "작업",
-        "필드"
-      ],
-      "rows": [
-        [
-          "0",
-          "MoveTo",
-          "`f64 x, f64 y`"
-        ],
-        [
-          "1",
-          "LineTo",
-          "`f64 x, f64 y`"
-        ],
-        [
-          "2",
-          "QuadraticTo",
-          "제어점, 종점"
-        ],
-        [
-          "3",
-          "CubicTo",
-          "제어 1, 제어 2, 엔드 포인트"
-        ],
-        [
-          "4",
-          "ClosePath",
-          "없음"
-        ]
+      "start_line": 176,
+      "end_line": 180,
+      "raw": "- 태그하다: 0; 작업: MoveTo; 필드: `f64 x, f64 y`\n- 태그하다: 1; 작업: LineTo; 필드: `f64 x, f64 y`\n- 태그하다: 2; 작업: QuadraticTo; 필드: 제어점, 종점\n- 태그하다: 3; 작업: CubicTo; 필드: 제어 1, 제어 2, 엔드 포인트\n- 태그하다: 4; 작업: ClosePath; 필드: 없음\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "태그하다: 0; 작업: MoveTo; 필드: `f64 x, f64 y`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "태그하다: 1; 작업: LineTo; 필드: `f64 x, f64 y`",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "태그하다: 2; 작업: QuadraticTo; 필드: 제어점, 종점",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "태그하다: 3; 작업: CubicTo; 필드: 제어 1, 제어 2, 엔드 포인트",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "태그하다: 4; 작업: ClosePath; 필드: 없음",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000096",
       "kind": "blank",
-      "start_line": 182,
-      "end_line": 182,
+      "start_line": 181,
+      "end_line": 181,
       "raw": "\n"
     },
     {
       "id": "b000097",
       "kind": "paragraph",
-      "start_line": 183,
-      "end_line": 183,
+      "start_line": 182,
+      "end_line": 182,
       "raw": "알 수 없는 태그 안전하게 거부한다. 유효한 경로는 MoveTo로 시작하며 눈에 보이는 채우기 또는 스트로크가 있습니다. 벡터 기하학은 저장/로드 및 마이그레이션 전반에 걸쳐 네이티브를 유지합니다.\n"
     },
     {
       "id": "b000098",
       "kind": "blank",
-      "start_line": 184,
-      "end_line": 184,
+      "start_line": 183,
+      "end_line": 183,
       "raw": "\n"
     },
     {
       "id": "b000099",
       "kind": "html",
-      "start_line": 185,
-      "end_line": 185,
+      "start_line": 184,
+      "end_line": 184,
       "raw": "<a id=\"layers-and-timeline\"></a>\n"
     },
     {
       "id": "b000100",
       "kind": "blank",
-      "start_line": 186,
-      "end_line": 186,
+      "start_line": 185,
+      "end_line": 185,
       "raw": "\n"
     },
     {
       "id": "b000101",
       "kind": "heading",
-      "start_line": 187,
-      "end_line": 187,
+      "start_line": 186,
+      "end_line": 186,
       "raw": "## 레이어 및 타임라인\n",
       "level": 2,
       "title": "레이어 및 타임라인"
@@ -916,29 +898,29 @@
     {
       "id": "b000102",
       "kind": "blank",
-      "start_line": 188,
-      "end_line": 188,
+      "start_line": 187,
+      "end_line": 187,
       "raw": "\n"
     },
     {
       "id": "b000103",
       "kind": "paragraph",
-      "start_line": 189,
-      "end_line": 189,
+      "start_line": 188,
+      "end_line": 188,
       "raw": "레이어는 다음과 같이 인코딩됩니다:\n"
     },
     {
       "id": "b000104",
       "kind": "blank",
-      "start_line": 190,
-      "end_line": 190,
+      "start_line": 189,
+      "end_line": 189,
       "raw": "\n"
     },
     {
       "id": "b000105",
       "kind": "fenced_code",
-      "start_line": 191,
-      "end_line": 213,
+      "start_line": 190,
+      "end_line": 212,
       "raw": "~~~text\nstring id\nstring name\nbool visible\nf64 opacity\nf64 m11, m12, m21, m22, translationX, translationY\nu8 blendMode\n[if minor >= 18]\n  bool hasArtboard\n  [if hasArtboard]\n    string artboardId\n[if minor >= 19]\n  u8 visualLayerKind // 0 static bitmap, 1 static vector, 2 dynamic bitmap, 3 dynamic vector, 255 nonspatial\n[if minor >= 20]\n  LayerAppearance appearance // See the 1.20 extension below.\nu8 sourceKind\nLayerSource source\n[if minor >= 3]\n  bool hasFrameRange\n  [if hasFrameRange]\n    u32 firstFrame\n    u32 lastFrame\n~~~\n",
       "language": "text",
       "code": "string id\nstring name\nbool visible\nf64 opacity\nf64 m11, m12, m21, m22, translationX, translationY\nu8 blendMode\n[if minor >= 18]\n  bool hasArtboard\n  [if hasArtboard]\n    string artboardId\n[if minor >= 19]\n  u8 visualLayerKind // 0 static bitmap, 1 static vector, 2 dynamic bitmap, 3 dynamic vector, 255 nonspatial\n[if minor >= 20]\n  LayerAppearance appearance // See the 1.20 extension below.\nu8 sourceKind\nLayerSource source\n[if minor >= 3]\n  bool hasFrameRange\n  [if hasFrameRange]\n    u32 firstFrame\n    u32 lastFrame\n",
@@ -947,43 +929,43 @@
     {
       "id": "b000106",
       "kind": "blank",
-      "start_line": 214,
-      "end_line": 214,
+      "start_line": 213,
+      "end_line": 213,
       "raw": "\n"
     },
     {
       "id": "b000107",
       "kind": "paragraph",
-      "start_line": 215,
-      "end_line": 215,
+      "start_line": 214,
+      "end_line": 214,
       "raw": "블렌드 태그는 0 오버, 1 곱하기, 2 스크린, 및 3 오버레이입니다. iiPaintEngine 디스틴네이션-아웃은 즉시 브러시 지우기를 위해 예약되어 있으며 지속되는 레이어 블렌드 모드가 아닙니다.\n"
     },
     {
       "id": "b000108",
       "kind": "blank",
-      "start_line": 216,
-      "end_line": 216,
+      "start_line": 215,
+      "end_line": 215,
       "raw": "\n"
     },
     {
       "id": "b000109",
       "kind": "paragraph",
-      "start_line": 217,
-      "end_line": 217,
+      "start_line": 216,
+      "end_line": 216,
       "raw": "아핀 변환은 `(x, y)`를 다음과 같이 매핑합니다:\n"
     },
     {
       "id": "b000110",
       "kind": "blank",
-      "start_line": 218,
-      "end_line": 218,
+      "start_line": 217,
+      "end_line": 217,
       "raw": "\n"
     },
     {
       "id": "b000111",
       "kind": "fenced_code",
-      "start_line": 219,
-      "end_line": 222,
+      "start_line": 218,
+      "end_line": 221,
       "raw": "~~~text\nx' = x * m11 + y * m21 + translationX\ny' = x * m12 + y * m22 + translationY\n~~~\n",
       "language": "text",
       "code": "x' = x * m11 + y * m21 + translationX\ny' = x * m12 + y * m22 + translationY\n",
@@ -992,29 +974,29 @@
     {
       "id": "b000112",
       "kind": "blank",
-      "start_line": 223,
-      "end_line": 223,
+      "start_line": 222,
+      "end_line": 222,
       "raw": "\n"
     },
     {
       "id": "b000113",
       "kind": "paragraph",
-      "start_line": 224,
-      "end_line": 224,
+      "start_line": 223,
+      "end_line": 223,
       "raw": "소스 종류 0는 정적이며 하나의 자산 ID 문자열을 저장합니다. 그 콘크리트 층 유형은 참조된 자산 종류입니다. 소스 종류 1는 애니메이션 레이어를 표시하고 다음 레이어 주요 와이어 프로젝션을 저장합니다:\n"
     },
     {
       "id": "b000114",
       "kind": "blank",
-      "start_line": 225,
-      "end_line": 225,
+      "start_line": 224,
+      "end_line": 224,
       "raw": "\n"
     },
     {
       "id": "b000115",
       "kind": "fenced_code",
-      "start_line": 226,
-      "end_line": 232,
+      "start_line": 225,
+      "end_line": 231,
       "raw": "~~~text\nu8 contentKind       // 0 raster payload, 1 vector payload\nu32 keyframeCount\nrepeat keyframeCount:\n  u32 frame\n  string assetId\n~~~\n",
       "language": "text",
       "code": "u8 contentKind       // 0 raster payload, 1 vector payload\nu32 keyframeCount\nrepeat keyframeCount:\n  u32 frame\n  string assetId\n",
@@ -1023,71 +1005,71 @@
     {
       "id": "b000116",
       "kind": "blank",
-      "start_line": 233,
-      "end_line": 233,
+      "start_line": 232,
+      "end_line": 232,
       "raw": "\n"
     },
     {
       "id": "b000117",
       "kind": "paragraph",
-      "start_line": 234,
-      "end_line": 234,
+      "start_line": 233,
+      "end_line": 233,
       "raw": "와이어 레이아웃은 `.iisc` 1.0 에서 1.2까지 변경되지 않습니다. 메모리에서 `Document::frames` 는 엄격히 증가하는 희소 `Frame` 레코드와 모든 실제 `Keyframe` 를 소유합니다. `KeyframedSource::frameIndices` 는 해당 레이어에 대해 소유된 정확한 증가 프레임 시트를 포함하는 검증된 유도된 인덱스일 뿐입니다. 디코더는 해당 인덱스를 각 포함 와이어 레코드에서 채우고, 키를 `Frame{index, Keyframe{layerId, assetId}}` 로 전치하며, 동시 키를 레이어 ID 로 순서대로 정렬합니다. 인코더는 문서 레이어 순서로 프레임을 소유한 키들을 다시 투영하므로, 사전순이 아닌 레이어 스택도 동일한 바이트로 다시 인코딩됩니다. 한 프레임 내의 동일한 레이어에 대한 빈 프레임과 2 키는 기존 와이어 포맷이 이를 표현할 수 없기 때문에 유효하지 않습니다. 인코딩된 `contentKind` 는 소유 레이어의 정형화된 타입 태그이며, 정적 레이어이거나 참조된 레이어와 자산 종류가 다른 키는 검증에서 거부됩니다.\n"
     },
     {
       "id": "b000118",
       "kind": "blank",
-      "start_line": 235,
-      "end_line": 235,
+      "start_line": 234,
+      "end_line": 234,
       "raw": "\n"
     },
     {
       "id": "b000119",
       "kind": "paragraph",
-      "start_line": 236,
-      "end_line": 236,
+      "start_line": 235,
+      "end_line": 235,
       "raw": "버전 1 자산 참조 키는 홀드 샘플링만 사용합니다. 선택된 자산은 요청된 프레임에 있거나 그 이전에 있는 요청된 레이어의 마지막 프레임 소유 키입니다. 희소 프레임 인덱스는 엄격히 증가하며 `[0, frameCount)` 범위 내에 유지됩니다; 모든 애니메이션 레이어는 프레임‐0 키를 가지고 있으며, 하나의 프레임은 여러 래스터 및 벡터 레이어에 대한 키를 직접 소유할 수 있습니다.\n"
     },
     {
       "id": "b000120",
       "kind": "blank",
-      "start_line": 237,
-      "end_line": 237,
+      "start_line": 236,
+      "end_line": 236,
       "raw": "\n"
     },
     {
       "id": "b000121",
       "kind": "paragraph",
-      "start_line": 238,
-      "end_line": 238,
+      "start_line": 237,
+      "end_line": 237,
       "raw": "프레임 범위 끝점은 0기반이며 포함됩니다. 존재하는 범위는 `firstFrame <= lastFrame < frameCount` 를 만족하며, 레이어는 존재하지 않고 해당 구간 바깥에 렌더링된 픽셀을 기여하지 않습니다. 부재하는 범위는 레이어가 전체 타임라인에 걸쳐 존재함을 의미합니다. 범위는 정적과 키프레임이 적용된 비트맵 또는 벡터 레이어에 동일하게 적용됩니다. 그것은 파괴적이지 않은 존재 게이트이며, 키프레임 는 범위를 벗어날 수 있고, 범위에 진입하면 즉시 해당 프레임 이전 또는 해당 프레임의 마지막 프레임 기반0유지 값을 사용합니다.\n"
     },
     {
       "id": "b000122",
       "kind": "blank",
-      "start_line": 239,
-      "end_line": 239,
+      "start_line": 238,
+      "end_line": 238,
       "raw": "\n"
     },
     {
       "id": "b000123",
       "kind": "html",
-      "start_line": 240,
-      "end_line": 240,
+      "start_line": 239,
+      "end_line": 239,
       "raw": "<a id=\"audio-assets-and-track-layers-14\"></a>\n"
     },
     {
       "id": "b000124",
       "kind": "blank",
-      "start_line": 241,
-      "end_line": 241,
+      "start_line": 240,
+      "end_line": 240,
       "raw": "\n"
     },
     {
       "id": "b000125",
       "kind": "heading",
-      "start_line": 242,
-      "end_line": 242,
+      "start_line": 241,
+      "end_line": 241,
       "raw": "## 오디오 자산 및 트랙 레이어 ( 1.4 )\n",
       "level": 2,
       "title": "오디오 자산 및 트랙 레이어 ( 1.4 )"
@@ -1095,29 +1077,29 @@
     {
       "id": "b000126",
       "kind": "blank",
-      "start_line": 243,
-      "end_line": 243,
+      "start_line": 242,
+      "end_line": 242,
       "raw": "\n"
     },
     {
       "id": "b000127",
       "kind": "paragraph",
-      "start_line": 244,
-      "end_line": 244,
+      "start_line": 243,
+      "end_line": 243,
       "raw": "오디오 자산은 다음과 같이 인코딩됩니다:\n"
     },
     {
       "id": "b000128",
       "kind": "blank",
-      "start_line": 245,
-      "end_line": 245,
+      "start_line": 244,
+      "end_line": 244,
       "raw": "\n"
     },
     {
       "id": "b000129",
       "kind": "fenced_code",
-      "start_line": 246,
-      "end_line": 252,
+      "start_line": 245,
+      "end_line": 251,
       "raw": "~~~text\nstring id\nu32 sampleRate\nu16 channelCount\nu64 sampleCount\ni16 samples[sampleCount]\n~~~\n",
       "language": "text",
       "code": "string id\nu32 sampleRate\nu16 channelCount\nu64 sampleCount\ni16 samples[sampleCount]\n",
@@ -1126,43 +1108,43 @@
     {
       "id": "b000130",
       "kind": "blank",
-      "start_line": 253,
-      "end_line": 253,
+      "start_line": 252,
+      "end_line": 252,
       "raw": "\n"
     },
     {
       "id": "b000131",
       "kind": "paragraph",
-      "start_line": 254,
-      "end_line": 254,
+      "start_line": 253,
+      "end_line": 253,
       "raw": "샘플은 채널 순서로 서명된 리틀엔디언 PCM16 입니다. 개수는 채널 전체의 스칼라 샘플 총 개수이며, `sampleCount / channelCount` 는 소스 샘플 프레임의 개수입니다. 샘플 속도는 8000 – 192000 Hz, 채널 개수는 하나 또는 2이며, 샘플은 채널 개수로 나누어떨어지는 개수를 가진 비어있지 않습니다. 이것은 디코딩된 오디오 샘플을 내장하며, 외부 경로나 원래 압축된 코덱 스트림이 아닙니다. 오디오 및 시각적 자산 id 는 문서 정체성 네임스페이스를 공유합니다.\n"
     },
     {
       "id": "b000132",
       "kind": "blank",
-      "start_line": 255,
-      "end_line": 255,
+      "start_line": 254,
+      "end_line": 254,
       "raw": "\n"
     },
     {
       "id": "b000133",
       "kind": "paragraph",
-      "start_line": 256,
-      "end_line": 256,
+      "start_line": 255,
+      "end_line": 255,
       "raw": "오디오 트랙 레이어는 다음과 같이 인코딩됩니다:\n"
     },
     {
       "id": "b000134",
       "kind": "blank",
-      "start_line": 257,
-      "end_line": 257,
+      "start_line": 256,
+      "end_line": 256,
       "raw": "\n"
     },
     {
       "id": "b000135",
       "kind": "fenced_code",
-      "start_line": 258,
-      "end_line": 273,
+      "start_line": 257,
+      "end_line": 272,
       "raw": "~~~text\nstring id\nstring name\nbool muted\nf64 gainDb\nu32 clipCount\nrepeat clipCount:\n  string id\n  string name\n  string assetId\n  u32 startFrame\n  u32 durationFrames\n  u64 sourceOffsetSamples\n  f64 gainDb\n  bool enabled\n~~~\n",
       "language": "text",
       "code": "string id\nstring name\nbool muted\nf64 gainDb\nu32 clipCount\nrepeat clipCount:\n  string id\n  string name\n  string assetId\n  u32 startFrame\n  u32 durationFrames\n  u64 sourceOffsetSamples\n  f64 gainDb\n  bool enabled\n",
@@ -1171,57 +1153,57 @@
     {
       "id": "b000136",
       "kind": "blank",
-      "start_line": 274,
-      "end_line": 274,
+      "start_line": 273,
+      "end_line": 273,
       "raw": "\n"
     },
     {
       "id": "b000137",
       "kind": "paragraph",
-      "start_line": 275,
-      "end_line": 275,
+      "start_line": 274,
+      "end_line": 274,
       "raw": "오디오 및 시각적 레이어 id 는 레이어 정체성 네임스페이스를 공유합니다. 오디오 클립 id 는 모든 오디오 트랙에서 고유합니다. 클립은 오버랩 없이 한 트랙 내에서 시작 프레임 순서로 정렬됩니다; 별도의 트랙은 오버랩할 수 있습니다. 구간은 `[startFrame, startFrame + durationFrames)` 반개방이며, 양의 지속 시간과 문서 프레임 수보다 이전 또는 같은 종료 프레임을 가집니다. 모든 클립은 오디오 자산을 참조합니다. `sourceOffsetSamples` 은 채널별 소스 샘플 프레임에 대한 음이 아닌 트리밍이며, 스칼라 인터리브 샘플이나 타임라인 프레임이 아닙니다. 필요한 소스 샘플 프레임은 `durationFrames * sampleRate * frameRateDenominator / frameRateNumerator` 의 올림값이며, 트리밍과 그 지속 시간이 자산을 포함하여 무음 또는 비활성화된 클립에도 맞아야 합니다. 이득은 유한하며 -96 에서 24 dB 사이입니다. 무음 및 활성화 플래그는 소스 미디어, 타이밍, 또는 이득 값을 삭제하지 않습니다.\n"
     },
     {
       "id": "b000138",
       "kind": "blank",
-      "start_line": 276,
-      "end_line": 276,
+      "start_line": 275,
+      "end_line": 275,
       "raw": "\n"
     },
     {
       "id": "b000139",
       "kind": "paragraph",
-      "start_line": 277,
-      "end_line": 277,
+      "start_line": 276,
+      "end_line": 276,
       "raw": "오디오는 시각적 고정 키와 시각적 프레임 렌더링에 독립적입니다. 그 트랙/클립 정보는 명시적인 오디오 교환을 통해 투사될 수 있으며, 네이티브 데이터는 이 컨테이너에서 권위 있고 무손실로 유지됩니다.\n"
     },
     {
       "id": "b000140",
       "kind": "blank",
-      "start_line": 278,
-      "end_line": 278,
+      "start_line": 277,
+      "end_line": 277,
       "raw": "\n"
     },
     {
       "id": "b000141",
       "kind": "html",
-      "start_line": 279,
-      "end_line": 279,
+      "start_line": 278,
+      "end_line": 278,
       "raw": "<a id=\"stable-diffusion-generation-metadata\"></a>\n"
     },
     {
       "id": "b000142",
       "kind": "blank",
-      "start_line": 280,
-      "end_line": 280,
+      "start_line": 279,
+      "end_line": 279,
       "raw": "\n"
     },
     {
       "id": "b000143",
       "kind": "heading",
-      "start_line": 281,
-      "end_line": 281,
+      "start_line": 280,
+      "end_line": 280,
       "raw": "## 안정적인 확산 생성 메타데이터\n",
       "level": 2,
       "title": "안정적인 확산 생성 메타데이터"
@@ -1229,29 +1211,29 @@
     {
       "id": "b000144",
       "kind": "blank",
-      "start_line": 282,
-      "end_line": 282,
+      "start_line": 281,
+      "end_line": 281,
       "raw": "\n"
     },
     {
       "id": "b000145",
       "kind": "paragraph",
-      "start_line": 283,
-      "end_line": 283,
+      "start_line": 282,
+      "end_line": 282,
       "raw": "선택적 버전 1.2 레코드는 정확히 이 순서대로 인코딩됩니다:\n"
     },
     {
       "id": "b000146",
       "kind": "blank",
-      "start_line": 284,
-      "end_line": 284,
+      "start_line": 283,
+      "end_line": 283,
       "raw": "\n"
     },
     {
       "id": "b000147",
       "kind": "fenced_code",
-      "start_line": 285,
-      "end_line": 338,
+      "start_line": 284,
+      "end_line": 337,
       "raw": "~~~text\nstring positivePrompt\nstring negativePrompt\nbool hasOutputExtent\n[if hasOutputExtent]\n  u32 outputWidth\n  u32 outputHeight\nOptionalU32 batchSize\nOptionalU32 clipSkip\n\nu32 samplingPassCount\nrepeat samplingPassCount:\n  string nodeId\n  OptionalU64 seed\n  OptionalU32 steps\n  OptionalF64 cfgScale\n  string samplerName\n  string scheduler\n  OptionalF64 denoiseStrength\n  OptionalU32 startStep\n  OptionalU32 endStep\n\nu32 modelCount\nrepeat modelCount:\n  string role\n  string name\n  string hash\n  string hashType\n  string uri\n\nu32 loraCount\nrepeat loraCount:\n  string name\n  string hash\n  f64 modelStrength\n  f64 clipStrength\n\nstring software\nstring softwareVersion\nstring createdAt\nstring generationParametersText\nstring comfyUiPromptJson\nstring comfyUiWorkflowJson\n\nu32 comfyUiExtraPngInfoCount\nrepeat comfyUiExtraPngInfoCount:\n  string key\n  string jsonValue\n\nu32 extraParameterCount\nrepeat extraParameterCount:\n  string key\n  string value\n~~~\n",
       "language": "text",
       "code": "string positivePrompt\nstring negativePrompt\nbool hasOutputExtent\n[if hasOutputExtent]\n  u32 outputWidth\n  u32 outputHeight\nOptionalU32 batchSize\nOptionalU32 clipSkip\n\nu32 samplingPassCount\nrepeat samplingPassCount:\n  string nodeId\n  OptionalU64 seed\n  OptionalU32 steps\n  OptionalF64 cfgScale\n  string samplerName\n  string scheduler\n  OptionalF64 denoiseStrength\n  OptionalU32 startStep\n  OptionalU32 endStep\n\nu32 modelCount\nrepeat modelCount:\n  string role\n  string name\n  string hash\n  string hashType\n  string uri\n\nu32 loraCount\nrepeat loraCount:\n  string name\n  string hash\n  f64 modelStrength\n  f64 clipStrength\n\nstring software\nstring softwareVersion\nstring createdAt\nstring generationParametersText\nstring comfyUiPromptJson\nstring comfyUiWorkflowJson\n\nu32 comfyUiExtraPngInfoCount\nrepeat comfyUiExtraPngInfoCount:\n  string key\n  string jsonValue\n\nu32 extraParameterCount\nrepeat extraParameterCount:\n  string key\n  string value\n",
@@ -1260,85 +1242,85 @@
     {
       "id": "b000148",
       "kind": "blank",
-      "start_line": 339,
-      "end_line": 339,
+      "start_line": 338,
+      "end_line": 338,
       "raw": "\n"
     },
     {
       "id": "b000149",
       "kind": "paragraph",
-      "start_line": 340,
-      "end_line": 340,
+      "start_line": 339,
+      "end_line": 339,
       "raw": "`OptionalU32`, `OptionalU64`, 및 `OptionalF64`는 지정된 프리미티브가 존재할 때만 뒤에 따라오는 정규 부울 존재 바이트입니다. 출력 범위, 배치 크기, CLIP 스킵 및 단계 수가 존재할 경우 양수입니다. CFG는 유한하고 비음수이며, 제소음 강도는 0부터 1까지 유한합니다; 시작 단계는 종료 단계를 초과하지 않습니다. 샘플링 패스에는 최소 하나의 설정이 포함되어 있습니다.\n"
     },
     {
       "id": "b000150",
       "kind": "blank",
-      "start_line": 341,
-      "end_line": 341,
+      "start_line": 340,
+      "end_line": 340,
       "raw": "\n"
     },
     {
       "id": "b000151",
       "kind": "paragraph",
-      "start_line": 342,
-      "end_line": 342,
+      "start_line": 341,
+      "end_line": 341,
       "raw": "모델 리소스는 역할과 이름이 필요합니다. 역할은 체크포인트, VAE, ControlNet 또는 다른 소비자가 이해한 모델 클래스를 식별할 수 있습니다. 해시, 해시 타입 및 URI는 신뢰할 수 있는 해결자가 아니라 출처 문자열입니다. LoRA의 강도는 유한합니다. 이 레코드에는 체크포인트, VAE, LoRA, 임베딩 또는 사용자 정의 노드 바이너리가 삽입되지 않습니다.\n"
     },
     {
       "id": "b000152",
       "kind": "blank",
-      "start_line": 343,
-      "end_line": 343,
+      "start_line": 342,
+      "end_line": 342,
       "raw": "\n"
     },
     {
       "id": "b000153",
       "kind": "paragraph",
-      "start_line": 344,
-      "end_line": 344,
+      "start_line": 343,
+      "end_line": 343,
       "raw": "그들의 ComfyUI `prompt` 및 `workflow` 값은 독립적이고 선택적인 JSON 객체입니다. 그들의 UTF-8 바이트는 정확히 유지되며, 작성자는 이를 파싱하고 다시 방출하지 않습니다. `prompt` 는 API 실행 그래프를 나타내고 `workflow` 는 UI -복원 그래프를 나타냅니다. 추가 PNG -정보 키는 비어있지 않고 고유하며, 예약된 `prompt` 또는 `workflow` 이름이 될 수 없습니다; 그 값은 완전한 JSON 값입니다. 일반적인 추가 매개변수 키는 비어있지 않고 고유하며, 그 값은 불투명한 UTF-8 입니다.\n"
     },
     {
       "id": "b000154",
       "kind": "blank",
-      "start_line": 345,
-      "end_line": 345,
+      "start_line": 344,
+      "end_line": 344,
       "raw": "\n"
     },
     {
       "id": "b000155",
       "kind": "paragraph",
-      "start_line": 346,
-      "end_line": 346,
+      "start_line": 345,
+      "end_line": 345,
       "raw": "첨부된 메타데이터 레코드에는 최소 하나의 프롬프트, 설정, 리소스, 호환성 페이로드 또는 확장이 포함되어야 합니다. 신뢰할 수 없는 저작 및 출처 데이터입니다: 디코딩은 그래프를 실행하지 않으며, URI를 해석하거나, 모델을 로드하거나, 렌더링된 픽셀을 변경하지 않습니다.\n"
     },
     {
       "id": "b000156",
       "kind": "blank",
-      "start_line": 347,
-      "end_line": 347,
+      "start_line": 346,
+      "end_line": 346,
       "raw": "\n"
     },
     {
       "id": "b000157",
       "kind": "html",
-      "start_line": 348,
-      "end_line": 348,
+      "start_line": 347,
+      "end_line": 347,
       "raw": "<a id=\"render-contract\"></a>\n"
     },
     {
       "id": "b000158",
       "kind": "blank",
-      "start_line": 349,
-      "end_line": 349,
+      "start_line": 348,
+      "end_line": 348,
       "raw": "\n"
     },
     {
       "id": "b000159",
       "kind": "heading",
-      "start_line": 350,
-      "end_line": 350,
+      "start_line": 349,
+      "end_line": 349,
       "raw": "## 계약 렌더링\n",
       "level": 2,
       "title": "계약 렌더링"
@@ -1346,57 +1328,57 @@
     {
       "id": "b000160",
       "kind": "blank",
-      "start_line": 351,
-      "end_line": 351,
+      "start_line": 350,
+      "end_line": 350,
       "raw": "\n"
     },
     {
       "id": "b000161",
       "kind": "paragraph",
-      "start_line": 352,
-      "end_line": 352,
+      "start_line": 351,
+      "end_line": 351,
       "raw": "래스터와 벡터 자산은 최근접 이웃 아핀 샘플링을 사용하고 문서 캔버스에 클립합니다. 단일 행렬은 빈 층 풋프린트를 생성합니다. 벡터 채우기는 짝수-오드 규칙을 사용하고, 스트로크는 둥근 풋프린트를 사용합니다. M/L/Q/C/Z 경로는 픽셀당 4x4 커버리지 그리드를 적용한 결정론적 CPU 래스터화를 사용합니다. 해결된 레이어는 iiPaintEngine 불투명도와 블렌드 의미론을 사용하여 아래에서 위로 합성됩니다.\n"
     },
     {
       "id": "b000162",
       "kind": "blank",
-      "start_line": 353,
-      "end_line": 353,
+      "start_line": 352,
+      "end_line": 352,
       "raw": "\n"
     },
     {
       "id": "b000163",
       "kind": "paragraph",
-      "start_line": 354,
-      "end_line": 354,
+      "start_line": 353,
+      "end_line": 353,
       "raw": "레이어 병렬 렌더링은 지속된 레이어 순서를 변경하지 않습니다. 격리된 레이어 타일, 작업자 완료 순서, 상주 텍스처 캐시 및 최종 구성 타일은 런타임 상태만 해당됩니다. 컴포지션은 불투명도와 블렌드 모드를 적용하기 전에 항상 인코딩된 바텀‐탑 순서를 복원합니다.\n"
     },
     {
       "id": "b000164",
       "kind": "blank",
-      "start_line": 355,
-      "end_line": 355,
+      "start_line": 354,
+      "end_line": 354,
       "raw": "\n"
     },
     {
       "id": "b000165",
       "kind": "html",
-      "start_line": 356,
-      "end_line": 356,
+      "start_line": 355,
+      "end_line": 355,
       "raw": "<a id=\"authoring-only-state\"></a>\n"
     },
     {
       "id": "b000166",
       "kind": "blank",
-      "start_line": 357,
-      "end_line": 357,
+      "start_line": 356,
+      "end_line": 356,
       "raw": "\n"
     },
     {
       "id": "b000167",
       "kind": "heading",
-      "start_line": 358,
-      "end_line": 358,
+      "start_line": 357,
+      "end_line": 357,
       "raw": "## 저작 전용 상태\n",
       "level": 2,
       "title": "저작 전용 상태"
@@ -1404,85 +1386,85 @@
     {
       "id": "b000168",
       "kind": "blank",
-      "start_line": 359,
-      "end_line": 359,
+      "start_line": 358,
+      "end_line": 358,
       "raw": "\n"
     },
     {
       "id": "b000169",
       "kind": "paragraph",
-      "start_line": 360,
-      "end_line": 360,
-      "raw": "`TimelineProject`는 `.iisc` 버전 1.4에 의해 인코딩되지 않았습니다. 비디오 편집 모델은 위의 캔버스 페이로드에 속하지 않는 참조와 미디어 타이밍을 가진 여러 시퀀스, 소스 표현, 타입 스트림, 트랙, 클립, 효과, 마커 및 렌더 프로파일을 가지고 있습니다. 내구성이 뛰어난 비디오 프로젝트 스토리지를 추가하려면 명시적인 자원 제한이 있는 별도의 버전 형식과 무손실 왕복 변환 테스트가 필요합니다; 단순히 메모리 내 모델을 추가하는 것만으로는 `CurrentFormatMinor`가 변경되지 않습니다.\n"
+      "start_line": 359,
+      "end_line": 359,
+      "raw": "`TimelineProject`는 `.iisc` 버전 1.4에 의해 인코딩되지 않았으며 1.28부터 문서에 포함된다. `.iisc` 1.28은 기존 관계 데이터 뒤에 시퀀스 프로젝트 존재 여부, 선택적인 u64 길이와 고정 필드 순서의 CBOR 프로젝트, u32 미디어 수 및 각 미디어의 ID·미디어 타입·u64 바이트 길이와 원본 바이트를 추가한다. 온라인 표현은 문서 소유 미디어 ID를 참조해야 하며 외부 URI는 허용하지 않는다. 프로젝트, 미디어, 컨테이너와 문자열 한도를 적용한다. 1.29는 클립 원본 콘텐츠 창, 트랙 효과 시간 매핑과 렌더된 영상의 편집 가능한 원본 참조를 각 모델의 선택적인 후행 필드로 추가한다. 해당 필드가 없으면 1.28의 필드 수를 그대로 쓴다. 이 데이터를 가진 프로젝트를 1.28 이하 형식으로 저장하려 하면 거부한다. 렌더 원본 참조는 문서 소유 IISC 스냅샷을 가리키며 외부 경로가 아니다. 이전 버전의 바이트 배치는 변경하지 않는다.\n"
     },
     {
       "id": "b000170",
       "kind": "blank",
-      "start_line": 361,
-      "end_line": 361,
+      "start_line": 360,
+      "end_line": 360,
       "raw": "\n"
     },
     {
       "id": "b000171",
       "kind": "paragraph",
-      "start_line": 362,
-      "end_line": 362,
+      "start_line": 361,
+      "end_line": 361,
       "raw": "`TimelineProject` 의 컨테이너 및 코덱 설명자는 호스트가 프로브, 디코드, 인코드, 또는 믹스할 수 있다는 증거가 아닌 선언입니다. 이러한 작업은 어댑터 책임으로 남아 있으며 `.iisc` 에 숨은 상태를 기록하지 않습니다.\n"
     },
     {
       "id": "b000172",
       "kind": "blank",
-      "start_line": 363,
-      "end_line": 363,
+      "start_line": 362,
+      "end_line": 362,
       "raw": "\n"
     },
     {
       "id": "b000173",
       "kind": "paragraph",
-      "start_line": 364,
-      "end_line": 364,
+      "start_line": 363,
+      "end_line": 363,
       "raw": "브러시 입력은 영속화된 콘텐츠 종류가 아닙니다. `BitmapEditor` 은 포인터 제스처가 활성 상태인 동안에만 일시적인 iiPaintEngine dab 스트림을 유지할 수 있습니다. `BitmapItem` 와 `CanvasItem` 뷰포트 상태, 레이어 선택, 되돌리기 이력, 입력 이벤트, 및 UI 도구 상태는 인코딩되지 않습니다.\n"
     },
     {
       "id": "b000174",
       "kind": "blank",
-      "start_line": 365,
-      "end_line": 365,
+      "start_line": 364,
+      "end_line": 364,
       "raw": "\n"
     },
     {
       "id": "b000175",
       "kind": "paragraph",
-      "start_line": 366,
-      "end_line": 366,
+      "start_line": 365,
+      "end_line": 365,
       "raw": "`CameraRawData` 는 `.iisc` 버전 1.1 에 의해 인코딩되지 않으며 1.4버전 바깥에 남아 있습니다. 그것은 센서 샘플과 캡처/교정 메타데이터를 포함하는 디코드/가입 상태이며, 캔버스 자산이나 세 번째 레이어 종류가 아닙니다. 호스트는 결과가 문서에 속하는 경우 명시적으로 ARGB 픽셀로 처리한 후 `RasterAsset` 를 생성해야 합니다. 현재 컨테이너에 제조업체 RAW 바이트, CFA 페이로드, RAW 프로필, 또는 암시적인 디모자이크링 설정이 추가되지 않습니다.\n"
     },
     {
       "id": "b000176",
       "kind": "blank",
-      "start_line": 367,
-      "end_line": 367,
+      "start_line": 366,
+      "end_line": 366,
       "raw": "\n"
     },
     {
       "id": "b000177",
       "kind": "html",
-      "start_line": 368,
-      "end_line": 368,
+      "start_line": 367,
+      "end_line": 367,
       "raw": "<a id=\"default-reader-limits\"></a>\n"
     },
     {
       "id": "b000178",
       "kind": "blank",
-      "start_line": 369,
-      "end_line": 369,
+      "start_line": 368,
+      "end_line": 368,
       "raw": "\n"
     },
     {
       "id": "b000179",
       "kind": "heading",
-      "start_line": 370,
-      "end_line": 370,
+      "start_line": 369,
+      "end_line": 369,
       "raw": "## 기본 독자 제한\n",
       "level": 2,
       "title": "기본 독자 제한"
@@ -1490,149 +1472,163 @@
     {
       "id": "b000180",
       "kind": "blank",
-      "start_line": 371,
-      "end_line": 371,
+      "start_line": 370,
+      "end_line": 370,
       "raw": "\n"
     },
     {
       "id": "b000181",
       "kind": "paragraph",
-      "start_line": 372,
-      "end_line": 372,
+      "start_line": 371,
+      "end_line": 371,
       "raw": "`SerializationLimits`는 호출자가 설정할 수 있다. 기본값은 다음과 같다:\n"
     },
     {
       "id": "b000182",
       "kind": "blank",
-      "start_line": 373,
-      "end_line": 373,
+      "start_line": 372,
+      "end_line": 372,
       "raw": "\n"
     },
     {
       "id": "b000183",
-      "kind": "table",
-      "start_line": 374,
-      "end_line": 393,
-      "raw": "|리소스|기본 최대값|\n| --- | ---: |\n|컨테이너 바이트| 1 GiB |\n|캔버스 또는 벡터 뷰포트 픽셀|256 Mi 픽셀|\n|총 래스터 픽셀|256 Mi 픽셀|\n|희소한 래스터 청크| 1,048,576 |\n|자산| 65,536 |\n|레이어| 65,536 |\n|키를 보유한 희박한 프레임| 262,144 |\n|하나의 문자열| 1 MiB |\n|생성 메타데이터 문자열 하나| 16 MiB |\n|총 문자열 바이트 수| 64 MiB |\n|패스, 모델, LoRAs 및 확장 목록 전반의 생성 메타데이터 항목| 65,536 |\n|벡터 경로| 1,048,576 |\n|경로 명령| 16,777,216 |\n| Keyframes | 16,777,216 |\n|오디오 자산| 65,536 |\n|오디오 트랙 레이어| 65,536 |\n|전체 오디오 클립| 16,777,216 |\n|총 인터리브된 PCM16 스칼라 샘플| 268,435,456 (512 MiB) |\n",
-      "columns": [
-        "리소스",
-        "기본 최대값"
-      ],
-      "rows": [
-        [
-          "컨테이너 바이트",
-          "1 GiB"
-        ],
-        [
-          "캔버스 또는 벡터 뷰포트 픽셀",
-          "256 Mi 픽셀"
-        ],
-        [
-          "총 래스터 픽셀",
-          "256 Mi 픽셀"
-        ],
-        [
-          "희소한 래스터 청크",
-          "1,048,576"
-        ],
-        [
-          "자산",
-          "65,536"
-        ],
-        [
-          "레이어",
-          "65,536"
-        ],
-        [
-          "키를 보유한 희박한 프레임",
-          "262,144"
-        ],
-        [
-          "하나의 문자열",
-          "1 MiB"
-        ],
-        [
-          "생성 메타데이터 문자열 하나",
-          "16 MiB"
-        ],
-        [
-          "총 문자열 바이트 수",
-          "64 MiB"
-        ],
-        [
-          "패스, 모델, LoRAs 및 확장 목록 전반의 생성 메타데이터 항목",
-          "65,536"
-        ],
-        [
-          "벡터 경로",
-          "1,048,576"
-        ],
-        [
-          "경로 명령",
-          "16,777,216"
-        ],
-        [
-          "Keyframes",
-          "16,777,216"
-        ],
-        [
-          "오디오 자산",
-          "65,536"
-        ],
-        [
-          "오디오 트랙 레이어",
-          "65,536"
-        ],
-        [
-          "전체 오디오 클립",
-          "16,777,216"
-        ],
-        [
-          "총 인터리브된 PCM16 스칼라 샘플",
-          "268,435,456 (512 MiB)"
-        ]
+      "start_line": 373,
+      "end_line": 390,
+      "raw": "- 리소스: 컨테이너 바이트; 기본 최대값: 1 GiB\n- 리소스: 캔버스 또는 벡터 뷰포트 픽셀; 기본 최대값: 256 Mi 픽셀\n- 리소스: 총 래스터 픽셀; 기본 최대값: 256 Mi 픽셀\n- 리소스: 희소한 래스터 청크; 기본 최대값: 1,048,576\n- 리소스: 자산; 기본 최대값: 65,536\n- 리소스: 레이어; 기본 최대값: 65,536\n- 리소스: 키를 보유한 희박한 프레임; 기본 최대값: 262,144\n- 리소스: 하나의 문자열; 기본 최대값: 1 MiB\n- 리소스: 생성 메타데이터 문자열 하나; 기본 최대값: 16 MiB\n- 리소스: 총 문자열 바이트 수; 기본 최대값: 64 MiB\n- 리소스: 패스, 모델, LoRAs 및 확장 목록 전반의 생성 메타데이터 항목; 기본 최대값: 65,536\n- 리소스: 벡터 경로; 기본 최대값: 1,048,576\n- 리소스: 경로 명령; 기본 최대값: 16,777,216\n- 리소스: Keyframes; 기본 최대값: 16,777,216\n- 리소스: 오디오 자산; 기본 최대값: 65,536\n- 리소스: 오디오 트랙 레이어; 기본 최대값: 65,536\n- 리소스: 전체 오디오 클립; 기본 최대값: 16,777,216\n- 리소스: 총 인터리브된 PCM16 스칼라 샘플; 기본 최대값: 268,435,456 (512 MiB)\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "리소스: 컨테이너 바이트; 기본 최대값: 1 GiB",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 캔버스 또는 벡터 뷰포트 픽셀; 기본 최대값: 256 Mi 픽셀",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 총 래스터 픽셀; 기본 최대값: 256 Mi 픽셀",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 희소한 래스터 청크; 기본 최대값: 1,048,576",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 자산; 기본 최대값: 65,536",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 레이어; 기본 최대값: 65,536",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 키를 보유한 희박한 프레임; 기본 최대값: 262,144",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 하나의 문자열; 기본 최대값: 1 MiB",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 생성 메타데이터 문자열 하나; 기본 최대값: 16 MiB",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 총 문자열 바이트 수; 기본 최대값: 64 MiB",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 패스, 모델, LoRAs 및 확장 목록 전반의 생성 메타데이터 항목; 기본 최대값: 65,536",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 벡터 경로; 기본 최대값: 1,048,576",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 경로 명령; 기본 최대값: 16,777,216",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: Keyframes; 기본 최대값: 16,777,216",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 오디오 자산; 기본 최대값: 65,536",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 오디오 트랙 레이어; 기본 최대값: 65,536",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 전체 오디오 클립; 기본 최대값: 16,777,216",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "리소스: 총 인터리브된 PCM16 스칼라 샘플; 기본 최대값: 268,435,456 (512 MiB)",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000184",
       "kind": "blank",
-      "start_line": 394,
-      "end_line": 394,
+      "start_line": 391,
+      "end_line": 391,
       "raw": "\n"
     },
     {
       "id": "b000185",
       "kind": "paragraph",
-      "start_line": 395,
-      "end_line": 395,
+      "start_line": 392,
+      "end_line": 392,
       "raw": "리더는 대응하는 컬렉션이나 픽셀 버퍼를 할당하기 전에 선언된 개수와 집계 합계를 확인합니다. 그것은 한계가 설정된 대기 중인 키프레임 에서 고유한 희소 프레임 개수를 유도하며, `Document::frames` 를 예약하거나 구체화하기 전에 프레임 한계를 확인합니다. 해독이 각 프레임 소유 `Keyframe` 에 포함 레이어 id 를 구체화하기 때문에, 총 문자열 제한은 인코딩과 디코딩 양쪽에서 파생된 복사본도 포함하며, 따라서 작은 와이어 기록은 무한히 반복되는 레이어-id 저장으로 증폭될 수 없습니다. 제품은 해당 장치 클래스의 이러한 한도를 낮출 수 있습니다. 레이어 범위 끝점들은 컬렉션을 할당하지 않지만, 디코딩된 문서가 노출되기 전에 양쪽 끝점이 모두 타임라인의 한계가 설정된 `frameCount`에 대해 확인됩니다. 오디오 ID/이름은 기존 문자 제한을 공유합니다. 오디오 샘플 및 클립 총계는 모든 자산/트랙에 걸쳐 누적됩니다. 샘플 카운트는 한계가 설정된 한계에 도달하기 전에 샘플 제한과 컨테이너 바이트 제한의 절반에 의해 제한되며, PCM 할당 전에 독자가 선언된 오디오 컬렉션이 남은 페이로드에 맞는지 확인한 후 이를 예약합니다. 확인된 나눗셈은 바이트 크기 확인에서 오버플로우를 방지합니다.\n"
     },
     {
       "id": "b000186",
       "kind": "blank",
-      "start_line": 396,
-      "end_line": 396,
+      "start_line": 393,
+      "end_line": 393,
       "raw": "\n"
     },
     {
       "id": "b000187",
       "kind": "html",
-      "start_line": 397,
-      "end_line": 397,
+      "start_line": 394,
+      "end_line": 394,
       "raw": "<a id=\"compatibility-and-migration\"></a>\n"
     },
     {
       "id": "b000188",
       "kind": "blank",
-      "start_line": 398,
-      "end_line": 398,
+      "start_line": 395,
+      "end_line": 395,
       "raw": "\n"
     },
     {
       "id": "b000189",
       "kind": "heading",
-      "start_line": 399,
-      "end_line": 399,
+      "start_line": 396,
+      "end_line": 396,
       "raw": "## 호환성 및 마이그레이션\n",
       "level": 2,
       "title": "호환성 및 마이그레이션"
@@ -1640,15 +1636,15 @@
     {
       "id": "b000190",
       "kind": "blank",
-      "start_line": 400,
-      "end_line": 400,
+      "start_line": 397,
+      "end_line": 397,
       "raw": "\n"
     },
     {
       "id": "b000191",
       "kind": "list",
-      "start_line": 401,
-      "end_line": 405,
+      "start_line": 398,
+      "end_line": 402,
       "raw": "- 독자는 현재 메이저 버전을 수락하고, 해당 버전보다 새로운 마이너 버전은 수락하지 않습니다.\n- 새로운 메이저 또는 마이너는 페이로드 파싱 전에 실패합니다.\n- 헤더 플래그와 예약된 필드는 향후 옵트인 변경 사항을 명시적으로 표시합니다.\n- 작성자는 구현된 버전에 대해 하나의 정형 표현을 발행합니다.\n- 마이그레이션은 래스터 픽셀, 벡터 기하학, 레이어 순서, 변환, 및 타임라인 참조를 보존해야 합니다. 그것은 절대 아무런 알림 없이 벡터 자산을 래스터화하거나 애니메이션을 버리거나 또는 유지된 브러시 궤적을 도입해서는 안 됩니다.\n",
       "items": [
         {
@@ -1681,127 +1677,127 @@
     {
       "id": "b000192",
       "kind": "blank",
-      "start_line": 406,
-      "end_line": 406,
+      "start_line": 403,
+      "end_line": 403,
       "raw": "\n"
     },
     {
       "id": "b000193",
       "kind": "paragraph",
-      "start_line": 407,
-      "end_line": 407,
+      "start_line": 404,
+      "end_line": 404,
       "raw": "버전 1.0 는 첫 번째 물리적 형식입니다. 버전 1.1 은 유한/무한 모드, 할당된 영역의 세계 기원, 섹트 크기, 그리고 표준 희소 래스터 자산(래스터) 을 추가합니다. 1.0 문서가 0 에서 디코딩될 때 픽셀을 변경하거나 렌더링하지 않고 유한 모드로 마이그레이션됩니다. Version  1.2  선택적 Stable Diffusion 생성 메타데이터를 추가합니다. 선택적 값이 없는 경우 1.0 또는 1.1 문서가 해당 선택적 값을 사용하지 않고 그대로 디코딩된 후 바이트 동일하게 다시 인코딩되지만, 호출자가 명시적으로 메타데이터를 첨부하지 않는 한 버전 1.3 는 각 레이어 기록에 하나의 선택적 포함 존재 범위를 추가합니다. 레이어 1.0, 1.1또는 1.2 는 범위가 없이 디코딩되고 바이트 동일하게 다시 인코딩되지만, 범위를 추가하려면 문서를 버전 1.3로 업그레이드해야 합니다. 버전 1.4 는 네이티브 오디오 자산과 트랙 레이어를 추가합니다. 문서를 버전 1.0 에서 버전 1.3 로 업그레이드해야 디코딩 시 빈 오디오 컬렉션이 있고 다시 인코딩 시 바이트 동일하게 유지됩니다. 오디오를 추가하려면 문서를 버전 1.4로 업그레이드해야 합니다. `DocumentEditor` 는 편집된 문서를 현재 마이너 버전으로 원자적으로 업그레이드합니다. 미래 마이너 또는 메이저 버전 지원은 명시적인 디코더와 정형화된 다시 인코더 및 렌더링된 프레임 동등성 테스트가 필요합니다.\n"
     },
     {
       "id": "b000194",
       "kind": "blank",
-      "start_line": 408,
-      "end_line": 408,
+      "start_line": 405,
+      "end_line": 405,
       "raw": "\n"
     },
     {
       "id": "b000195",
       "kind": "paragraph",
-      "start_line": 409,
-      "end_line": 409,
+      "start_line": 406,
+      "end_line": 406,
       "raw": "각 메모리 내 레이어 소스의 키프레임 소유권을 `Document::frames` 로 이동하면 버전-1 와이어 레이아웃이 변경되거나 마이너 버전이 증가하지 않습니다. 레이어 메이저 기록과 프레임 메이저 집계는 동일한 `(layerId, frame, assetId)` 관계의 손실 없는 전치입니다.\n"
     },
     {
       "id": "b000196",
       "kind": "blank",
-      "start_line": 410,
-      "end_line": 410,
+      "start_line": 407,
+      "end_line": 407,
       "raw": "\n"
     },
     {
       "id": "b000197",
       "kind": "paragraph",
-      "start_line": 411,
-      "end_line": 411,
+      "start_line": 408,
+      "end_line": 408,
       "raw": "프레임 소유 키를 도입한 공개 C++ 집계 변경 사항은 패키지 0.2.0 와 SOVERSION 0.2 로 배포되었으며 0.1.x 에서부터 소비자 재빌드가 필요합니다. 집계 레이아웃을 다시 변경하는 `LayerProperties::frameRange` 변경 사항이 추가되었으므로 패키지 0.3.0 와 SOVERSION 0.3 로 배포되었으며 0.2.x 에서부터 소비자 재빌드가 필요합니다. 파일 기반 편집은 패키지 0.4.0 와 SOVERSION 0.4 에 별도의 작업 파일 소유자를 추가하며 해당 패키지에 대해 소비자를 재빌드합니다. 이 캐노니컬 스냅샷 바이트를 변경하지 않습니다. 패키지 ABI 버전화는 이 파일 형식과 별개입니다: `.iisc` 는 이제 1.17가 되었으며, 캐노니컬 1.0, 1.1, 1.2, 및 1.3 픽스처 은 여전히 바이트 동일하게 다시 인코딩됩니다.\n"
     },
     {
       "id": "b000198",
       "kind": "blank",
-      "start_line": 412,
-      "end_line": 412,
+      "start_line": 409,
+      "end_line": 409,
       "raw": "\n"
     },
     {
       "id": "b000199",
       "kind": "paragraph",
-      "start_line": 413,
-      "end_line": 413,
+      "start_line": 410,
+      "end_line": 410,
       "raw": "패키지 0.5.0 의 미디어 교환은 스냅샷 와이어 형식이나 작업 파일 스키마를 변경하지 않습니다. 외부 이미지/비디오는 커밋된 ARGB 래스터 자산과 프레임 소유 키가 되며, SVG 는 네이티브 경로 명령어가 됩니다. 원본 코덱 바이트, SVG 마크업, 패킷 타임스탬프 및 디코더 상태는 `.iisc` 에 내장되지 않습니다. 나중에 1.4 모델은 명시적인 네이티브 오디오 데이터를 추가하며, 비디오 가져오기 어댑터는 영화의 오디오를 암묵적으로 가져오지 않습니다. SVG / PDF /이미지/비디오 내보내기는 명시적으로 별도의 교환 작업이며, 작업 파일의 쓰기 통과 편집을 결코 대체하지 않습니다.\n"
     },
     {
       "id": "b000200",
       "kind": "blank",
-      "start_line": 414,
-      "end_line": 414,
+      "start_line": 411,
+      "end_line": 411,
       "raw": "\n"
     },
     {
       "id": "b000201",
       "kind": "paragraph",
-      "start_line": 415,
-      "end_line": 415,
+      "start_line": 412,
+      "end_line": 412,
       "raw": "레이어 보존 가져오기는 패키지 0.6.0 에서도 스냅샷 버전 1.3 와 작업 파일 스키마 1 를 변경하지 않습니다. 지원되는 OpenRaster 와 PSD 픽셀 레이어는 새로 작성된 캔버스와 같은 일반적인 정적 `StaticBitmapLayer` / `RasterAsset` 쌍이 됩니다. 레이어 속성과 커밋된 픽셀은 새로 작성된 캔버스와 같은 동일한 네이티브 기록을 사용하며, 외부 ZIP / PSD 페이로드, 편집기별 객체 및 지원되지 않는 그리기 의미는 내장되거나 아무런 알림 없이 미리보기로 대체되지 않습니다. `iisc-import` 유틸리티는 `DocumentFile::create` 를 통해 새로운 작업 파일을 생성합니다.\n"
     },
     {
       "id": "b000202",
       "kind": "blank",
-      "start_line": 416,
-      "end_line": 416,
+      "start_line": 413,
+      "end_line": 413,
       "raw": "\n"
     },
     {
       "id": "b000203",
       "kind": "paragraph",
-      "start_line": 417,
-      "end_line": 417,
+      "start_line": 414,
+      "end_line": 414,
       "raw": "PSD 내보내기는 패키지 0.7.0 에서도 스냅샷 버전 1.3 와 작업 파일 스키마 1 를 변경하지 않습니다. `Document::timeline` 를 0프레임에서 투영합니다. 내장된 PDF 스마트 오브젝트 페이로드들은 내보낸 PSD 에만 존재하며, 네이티브 자산에는 절대 존재하지 않습니다. 네이티브 경로, 미래 키프레임, 레이어 수명 및 캔버스 기점은 공식적인 `.iisc` 에 유지됩니다; PSD 는 네이티브 왕복 변환 컨테이너가 아닌 인터체인지 스냅샷입니다. 별도의 `TimelineProject` 오디오/비디오 모델은 내보내지지 않습니다.\n"
     },
     {
       "id": "b000204",
       "kind": "blank",
-      "start_line": 418,
-      "end_line": 418,
+      "start_line": 415,
+      "end_line": 415,
       "raw": "\n"
     },
     {
       "id": "b000205",
       "kind": "paragraph",
-      "start_line": 419,
-      "end_line": 419,
+      "start_line": 416,
+      "end_line": 416,
       "raw": "패키지 0.8.0 의 타임라인 인터체인지는 네이티브 포맷을 그대로 유지합니다. 버전-1 `manifest.json` 는 정확한 프레임 간격, 유리수 프레임 속도, 레이어 ID, 자산 ID, 생성된 미디어 경로 및 투영 경고 기록을 포함합니다. 레거시 XML 와 FCPXML 는 독립적인 PNG 레이어 상태를 참조하며, `source.iisc` 는 완전한 정통 네이티브 문서를 유지합니다. 이는 아웃바운드 편집자 교환이며, XML 에서 네이티브 왕복 변환 나 TimelineProject 직렬화 가 아닙니다.\n"
     },
     {
       "id": "b000206",
       "kind": "blank",
-      "start_line": 420,
-      "end_line": 420,
+      "start_line": 417,
+      "end_line": 417,
       "raw": "\n"
     },
     {
       "id": "b000207",
       "kind": "html",
-      "start_line": 421,
-      "end_line": 421,
+      "start_line": 418,
+      "end_line": 418,
       "raw": "<a id=\"authorship-extension-15\"></a>\n"
     },
     {
       "id": "b000208",
       "kind": "blank",
-      "start_line": 422,
-      "end_line": 422,
+      "start_line": 419,
+      "end_line": 419,
       "raw": "\n"
     },
     {
       "id": "b000209",
       "kind": "heading",
-      "start_line": 423,
-      "end_line": 423,
+      "start_line": 420,
+      "end_line": 420,
       "raw": "## 저작자 확장 ( 1.5 )\n",
       "level": 2,
       "title": "저작자 확장 ( 1.5 )"
@@ -1809,43 +1805,43 @@
     {
       "id": "b000210",
       "kind": "blank",
-      "start_line": 424,
-      "end_line": 424,
+      "start_line": 421,
+      "end_line": 421,
       "raw": "\n"
     },
     {
       "id": "b000211",
       "kind": "paragraph",
-      "start_line": 425,
-      "end_line": 425,
+      "start_line": 422,
+      "end_line": 422,
       "raw": "1.4 오디오 트랙 섹션 이후, 1.5 는 길이 접두사가 붙은 UTF-8 문자열 ( `u32` 바이트 길이, 바이트) 하나를 추가하며, 이는 iiFileProvider `Authorship` JSON 덤프를 포함합니다. 레코드당 한도는 1 MiB 이며, 이는 집계 문자열/컨테이너 한도에 참여합니다. 수정은 정확한 부호 없는 십진 문자열이며, 기여자 프로필, 첫 번째/마지막 기여 시간 및 최신 기여자 참조를 포함합니다. 이 스키마에는 인증 필드가 존재하지 않습니다. 잘못된 JSON, 알 수 없는 스키마, 중복 저자, 유효하지 않은 식별자/시간 및 미래 네이티브 버전은 거부됩니다. 비어있는 장부들은 명시적으로 인코딩됩니다. 소 버전이 5미만인 경우 비어 있지 않은 저자ship은 인코딩될 수 없습니다. 전통 버전은 편집될 때까지 바이트 동일인 코딩을 유지합니다.\n"
     },
     {
       "id": "b000212",
       "kind": "blank",
-      "start_line": 426,
-      "end_line": 426,
+      "start_line": 423,
+      "end_line": 423,
       "raw": "\n"
     },
     {
       "id": "b000213",
       "kind": "html",
-      "start_line": 427,
-      "end_line": 427,
+      "start_line": 424,
+      "end_line": 424,
       "raw": "<a id=\"native-video-and-motion-extension-16\"></a>\n"
     },
     {
       "id": "b000214",
       "kind": "blank",
-      "start_line": 428,
-      "end_line": 428,
+      "start_line": 425,
+      "end_line": 425,
       "raw": "\n"
     },
     {
       "id": "b000215",
       "kind": "heading",
-      "start_line": 429,
-      "end_line": 429,
+      "start_line": 426,
+      "end_line": 426,
       "raw": "## 네이티브 비디오 및 모션 확장 (1.6)\n",
       "level": 2,
       "title": "네이티브 비디오 및 모션 확장 (1.6)"
@@ -1853,71 +1849,71 @@
     {
       "id": "b000216",
       "kind": "blank",
-      "start_line": 430,
-      "end_line": 430,
+      "start_line": 427,
+      "end_line": 427,
       "raw": "\n"
     },
     {
       "id": "b000217",
       "kind": "paragraph",
-      "start_line": 431,
-      "end_line": 431,
+      "start_line": 428,
+      "end_line": 428,
       "raw": "마이너 6는 자산 태그 `3`를 추가합니다: 일반 자산 ID 뒤에 `u32 rateNumerator`, `u32 rateDenominator`, `u32 frameCount`를 입력하고, 그 다음에 많은 일반 래스터 레코드를 기록합니다. 모든 소유 프레임은 동일한 양의 범위를 가지고 있습니다. 프레임 수는 새로운 `maximumTotalVideoFrames` 예산을 공유하고, 픽셀은 `maximumTotalRasterPixels`와 공유합니다. 정적 소스 참조 태그 3가 `VideoLayer`를 재구성합니다. 키프레임이 적용된 소스 콘텐츠 태그는 래스터 /vector only로 유지되며, 비디오는 자체 시간 샘플링을 사용합니다.\n"
     },
     {
       "id": "b000218",
       "kind": "blank",
-      "start_line": 432,
-      "end_line": 432,
+      "start_line": 429,
+      "end_line": 429,
       "raw": "\n"
     },
     {
       "id": "b000219",
       "kind": "paragraph",
-      "start_line": 433,
-      "end_line": 433,
+      "start_line": 430,
+      "end_line": 430,
       "raw": "각 레이어의 1.3 옵션 프레임 범위 뒤에, 마이너 6는 `u32 motionKeyCount`를 씁니다. 각 키는 `u32 frame`, 6 `f64` 값(위치 x/y, 스케일 x/y, 앵커 x/y), `f64 rotationDegrees`, `f64 opacity`, 그리고 `u8 interpolation`(0 Hold, 1 Linear, 2 SmoothStep)입니다. 이 키들은 엄격히 정렬되어 있으며, 타임라인 - 한계가 설정된. 그들은 자산 참조 키와 무관하게 `maximumTotalMotionKeyframes`를 사용합니다.\n"
     },
     {
       "id": "b000220",
       "kind": "blank",
-      "start_line": 434,
-      "end_line": 434,
+      "start_line": 431,
+      "end_line": 431,
       "raw": "\n"
     },
     {
       "id": "b000221",
       "kind": "paragraph",
-      "start_line": 435,
-      "end_line": 435,
+      "start_line": 432,
+      "end_line": 432,
       "raw": "비디오 레이어에만 `u32 sourceInFrame`, Boolean `hasSourceOutFrame`, 선택적 `u32 sourceOutFrame`(전용) 및 `u8 endBehavior`(0 Transparent, 1 Hold)를 추가하십시오. 메타데이터, 오디오 및 저작자를 포함한 모든 다른 섹션은 이전 주문을 유지합니다. 알 수 없는 태그와 잘못된 참조 안전하게 거부한다. 모델 1.0 – 1.5는 비디오 또는 모션 필드를 포함하지 않을 수 있으며, 인코딩은 변경되지 않습니다. 샘플링 의미에 대해서는 [CANVAS_MEDIA .md](CANVAS_MEDIA.md)를 참조하십시오.\n"
     },
     {
       "id": "b000222",
       "kind": "blank",
-      "start_line": 436,
-      "end_line": 436,
+      "start_line": 433,
+      "end_line": 433,
       "raw": "\n"
     },
     {
       "id": "b000223",
       "kind": "html",
-      "start_line": 437,
-      "end_line": 437,
+      "start_line": 434,
+      "end_line": 434,
       "raw": "<a id=\"public-layer-classification-package-0120\"></a>\n"
     },
     {
       "id": "b000224",
       "kind": "blank",
-      "start_line": 438,
-      "end_line": 438,
+      "start_line": 435,
+      "end_line": 435,
       "raw": "\n"
     },
     {
       "id": "b000225",
       "kind": "heading",
-      "start_line": 439,
-      "end_line": 439,
+      "start_line": 436,
+      "end_line": 436,
       "raw": "## 공개 레이어 분류 (패키지 0.12.0)\n",
       "level": 2,
       "title": "공개 레이어 분류 (패키지 0.12.0)"
@@ -1925,43 +1921,43 @@
     {
       "id": "b000226",
       "kind": "blank",
-      "start_line": 440,
-      "end_line": 440,
+      "start_line": 437,
+      "end_line": 437,
       "raw": "\n"
     },
     {
       "id": "b000227",
       "kind": "paragraph",
-      "start_line": 441,
-      "end_line": 441,
+      "start_line": 438,
+      "end_line": 438,
       "raw": "4   비트맵 /vector  `LayerKind`  값은 새로 생성된 와이어 태그가 아닌 파생됩니다.  비트맵 /vector 레이어는 정적 소스가 있는 경우  StaticBitmap / StaticVector ;  키프레임이 적용된  소스는 키 하나라도  DynamicBitmap / DynamicVector  입니다. 비디오 레이어는  DynamicBitmap  입니다. 왜냐하면 소유된 픽셀 프레임이 타임라인 시간에 따라 변경되기 때문입니다. 기존 스냅샷 및  SQLite  필드는 형식 버전을 변경하지 않고 이 의미를 완전히 보존합니다.\n"
     },
     {
       "id": "b000228",
       "kind": "blank",
-      "start_line": 442,
-      "end_line": 442,
+      "start_line": 439,
+      "end_line": 439,
       "raw": "\n"
     },
     {
       "id": "b000229",
       "kind": "html",
-      "start_line": 443,
-      "end_line": 443,
+      "start_line": 440,
+      "end_line": 440,
       "raw": "<a id=\"controlnet-semantic-layer-extension-17\"></a>\n"
     },
     {
       "id": "b000230",
       "kind": "blank",
-      "start_line": 444,
-      "end_line": 444,
+      "start_line": 441,
+      "end_line": 441,
       "raw": "\n"
     },
     {
       "id": "b000231",
       "kind": "heading",
-      "start_line": 445,
-      "end_line": 445,
+      "start_line": 442,
+      "end_line": 442,
       "raw": "## ControlNet 의미 계층 확장 ( 1.7 )\n",
       "level": 2,
       "title": "ControlNet 의미 계층 확장 ( 1.7 )"
@@ -1969,29 +1965,29 @@
     {
       "id": "b000232",
       "kind": "blank",
-      "start_line": 446,
-      "end_line": 446,
+      "start_line": 443,
+      "end_line": 443,
       "raw": "\n"
     },
     {
       "id": "b000233",
       "kind": "paragraph",
-      "start_line": 447,
-      "end_line": 447,
+      "start_line": 444,
+      "end_line": 444,
       "raw": "선택적 프레임 범위 이후 및 모션 키 이전, 모든 레이어는 하나 u8  역할 태그를 추가합니다:  0  는 일반 예술 작품이며,  1  는 의미론적  ControlNet  레이어입니다. 알 수 없는 태그  안전하게 거부한다 . 태그  1  는 밀집  래스터  콘텐츠에만 합법적이며 다음에 따라집니다:\n"
     },
     {
       "id": "b000234",
       "kind": "blank",
-      "start_line": 448,
-      "end_line": 448,
+      "start_line": 445,
+      "end_line": 445,
       "raw": "\n"
     },
     {
       "id": "b000235",
       "kind": "list",
-      "start_line": 449,
-      "end_line": 452,
+      "start_line": 446,
+      "end_line": 449,
       "raw": "1. Boolean이 활성화되었습니다; 모델 ID/수정 문자열; f64 스케일, 가이드 시작/끝.\n2. 분류 ID/버전/소스 URI 문자열; u32 무효 마스크/제어 색상.\n3. U32 클래스 수. 각 클래스: u32 id; key/name/description/category/external-id 문자열; optional-u32 parent; u32 제어 색상; u32 별칭 카운트 및 문자열.\n4. U32 지역 수. 각 지역: u32 id/class-id/mask-color; name/description/generator/source-reference 문자열; optional-u32 인스턴스 ID; optional-f64 신뢰도; u8 원산지 (0 매뉴얼, 1 import, 2 모델); u32 속성 카운트 및 키/값 문자열 쌍.\n",
       "items": [
         {
@@ -2019,43 +2015,43 @@
     {
       "id": "b000236",
       "kind": "blank",
-      "start_line": 453,
-      "end_line": 453,
+      "start_line": 450,
+      "end_line": 450,
       "raw": "\n"
     },
     {
       "id": "b000237",
       "kind": "paragraph",
-      "start_line": 454,
-      "end_line": 454,
+      "start_line": 451,
+      "end_line": 451,
       "raw": "기존 모션 키와 비디오 재생 필드는 그대로 유지됩니다. 모든 정수 및 선택적/문자열 인코딩은 기존의 리틀 엔디안 프리미티브를 재사용합니다. 컬렉션 총계와 문자열 바이트는 인코더/디코더 리소스 제한을 공유합니다. 동일한 확장자는 작업 파일 레이어 레코드에 적용되므로, 의미 전용 업데이트는 변경되지 않은 래스터 레코드를 유지합니다. 모델은 SEMANTIC_SEGMENT .md에 문서화되어 있습니다.\n"
     },
     {
       "id": "b000238",
       "kind": "blank",
-      "start_line": 455,
-      "end_line": 455,
+      "start_line": 452,
+      "end_line": 452,
       "raw": "\n"
     },
     {
       "id": "b000239",
       "kind": "html",
-      "start_line": 456,
-      "end_line": 456,
+      "start_line": 453,
+      "end_line": 453,
       "raw": "<a id=\"native-pose-extension-18\"></a>\n"
     },
     {
       "id": "b000240",
       "kind": "blank",
-      "start_line": 457,
-      "end_line": 457,
+      "start_line": 454,
+      "end_line": 454,
       "raw": "\n"
     },
     {
       "id": "b000241",
       "kind": "heading",
-      "start_line": 458,
-      "end_line": 458,
+      "start_line": 455,
+      "end_line": 455,
       "raw": "## 네이티브 포즈 확장 ( 1.8 )\n",
       "level": 2,
       "title": "네이티브 포즈 확장 ( 1.8 )"
@@ -2063,57 +2059,57 @@
     {
       "id": "b000242",
       "kind": "blank",
-      "start_line": 459,
-      "end_line": 459,
+      "start_line": 456,
+      "end_line": 456,
       "raw": "\n"
     },
     {
       "id": "b000243",
       "kind": "paragraph",
-      "start_line": 460,
-      "end_line": 460,
+      "start_line": 457,
+      "end_line": 457,
       "raw": "자산 태그  4: id 문자열, i32   뷰포트  너비/높이, u32  사람 수. 사람당: id/이름/트랙-id 문자열, 활성화된 불리언, 정확히  590  앵커가  PoseGroup   V1  순서로, 그 다음 u32  표현 수. 각 앵커는 f64  x/y, 선택적 f64  z, f64  신뢰도, u8  가시성 ( 0  미삭제,  1  삭제됨,  2  가려짐), 불리언 잠금. 각 표현은 id/이름 문자열, f64  가중치, u32  델타 수; 각 델타는 u8  그룹, u32  앵커 인덱스, f64  dx/dy/dz. 모든 기존 엔디안/선택적 규칙이 적용됩니다. V1  는  32  이름이 붙은 그룹을 가집니다; 크기와 해부학적 순서는  POSE .md 와  Pose.h . 에 있습니다.\n"
     },
     {
       "id": "b000244",
       "kind": "blank",
-      "start_line": 461,
-      "end_line": 461,
+      "start_line": 458,
+      "end_line": 458,
       "raw": "\n"
     },
     {
       "id": "b000245",
       "kind": "paragraph",
-      "start_line": 462,
-      "end_line": 462,
+      "start_line": 459,
+      "end_line": 459,
       "raw": "키프레임이 적용된 소스 콘텐츠 종류 2는 포즈를 나타내며, 정적 종류는 해당 자산으로부터 추론됩니다. 레이어 역할 태그 2는 Pose 콘텐츠 및 버전 >= 1.8인 경우에만 합법입니다. 활성화된 부울, 모델 ID/리비전 문자열 및 f64 스케일/시작/엔드를 기존 모션 키 앞에 저장합니다. 알 수 없는 태그/가시성/그룹 안전하게 거부한다 . 작동하는 자산/계층 레코드는 동일한 문법을 사용하며, SQLite 스키마 변경이 없습니다.\n"
     },
     {
       "id": "b000246",
       "kind": "blank",
-      "start_line": 463,
-      "end_line": 463,
+      "start_line": 460,
+      "end_line": 460,
       "raw": "\n"
     },
     {
       "id": "b000247",
       "kind": "html",
-      "start_line": 464,
-      "end_line": 464,
+      "start_line": 461,
+      "end_line": 461,
       "raw": "<a id=\"depth-extension-19\"></a>\n"
     },
     {
       "id": "b000248",
       "kind": "blank",
-      "start_line": 465,
-      "end_line": 465,
+      "start_line": 462,
+      "end_line": 462,
       "raw": "\n"
     },
     {
       "id": "b000249",
       "kind": "heading",
-      "start_line": 466,
-      "end_line": 466,
+      "start_line": 463,
+      "end_line": 463,
       "raw": "## 깊이 확장 ( 1.9 )\n",
       "level": 2,
       "title": "깊이 확장 ( 1.9 )"
@@ -2121,43 +2117,43 @@
     {
       "id": "b000250",
       "kind": "blank",
-      "start_line": 467,
-      "end_line": 467,
+      "start_line": 464,
+      "end_line": 464,
       "raw": "\n"
     },
     {
       "id": "b000251",
       "kind": "paragraph",
-      "start_line": 468,
-      "end_line": 469,
+      "start_line": 465,
+      "end_line": 466,
       "raw": "자산 태그 5는 id, i32 width/height, u64 카운트와 카운트 리틀 엔디안 f64 정규화된 근접 샘플을 저장합니다. 카운트는 너비 * 높이와 같습니다; 유한한 값은\n[0,1]만 0는 비어 있음을 의미하고, 하나는 카메라 접촉을 의미합니다. 키프레임이 적용된 콘텐츠 태그 3는 DepthAsset가 필요하고, 레이어 역할 태그 3는 깊이 콘텐츠가 필요하며, 동작 전 Pose와 동일한 ControlNet 필드를 저장합니다. 태그는 1.9이전에 불법입니다. 글로벌 maximumDepthSamples 예산과 남은 바이트 수는 할당 전에 적용됩니다. [DEPTH .md](DEPTH.md)를 참조하십시오.\n"
     },
     {
       "id": "b000252",
       "kind": "blank",
-      "start_line": 470,
-      "end_line": 470,
+      "start_line": 467,
+      "end_line": 467,
       "raw": "\n"
     },
     {
       "id": "b000253",
       "kind": "html",
-      "start_line": 471,
-      "end_line": 471,
+      "start_line": 468,
+      "end_line": 468,
       "raw": "<a id=\"line-art-extension-110\"></a>\n"
     },
     {
       "id": "b000254",
       "kind": "blank",
-      "start_line": 472,
-      "end_line": 472,
+      "start_line": 469,
+      "end_line": 469,
       "raw": "\n"
     },
     {
       "id": "b000255",
       "kind": "heading",
-      "start_line": 473,
-      "end_line": 473,
+      "start_line": 470,
+      "end_line": 470,
       "raw": "## 라인 아트 확장 ( 1.10 )\n",
       "level": 2,
       "title": "라인 아트 확장 ( 1.10 )"
@@ -2165,43 +2161,43 @@
     {
       "id": "b000256",
       "kind": "blank",
-      "start_line": 474,
-      "end_line": 474,
+      "start_line": 471,
+      "end_line": 471,
       "raw": "\n"
     },
     {
       "id": "b000257",
       "kind": "paragraph",
-      "start_line": 475,
-      "end_line": 475,
+      "start_line": 472,
+      "end_line": 472,
       "raw": "자산 태그  6  는 id, i32  너비/높이, u64  수 및 행 우선 리틀 엔디안 f64  잉크 커버를  [0,1]에 저장합니다. 0 는 흰색 배경이며, 하나는 검은색 잉크입니다. 카운트는 너비 * 높이와 같아야 합니다. 키프레임이 적용된 콘텐츠 태그 4 와 레이어 역할 태그 4 는 LineArt 콘텐츠를 요구합니다. 역할은 운동 전에 공유된 ControlNet 필드를 저장합니다. 이 태그들은 1.10이전에는 불법입니다. 전역 maximumLineArtSamples 와 남은 바이트는 할당 전에 확인되며, 문서 유효성 검사는 비유한 또는 범위 밖 샘플을 거부합니다. [LINE_ART .md](LINE_ART.md)를 참조하세요.\n"
     },
     {
       "id": "b000258",
       "kind": "blank",
-      "start_line": 476,
-      "end_line": 476,
+      "start_line": 473,
+      "end_line": 473,
       "raw": "\n"
     },
     {
       "id": "b000259",
       "kind": "html",
-      "start_line": 477,
-      "end_line": 477,
+      "start_line": 474,
+      "end_line": 474,
       "raw": "<a id=\"cannyscribble-extension-111\"></a>\n"
     },
     {
       "id": "b000260",
       "kind": "blank",
-      "start_line": 478,
-      "end_line": 478,
+      "start_line": 475,
+      "end_line": 475,
       "raw": "\n"
     },
     {
       "id": "b000261",
       "kind": "heading",
-      "start_line": 479,
-      "end_line": 479,
+      "start_line": 476,
+      "end_line": 476,
       "raw": "## Canny/Scribble 확장 ( 1.11 )\n",
       "level": 2,
       "title": "Canny/Scribble 확장 ( 1.11 )"
@@ -2209,43 +2205,43 @@
     {
       "id": "b000262",
       "kind": "blank",
-      "start_line": 480,
-      "end_line": 480,
+      "start_line": 477,
+      "end_line": 477,
       "raw": "\n"
     },
     {
       "id": "b000263",
       "kind": "paragraph",
-      "start_line": 481,
-      "end_line": 482,
+      "start_line": 478,
+      "end_line": 479,
       "raw": "자산 태그 7/8 는 Canny/Scribble 입니다. 각각은 id, i32 너비/높이, u64 카운트 및 u8 바이너리 샘플 ( 0 또는  1 )을 저장하며, ARGB 또는 f64를 저장하지 않습니다. 카운트는 너비 * 높이와 같아야 합니다. 키프레임이 적용된 콘텐츠와 레이어 역할 태그 5/6 는 일치하는 Canny/Scribble 자산 유형을 요구합니다. 역할은 운동 전에 공통 ControlNet 필드를 저장합니다. 이 태그들은 1.11가 필요합니다. 종류별 전역 maximumCannySamples 와 maximumScribbleSamples 예산, 주소 공간 및 사용 가능한 바이트는 할당 전에 확인됩니다. 비이진 값은 문서 유효성 검사를 실패합니다. 보라\n[BINARY_LINE_CONTROL.md](BINARY_LINE_CONTROL.md).\n"
     },
     {
       "id": "b000264",
       "kind": "blank",
-      "start_line": 483,
-      "end_line": 483,
+      "start_line": 480,
+      "end_line": 480,
       "raw": "\n"
     },
     {
       "id": "b000265",
       "kind": "html",
-      "start_line": 484,
-      "end_line": 484,
+      "start_line": 481,
+      "end_line": 481,
       "raw": "<a id=\"mlsd-extension-112\"></a>\n"
     },
     {
       "id": "b000266",
       "kind": "blank",
-      "start_line": 485,
-      "end_line": 485,
+      "start_line": 482,
+      "end_line": 482,
       "raw": "\n"
     },
     {
       "id": "b000267",
       "kind": "heading",
-      "start_line": 486,
-      "end_line": 486,
+      "start_line": 483,
+      "end_line": 483,
       "raw": "## MLSD 확장 ( 1.12 )\n",
       "level": 2,
       "title": "MLSD 확장 ( 1.12 )"
@@ -2253,43 +2249,43 @@
     {
       "id": "b000268",
       "kind": "blank",
-      "start_line": 487,
-      "end_line": 487,
+      "start_line": 484,
+      "end_line": 484,
       "raw": "\n"
     },
     {
       "id": "b000269",
       "kind": "paragraph",
-      "start_line": 488,
-      "end_line": 489,
+      "start_line": 485,
+      "end_line": 486,
       "raw": "자산 태그 9 는 id, i32 너비/높이, u32 섹먼트 수를 저장한 후 각 섹먼트: 길이 접두사 id, f64 x1/y1/x2/y2/신뢰도, u8 활성화.\n[0,1] 는 [0,1]에서 서로 다른 위치와 신뢰도를 가집니다. ID 는 고유/비어 있지 않습니다. 키프레임이 적용된 콘텐츠와 레이어 역할 태그 7 는 MLSD 자산과 공통 ControlNet 설정을 운동 전에 저장합니다. 태그들은 1.12를 요구합니다. maximumMlsdSegments 는 모든 자산을 함께 캡니다; 하나의 자산은 최대 100000 섹먼트를 허용합니다. 할당 전에 남은 바이트가 확인됩니다 ( 45 섹먼트당 최소 바이트). [MLSD .md](MLSD.md)를 참조하세요.\n"
     },
     {
       "id": "b000270",
       "kind": "blank",
-      "start_line": 490,
-      "end_line": 490,
+      "start_line": 487,
+      "end_line": 487,
       "raw": "\n"
     },
     {
       "id": "b000271",
       "kind": "html",
-      "start_line": 491,
-      "end_line": 491,
+      "start_line": 488,
+      "end_line": 488,
       "raw": "<a id=\"normal-map-extension-113\"></a>\n"
     },
     {
       "id": "b000272",
       "kind": "blank",
-      "start_line": 492,
-      "end_line": 492,
+      "start_line": 489,
+      "end_line": 489,
       "raw": "\n"
     },
     {
       "id": "b000273",
       "kind": "heading",
-      "start_line": 493,
-      "end_line": 493,
+      "start_line": 490,
+      "end_line": 490,
       "raw": "## 노멀맵 확장 ( 1.13 )\n",
       "level": 2,
       "title": "노멀맵 확장 ( 1.13 )"
@@ -2297,43 +2293,43 @@
     {
       "id": "b000274",
       "kind": "blank",
-      "start_line": 494,
-      "end_line": 494,
+      "start_line": 491,
+      "end_line": 491,
       "raw": "\n"
     },
     {
       "id": "b000275",
       "kind": "paragraph",
-      "start_line": 495,
-      "end_line": 495,
+      "start_line": 492,
+      "end_line": 492,
       "raw": "자산 태그 10 는 id, i32 너비/높이, u64 샘플 수를 저장한 후 행 우선 샘플 f64 x, f64 y, f64 z, u8 유효 (엄격히 0 또는 1 ): 25 바이트당 샘플. 개수가 *  너비와 높이의 곱과 같아야 합니다. 유효한 유한한 구성 요소는 [-1,1] 에 있으며, 벡터 길이는 1 에서 1e-6만큼만 다릅니다. 무효/누락된 샘플은 모든0 구성 요소를 가져야 합니다. 인코드 또는 디코드 시 정규화가 발생하지 않습니다. 키프레임이 적용된 콘텐츠와 레이어 역할 태그 8 는 NormalMap 를 식별합니다. 모션 전에 모든 새 태그는 모델 ControlNet 설정을 저장합니다. 모든 새 태그는 모델 1.13를 요구합니다. `maximumNormalMapSamples` (기본값 16 Mi 샘플) 은 할당 전에 모든 자산의 합계를 제한하며, 총 입력 바이트 및 픽셀 차원 제한과 함께 작용합니다. 디코더는 예약 전에 남은 바이트 및 주소 가능 벡터 용량을 확인합니다. 출력 채널 순서 및 Y 반전은 호출 사이트 옵션이며 영구 저장된 네이티브 데이터가 아닙니다. [NORMAL_MAP .md](NORMAL_MAP.md)를 참조하세요.\n"
     },
     {
       "id": "b000276",
       "kind": "blank",
-      "start_line": 496,
-      "end_line": 496,
+      "start_line": 493,
+      "end_line": 493,
       "raw": "\n"
     },
     {
       "id": "b000277",
       "kind": "html",
-      "start_line": 497,
-      "end_line": 497,
+      "start_line": 494,
+      "end_line": 494,
       "raw": "<a id=\"shuffle-extension-114\"></a>\n"
     },
     {
       "id": "b000278",
       "kind": "blank",
-      "start_line": 498,
-      "end_line": 498,
+      "start_line": 495,
+      "end_line": 495,
       "raw": "\n"
     },
     {
       "id": "b000279",
       "kind": "heading",
-      "start_line": 499,
-      "end_line": 499,
+      "start_line": 496,
+      "end_line": 496,
       "raw": "## 셔플 확장 ( 1.14 )\n",
       "level": 2,
       "title": "셔플 확장 ( 1.14 )"
@@ -2341,43 +2337,43 @@
     {
       "id": "b000280",
       "kind": "blank",
-      "start_line": 500,
-      "end_line": 500,
+      "start_line": 497,
+      "end_line": 497,
       "raw": "\n"
     },
     {
       "id": "b000281",
       "kind": "paragraph",
-      "start_line": 501,
-      "end_line": 501,
+      "start_line": 498,
+      "end_line": 498,
       "raw": "자산 태그 11 는 id, i32 너비/높이, u64 개수를 저장한 후, 행 우선 u8 빨강, u8 초록, u8 파랑 ( 3 픽셀당 바이트) 을 저장합니다. 양수 차원은 개수를 곱해야 합니다. 키프레임이 적용된  콘텐츠와 역할 태그  9  는 셔플 자산과 모델 버전  1.14 를 필요로 하며, 일반적인  ControlNet  설정은 모션 앞에 선행합니다. `maximumShuffleSamples`  ( 16  Mi 기본값)은 자산 전체의 합계를 제한합니다. 해독은 예약 전에 개수, 남은 바이트 및 주소 가능 용량을 확인합니다. 정규 데이터는 준비된  RGB  이미지이며, 소스 이미지, 리매핑 필드 및 무작위 생성기 상태는 지속되지 않습니다. SHUFFLE .md 를 참조하세요.\n"
     },
     {
       "id": "b000282",
       "kind": "blank",
-      "start_line": 502,
-      "end_line": 502,
+      "start_line": 499,
+      "end_line": 499,
       "raw": "\n"
     },
     {
       "id": "b000283",
       "kind": "html",
-      "start_line": 503,
-      "end_line": 503,
+      "start_line": 500,
+      "end_line": 500,
       "raw": "<a id=\"tile-extension-115\"></a>\n"
     },
     {
       "id": "b000284",
       "kind": "blank",
-      "start_line": 504,
-      "end_line": 504,
+      "start_line": 501,
+      "end_line": 501,
       "raw": "\n"
     },
     {
       "id": "b000285",
       "kind": "heading",
-      "start_line": 505,
-      "end_line": 505,
+      "start_line": 502,
+      "end_line": 502,
       "raw": "## 타일 확장 ( 1.15 )\n",
       "level": 2,
       "title": "타일 확장 ( 1.15 )"
@@ -2385,43 +2381,43 @@
     {
       "id": "b000286",
       "kind": "blank",
-      "start_line": 506,
-      "end_line": 506,
+      "start_line": 503,
+      "end_line": 503,
       "raw": "\n"
     },
     {
       "id": "b000287",
       "kind": "paragraph",
-      "start_line": 507,
-      "end_line": 507,
+      "start_line": 504,
+      "end_line": 504,
       "raw": "자산 태그  12  는 id, i32  너비/높이, u64  색상 개수를 저장한 후, 행 우선 u8  빨강, u8  초록, u8  파랑 ( 3  픽셀당 바이트)을 저장합니다. 차원은 양수여야 하며 그 곱은 개수와 일치해야 합니다. 키프레임이 적용된  콘텐츠와 역할 태그  10  는 타일 자산과 모델  1.15를 필요로 합니다. 역할은 모션 앞에 일반적인  ControlNet  설정을 저장합니다. `maximumTileSamples`  ( 16  Mi 기본값)은 모든 자산의 타일 색상을 제한하며, 할당 전에 남은 바이트와 벡터 용량을 확인합니다. 분할 계획, 겹침, 업스케일 인자 또는 추론 상태는 직렬화되지 않습니다. 공간 참조에서 파생된 소유 복사본인 잘린 출력은 추가적으로 영속화된 자산이 아닙니다. [TILE .md](TILE.md)를 참조하세요.\n"
     },
     {
       "id": "b000288",
       "kind": "blank",
-      "start_line": 508,
-      "end_line": 508,
+      "start_line": 505,
+      "end_line": 505,
       "raw": "\n"
     },
     {
       "id": "b000289",
       "kind": "html",
-      "start_line": 509,
-      "end_line": 509,
+      "start_line": 506,
+      "end_line": 506,
       "raw": "<a id=\"reference-extension-116\"></a>\n"
     },
     {
       "id": "b000290",
       "kind": "blank",
-      "start_line": 510,
-      "end_line": 510,
+      "start_line": 507,
+      "end_line": 507,
       "raw": "\n"
     },
     {
       "id": "b000291",
       "kind": "heading",
-      "start_line": 511,
-      "end_line": 511,
+      "start_line": 508,
+      "end_line": 508,
       "raw": "## 참조 확장 ( 1.16 )\n",
       "level": 2,
       "title": "참조 확장 ( 1.16 )"
@@ -2429,43 +2425,43 @@
     {
       "id": "b000292",
       "kind": "blank",
-      "start_line": 512,
-      "end_line": 512,
+      "start_line": 509,
+      "end_line": 509,
       "raw": "\n"
     },
     {
       "id": "b000293",
       "kind": "paragraph",
-      "start_line": 513,
-      "end_line": 513,
+      "start_line": 510,
+      "end_line": 510,
       "raw": "자산 태그 13 는 id, i32 너비/높이, u64 개수, 그 다음 행 우선 RGB8 삼중항을 저장합니다. 양수 차원은 개수를 곱해야 합니다. 키프레임이 적용된 콘텐츠와 역할 태그 11 는 참조 자산과 버전 1.16를 요구합니다. 일반적인 ControlNet 설정 이후, 역할은 u8 모드 ( 0 주의,  1   AdaIN ,  2   AttentionAdaIN ) 및 f64   styleFidelity (유한한 [0,1])을 저장한 후 운동이 시작됩니다. 알 수 없는 모드 안전하게 거부한다 입니다. `maximumReferenceSamples` (기본값 16 Mi) 는 모든 참조 자산에 걸친 총 색상 수를 제한합니다. 할당 전에 개수, 남은 바이트 및 벡터 용량이 확인됩니다. SQLite 스키마는 1 로 유지됩니다; 임베딩이나 모델 텐서는 영속화되지 않습니다. [REFERENCE .md](REFERENCE.md)를 참조하세요.\n"
     },
     {
       "id": "b000294",
       "kind": "blank",
-      "start_line": 514,
-      "end_line": 514,
+      "start_line": 511,
+      "end_line": 511,
       "raw": "\n"
     },
     {
       "id": "b000295",
       "kind": "html",
-      "start_line": 515,
-      "end_line": 515,
+      "start_line": 512,
+      "end_line": 512,
       "raw": "<a id=\"ip-adapter-extension-117\"></a>\n"
     },
     {
       "id": "b000296",
       "kind": "blank",
-      "start_line": 516,
-      "end_line": 516,
+      "start_line": 513,
+      "end_line": 513,
       "raw": "\n"
     },
     {
       "id": "b000297",
       "kind": "heading",
-      "start_line": 517,
-      "end_line": 517,
+      "start_line": 514,
+      "end_line": 514,
       "raw": "## IP - 어댑터 확장 ( 1.17 )\n",
       "level": 2,
       "title": "IP - 어댑터 확장 ( 1.17 )"
@@ -2473,43 +2469,43 @@
     {
       "id": "b000298",
       "kind": "blank",
-      "start_line": 518,
-      "end_line": 518,
+      "start_line": 515,
+      "end_line": 515,
       "raw": "\n"
     },
     {
       "id": "b000299",
       "kind": "paragraph",
-      "start_line": 519,
-      "end_line": 519,
+      "start_line": 516,
+      "end_line": 516,
       "raw": "자산 태그 14 는 id, u8 임베딩 단계 ( 0 풀링된 인코더,  1 인코더 숨겨진 상태,  2 투영된 이미지 프롬프트 토큰), 그 다음 순서대로 6 문자열을 저장합니다:  encoderId ,  encoderRevision ,  adapterId ,  adapterRevision ,  baseModelId ,  preprocessingId 입니다. 모두 필수입니다. 텐서는 u32   tokenCount , u32   channelCount , u64 스칼라 개수를 저장한 후 리틀엔디안 IEEE 바이너리32 값을 저장합니다. 개수는 tokenCount * channelCount 와 같아야 하며 두 차원은 양수여야 하고 모든 값은 유한해야 합니다. 조건부 텐서는 엄격한 u8 무조건 존재 플래그와 존재할 경우의 그 텐서가 뒤를 잇습니다. 가지들은 모양을 공유하며 풀링된 인코더 임베딩은 하나의 토큰을 가집니다. 배치는 암묵적으로 하나입니다.\n"
     },
     {
       "id": "b000300",
       "kind": "blank",
-      "start_line": 520,
-      "end_line": 520,
+      "start_line": 517,
+      "end_line": 517,
       "raw": "\n"
     },
     {
       "id": "b000301",
       "kind": "paragraph",
-      "start_line": 521,
-      "end_line": 521,
+      "start_line": 518,
+      "end_line": 518,
       "raw": "콘텐츠 태그 12 와 역할 태그 12 는 IP -어댑터 레이어를 식별합니다. 역할 이후 일반 ControlNet 설정이 저장된 다음 모션이 저장됩니다. 어댑터 id/리비전은 참조된 모든 자산과 일치해야 하며, 동적 레이어의 설명자와 모양은 고정되어 있습니다. `maximumIpAdapterValues` (기본값 16 Mi 스칼라) 는 모든 자산과 두 가지 가지의 합계를 계산하며, 문자 제한은 모든 기원 필드를 포함합니다. 할당 전에 개수, 페이로드 가용성 및 주소 공간이 확인됩니다. 임베딩은 1.17 를 필요로 하며, 알 수 없는 태그/단계와 오래된 잘못 표시된 파일은 안전하게 거부한다 안전하게 거부합니다. SQLite 스키마는 1입니다.\n"
     },
     {
       "id": "b000302",
       "kind": "blank",
-      "start_line": 522,
-      "end_line": 522,
+      "start_line": 519,
+      "end_line": 519,
       "raw": "\n"
     },
     {
       "id": "b000303",
       "kind": "heading",
-      "start_line": 523,
-      "end_line": 523,
+      "start_line": 520,
+      "end_line": 520,
       "raw": "## Artboard extension (1.18)\n",
       "level": 2,
       "title": "Artboard extension (1.18)"
@@ -2517,29 +2513,29 @@
     {
       "id": "b000304",
       "kind": "blank",
-      "start_line": 524,
-      "end_line": 524,
+      "start_line": 521,
+      "end_line": 521,
       "raw": "\n"
     },
     {
       "id": "b000305",
       "kind": "paragraph",
-      "start_line": 525,
-      "end_line": 531,
+      "start_line": 522,
+      "end_line": 528,
       "raw": "Immediately after each layer blend-mode byte, 1.18 writes a bool ownership flag and,\nwhen true, a string artboard id. After the authorship string, the payload appends\nu32 artboardCount, then id string, name string, i32 x, i32 y, i32 width, i32 height,\nu32 backgroundArgb and bool visible for each board in bottom-to-top order.\nPre-1.18 records omit these fields and retain canonical byte compatibility.\nUnknown versions, invalid membership, duplicate ids, bounded-geometry violations\nand configured artboard/string/pixel limits are rejected. See [ARTBOARDS.md](ARTBOARDS.md).\n"
     },
     {
       "id": "b000306",
       "kind": "blank",
-      "start_line": 532,
-      "end_line": 532,
+      "start_line": 529,
+      "end_line": 529,
       "raw": "\n"
     },
     {
       "id": "b000307",
       "kind": "heading",
-      "start_line": 533,
-      "end_line": 533,
+      "start_line": 530,
+      "end_line": 530,
       "raw": "## Explicit layer type extension (1.19)\n",
       "level": 2,
       "title": "Explicit layer type extension (1.19)"
@@ -2547,43 +2543,43 @@
     {
       "id": "b000308",
       "kind": "blank",
-      "start_line": 534,
-      "end_line": 534,
+      "start_line": 531,
+      "end_line": 531,
       "raw": "\n"
     },
     {
       "id": "b000309",
       "kind": "paragraph",
-      "start_line": 535,
-      "end_line": 541,
+      "start_line": 532,
+      "end_line": 538,
       "raw": "After optional artboard membership, each record stores `visualLayerKind` with\n0 = StaticBitmapLayer, 1 = StaticVectorLayer, 2 = DynamicBitmapLayer,\n3 = DynamicVectorLayer and 255 = nonspatial IP-Adapter conditioning. Source\nreferences and role/media payloads follow in their existing layout. Unknown tags\nand declared-type/content mismatches are invalid data, including with a valid CRC.\nThe four concrete artwork types own their corresponding distinct content types.\nSee [FOUR_LAYER_TYPES.md](FOUR_LAYER_TYPES.md) for the public model and migration.\n"
     },
     {
       "id": "b000310",
       "kind": "blank",
-      "start_line": 542,
-      "end_line": 542,
+      "start_line": 539,
+      "end_line": 539,
       "raw": "\n"
     },
     {
       "id": "b000311",
       "kind": "paragraph",
-      "start_line": 543,
-      "end_line": 545,
+      "start_line": 540,
+      "end_line": 542,
       "raw": "Versions 1.0–1.18 omit this byte. Their source/asset/role fields construct the\ncorrect concrete memory type and untouched legacy bytes remain canonical. The\nworking-file schema stays 1; its layer record uses model version 1.19.\n"
     },
     {
       "id": "b000312",
       "kind": "blank",
-      "start_line": 546,
-      "end_line": 546,
+      "start_line": 543,
+      "end_line": 543,
       "raw": "\n"
     },
     {
       "id": "b000313",
       "kind": "heading",
-      "start_line": 547,
-      "end_line": 547,
+      "start_line": 544,
+      "end_line": 544,
       "raw": "## Layer appearance extension (1.20)\n",
       "level": 2,
       "title": "Layer appearance extension (1.20)"
@@ -2591,71 +2587,71 @@
     {
       "id": "b000314",
       "kind": "blank",
-      "start_line": 548,
-      "end_line": 548,
+      "start_line": 545,
+      "end_line": 545,
       "raw": "\n"
     },
     {
       "id": "b000315",
       "kind": "paragraph",
-      "start_line": 549,
-      "end_line": 549,
+      "start_line": 546,
+      "end_line": 546,
       "raw": "After the 1.19 declared visual-kind byte, each layer writes: f64 Fill; bool clipped-to-below; bool blend-clipped-as-group; three optional masks (pixel, vector, filter); u32 filter count and filters; optional Blend If. Masks write string asset ID, bool enabled/inverted/linked, u8 channel (0 luminance, 1 alpha), f64 density/feather-sigma/outside-coverage, then six f64 affine transform values in m11/m12/m21/m22/translation-X/translation-Y order.\n"
     },
     {
       "id": "b000316",
       "kind": "blank",
-      "start_line": 550,
-      "end_line": 550,
+      "start_line": 547,
+      "end_line": 547,
       "raw": "\n"
     },
     {
       "id": "b000317",
       "kind": "paragraph",
-      "start_line": 551,
-      "end_line": 551,
+      "start_line": 548,
+      "end_line": 548,
       "raw": "Each filter writes name string, bool enabled, f64 opacity, u8 blend tag, and u8 operation tag. Operation 0 is RasterEffect: u8 kind (0..17 in declaration order), nine f64 amount/radius/angle/scale/detail/threshold/midpoint/roundness/feather, three bool monochromatic/edge-aware/natural, u32 seed. Operation 1 is ColorAdjustment: the 23 leading f64 fields in declaration order through gradeBalance, three i32 saturationChannel/gradeRange/curveChannel, f64 curve, then eight bool protectHighlights/preserveColor/linearLight/adaptive/liftBlacks/gamutLimit/colorize/smoothCurve. Values are explicit scalar encodings, never struct bytes.\n"
     },
     {
       "id": "b000318",
       "kind": "blank",
-      "start_line": 552,
-      "end_line": 552,
+      "start_line": 549,
+      "end_line": 549,
       "raw": "\n"
     },
     {
       "id": "b000319",
       "kind": "paragraph",
-      "start_line": 553,
-      "end_line": 553,
+      "start_line": 550,
+      "end_line": 550,
       "raw": "Blend If writes u8 Gray/Red/Green/Blue (0..3), then two ranges (source and backdrop), each f64 black/blackFade/whiteFade/white. Optional values use the existing strict bool presence marker. Layer blend tags 0..3 keep Normal/Multiply/Screen/Overlay. Tags 4..26 follow the appended RasterBlendMode order: Darken, Lighten, ColorBurn, LinearBurn, DarkerColor, ColorDodge, LinearDodge, LighterColor, SoftLight, HardLight, VividLight, LinearLight, PinLight, HardMix, Difference, Exclusion, Subtract, Divide, Hue, Saturation, Color, Luminosity, Dissolve. Erasing DestinationOut is not a document-layer mode.\n"
     },
     {
       "id": "b000320",
       "kind": "blank",
-      "start_line": 554,
-      "end_line": 554,
+      "start_line": 551,
+      "end_line": 551,
       "raw": "\n"
     },
     {
       "id": "b000321",
       "kind": "paragraph",
-      "start_line": 555,
-      "end_line": 555,
+      "start_line": 552,
+      "end_line": 552,
       "raw": "Old 1.0..1.19 bytes retain their original layout and default appearance on decode. Extended state requires 1.20. Per-layer/total filter counts, mask/filter strings, references, unknown tags and finite/range constraints are checked before successful decoding. File schema stays 1; its layer record now uses model version 1.20. Old file records remain readable without a migration until edited.\n"
     },
     {
       "id": "b000322",
       "kind": "blank",
-      "start_line": 556,
-      "end_line": 556,
+      "start_line": 553,
+      "end_line": 553,
       "raw": "\n"
     },
     {
       "id": "b000323",
       "kind": "heading",
-      "start_line": 557,
-      "end_line": 557,
+      "start_line": 554,
+      "end_line": 554,
       "raw": "## Ordered mask stack extension (1.21)\n",
       "level": 2,
       "title": "Ordered mask stack extension (1.21)"
@@ -2663,43 +2659,43 @@
     {
       "id": "b000324",
       "kind": "blank",
-      "start_line": 558,
-      "end_line": 558,
+      "start_line": 555,
+      "end_line": 555,
       "raw": "\n"
     },
     {
       "id": "b000325",
       "kind": "paragraph",
-      "start_line": 559,
-      "end_line": 559,
+      "start_line": 556,
+      "end_line": 556,
       "raw": "After the 1.20 appearance fields, write bool maskStackEnabled, u32 count, then each entry: string ID, string name, u8 combine (0 Add/max, 1 Subtract/product with complement, 2 Intersect/product, 3 Replace), followed by the existing optional-mask encoding (presence must be true). Entry masks reference raster or vector assets and retain all mask parameters. First enabled operand establishes coverage; first Subtract starts from white. Disabled entries are skipped, and an empty/bypassed stack reveals the original. Stack coverage multiplies the existing raster/vector coverage. Pixel sources never change.\n"
     },
     {
       "id": "b000326",
       "kind": "blank",
-      "start_line": 560,
-      "end_line": 560,
+      "start_line": 557,
+      "end_line": 557,
       "raw": "\n"
     },
     {
       "id": "b000327",
       "kind": "paragraph",
-      "start_line": 561,
-      "end_line": 561,
+      "start_line": 558,
+      "end_line": 558,
       "raw": "Model 1.0–1.20 retains its exact byte layout and decodes an empty enabled stack. Nondefault stack state requires 1.21. Per-layer 4096 operands, total 65536 operands, ID uniqueness, string budgets, references, unknown tags and the 64-million-pixel aggregate feather processing budget are checked. Storage schema remains 1. File-bound updates use the existing synchronous appearance transaction.\n"
     },
     {
       "id": "b000328",
       "kind": "blank",
-      "start_line": 562,
-      "end_line": 562,
+      "start_line": 559,
+      "end_line": 559,
       "raw": "\n"
     },
     {
       "id": "b000329",
       "kind": "heading",
-      "start_line": 563,
-      "end_line": 563,
+      "start_line": 560,
+      "end_line": 560,
       "raw": "## 공통 게시 메타데이터 확장 (1.22)\n",
       "level": 2,
       "title": "공통 게시 메타데이터 확장 (1.22)"
@@ -2707,16 +2703,258 @@
     {
       "id": "b000330",
       "kind": "blank",
-      "start_line": 564,
-      "end_line": 564,
+      "start_line": 561,
+      "end_line": 561,
       "raw": "\n"
     },
     {
       "id": "b000331",
       "kind": "paragraph",
+      "start_line": 562,
+      "end_line": 562,
+      "raw": "아트보드 목록 뒤에 u8 존재 여부(0/1)를 기록한다. 존재하면 title, description, coverArtboardId 문자열, u32 캔버스 수, 순서대로 artboardId/caption/alternativeText 문자열, u32 설정 수, 키 순으로 정렬된 설정 키 문자열과 u8 타입 및 값을 기록한다. 타입 0은 문자열, 1은 u8 불리언(0/1)이다. 중복 키·참조, 알 수 없는 태그와 공통 문자열/메타데이터 제한 위반은 거부한다. 작업 스키마 1의 레코드 종류 12는 해당 존재 여부와 페이로드를 독립적으로 보존한다. 1.0~1.21의 바이트 배치는 변경하지 않는다. [모델·저장·호환성](PUBLICATION_METADATA.md).\n"
+    },
+    {
+      "id": "b000332",
+      "kind": "blank",
+      "start_line": 563,
+      "end_line": 563,
+      "raw": "\n"
+    },
+    {
+      "id": "b000333",
+      "kind": "heading",
+      "start_line": 564,
+      "end_line": 564,
+      "raw": "## 소유한 연결 캔버스 확장 (1.23)\n",
+      "level": 2,
+      "title": "소유한 연결 캔버스 확장 (1.23)"
+    },
+    {
+      "id": "b000334",
+      "kind": "blank",
       "start_line": 565,
       "end_line": 565,
-      "raw": "아트보드 목록 뒤에 u8 존재 여부(0/1)를 기록한다. 존재하면 title, description, coverArtboardId 문자열, u32 캔버스 수, 순서대로 artboardId/caption/alternativeText 문자열, u32 설정 수, 키 순으로 정렬된 설정 키 문자열과 u8 타입 및 값을 기록한다. 타입 0은 문자열, 1은 u8 불리언(0/1)이다. 중복 키·참조, 알 수 없는 태그와 공통 문자열/메타데이터 제한 위반은 거부한다. 작업 스키마 1의 레코드 종류 12는 해당 존재 여부와 페이로드를 독립적으로 보존한다. 1.0~1.21의 바이트 배치는 변경하지 않는다. [모델·저장·호환성](PUBLICATION_METADATA.md).\n"
+      "raw": "\n"
+    },
+    {
+      "id": "b000335",
+      "kind": "paragraph",
+      "start_line": 566,
+      "end_line": 566,
+      "raw": "자산 태그 15는 공통 ID 문자열 뒤에 선택 프레임 `u32`, 복사된 정규 IISC의 바이트 수 `u64`, 해당 수만큼의 컨테이너 바이트를 기록한다. 레이어는 일반 래스터 콘텐츠로 자산 ID를 참조하므로 여러 배치가 하나의 복사본을 공유한다. 파일 경로는 저장하지 않는다.\n"
+    },
+    {
+      "id": "b000336",
+      "kind": "blank",
+      "start_line": 567,
+      "end_line": 567,
+      "raw": "\n"
+    },
+    {
+      "id": "b000337",
+      "kind": "paragraph",
+      "start_line": 568,
+      "end_line": 568,
+      "raw": "인코더와 디코더는 내장 컨테이너의 버전, 체크섬, 프레임 범위 및 제한을 확인한다. 기본 최대 깊이는 16, 직접 소유 바이트 합계는 1 GiB이다. 중첩 데이터는 상위 바이트에 포함된다. 1.0~1.22의 기존 레이아웃은 유지하고 1.22 이하로 태그 15를 기록하지 않는다. 구버전 리더는 1.23 컨테이너를 거부한다. 자세한 편집·이력 계약은 [문서 자산 제어](DOCUMENT_ASSET_CONTROL.md)를 따른다.\n"
+    },
+    {
+      "id": "b000338",
+      "kind": "blank",
+      "start_line": 569,
+      "end_line": 569,
+      "raw": "\n"
+    },
+    {
+      "id": "b000339",
+      "kind": "heading",
+      "start_line": 570,
+      "end_line": 570,
+      "raw": "## 선택 채널과 레이어 관계 확장 (1.24)\n",
+      "level": 2,
+      "title": "선택 채널과 레이어 관계 확장 (1.24)"
+    },
+    {
+      "id": "b000340",
+      "kind": "blank",
+      "start_line": 571,
+      "end_line": 571,
+      "raw": "\n"
+    },
+    {
+      "id": "b000341",
+      "kind": "paragraph",
+      "start_line": 572,
+      "end_line": 573,
+      "raw": "게시 메타데이터 뒤에 다음 순서의 단일 관계 블록을 기록한다. 모든 문자열은 기존\n길이 `u32`와 UTF-8 바이트 형식이고 모든 다중 바이트 정수는 리틀 엔디언이다.\n"
+    },
+    {
+      "id": "b000342",
+      "kind": "blank",
+      "start_line": 574,
+      "end_line": 574,
+      "raw": "\n"
+    },
+    {
+      "id": "b000343",
+      "kind": "list",
+      "start_line": 575,
+      "end_line": 582,
+      "raw": "1. 선택 채널 수 `u32`. 각 채널은 ID·이름 문자열, 원점 x/y와 폭/높이 `i32`, 암묵적\n   배경 커버리지 `u8`, 타일 수 `u32`를 기록한다. 각 타일은 영역 상대 열·행 `i32`,\n   밀집 여부 `u8`, 균일 커버리지 `u8`와 밀집 타일일 때 4096개 커버리지 바이트이다.\n2. 그룹 수 `u32`. 각 그룹은 ID·이름·부모 ID 문자열, 모드 `u8`(0 통과, 1 격리),\n   가시성 `u8`이다. 다음 멤버십 수 `u32`와 레이어 ID·그룹 ID 문자열 쌍을 쓴다.\n3. 무방향 링크 수 `u32`와 정렬된 레이어 ID 문자열 쌍을 쓴다.\n4. 레이어 잠금 수 `u32`, ID 문자열과 플래그 `u8`을 쓴 뒤 같은 형식으로 그룹 잠금을\n   쓴다. 비트 1·2·4·8은 픽셀·투명도·변환·구조이며 15는 전체이다.\n",
+      "items": [
+        {
+          "marker": "1.",
+          "text": "선택 채널 수 `u32`. 각 채널은 ID·이름 문자열, 원점 x/y와 폭/높이 `i32`, 암묵적",
+          "checked": null
+        },
+        {
+          "marker": "2.",
+          "text": "그룹 수 `u32`. 각 그룹은 ID·이름·부모 ID 문자열, 모드 `u8`(0 통과, 1 격리),",
+          "checked": null
+        },
+        {
+          "marker": "3.",
+          "text": "무방향 링크 수 `u32`와 정렬된 레이어 ID 문자열 쌍을 쓴다.",
+          "checked": null
+        },
+        {
+          "marker": "4.",
+          "text": "레이어 잠금 수 `u32`, ID 문자열과 플래그 `u8`을 쓴 뒤 같은 형식으로 그룹 잠금을",
+          "checked": null
+        }
+      ]
+    },
+    {
+      "id": "b000344",
+      "kind": "blank",
+      "start_line": 583,
+      "end_line": 583,
+      "raw": "\n"
+    },
+    {
+      "id": "b000345",
+      "kind": "paragraph",
+      "start_line": 584,
+      "end_line": 588,
+      "raw": "작업 파일에서는 관계 블록을 종류 13의 단일 체크섬 레코드로 보존한다. 빈 관계도\n1.24에서 명시적으로 기록한다. 기본 한도는 채널 65536, 그룹 65536, 링크 1048576,\n선택 타일 합계 65536, 밀집 선택 바이트 합계 32 MiB이다. 중복·범위 밖 타일,\n잘못된 부모·순환·참조·태그와 한도 초과는 거부한다. 1.0~1.23은 빈 관계로 읽고\n이전 버전으로 새 관계를 인코딩하지 않는다. 관계 자체의 최소 버전은 1.24이다.\n"
+    },
+    {
+      "id": "b000346",
+      "kind": "blank",
+      "start_line": 589,
+      "end_line": 589,
+      "raw": "\n"
+    },
+    {
+      "id": "b000347",
+      "kind": "heading",
+      "start_line": 590,
+      "end_line": 590,
+      "raw": "## 레이어 콘텐츠와 스타일 확장 (1.25)\n",
+      "level": 2,
+      "title": "레이어 콘텐츠와 스타일 확장 (1.25)"
+    },
+    {
+      "id": "b000348",
+      "kind": "blank",
+      "start_line": 591,
+      "end_line": 591,
+      "raw": "\n"
+    },
+    {
+      "id": "b000349",
+      "kind": "paragraph",
+      "start_line": 592,
+      "end_line": 599,
+      "raw": "자산 태그 16은 채우기 종류, 크기, 단색, 그라디언트 좌표·반복·정지점과\n문서 소유 패턴 자산 ID 및 반복 원점을 저장한다. 태그 17은 크기와 명시적\n색 조정 필드를 저장한다. 각 레이어 외형 끝에는 순서 있는 스타일 항목의\n종류·활성화·색·불투명도·반경·오프셋을 기록한다. 설정과 개수, 참조 및\n디코딩 바이트는 검증하며 정지점과 스타일의 전체 예산을 설정할 수 있다.\n1.24 이하에서는 이 정보를 저장하려는 시도를 거부한다. 기존 버전의 바이트\n배치는 유지한다. 현재 패키지 ABI는 0.40이다. 세부 효과와 지원 범위는\n[레이어 콘텐츠 연산](LAYER_CONTENT_OPERATIONS.md)을 따른다.\n"
+    },
+    {
+      "id": "b000350",
+      "kind": "blank",
+      "start_line": 600,
+      "end_line": 600,
+      "raw": "\n"
+    },
+    {
+      "id": "b000351",
+      "kind": "heading",
+      "start_line": 601,
+      "end_line": 601,
+      "raw": "## 정확한 복합 벡터 도형 확장 (1.26)\n",
+      "level": 2,
+      "title": "정확한 복합 벡터 도형 확장 (1.26)"
+    },
+    {
+      "id": "b000352",
+      "kind": "blank",
+      "start_line": 602,
+      "end_line": 602,
+      "raw": "\n"
+    },
+    {
+      "id": "b000353",
+      "kind": "paragraph",
+      "start_line": 603,
+      "end_line": 606,
+      "raw": "1.26 벡터 자산의 기존 경로 데이터 뒤에 복합 도형 존재 여부 `u8`을 쓴다.\n존재하면 루트 인덱스·색·노드 수를 각각 `u32`로 쓴다. 각 노드는 종류 `u8`,\n첫째·둘째 인덱스 `u32`, 변환 계수 여섯 개 `double`로 총 57바이트이다.\n종류는 경로·변환·합집합·차집합·교집합·배타적 차집합 순서의 0부터 5이다.\n"
+    },
+    {
+      "id": "b000354",
+      "kind": "blank",
+      "start_line": 607,
+      "end_line": 607,
+      "raw": "\n"
+    },
+    {
+      "id": "b000355",
+      "kind": "paragraph",
+      "start_line": 608,
+      "end_line": 612,
+      "raw": "노드는 자식이 부모보다 앞서는 공유 없는 트리이며 루트는 마지막 노드이다.\n경로 인덱스는 같은 벡터 자산의 원본 폐곡선을 참조한다. 좌표·제어점과\n변환 계수는 입력된 이진 `double` 값을 그대로 보존하며 교차점을 계산해\n저장하지 않는다. 하나의 도형은 최대 4096노드·깊이 256, 디코더 기본\n전체 한도는 65536노드이다. 잘못된 참조, 열린 경로와 비유한 값은 거부한다.\n"
+    },
+    {
+      "id": "b000356",
+      "kind": "blank",
+      "start_line": 613,
+      "end_line": 613,
+      "raw": "\n"
+    },
+    {
+      "id": "b000357",
+      "kind": "paragraph",
+      "start_line": 614,
+      "end_line": 616,
+      "raw": "이전 형식의 바이트 배치는 유지한다. 복합 도형이 있는 문서를 1.25 이하로\n인코딩하지 않으며, 구버전 소비자는 1.26을 거부한다. 표시용 래스터\n샘플링과 지원하지 않는 내보내기는 [레이어 편집 연산](LAYER_EDIT_OPERATIONS.md)을 따른다.\n"
+    },
+    {
+      "id": "b000358",
+      "kind": "blank",
+      "start_line": 617,
+      "end_line": 617,
+      "raw": "\n"
+    },
+    {
+      "id": "b000359",
+      "kind": "heading",
+      "start_line": 618,
+      "end_line": 618,
+      "raw": "## 픽셀 종횡비와 변환된 아트보드 확장 (1.27)\n",
+      "level": 2,
+      "title": "픽셀 종횡비와 변환된 아트보드 확장 (1.27)"
+    },
+    {
+      "id": "b000360",
+      "kind": "blank",
+      "start_line": 619,
+      "end_line": 619,
+      "raw": "\n"
+    },
+    {
+      "id": "b000361",
+      "kind": "paragraph",
+      "start_line": 620,
+      "end_line": 627,
+      "raw": "타임라인의 프레임 수 바로 뒤에 픽셀의 물리적 너비와 높이의 비를 나타내는\n양의 `u32` 분자·분모를 기록한다. 이전 형식은 1:1로 해석한다. 각 아트보드의\n기존 가시성 필드 뒤에는 로컬 기하 존재 여부 `u8`을 기록한다. 존재하면 로컬\n너비·높이 `i32`와 로컬에서 문서로 가는 아핀 변환의 `m11`, `m12`, `m21`, `m22`,\n`translationX`, `translationY`를 순서대로 `f64`로 기록한다. 기존 정수 영역은\n변환된 네 꼭짓점을 포함해야 하며 변환은 유한하고 가역적이어야 한다.\n1.26 이하는 새 필드를 기록하지 않으며 기본값 이외의 종횡비나 변환 기하가\n있으면 해당 형식으로의 인코딩을 거부한다.\n"
     }
   ],
   "outline": [
@@ -2750,7 +2988,7 @@
       "level": 2,
       "title": "원시 인코딩",
       "anchor": "원시-인코딩",
-      "start_line": 43
+      "start_line": 41
     },
     {
       "block_id": "b000035",
@@ -2758,7 +2996,7 @@
       "level": 2,
       "title": "페이로드 순서",
       "anchor": "페이로드-순서",
-      "start_line": 53
+      "start_line": 51
     },
     {
       "block_id": "b000055",
@@ -2766,7 +3004,7 @@
       "level": 2,
       "title": "자산",
       "anchor": "자산",
-      "start_line": 107
+      "start_line": 108
     },
     {
       "block_id": "b000065",
@@ -2774,7 +3012,7 @@
       "level": 3,
       "title": "래스터 자산",
       "anchor": "래스터-자산",
-      "start_line": 120
+      "start_line": 121
     },
     {
       "block_id": "b000077",
@@ -2782,7 +3020,7 @@
       "level": 3,
       "title": "청크된 래스터 자산",
       "anchor": "청크된-래스터-자산",
-      "start_line": 139
+      "start_line": 140
     },
     {
       "block_id": "b000085",
@@ -2790,7 +3028,7 @@
       "level": 3,
       "title": "벡터 자산",
       "anchor": "벡터-자산",
-      "start_line": 153
+      "start_line": 154
     },
     {
       "block_id": "b000101",
@@ -2798,7 +3036,7 @@
       "level": 2,
       "title": "레이어 및 타임라인",
       "anchor": "레이어-및-타임라인",
-      "start_line": 187
+      "start_line": 186
     },
     {
       "block_id": "b000125",
@@ -2806,7 +3044,7 @@
       "level": 2,
       "title": "오디오 자산 및 트랙 레이어 ( 1.4 )",
       "anchor": "오디오-자산-및-트랙-레이어--14-",
-      "start_line": 242
+      "start_line": 241
     },
     {
       "block_id": "b000143",
@@ -2814,7 +3052,7 @@
       "level": 2,
       "title": "안정적인 확산 생성 메타데이터",
       "anchor": "안정적인-확산-생성-메타데이터",
-      "start_line": 281
+      "start_line": 280
     },
     {
       "block_id": "b000159",
@@ -2822,7 +3060,7 @@
       "level": 2,
       "title": "계약 렌더링",
       "anchor": "계약-렌더링",
-      "start_line": 350
+      "start_line": 349
     },
     {
       "block_id": "b000167",
@@ -2830,7 +3068,7 @@
       "level": 2,
       "title": "저작 전용 상태",
       "anchor": "저작-전용-상태",
-      "start_line": 358
+      "start_line": 357
     },
     {
       "block_id": "b000179",
@@ -2838,7 +3076,7 @@
       "level": 2,
       "title": "기본 독자 제한",
       "anchor": "기본-독자-제한",
-      "start_line": 370
+      "start_line": 369
     },
     {
       "block_id": "b000189",
@@ -2846,7 +3084,7 @@
       "level": 2,
       "title": "호환성 및 마이그레이션",
       "anchor": "호환성-및-마이그레이션",
-      "start_line": 399
+      "start_line": 396
     },
     {
       "block_id": "b000209",
@@ -2854,7 +3092,7 @@
       "level": 2,
       "title": "저작자 확장 ( 1.5 )",
       "anchor": "저작자-확장--15-",
-      "start_line": 423
+      "start_line": 420
     },
     {
       "block_id": "b000215",
@@ -2862,7 +3100,7 @@
       "level": 2,
       "title": "네이티브 비디오 및 모션 확장 (1.6)",
       "anchor": "네이티브-비디오-및-모션-확장-16",
-      "start_line": 429
+      "start_line": 426
     },
     {
       "block_id": "b000225",
@@ -2870,7 +3108,7 @@
       "level": 2,
       "title": "공개 레이어 분류 (패키지 0.12.0)",
       "anchor": "공개-레이어-분류-패키지-0120",
-      "start_line": 439
+      "start_line": 436
     },
     {
       "block_id": "b000231",
@@ -2878,7 +3116,7 @@
       "level": 2,
       "title": "ControlNet 의미 계층 확장 ( 1.7 )",
       "anchor": "controlnet-의미-계층-확장--17-",
-      "start_line": 445
+      "start_line": 442
     },
     {
       "block_id": "b000241",
@@ -2886,7 +3124,7 @@
       "level": 2,
       "title": "네이티브 포즈 확장 ( 1.8 )",
       "anchor": "네이티브-포즈-확장--18-",
-      "start_line": 458
+      "start_line": 455
     },
     {
       "block_id": "b000249",
@@ -2894,7 +3132,7 @@
       "level": 2,
       "title": "깊이 확장 ( 1.9 )",
       "anchor": "깊이-확장--19-",
-      "start_line": 466
+      "start_line": 463
     },
     {
       "block_id": "b000255",
@@ -2902,7 +3140,7 @@
       "level": 2,
       "title": "라인 아트 확장 ( 1.10 )",
       "anchor": "라인-아트-확장--110-",
-      "start_line": 473
+      "start_line": 470
     },
     {
       "block_id": "b000261",
@@ -2910,7 +3148,7 @@
       "level": 2,
       "title": "Canny/Scribble 확장 ( 1.11 )",
       "anchor": "cannyscribble-확장--111-",
-      "start_line": 479
+      "start_line": 476
     },
     {
       "block_id": "b000267",
@@ -2918,7 +3156,7 @@
       "level": 2,
       "title": "MLSD 확장 ( 1.12 )",
       "anchor": "mlsd-확장--112-",
-      "start_line": 486
+      "start_line": 483
     },
     {
       "block_id": "b000273",
@@ -2926,7 +3164,7 @@
       "level": 2,
       "title": "노멀맵 확장 ( 1.13 )",
       "anchor": "노멀맵-확장--113-",
-      "start_line": 493
+      "start_line": 490
     },
     {
       "block_id": "b000279",
@@ -2934,7 +3172,7 @@
       "level": 2,
       "title": "셔플 확장 ( 1.14 )",
       "anchor": "셔플-확장--114-",
-      "start_line": 499
+      "start_line": 496
     },
     {
       "block_id": "b000285",
@@ -2942,7 +3180,7 @@
       "level": 2,
       "title": "타일 확장 ( 1.15 )",
       "anchor": "타일-확장--115-",
-      "start_line": 505
+      "start_line": 502
     },
     {
       "block_id": "b000291",
@@ -2950,7 +3188,7 @@
       "level": 2,
       "title": "참조 확장 ( 1.16 )",
       "anchor": "참조-확장--116-",
-      "start_line": 511
+      "start_line": 508
     },
     {
       "block_id": "b000297",
@@ -2958,7 +3196,7 @@
       "level": 2,
       "title": "IP - 어댑터 확장 ( 1.17 )",
       "anchor": "ip---어댑터-확장--117-",
-      "start_line": 517
+      "start_line": 514
     },
     {
       "block_id": "b000303",
@@ -2966,7 +3204,7 @@
       "level": 2,
       "title": "Artboard extension (1.18)",
       "anchor": "artboard-extension-118",
-      "start_line": 523
+      "start_line": 520
     },
     {
       "block_id": "b000307",
@@ -2974,7 +3212,7 @@
       "level": 2,
       "title": "Explicit layer type extension (1.19)",
       "anchor": "explicit-layer-type-extension-119",
-      "start_line": 533
+      "start_line": 530
     },
     {
       "block_id": "b000313",
@@ -2982,7 +3220,7 @@
       "level": 2,
       "title": "Layer appearance extension (1.20)",
       "anchor": "layer-appearance-extension-120",
-      "start_line": 547
+      "start_line": 544
     },
     {
       "block_id": "b000323",
@@ -2990,7 +3228,7 @@
       "level": 2,
       "title": "Ordered mask stack extension (1.21)",
       "anchor": "ordered-mask-stack-extension-121",
-      "start_line": 557
+      "start_line": 554
     },
     {
       "block_id": "b000329",
@@ -2998,42 +3236,82 @@
       "level": 2,
       "title": "공통 게시 메타데이터 확장 (1.22)",
       "anchor": "공통-게시-메타데이터-확장-122",
-      "start_line": 563
+      "start_line": 560
+    },
+    {
+      "block_id": "b000333",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "소유한 연결 캔버스 확장 (1.23)",
+      "anchor": "소유한-연결-캔버스-확장-123",
+      "start_line": 564
+    },
+    {
+      "block_id": "b000339",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "선택 채널과 레이어 관계 확장 (1.24)",
+      "anchor": "선택-채널과-레이어-관계-확장-124",
+      "start_line": 570
+    },
+    {
+      "block_id": "b000347",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "레이어 콘텐츠와 스타일 확장 (1.25)",
+      "anchor": "레이어-콘텐츠와-스타일-확장-125",
+      "start_line": 590
+    },
+    {
+      "block_id": "b000351",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "정확한 복합 벡터 도형 확장 (1.26)",
+      "anchor": "정확한-복합-벡터-도형-확장-126",
+      "start_line": 601
+    },
+    {
+      "block_id": "b000359",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "픽셀 종횡비와 변환된 아트보드 확장 (1.27)",
+      "anchor": "픽셀-종횡비와-변환된-아트보드-확장-127",
+      "start_line": 618
     }
   ],
   "indexes": {
     "directive_candidates": [
       {
         "block_id": "b000191",
-        "line": 405,
+        "line": 402,
         "text": "- 마이그레이션은 래스터 픽셀, 벡터 기하학, 레이어 순서, 변환, 및 타임라인 참조를 보존해야 합니다. 그것은 절대 아무런 알림 없이 벡터 자산을 래스터화하거나 애니메이션을 버리거나 또는 유지된 브러시 궤적을 도입해서는 안 됩니다.",
         "basis": "lexical_match",
         "context": "list"
       },
       {
         "block_id": "b000299",
-        "line": 519,
+        "line": 516,
         "text": "자산 태그 14 는 id, u8 임베딩 단계 ( 0 풀링된 인코더,  1 인코더 숨겨진 상태,  2 투영된 이미지 프롬프트 토큰), 그 다음 순서대로 6 문자열을 저장합니다:  encoderId ,  encoderRevision ,  adapterId ,  adapterRevision ,  baseModelId ,  preprocessingId 입니다. 모두 필수입니다. 텐서는 u32   tokenCount , u32   channelCount , u64 스칼라 개수를 저장한 후 리틀엔디안 IEEE 바이너리32 값을 저장합니다. 개수는 tokenCount * channelCount 와 같아야 하며 두 차원은 양수여야 하고 모든 값은 유한해야 합니다. 조건부 텐서는 엄격한 u8 무조건 존재 플래그와 존재할 경우의 그 텐서가 뒤를 잇습니다. 가지들은 모양을 공유하며 풀링된 인코더 임베딩은 하나의 토큰을 가집니다. 배치는 암묵적으로 하나입니다.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000317",
-        "line": 551,
+        "line": 548,
         "text": "Each filter writes name string, bool enabled, f64 opacity, u8 blend tag, and u8 operation tag. Operation 0 is RasterEffect: u8 kind (0..17 in declaration order), nine f64 amount/radius/angle/scale/detail/threshold/midpoint/roundness/feather, three bool monochromatic/edge-aware/natural, u32 seed. Operation 1 is ColorAdjustment: the 23 leading f64 fields in declaration order through gradeBalance, three i32 saturationChannel/gradeRange/curveChannel, f64 curve, then eight bool protectHighlights/preserveColor/linearLight/adaptive/liftBlacks/gamutLimit/colorize/smoothCurve. Values are explicit scalar encodings, never struct bytes.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000325",
-        "line": 559,
+        "line": 556,
         "text": "After the 1.20 appearance fields, write bool maskStackEnabled, u32 count, then each entry: string ID, string name, u8 combine (0 Add/max, 1 Subtract/product with complement, 2 Intersect/product, 3 Replace), followed by the existing optional-mask encoding (presence must be true). Entry masks reference raster or vector assets and retain all mask parameters. First enabled operand establishes coverage; first Subtract starts from white. Disabled entries are skipped, and an empty/bypassed stack reveals the original. Stack coverage multiplies the existing raster/vector coverage. Pixel sources never change.",
         "basis": "lexical_match",
         "context": "paragraph"
       },
       {
         "block_id": "b000331",
-        "line": 565,
+        "line": 562,
         "text": "아트보드 목록 뒤에 u8 존재 여부(0/1)를 기록한다. 존재하면 title, description, coverArtboardId 문자열, u32 캔버스 수, 순서대로 artboardId/caption/alternativeText 문자열, u32 설정 수, 키 순으로 정렬된 설정 키 문자열과 u8 타입 및 값을 기록한다. 타입 0은 문자열, 1은 u8 불리언(0/1)이다. 중복 키·참조, 알 수 없는 태그와 공통 문자열/메타데이터 제한 위반은 거부한다. 작업 스키마 1의 레코드 종류 12는 해당 존재 여부와 페이로드를 독립적으로 보존한다. 1.0~1.21의 바이트 배치는 변경하지 않는다. [모델·저장·호환성](PUBLICATION_METADATA.md).",
         "basis": "lexical_match",
         "context": "paragraph"
@@ -3053,254 +3331,105 @@
         "label": "CANVAS_MEDIA .md",
         "target": "CANVAS_MEDIA.md",
         "kind": "relative",
-        "line": 435
+        "line": 432
       },
       {
         "block_id": "b000251",
         "label": "DEPTH .md",
         "target": "DEPTH.md",
         "kind": "relative",
-        "line": 469
+        "line": 466
       },
       {
         "block_id": "b000257",
         "label": "LINE_ART .md",
         "target": "LINE_ART.md",
         "kind": "relative",
-        "line": 475
+        "line": 472
       },
       {
         "block_id": "b000263",
         "label": "BINARY_LINE_CONTROL.md",
         "target": "BINARY_LINE_CONTROL.md",
         "kind": "relative",
-        "line": 482
+        "line": 479
       },
       {
         "block_id": "b000269",
         "label": "MLSD .md",
         "target": "MLSD.md",
         "kind": "relative",
-        "line": 489
+        "line": 486
       },
       {
         "block_id": "b000275",
         "label": "NORMAL_MAP .md",
         "target": "NORMAL_MAP.md",
         "kind": "relative",
-        "line": 495
+        "line": 492
       },
       {
         "block_id": "b000287",
         "label": "TILE .md",
         "target": "TILE.md",
         "kind": "relative",
-        "line": 507
+        "line": 504
       },
       {
         "block_id": "b000293",
         "label": "REFERENCE .md",
         "target": "REFERENCE.md",
         "kind": "relative",
-        "line": 513
+        "line": 510
       },
       {
         "block_id": "b000305",
         "label": "ARTBOARDS.md",
         "target": "ARTBOARDS.md",
         "kind": "relative",
-        "line": 531
+        "line": 528
       },
       {
         "block_id": "b000309",
         "label": "FOUR_LAYER_TYPES.md",
         "target": "FOUR_LAYER_TYPES.md",
         "kind": "relative",
-        "line": 541
+        "line": 538
       },
       {
         "block_id": "b000331",
         "label": "모델·저장·호환성",
         "target": "PUBLICATION_METADATA.md",
         "kind": "relative",
-        "line": 565
+        "line": 562
+      },
+      {
+        "block_id": "b000337",
+        "label": "문서 자산 제어",
+        "target": "DOCUMENT_ASSET_CONTROL.md",
+        "kind": "relative",
+        "line": 568
+      },
+      {
+        "block_id": "b000349",
+        "label": "레이어 콘텐츠 연산",
+        "target": "LAYER_CONTENT_OPERATIONS.md",
+        "kind": "relative",
+        "line": 599
+      },
+      {
+        "block_id": "b000357",
+        "label": "레이어 편집 연산",
+        "target": "LAYER_EDIT_OPERATIONS.md",
+        "kind": "relative",
+        "line": 616
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000023",
-        "columns": [
-          "오프셋",
-          "크기",
-          "필드",
-          "계약"
-        ],
-        "rows": [
-          [
-            "0",
-            "8",
-            "마법",
-            "`49 49 53 43 0D 0A 1A 0A` (`IISC\\r\\n\\x1A\\n`)"
-          ],
-          [
-            "8",
-            "2",
-            "소령",
-            "문서 형식 주요"
-          ],
-          [
-            "10",
-            "2",
-            "미성년자",
-            "문서 형식 마이너"
-          ],
-          [
-            "12",
-            "4",
-            "깃발",
-            "0 버전 1"
-          ],
-          [
-            "16",
-            "8",
-            "페이로드 크기",
-            "다음 바이트의 정확한 수"
-          ],
-          [
-            "24",
-            "4",
-            "검사 합계",
-            "페이로드의 CRC-32/ISO-HDLC"
-          ],
-          [
-            "28",
-            "4",
-            "예약되어 있는",
-            "0 버전 1"
-          ]
-        ]
-      },
-      {
-        "block_id": "b000095",
-        "columns": [
-          "태그하다",
-          "작업",
-          "필드"
-        ],
-        "rows": [
-          [
-            "0",
-            "MoveTo",
-            "`f64 x, f64 y`"
-          ],
-          [
-            "1",
-            "LineTo",
-            "`f64 x, f64 y`"
-          ],
-          [
-            "2",
-            "QuadraticTo",
-            "제어점, 종점"
-          ],
-          [
-            "3",
-            "CubicTo",
-            "제어 1, 제어 2, 엔드 포인트"
-          ],
-          [
-            "4",
-            "ClosePath",
-            "없음"
-          ]
-        ]
-      },
-      {
-        "block_id": "b000183",
-        "columns": [
-          "리소스",
-          "기본 최대값"
-        ],
-        "rows": [
-          [
-            "컨테이너 바이트",
-            "1 GiB"
-          ],
-          [
-            "캔버스 또는 벡터 뷰포트 픽셀",
-            "256 Mi 픽셀"
-          ],
-          [
-            "총 래스터 픽셀",
-            "256 Mi 픽셀"
-          ],
-          [
-            "희소한 래스터 청크",
-            "1,048,576"
-          ],
-          [
-            "자산",
-            "65,536"
-          ],
-          [
-            "레이어",
-            "65,536"
-          ],
-          [
-            "키를 보유한 희박한 프레임",
-            "262,144"
-          ],
-          [
-            "하나의 문자열",
-            "1 MiB"
-          ],
-          [
-            "생성 메타데이터 문자열 하나",
-            "16 MiB"
-          ],
-          [
-            "총 문자열 바이트 수",
-            "64 MiB"
-          ],
-          [
-            "패스, 모델, LoRAs 및 확장 목록 전반의 생성 메타데이터 항목",
-            "65,536"
-          ],
-          [
-            "벡터 경로",
-            "1,048,576"
-          ],
-          [
-            "경로 명령",
-            "16,777,216"
-          ],
-          [
-            "Keyframes",
-            "16,777,216"
-          ],
-          [
-            "오디오 자산",
-            "65,536"
-          ],
-          [
-            "오디오 트랙 레이어",
-            "65,536"
-          ],
-          [
-            "전체 오디오 클립",
-            "16,777,216"
-          ],
-          [
-            "총 인터리브된 PCM16 스칼라 샘플",
-            "268,435,456 (512 MiB)"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0-compatible",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

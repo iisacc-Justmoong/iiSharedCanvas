@@ -12,23 +12,21 @@
 
 지원되는 합성 작업 매핑은 정확히:
 
-| OpenRaster | iiSharedCanvas |
-| --- | --- |
-| `svg:src-over` | `SourceOver` |
-| `svg:multiply` | `Multiply` |
-| `svg:screen` | `Screen` |
-| `svg:overlay` | `Overlay` |
-| `svg:darken` | `Darken` |
-| `svg:lighten` | `Lighten` |
-| `svg:color-dodge` | `ColorDodge` |
-| `svg:color-burn` | `ColorBurn` |
-| `svg:hard-light` | `HardLight` |
-| `svg:soft-light` | `SoftLight` |
-| `svg:difference` | `Difference` |
-| `svg:color` | `Color` |
-| `svg:luminosity` | `Luminosity` |
-| `svg:hue` | `Hue` |
-| `svg:saturation` | `Saturation` |
+- OpenRaster: `svg:src-over`; iiSharedCanvas: `SourceOver`
+- OpenRaster: `svg:multiply`; iiSharedCanvas: `Multiply`
+- OpenRaster: `svg:screen`; iiSharedCanvas: `Screen`
+- OpenRaster: `svg:overlay`; iiSharedCanvas: `Overlay`
+- OpenRaster: `svg:darken`; iiSharedCanvas: `Darken`
+- OpenRaster: `svg:lighten`; iiSharedCanvas: `Lighten`
+- OpenRaster: `svg:color-dodge`; iiSharedCanvas: `ColorDodge`
+- OpenRaster: `svg:color-burn`; iiSharedCanvas: `ColorBurn`
+- OpenRaster: `svg:hard-light`; iiSharedCanvas: `HardLight`
+- OpenRaster: `svg:soft-light`; iiSharedCanvas: `SoftLight`
+- OpenRaster: `svg:difference`; iiSharedCanvas: `Difference`
+- OpenRaster: `svg:color`; iiSharedCanvas: `Color`
+- OpenRaster: `svg:luminosity`; iiSharedCanvas: `Luminosity`
+- OpenRaster: `svg:hue`; iiSharedCanvas: `Hue`
+- OpenRaster: `svg:saturation`; iiSharedCanvas: `Saturation`
 
 기타 블렌드, 마스크, 필터, 텍스트, 벡터 레이어 소스, 알 수 없는 그리기 요소/속성, 그리고 고립되었거나 중립적이지 않은 그룹 안전하게 거부한다. 수입자는 요청된 편집 가능한 레이어에 대해 `mergedimage.png`를 절대 대체하지 않습니다. `svg:dst-out`도 거부되었습니다: `DestinationOut`는 비트맵 브러시 블렌드 열거형이지만, 네이티브 캔버스 문서는 의도적으로 레이어 블렌드로 허용하지 않습니다.
 

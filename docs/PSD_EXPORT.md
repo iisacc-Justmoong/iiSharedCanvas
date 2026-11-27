@@ -64,3 +64,7 @@
 네이티브 `VideoLayer` 또는 `LayerProperties::motion`(패키지 0.11.0)는 현재 `UnsupportedFeature`를 반환합니다. 이렇게 하면 지원되는 PSD 스냅샷으로 비디오나 보간된 움직임을 잘못 표현하는 것을 방지합니다. 편집 가능한 콘텐츠를 유지하려면 `.iisc`를 사용하고, 렌더링된 출력에는 `exportVideo`를 사용하십시오. 기존 자산 전환 키 스냅샷은 계속 지원됩니다.
 
 See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.
+
+## 네이티브 레이어 그룹 제한
+
+통과·격리 방식의 네이티브 `LayerGroupTree`를 PSD 그룹으로 보존하는 기능은 아직 없다. 그룹이 있는 문서는 조용히 평탄화하지 않고 `UnsupportedFeature`로 거부한다. 그룹과 관계 상태를 보존하는 문서 이동에는 `.iisc`를 사용한다. 실행 중인 Undo/Redo 이력은 별도 세션 상태이다.

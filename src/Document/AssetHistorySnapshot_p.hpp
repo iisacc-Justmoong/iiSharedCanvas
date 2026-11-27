@@ -21,7 +21,11 @@ class AssetHistorySnapshot final {
     struct Bitmap { std::string id; Pixels pixels; };
     struct Chunk { std::int32_t column=0,row=0; Pixels pixels; };
     struct Chunked { std::string id; std::vector<Chunk> chunks; };
-    using Value=std::variant<std::monostate,Bitmap,Chunked,VectorAsset>;
+    struct Video { std::string id; FrameRate frameRate; std::vector<Pixels> frames; };
+    // Dense samples are retained in their native, detached type. Undo is not
+    // limited by the smaller default budgets for interchange file decoding.
+    struct Dense { Asset asset; };
+    using Value=std::variant<std::monostate,Bitmap,Chunked,Video,VectorAsset,LinkedCanvasAsset,FillLayerContent,AdjustmentLayerContent,Dense>;
     Value value_;
     std::size_t bytes_=0;
 

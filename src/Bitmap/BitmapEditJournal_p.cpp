@@ -282,8 +282,17 @@ struct Storage
                 {
                     rows.push_back({offset, data});
                     changed = true;
+                    // History patches may span a complete preview tile even
+                    // when only a few pixels changed. Preserve the patch for
+                    // transactional publication, but report the actual
+                    // horizontal difference so presentation can safely reuse
+                    // every nonintersecting cached tile.
+                    auto first = std::size_t{0};
+                    auto last = std::size_t(right - left);
+                    while (first < last && target.pixels[offset + first] == sample(data.data() + first * 4)) ++first;
+                    while (last > first && target.pixels[offset + last - 1] == sample(data.data() + (last - 1) * 4)) --last;
                     dirty =
-                        uniteDevicePixelRects(dirty, {{left, int(worldY)}, int(right - left), 1});
+                        uniteDevicePixelRects(dirty, {{left + int(first), int(worldY)}, int(last - first), 1});
                 }
             }
         }
@@ -543,6 +552,42 @@ struct Storage
         return raster ? writeFinite(patches, dirty) : writeChunks(patches, dirty);
     }
 };
+// Evaluate the final alpha values against the currently published pixels.
+// This protects all references to shared assets, including mask references.
+bool lockedWrite(Storage &storage,std::string_view id,std::span<const BitmapPatch> patches,
+                 bool changesGeometry = false)
+{
+    const auto flags=storage.document.relations.locks.assetLocks(storage.document,id);
+    if (hasLayerLock(flags,LayerLock::Pixels) ||
+        (changesGeometry && hasLayerLock(flags,LayerLock::Structure))) return true;
+    if (!hasLayerLock(flags,LayerLock::Transparency)) return false;
+    for (const auto &patch:patches) {
+        for (int y=0;y<patch.bounds.height;++y) for (int x=0;x<patch.bounds.width;++x) {
+            const auto point=DevicePixelPoint{patch.bounds.origin.x+x,patch.bounds.origin.y+y};
+            const auto index=std::size_t(y)*patch.bounds.width+x;
+            if ((storage.pixel(point)>>24)!=(patch.pixels[index]>>24)) return true;
+        }
+    }
+    return false;
+}
+// Undo, redo and history publication use byte-oriented patches. Apply the
+// same shared-asset checks without changing the journal cursor on rejection.
+bool lockedHistoryWrite(Storage &storage,std::string_view id,std::span<const RasterHistoryPatch> patches)
+{
+    const auto flags=storage.document.relations.locks.assetLocks(storage.document,id);
+    if (hasLayerLock(flags,LayerLock::Pixels)) return true;
+    for (const auto &patch:patches) {
+        if (hasLayerLock(flags,LayerLock::Structure) && (patch.plane==Extent || patch.plane==Canvas)) return true;
+        if (hasLayerLock(flags,LayerLock::Transparency) && patch.plane==Pixels && patch.sampleBytes==4) {
+            for (int y=0;y<patch.bounds.height;++y) for (int x=0;x<patch.bounds.width;++x) {
+                const auto offset=(std::size_t(y)*patch.bounds.width+x)*4;
+                const auto before=storage.pixel({patch.bounds.origin.x+x,patch.bounds.origin.y+y});
+                if ((before>>24)!=(sample(patch.data.data()+offset)>>24)) return true;
+            }
+        }
+    }
+    return false;
+}
 std::vector<RasterHistoryPatch> views(std::span<const BitmapPatch> patches,
                                       std::optional<CanvasExtent> &extent,
                                       std::map<Coordinate, std::uint8_t> &presence,
@@ -740,6 +785,8 @@ RasterHistoryResult BitmapEditJournal::apply(Document &d, std::string_view id,
         if (!checkGeometry(d, id))
             return result;
         Storage storage(d, id, commitPort_, &structureChanged);
+        if (lockedWrite(storage,id,patches,extent.has_value() || canvas.has_value()))
+            return result = {RasterHistoryCode::WriteRejected};
         std::array<std::int32_t, 2> dimensions;
         std::array<std::int32_t, 4> canvasValues;
         auto writeViews = views(patches, extent, presence, dimensions, canvas, canvasValues);
@@ -1138,7 +1185,7 @@ RasterHistoryResult BitmapEditJournal::step(Document &d, std::string_view id, bo
         Storage s(d, id, commitPort_, &structureChanged);
         const auto read = [&](auto plane, auto p, auto count, auto bytes)
         { return s.read(plane, p, count, bytes); };
-        const auto write = [&](auto patches) { return s.write(patches, dirty); };
+        const auto write = [&](auto patches) { return !lockedHistoryWrite(s,id,patches) && s.write(patches, dirty); };
         result = redo ? history_.redo(read, write) : history_.undo(read, write);
         if (result.code == RasterHistoryCode::WriteRejected)
             result.code = s.rejection;
@@ -1209,7 +1256,7 @@ RasterHistoryResult BitmapEditJournal::publish(Document &source, Document &targe
             return to.read(plane, point, count, bytes);
         };
         DevicePixelRect dirty{};
-        const auto writeTarget = [&](auto patches) { return to.write(patches, dirty); };
+        const auto writeTarget = [&](auto patches) { return !lockedHistoryWrite(to,id,patches) && to.write(patches, dirty); };
         result = applied ? cursor.redo(readTarget, writeTarget)
                          : cursor.undo(readTarget, writeTarget);
         if (result.code == RasterHistoryCode::WriteRejected) result.code = to.rejection;
@@ -1560,6 +1607,7 @@ RasterHistoryResult BitmapEditJournal::projectedPreview(Document &d, std::string
             const auto clip = assetStrokeBounds_.value_or(storage.bounds());
             OwnedPatches output;
             prepared->visit([&](auto bounds, const auto &, const auto &pixels) { output.tile(bounds, pixels, clip); });
+            if (lockedWrite(storage,id,output.patches)) return result = {RasterHistoryCode::WriteRejected};
             std::map<Coordinate, std::uint8_t> originals;
             auto flags = presenceFor(storage, output.patches, [&](auto key) {
                 if (!originalChunks_.contains(key)) originals.try_emplace(key, bool(storage.chunk(key)));
@@ -1632,6 +1680,7 @@ RasterHistoryResult BitmapEditJournal::preview(Document &d, std::string_view id,
             OwnedPatches output;
             prepared.visit([&](auto bounds, const auto &, const auto &preview)
                            { output.tile(bounds, preview, clipBounds); });
+            if (lockedWrite(s,id,output.patches)) return result = {RasterHistoryCode::WriteRejected};
             std::map<Coordinate, std::uint8_t> originals;
             auto flags = presenceFor(s, output.patches, [&](auto key) {
                 if (!originalChunks_.contains(key)) originals.try_emplace(key, bool(s.chunk(key)));

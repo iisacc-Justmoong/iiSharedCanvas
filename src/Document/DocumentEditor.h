@@ -39,6 +39,7 @@ enum class DocumentEditCode {
     AudioClipNotFound,
     ArtboardNotFound,
     DuplicateArtboardId,
+    LayerLocked,
 };
 
 enum class ArtboardRemoval { KeepLayers, DeleteLayers };
@@ -82,6 +83,10 @@ public:
     DocumentEditResult insertArtboard(Artboard artboard, std::size_t index = AppendDocumentIndex);
     DocumentEditResult setArtboardName(const std::string &id, std::string name);
     DocumentEditResult setArtboardRegion(const std::string &id, CanvasRegion region);
+    // Replace an oriented local rectangle and recompute its enclosing region.
+    // A missing value restores axis-aligned interpretation of the current region.
+    // Transform locks on owned layers prevent the edit.
+    DocumentEditResult setArtboardGeometry(const std::string &id, std::optional<ArtboardGeometry> geometry);
     DocumentEditResult setArtboardBackground(const std::string &id, std::uint32_t argb);
     DocumentEditResult setArtboardVisible(const std::string &id, bool visible);
     DocumentEditResult moveArtboard(const std::string &id, std::size_t destinationIndex);
@@ -99,8 +104,18 @@ public:
     DocumentEditResult clearStableDiffusionMetadata();
     DocumentEditResult setPublicationMetadata(PublicationMetadata metadata);
     DocumentEditResult clearPublicationMetadata();
+    // Atomically validates and installs a detached relationship snapshot.
+    // Use DocumentHistory to include the change in document undo/redo.
+    DocumentEditResult setSelectionLayerRelations(SelectionLayerRelations relations);
 
     DocumentEditResult insertChunkedRasterAsset(ChunkedRasterAsset asset, std::size_t index = AppendDocumentIndex);
+    // Insert or replace an owned document copy. Replacement preserves the ID
+    // so every existing layer continues to reference the same internal asset.
+    DocumentEditResult insertLinkedCanvasAsset(LinkedCanvasAsset asset, std::size_t index = AppendDocumentIndex);
+    DocumentEditResult replaceLinkedCanvasAsset(const std::string &assetId, LinkedCanvasAsset asset);
+    // Replace one fill or adjustment asset while preserving its ID and kind.
+    // Shared-layer locks and document validation are applied atomically.
+    DocumentEditResult replaceProceduralContent(Asset content);
     DocumentEditResult insertRasterAsset(std::string id,
                                          RasterLayer pixels,
                                          std::size_t index = AppendDocumentIndex);

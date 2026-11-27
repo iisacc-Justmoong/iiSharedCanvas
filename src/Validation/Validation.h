@@ -11,6 +11,7 @@ namespace iiSharedCanvas {
 enum class ValidationCode {
     UnsupportedFormatVersion,
     InvalidCanvasExtent,
+    InvalidPixelAspectRatio,
     InvalidInfiniteCanvas,
     InvalidTimeline,
     InvalidAssetId,
@@ -48,6 +49,10 @@ enum class ValidationCode {
     DuplicateArtboardId,
     MissingArtboard,
     InvalidPublicationMetadata,
+    InvalidLinkedCanvas,
+    InvalidSelectionLayerRelations,
+    InvalidLayerContent,
+    InvalidSequenceProject,
 };
 
 struct ValidationIssue {

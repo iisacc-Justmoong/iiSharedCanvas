@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.31)
+project(iiSharedCanvasGuiConsumer LANGUAGES CXX)
+
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt5 ON)
+set(CMAKE_DISABLE_FIND_PACKAGE_Qt6 ON)
+find_package(iiSharedCanvasGui 0.40 CONFIG REQUIRED)
+if(TARGET Qt6::Core OR TARGET Qt6::Gui OR TARGET Qt5::Core)
+    message(FATAL_ERROR "The installed iiGUI adapter imported Qt")
+endif()
+add_executable(native-gui-consumer main.cpp)
+target_link_libraries(native-gui-consumer PRIVATE iiSharedCanvas::Gui)
+enable_testing()
+add_test(NAME iiSharedCanvasGui.Consumer COMMAND native-gui-consumer)

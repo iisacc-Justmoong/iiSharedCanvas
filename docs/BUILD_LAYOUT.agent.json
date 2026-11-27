@@ -10,8 +10,8 @@
   },
   "source": {
     "path": "docs/BUILD_LAYOUT.md",
-    "sha256": "4fa645ae70f18cd83a8dbec4f55aa443fbe941e870c5567e758ab4d2745ae852",
-    "bytes": 1859,
+    "sha256": "3a04fff35f4f1ea56e3ee072b9d5586d9ba453396db012916998c20e28188737",
+    "bytes": 1901,
     "line_count": 24,
     "encoding": "utf-8",
     "language": "ko"
@@ -71,7 +71,7 @@
       "kind": "paragraph",
       "start_line": 11,
       "end_line": 20,
-      "raw": "테스트 입력과 일회성 작업 공간은 `resources/`의 예약된 `.iisacc-` 하위\n디렉터리에 둔다. 네이티브 빌드의 `IISC_TEST_WORK_DIR` 계약과 수명은\n[NATIVE.md](NATIVE.md)를 따른다. 다른 작업이 소유하거나 참조하는 디렉터리는\n삭제하지 않는다. 이전 빌드에서 출처가 불명확한 문서·스크립트·데이터는\n`resources/.recovery/`에 보존하고 Git에서 제외한다.\n설치 패키지에는 공개 리소스만 포함하며 어느 깊이에서든 `.recovery`, `.state`,\n`.iisacc-*` 디렉터리와 파일은 제외한다. 설치된 iiFileProvider Python 바인딩이\n있는 환경에서 `python3 tests/ResourceInstallPolicyTest.py`를 실행하면 독립된\nCMake 설치 구성으로 공개 리소스는 유지되고 이 작업 자료는 제외되는지 검증한다.\n실제 SDK의 설치 결과도 `iiSharedCanvas.ResourcesInstall` 테스트가 확인한다.\n"
+      "raw": "테스트 입력과 일회성 작업 공간은 `resources/`의 예약된 `.iisacc-` 하위\n디렉터리에 둔다. 네이티브 빌드의 `IISC_TEST_WORK_DIR` 계약과 수명은\n[NATIVE.md](NATIVE.md)를 따른다. 다른 작업이 소유하거나 참조하는 디렉터리는\n삭제하지 않는다. 이전 빌드에서 출처가 불명확한 문서·스크립트·데이터는\n`resources/.recovery/`에 보존하고 Git에서 제외한다.\n설치 패키지에는 공개 리소스만 포함하며 어느 깊이에서든 `.recovery`, `.state`,\n`.iisacc-*` 디렉터리와 파일 및 Finder의 `.DS_Store` 메타데이터는 제외한다. 설치된 iiFileProvider Python 바인딩이\n있는 환경에서 `python3 tests/ResourceInstallPolicyTest.py`를 실행하면 독립된\nCMake 설치 구성으로 공개 리소스는 유지되고 이 작업 자료는 제외되는지 검증한다.\n실제 SDK의 설치 결과도 `iiSharedCanvas.ResourcesInstall` 테스트가 확인한다.\n"
     },
     {
       "id": "b000008",

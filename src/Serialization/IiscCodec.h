@@ -15,10 +15,15 @@ namespace iiSharedCanvas {
 inline constexpr std::size_t IiscHeaderSize = 32;
 
 struct SerializationLimits {
+    // Maximum nesting and total bytes of the immediate owned IISC copies.
+    // Nested bytes are already contained in the immediate copies.
+    std::uint32_t maximumEmbeddedCanvasDepth = 16;
+    std::uint64_t maximumEmbeddedCanvasBytes = 1024ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumContainerBytes = 1024ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumCanvasPixels = 256ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumTotalRasterPixels = 256ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumTotalVectorPaths = 1024ULL * 1024ULL;
+    std::uint64_t maximumTotalShapeNodes = 65536;
     std::uint64_t maximumTotalPathCommands = 16ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumTotalKeyframes = 16ULL * 1024ULL * 1024ULL;
     std::uint64_t maximumTotalStringBytes = 64ULL * 1024ULL * 1024ULL;
@@ -57,6 +62,19 @@ struct SerializationLimits {
     std::uint64_t maximumTotalMaskStackEntries = 65536;
     std::uint32_t maximumFiltersPerLayer = 64;
     std::uint64_t maximumTotalLayerFilters = 65536;
+    std::uint64_t maximumTotalFillGradientStops = 65536;
+    std::uint32_t maximumStylesPerLayer = 64;
+    std::uint64_t maximumTotalLayerStyles = 65536;
+    // Bounds on saved selections and structural relations, including all masks.
+    std::uint32_t maximumSelectionChannels = 65536;
+    std::uint32_t maximumLayerGroups = 65536;
+    std::uint32_t maximumLayerLinks = 1048576;
+    std::uint64_t maximumSelectionTiles = 65536;
+    std::uint64_t maximumSelectionDenseBytes = 32ULL * 1024 * 1024;
+    // Independent limits for timeline metadata and document-owned media bytes.
+    std::uint64_t maximumTimelineProjectBytes = 64ULL * 1024 * 1024;
+    std::uint64_t maximumTimelineMediaBytes = 1024ULL * 1024 * 1024;
+    std::uint32_t maximumTimelineMediaAssets = 65536;
 };
 
 enum class IiscErrorCode {

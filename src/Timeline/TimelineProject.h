@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <variant>
@@ -390,7 +391,26 @@ struct TimelineMediaRepresentation {
     std::vector<TimelineAttachment> attachments;
     std::vector<TimelineProperty> metadata;
 
+    // An IISC document resolves this identity to an owned immutable copy.
+    // Standalone projects may instead use uri; document projects cannot retain
+    // an external URI. The bytes are owned separately from edit snapshots.
+    std::string ownedMediaId;
+
     bool operator==(const TimelineMediaRepresentation &) const = default;
+};
+
+// Source bytes are shared as immutable values between document/history
+// snapshots. The importing controller supplies an independent copy; callers
+// must not retain a mutable alias to its storage. The document owns the value.
+struct TimelineOwnedMedia {
+    std::string id;
+    std::string mediaType;
+    std::shared_ptr<const std::vector<std::uint8_t>> bytes;
+
+    bool operator==(const TimelineOwnedMedia &other) const {
+        return id == other.id && mediaType == other.mediaType &&
+            (bytes == other.bytes || (bytes && other.bytes && *bytes == *other.bytes));
+    }
 };
 
 struct TimelineMediaSource {
@@ -536,6 +556,17 @@ enum class TimelineAudioStretchMode : std::uint8_t {
     Custom,
 };
 
+// A clip may expose a half-open window into a longer original content domain.
+// timeMap, effects, markers and audio fades retain that original coordinate
+// system; offsetTicks is the original content position at the visible start.
+// The duration is positive. A looping clip without an explicit time map may
+// extend outside this domain; the offset is then signed and loop phase wraps.
+struct TimelineClipContentWindow {
+    std::int64_t offsetTicks = 0;
+    std::int64_t durationTicks = 0;
+    bool operator==(const TimelineClipContentWindow &) const = default;
+};
+
 struct TimelineClipProperties {
     std::string id;
     std::string name;
@@ -556,6 +587,8 @@ struct TimelineClipProperties {
     std::vector<TimelineEffect> effects;
     std::vector<TimelineMarker> markers;
     std::vector<TimelineProperty> metadata;
+    // Absent means that the visible clip covers its complete content domain.
+    std::optional<TimelineClipContentWindow> contentWindow;
 
     bool operator==(const TimelineClipProperties &) const = default;
 };
@@ -612,10 +645,19 @@ struct TimelineSubtitleStyle {
     bool operator==(const TimelineSubtitleStyle &) const = default;
 };
 
+// The rendered frame asset remains linked to a document-owned IISC snapshot
+// containing the independently editable original clip and its sources.
+// IDs are document-local; the snapshot is not a filesystem path.
+struct TimelineEditableVideoSource {
+    std::string ownedSnapshotId, sequenceId, clipId;
+    bool operator==(const TimelineEditableVideoSource &) const = default;
+};
+
 struct TimelineVideoClip {
     TimelineClipProperties properties;
     TimelineTransform transform;
     TimelineCrop crop;
+    std::optional<TimelineEditableVideoSource> editableOriginal;
 
     bool operator==(const TimelineVideoClip &) const = default;
 };
@@ -730,6 +772,21 @@ struct TimelineTransition {
     bool operator==(const TimelineTransition &) const = default;
 };
 
+// One half-open output interval translated into the original track-effect
+// time domain. A gap between intervals has no original effect time.
+struct TimelineTrackEffectTimeSegment {
+    TimelineTickRange outputRange;
+    std::int64_t sourceStartTicks = 0;
+    bool operator==(const TimelineTrackEffectTimeSegment &) const = default;
+};
+// Original effect curves remain untouched across ripple edits and subsequence
+// extraction. Segments are ordered and nonoverlapping in current track time.
+struct TimelineTrackEffectTimeMap {
+    std::int64_t sourceDurationTicks = 0;
+    std::vector<TimelineTrackEffectTimeSegment> segments;
+    bool operator==(const TimelineTrackEffectTimeMap &) const = default;
+};
+
 struct TimelineTrackProperties {
     std::string id;
     std::string name;
@@ -747,6 +804,7 @@ struct TimelineTrackProperties {
     std::vector<TimelineEffect> effects;
     std::vector<TimelineMarker> markers;
     std::vector<TimelineProperty> metadata;
+    std::optional<TimelineTrackEffectTimeMap> effectTimeMap;
 
     bool operator==(const TimelineTrackProperties &) const = default;
 };

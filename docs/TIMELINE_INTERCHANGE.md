@@ -14,14 +14,12 @@ PCM 샘플, PNG, 소스 스냅샷과 동시 게시 충돌을 검사한다. 네�
 
 `exportTimelineInterchange(document, directory, options)` 는 네이티브 캔버스 타임라인을 비디오 편집기에 가져오기 위해 새로운 로컬 패키지를 생성합니다. 그것은 전체 `Document::timeline` 를 내보내며, PSD 프레임-0 프로젝션이 아닙니다. 그것은 다른 애플리케이션에 네이티브 `.iisc` 가져오기 플러그인을 설치하지 않습니다.
 
-|파일|목적|
-| --- | --- |
-| `timeline.xml` |레거시 파이널 컷 프로 XML 프리미어 및 리졸브 타임라인|
-| `timeline.fcpxml` |Final Cut Pro 및 호환 편집기용 FCPXML 타임라인|
-| `media/*.png` |독립적으로 렌더링된 직선 알파 레이어 상태|
-| `media/*.wav` |PCM16 소스 오디오, 독립적으로 편집 가능한 오디오 트랙|
-| `manifest.json` |시각 전용 패키지용 버전 1; 버전 2는 오디오 매핑을 추가합니다.|
-| `source.iisc` |Canonical 네이티브 스냅샷이 원본 편집 가능한 데이터를 유지합니다|
+- 파일: `timeline.xml`; 목적: 레거시 파이널 컷 프로 XML 프리미어 및 리졸브 타임라인
+- 파일: `timeline.fcpxml`; 목적: Final Cut Pro 및 호환 편집기용 FCPXML 타임라인
+- 파일: `media/*.png`; 목적: 독립적으로 렌더링된 직선 알파 레이어 상태
+- 파일: `media/*.wav`; 목적: PCM16 소스 오디오, 독립적으로 편집 가능한 오디오 트랙
+- 파일: `manifest.json`; 목적: 시각 전용 패키지용 버전 1; 버전 2는 오디오 매핑을 추가합니다.
+- 파일: `source.iisc`; 목적: Canonical 네이티브 스냅샷이 원본 편집 가능한 데이터를 유지합니다
 
 적절한 XML 를 가져오되, `source.iisc` 나 PNG 파일을 개별적으로 가져오지 마십시오. 패키지는 모든 레이어를 단일 영화 또는 이미지 시퀀스로 평탄화하지 않습니다. XML 참조는 완료된 대상 디렉터리를 가리키는 퍼센트 인코딩된 절대 로컬 파일 URL 을 사용하며, 임시 경로를 사용하지 않습니다. 패키지를 해당 위치에 유지하고, 이동한 후 편집기에서 미디어를 다시 연결하거나 새 위치에서 다시 생성하십시오. 네트워크 참조나 외부 코덱은 사용되지 않습니다.
 
@@ -89,3 +87,7 @@ The CLI 는 공유 읽기 전용 백업 로더를 사용하여 네이티브 표�
 원본 비디오 자산이나 0.11.0 에서 도입된 속성 운동 키는 패키지 게시 전에 `UnsupportedFeature` 를 반환하며, 편집 가능한 타이밍과 보간은 `.iisc` 1.6 에 있으며, `exportVideo` 가 이를 렌더링합니다. 기존 비트맵 /vector hold-key 및 오디오 트랙 교환은 변경되지 않았습니다.
 
 See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.
+
+## 네이티브 레이어 그룹 제한
+
+네이티브 중첩 레이어 그룹의 통과·격리 합성을 교환 타임라인에 보존하는 기능은 아직 없다. 그룹이 있는 문서는 합성 의미를 생략하지 않고 `UnsupportedFeature`로 거부한다. `.iisc`는 그룹과 관계 상태를 보존한다.

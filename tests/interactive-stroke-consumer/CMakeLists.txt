@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 project(iiSharedCanvasInteractiveStrokeConsumer LANGUAGES CXX)
 set(CMAKE_NO_SYSTEM_FROM_IMPORTED ON)
-find_package(iiSharedCanvasNative 0.35.38 CONFIG REQUIRED)
+find_package(iiSharedCanvasNative 0.40 CONFIG REQUIRED)
 find_package(iiFileProviderNative CONFIG REQUIRED)
 if(NOT IISC_TEST_RESOURCES)
     message(FATAL_ERROR "IISC_TEST_RESOURCES must name the test resource directory")

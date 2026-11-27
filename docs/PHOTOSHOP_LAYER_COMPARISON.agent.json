@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/PHOTOSHOP_LAYER_COMPARISON.md",
-    "sha256": "02c627b5a902a8229aee8c26b17fa63879dbb7c9c57c0133c0853384f959fe44",
-    "bytes": 5940,
-    "line_count": 40,
+    "sha256": "8340e893f098c0a5b2a57d39130aec591086eded098955d0f7bd7d1878fd6739",
+    "bytes": 6632,
+    "line_count": 38,
     "encoding": "utf-8",
     "language": "en"
   },
@@ -156,93 +156,79 @@
     },
     {
       "id": "b000013",
-      "kind": "table",
       "start_line": 20,
-      "end_line": 29,
-      "raw": "| Area | Before this change | Native contract after this change | Remaining Photoshop-specific work |\n|---|---|---|---|\n| Layer blends | Normal, Multiply, Screen, Overlay | 27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions | Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic |\n| Fill | Only overall opacity | Distinct stored Fill and layer/motion opacity | Styles with independent Fill and the eight special blend formulas |\n| Pixel/vector masks | Detached bitmap mask operations only | Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage | Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms |\n| Filter masks | No layer-owned filter mask | Shared non-destructive filter-stack coverage | Full Smart Object/filter host equivalence |\n| Filters | Detached 14 photographic effects and color adjustment | Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added | Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations |\n| Composition | Flat artwork plus isolated artboards | Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If | General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers |\n| Layer styles | No native style model | Explicitly retained as a known gap | Shadows, glows, strokes, overlays, bevel/emboss and style/mask precedence |\n| Persistence | IISC 1.19 | IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation | PSD appearance serialization and richer interchange profiles |\n",
-      "columns": [
-        "Area",
-        "Before this change",
-        "Native contract after this change",
-        "Remaining Photoshop-specific work"
-      ],
-      "rows": [
-        [
-          "Layer blends",
-          "Normal, Multiply, Screen, Overlay",
-          "27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions",
-          "Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic"
-        ],
-        [
-          "Fill",
-          "Only overall opacity",
-          "Distinct stored Fill and layer/motion opacity",
-          "Styles with independent Fill and the eight special blend formulas"
-        ],
-        [
-          "Pixel/vector masks",
-          "Detached bitmap mask operations only",
-          "Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage",
-          "Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms"
-        ],
-        [
-          "Filter masks",
-          "No layer-owned filter mask",
-          "Shared non-destructive filter-stack coverage",
-          "Full Smart Object/filter host equivalence"
-        ],
-        [
-          "Filters",
-          "Detached 14 photographic effects and color adjustment",
-          "Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added",
-          "Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations"
-        ],
-        [
-          "Composition",
-          "Flat artwork plus isolated artboards",
-          "Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If",
-          "General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers"
-        ],
-        [
-          "Layer styles",
-          "No native style model",
-          "Explicitly retained as a known gap",
-          "Shadows, glows, strokes, overlays, bevel/emboss and style/mask precedence"
-        ],
-        [
-          "Persistence",
-          "IISC 1.19",
-          "IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation",
-          "PSD appearance serialization and richer interchange profiles"
-        ]
+      "end_line": 27,
+      "raw": "- Area: Layer blends; Before this change: Normal, Multiply, Screen, Overlay; Native contract after this change: 27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions; Remaining Photoshop-specific work: Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic\n- Area: Fill; Before this change: Only overall opacity; Native contract after this change: Distinct stored Fill and layer/motion opacity; Remaining Photoshop-specific work: Styles with independent Fill and the eight special blend formulas\n- Area: Pixel/vector masks; Before this change: Detached bitmap mask operations only; Native contract after this change: Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage; Remaining Photoshop-specific work: Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms\n- Area: Filter masks; Before this change: No layer-owned filter mask; Native contract after this change: Shared non-destructive filter-stack coverage; Remaining Photoshop-specific work: Full Smart Object/filter host equivalence\n- Area: Filters; Before this change: Detached 14 photographic effects and color adjustment; Native contract after this change: Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added; Remaining Photoshop-specific work: Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations\n- Area: Composition; Before this change: Flat artwork plus isolated artboards; Native contract after this change: Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If; Remaining Photoshop-specific work: General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers\n- Area: Layer styles; Historical status at the comparison: no native style model. The subsequent 1.25 native implementation covers bounded shadows, glows, strokes, color overlays and a basic bevel; Photoshop-specific variants and parity remain unverified. See [layer content operations](LAYER_CONTENT_OPERATIONS.md).\n- Area: Persistence; Before this change: IISC 1.19; Native contract after this change: IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation; Remaining Photoshop-specific work: PSD appearance serialization and richer interchange profiles\n",
+      "kind": "list",
+      "items": [
+        {
+          "marker": "-",
+          "text": "Area: Layer blends; Before this change: Normal, Multiply, Screen, Overlay; Native contract after this change: 27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions; Remaining Photoshop-specific work: Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Area: Fill; Before this change: Only overall opacity; Native contract after this change: Distinct stored Fill and layer/motion opacity; Remaining Photoshop-specific work: Styles with independent Fill and the eight special blend formulas",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Area: Pixel/vector masks; Before this change: Detached bitmap mask operations only; Native contract after this change: Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage; Remaining Photoshop-specific work: Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Area: Filter masks; Before this change: No layer-owned filter mask; Native contract after this change: Shared non-destructive filter-stack coverage; Remaining Photoshop-specific work: Full Smart Object/filter host equivalence",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Area: Filters; Before this change: Detached 14 photographic effects and color adjustment; Native contract after this change: Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added; Remaining Photoshop-specific work: Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Area: Composition; Before this change: Flat artwork plus isolated artboards; Native contract after this change: Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If; Remaining Photoshop-specific work: General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Area: Layer styles; Historical status at the comparison: no native style model. The subsequent 1.25 native implementation covers bounded shadows, glows, strokes, color overlays and a basic bevel; Photoshop-specific variants and parity remain unverified. See [layer content operations](LAYER_CONTENT_OPERATIONS.md).",
+          "checked": null
+        },
+        {
+          "marker": "-",
+          "text": "Area: Persistence; Before this change: IISC 1.19; Native contract after this change: IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation; Remaining Photoshop-specific work: PSD appearance serialization and richer interchange profiles",
+          "checked": null
+        }
       ]
     },
     {
       "id": "b000014",
+      "kind": "blank",
+      "start_line": 28,
+      "end_line": 28,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 29,
+      "end_line": 29,
+      "raw": "Nested groups, backdrop adjustments and a bounded native style model were subsequently added. PSD appearance interchange and Photoshop-specific style, blending and mask parity remain open. None of the CPU fixture or installed-package checks establish full Photoshop UI parity, consumer application adoption or another platform's GPU/device behavior.\n"
+    },
+    {
+      "id": "b000016",
       "kind": "blank",
       "start_line": 30,
       "end_line": 30,
       "raw": "\n"
     },
     {
-      "id": "b000015",
-      "kind": "paragraph",
-      "start_line": 31,
-      "end_line": 31,
-      "raw": "The highest-value remaining dependencies are a real nested group/adjustment-layer model, then layer styles with tested Fill/mask precedence, and PSD appearance interchange. None of the new CPU fixture or installed-package checks establish full Photoshop UI parity, consumer application adoption or another platform's GPU/device behavior.\n"
-    },
-    {
-      "id": "b000016",
-      "kind": "blank",
-      "start_line": 32,
-      "end_line": 32,
-      "raw": "\n"
-    },
-    {
       "id": "b000017",
       "kind": "heading",
-      "start_line": 33,
-      "end_line": 33,
+      "start_line": 31,
+      "end_line": 31,
       "raw": "## Primary specifications used\n",
       "level": 2,
       "title": "Primary specifications used"
@@ -250,15 +236,15 @@
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 34,
-      "end_line": 34,
+      "start_line": 32,
+      "end_line": 32,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "list",
-      "start_line": 35,
-      "end_line": 40,
+      "start_line": 33,
+      "end_line": 38,
       "raw": "- [Adobe Photoshop layer API](https://developer.adobe.com/photoshop/uxp/ps_reference/classes/layer/): public layer/mask state.\n- [Adobe Photoshop blend descriptions](https://helpx.adobe.com/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html): mode semantics and depth limitations.\n- [Adobe Photoshop file format](https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/): the exact PSD four-byte blend keys.\n- [Adobe filter masks](https://helpx.adobe.com/photoshop/desktop/effects-filters/smart-filters/mask-smart-filter-effects.html) and [filter blending](https://helpx.adobe.com/photoshop/desktop/effects-filters/get-started-with-filters/blend-and-fade-filter-effects.html): mask and filter-blend intent.\n- [W3C Compositing and Blending](https://www.w3.org/TR/compositing-1/): straight/premultiplied alpha accounting and separable/nonseparable definitions.\n- [OpenRaster layer stack](https://www.openraster.org/baseline/layer-stack-spec.html): baseline source-over blend functions and isolated-group semantics.\n",
       "items": [
         {
@@ -325,7 +311,7 @@
       "level": 2,
       "title": "Primary specifications used",
       "anchor": "primary-specifications-used",
-      "start_line": 33
+      "start_line": 31
     }
   ],
   "indexes": {
@@ -376,116 +362,63 @@
     "commands": [],
     "links": [
       {
+        "block_id": "b000013",
+        "label": "layer content operations",
+        "target": "LAYER_CONTENT_OPERATIONS.md",
+        "kind": "relative",
+        "line": 26
+      },
+      {
         "block_id": "b000019",
         "label": "Adobe Photoshop layer API",
         "target": "https://developer.adobe.com/photoshop/uxp/ps_reference/classes/layer/",
         "kind": "external",
-        "line": 35
+        "line": 33
       },
       {
         "block_id": "b000019",
         "label": "Adobe Photoshop blend descriptions",
         "target": "https://helpx.adobe.com/photoshop/desktop/repair-retouch/adjust-light-tone/blending-mode-descriptions.html",
         "kind": "external",
-        "line": 36
+        "line": 34
       },
       {
         "block_id": "b000019",
         "label": "Adobe Photoshop file format",
         "target": "https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/",
         "kind": "external",
-        "line": 37
+        "line": 35
       },
       {
         "block_id": "b000019",
         "label": "Adobe filter masks",
         "target": "https://helpx.adobe.com/photoshop/desktop/effects-filters/smart-filters/mask-smart-filter-effects.html",
         "kind": "external",
-        "line": 38
+        "line": 36
       },
       {
         "block_id": "b000019",
         "label": "filter blending",
         "target": "https://helpx.adobe.com/photoshop/desktop/effects-filters/get-started-with-filters/blend-and-fade-filter-effects.html",
         "kind": "external",
-        "line": 38
+        "line": 36
       },
       {
         "block_id": "b000019",
         "label": "W3C Compositing and Blending",
         "target": "https://www.w3.org/TR/compositing-1/",
         "kind": "external",
-        "line": 39
+        "line": 37
       },
       {
         "block_id": "b000019",
         "label": "OpenRaster layer stack",
         "target": "https://www.openraster.org/baseline/layer-stack-spec.html",
         "kind": "external",
-        "line": 40
+        "line": 38
       }
     ],
-    "tables": [
-      {
-        "block_id": "b000013",
-        "columns": [
-          "Area",
-          "Before this change",
-          "Native contract after this change",
-          "Remaining Photoshop-specific work"
-        ],
-        "rows": [
-          [
-            "Layer blends",
-            "Normal, Multiply, Screen, Overlay",
-            "27 pixel-layer modes; corrected partial-alpha overlap; all PSD keys and 15 baseline ORA blend functions",
-            "Color-managed precision, 16-bit/HDR, private Dissolve sequence and special Fill arithmetic"
-          ],
-          [
-            "Fill",
-            "Only overall opacity",
-            "Distinct stored Fill and layer/motion opacity",
-            "Styles with independent Fill and the eight special blend formulas"
-          ],
-          [
-            "Pixel/vector masks",
-            "Detached bitmap mask operations only",
-            "Asset-backed masks, enable/invert/density/Gaussian feather, linked/unlinked transforms, outside coverage and combined coverage",
-            "Editable PSD mask-channel interchange, selection UI and Photoshop edge-refinement algorithms"
-          ],
-          [
-            "Filter masks",
-            "No layer-owned filter mask",
-            "Shared non-destructive filter-stack coverage",
-            "Full Smart Object/filter host equivalence"
-          ],
-          [
-            "Filters",
-            "Detached 14 photographic effects and color adjustment",
-            "Persistent ordered stack, individual enable/blend/opacity, all existing adjustments; Average/Solarize/Invert/Grayscale added",
-            "Other native filter kernels, transparent blur expansion and exact Photoshop algorithms for existing approximations"
-          ],
-          [
-            "Composition",
-            "Flat artwork plus isolated artboards",
-            "Correct base-shape clipping chains, optional grouped blending, split source/backdrop Blend If",
-            "General hierarchical layer groups, Pass Through, knockout, channel exclusions and backdrop adjustment layers"
-          ],
-          [
-            "Layer styles",
-            "No native style model",
-            "Explicitly retained as a known gap",
-            "Shadows, glows, strokes, overlays, bevel/emboss and style/mask precedence"
-          ],
-          [
-            "Persistence",
-            "IISC 1.19",
-            "IISC 1.20, validated atomic/file-bound edits, resource limits, old-byte preservation",
-            "PSD appearance serialization and richer interchange profiles"
-          ]
-        ]
-      }
-    ]
+    "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",

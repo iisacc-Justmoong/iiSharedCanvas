@@ -175,7 +175,8 @@ int main(int argc, char **argv)
     const auto direct=temporary.path()/"direct-bitmap-migration.iisc"; legacy(direct);
     const auto directBytes=provider::File::read(direct,1024*1024);
     CHECK(file.open(direct.string()).ok() && file.storageVersion()==1);
-    CHECK(file.document()->formatVersion.minor==CurrentFormatMinor);
+    // This golden was written by the 1.22 model; opening must not upgrade it.
+    CHECK(file.document()->formatVersion.minor==22);
     BitmapEditor directEditor(file,"paint");
     CHECK(directEditor.setPixel(0,0,0xff123456));
     CHECK(file.revision()==0 && file.storageVersion()==1);
@@ -183,6 +184,7 @@ int main(int argc, char **argv)
     CHECK(provider::File::read(direct,1024*1024)==directBytes);
     CHECK(directEditor.setPixel(0,0,0xff778899));
     CHECK(file.storageVersion()==2 && file.revision()==1);
+    CHECK(file.document()->formatVersion.minor==CurrentFormatMinor);
     CHECK(directEditor.undo() && directEditor.redo());
     file.close(); CHECK(file.open(direct.string()).ok());
     CHECK(std::get<RasterAsset>(file.document()->assets[0]).pixels.pixels[0]==0xff778899);

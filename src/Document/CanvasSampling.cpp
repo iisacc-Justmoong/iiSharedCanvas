@@ -86,8 +86,16 @@ LayerSample sampleLayerAt(const Document &document, const Layer &layer, FrameInd
     const Artboard *artboard = properties.artboardId ? findArtboard(document, *properties.artboardId) : nullptr;
     const auto placeInWorld = [&]() {
         if (artboard) {
-            sample.transform.translationX += artboard->region.origin.x;
-            sample.transform.translationY += artboard->region.origin.y;
+            if (artboard->geometry) {
+                const auto &a=artboard->geometry->transform, b=sample.transform;
+                sample.transform={a.m11*b.m11+a.m21*b.m12,a.m12*b.m11+a.m22*b.m12,
+                    a.m11*b.m21+a.m21*b.m22,a.m12*b.m21+a.m22*b.m22,
+                    a.m11*b.translationX+a.m21*b.translationY+a.translationX,
+                    a.m12*b.translationX+a.m22*b.translationY+a.translationY};
+            } else {
+                sample.transform.translationX += artboard->region.origin.x;
+                sample.transform.translationY += artboard->region.origin.y;
+            }
             sample.visible = sample.visible && artboard->visible;
         }
         return sample;

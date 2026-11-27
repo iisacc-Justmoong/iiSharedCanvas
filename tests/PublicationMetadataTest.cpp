@@ -1,5 +1,7 @@
 #include <iiSharedCanvasCore.h>
 #include <iiFileProviderNative.h>
+#include <algorithm>
+#include <array>
 #include <filesystem>
 #include <chrono>
 #include <iostream>
@@ -49,12 +51,20 @@ int main() {
     auto typed=fixture(); PublicationMetadata typedMetadata;
     typedMetadata.settings={{"a",false},{"b",true}}; typed.publicationMetadata=typedMetadata;
     const auto typedBytes=encodeIisc(typed).bytes;
-    auto malformed=typedBytes; malformed[malformed.size()-2]=2; checksum(malformed);
-    expect(decodeIisc(malformed).error.code==IiscErrorCode::InvalidData,"unknown setting tags reject after a valid checksum");
-    malformed=typedBytes; malformed.back()=2; checksum(malformed);
-    expect(decodeIisc(malformed).error.code==IiscErrorCode::InvalidData,"invalid publication booleans reject");
-    malformed=typedBytes; malformed[malformed.size()-3]='a'; checksum(malformed);
-    expect(decodeIisc(malformed).error.code==IiscErrorCode::InvalidData,"duplicate decoded setting names reject");
+    // Locate the settings record itself: later format versions append other
+    // document records after publication metadata, so it is not a file suffix.
+    const std::array<std::uint8_t,18> settings{2,0,0,0,1,0,0,0,'a',1,0,1,0,0,0,'b',1,1};
+    const auto found=std::search(typedBytes.begin(),typedBytes.end(),settings.begin(),settings.end());
+    expect(found!=typedBytes.end(),"locate typed publication settings in the current format");
+    if (found!=typedBytes.end()) {
+        const auto offset=std::size_t(found-typedBytes.begin());
+        auto malformed=typedBytes; malformed[offset+16]=2; checksum(malformed);
+        expect(decodeIisc(malformed).error.code==IiscErrorCode::InvalidData,"unknown setting tags reject after a valid checksum");
+        malformed=typedBytes; malformed[offset+17]=2; checksum(malformed);
+        expect(decodeIisc(malformed).error.code==IiscErrorCode::InvalidData,"invalid publication booleans reject");
+        malformed=typedBytes; malformed[offset+15]='a'; checksum(malformed);
+        expect(decodeIisc(malformed).error.code==IiscErrorCode::InvalidData,"duplicate decoded setting names reject");
+    }
     expect(decoded.ok() && renderArtboard(decoded.document,1,"b").pixels.pixels.front()==0xff0000ffU,
            "publication metadata preserves dynamic canvas content");
     expect(decoded.ok() && renderArtboard(decoded.document,0,"a").pixels.pixels.front()==0xffff0000U,

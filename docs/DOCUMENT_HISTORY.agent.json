@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/DOCUMENT_HISTORY.md",
-    "sha256": "7f7e50d69ecb956f9f388f898d04b004bb6b769ee4245609cd579cfac08f6270",
-    "bytes": 28466,
-    "line_count": 340,
+    "sha256": "bfcee65135bf9a951a1ee028af0e43efb3ed0b1b77619952d51a8deed21de71a",
+    "bytes": 29115,
+    "line_count": 344,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -43,7 +43,7 @@
       "kind": "paragraph",
       "start_line": 3,
       "end_line": 4,
-      "raw": "iiSharedCanvas Native 0.35.14의 `DocumentHistory`는 하나의 `Document` 또는 열린\n`DocumentFile`에 대해 다음 명령을 실제 제출 순서로 기록한다.\n"
+      "raw": "iiSharedCanvas Native 0.35.14의 `DocumentHistory`는 하나의 `Document` 또는 열린\n`DocumentFile`에 대해 다음 명령을 실제 제출 순서로 기록한다. `setSequenceProject`는 시퀀스와 소유 미디어의 교체를 하나의 세션 이력으로 게시하며 변경되지 않은 미디어 바이트는 반복 청구하지 않는다.\n"
     },
     {
       "id": "b000004",
@@ -774,6 +774,36 @@
       "start_line": 340,
       "end_line": 340,
       "raw": "공유 속성 복구 객체는 변경 전 필드의 소유 버퍼와 작성 정보·형식 버전을 보존하고, 게시 전에 실패하면 이를 되돌린다. 명시적으로 완료한 경우에만 변경을 유지한다. 레이어 순서는 단일 속성이 아니므로 이 객체에서 거부하며 구조 전용 경로에서 처리한다.\n"
+    },
+    {
+      "id": "b000100",
+      "kind": "blank",
+      "start_line": 341,
+      "end_line": 341,
+      "raw": "\n"
+    },
+    {
+      "id": "b000101",
+      "kind": "heading",
+      "start_line": 342,
+      "end_line": 342,
+      "raw": "## 선택 채널과 레이어 관계\n",
+      "level": 2,
+      "title": "선택 채널과 레이어 관계"
+    },
+    {
+      "id": "b000102",
+      "kind": "blank",
+      "start_line": 343,
+      "end_line": 343,
+      "raw": "\n"
+    },
+    {
+      "id": "b000103",
+      "kind": "paragraph",
+      "start_line": 344,
+      "end_line": 344,
+      "raw": "`DocumentHistory::setSelectionLayerRelations`는 분리된 관계 값을 검증하고 선택 채널·그룹·링크·잠금 변경을 하나의 예산 적용 명령으로 기록한다. 레이어 삭제는 멤버십과 링크, 직접 잠금을 같은 명령에서 제거하며 Undo가 복원한다. 자세한 범위와 잠금 적용 경로는 [선택 채널과 레이어 관계](SELECTION_LAYER_RELATIONSHIPS.md)를 따른다.\n"
     }
   ],
   "outline": [
@@ -856,6 +886,14 @@
       "title": "레이어 변경의 단일 소유 계약",
       "anchor": "레이어-변경의-단일-소유-계약",
       "start_line": 336
+    },
+    {
+      "block_id": "b000101",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "선택 채널과 레이어 관계",
+      "anchor": "선택-채널과-레이어-관계",
+      "start_line": 342
     }
   ],
   "indexes": {
@@ -1086,13 +1124,20 @@
         "target": "MASK_REGIONS.md",
         "kind": "relative",
         "line": 334
+      },
+      {
+        "block_id": "b000103",
+        "label": "선택 채널과 레이어 관계",
+        "target": "SELECTION_LAYER_RELATIONSHIPS.md",
+        "kind": "relative",
+        "line": 344
       }
     ],
     "tables": []
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0-compatible",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

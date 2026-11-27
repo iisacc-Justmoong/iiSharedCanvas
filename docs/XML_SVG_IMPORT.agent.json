@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/XML_SVG_IMPORT.md",
-    "sha256": "100a0971fdb8a699cb7564b392426a11bca67b6130ae0ce8c53bdd41d4b3b072",
-    "bytes": 5874,
-    "line_count": 75,
+    "sha256": "07dc41d6a53341fd0281863480713f85092528cebbd9b0642366d1f3e16ec79e",
+    "bytes": 6367,
+    "line_count": 80,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -128,35 +128,35 @@
       "id": "b000015",
       "kind": "paragraph",
       "start_line": 53,
-      "end_line": 62,
-      "raw": "입력은 명시적 양수 `width`·`height`를 가진 SVG, 그룹, `rect`, `path`,\n`defs`의 `linearGradient`와 `stop`으로 제한한다. 경로는 M/L/H/V/Q/T/C/S/Z의\n대문자·소문자 명령과 반복을 허용한다. 단색 및 로컬 선형 그라디언트 채우기와\n획, even-odd·nonzero 채우기, 제한된 불투명도 및 획 속성을 처리한다.\n단색은 `#RGB`, `#RRGGBB`와 코드에 명시된 기본 색 이름만 허용한다.\n좌표는 유한해야 하며 절대값이 10억을 넘으면 거부한다. 변환, 원호, 다른\n도형, 스타일시트, 텍스트, 이미지, 클립, 마스크, 필터, 애니메이션, 외부\n참조와 알려지지 않은 요소·속성은 거부한다. 없는 그라디언트 참조도 거부한다.\n지원 범위 밖의 일반 SVG와 PDF 페이지의 기존 Qt 래스터화 기능을 대체했다고\n간주하지 않는다.\n"
+      "end_line": 67,
+      "raw": "입력은 명시적 양수 `width`·`height`를 가진 SVG, 그룹, `rect`, `path`,\n`circle`, `ellipse`, `line`, `polygon`, `polyline`,\n`defs`의 `linearGradient`와 `stop`으로 제한한다. 경로는 M/L/H/V/Q/T/C/S/Z의\n대문자·소문자 명령과 반복을 허용한다. 단색 및 로컬 선형 그라디언트 채우기와\n획, even-odd·nonzero 채우기, 제한된 불투명도 및 획 속성을 처리한다.\n단색은 `#RGB`, `#RRGGBB`와 코드에 명시된 기본 색 이름만 허용한다.\n좌표는 유한해야 하며 절대값이 10억을 넘으면 거부한다. 다각형 좌표는 쌍으로\n완성되어야 하고 점마다 명령 예산을 사용한다. 기본 설정에서는 변환과 원호를\n거부한다. `extendedGeometry`를 켜면 유효한 SVG 행렬·이동·크기·회전·기울이기\n변환과 원호 명령을 추가로 받아들이고, 각 연산의 인수와 명령 예산을 검사한다.\n같은 선택을 켜면 제한된 채우기·획 속성을 인라인 `style`로도 지정할 수 있다.\n그 밖의 도형, 스타일시트, 텍스트, 이미지, 클립, 마스크, 필터, 애니메이션, 외부\n참조와 알려지지 않은 요소·속성은 거부한다. 없는 그라디언트 참조도 거부한다.\n지원 범위 밖의 일반 SVG와 PDF 페이지의 기존 Qt 래스터화 기능을 대체했다고\n간주하지 않는다.\n"
     },
     {
       "id": "b000016",
       "kind": "blank",
-      "start_line": 63,
-      "end_line": 63,
+      "start_line": 68,
+      "end_line": 68,
       "raw": "\n"
     },
     {
       "id": "b000017",
       "kind": "paragraph",
-      "start_line": 64,
-      "end_line": 72,
+      "start_line": 69,
+      "end_line": 77,
       "raw": "압축 입력은 `maxInputBytes`, SVGZ 확장 결과는 `maxDecodedBytes`를 따른다.\niiGUI는 확장된 SVG 입력을 1 MiB, 출력 한 변을 8192 픽셀, 출력 전체를\n64 Mi 픽셀로 제한한다. SVGZ는 압축 해제 중에도 1 MiB 한도를 적용한다.\n호출자의 픽셀·프레임·디코딩 바이트·XML 깊이·경로\n명령 한도도 적용한다. XML 요소당 속성은 최대 16개, 이벤트는 최대 100,000개다.\n일반 SVG의 개별 텍스트 항목 한도는 입력과 디코딩 한도 중 작은 값이고 SVGZ는\n디코딩 한도다. 디코딩 바이트 한도는 결과 픽셀이나 압축 해제 데이터의 논리적\n크기이며 XML·래스터화 임시 버퍼와 할당자 오버헤드를 포함한 전체 프로세스\n메모리 상한이 아니다. 실패하면 부분 픽셀을 반환하지 않는다.\n"
     },
     {
       "id": "b000018",
       "kind": "blank",
-      "start_line": 73,
-      "end_line": 73,
+      "start_line": 78,
+      "end_line": 78,
       "raw": "\n"
     },
     {
       "id": "b000019",
       "kind": "paragraph",
-      "start_line": 74,
-      "end_line": 75,
+      "start_line": 79,
+      "end_line": 80,
       "raw": "`tests/native-svg-raster-consumer`는 Qt 검색을 끄고 설치 패키지를 조합해\n그라디언트, 직선 경로, 투명도, SVGZ 픽셀과 거부·한도 조건을 검증한다.\n"
     }
   ],
@@ -179,57 +179,14 @@
     }
   ],
   "indexes": {
-    "directive_candidates": [
-      {
-        "block_id": "b000003",
-        "line": 13,
-        "text": "배포 대상이나 다른 플랫폼에서의 실행을 보장하지 않는다.",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000007",
-        "line": 24,
-        "text": "외부 참조 등 다른 SVG 표현은 지원하지 않으며 일부 경로만 반환하지 않는다.",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000007",
-        "line": 26,
-        "text": "대체하지 않는다. SVGZ는 완전한 gzip 멤버 하나만 허용하며 잘림·체크섬 오류·",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000013",
-        "line": 49,
-        "text": "이 예시도 설치된 캔버스 라이브러리의 함수가 아니며 PDF는 처리하지 않는다.",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000015",
-        "line": 62,
-        "text": "간주하지 않는다.",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000017",
-        "line": 72,
-        "text": "메모리 상한이 아니다. 실패하면 부분 픽셀을 반환하지 않는다.",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      }
-    ],
+    "directive_candidates": [],
     "commands": [],
     "links": [],
     "tables": []
   },
   "provenance": {
-    "generator": "workspace-docs",
-    "version": "1.0.0",
+    "generator": "codex",
+    "version": "1.0.0-compatible",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

@@ -5,6 +5,8 @@
 #include "Metadata/StableDiffusionMetadata.h"
 #include "Metadata/PublicationMetadata.h"
 #include "Document/LayerAppearance.h"
+#include "Document/SelectionLayerRelations.h"
+#include "Timeline/TimelineProject.h"
 #include "ControlNet/SemanticSegment.h"
 #include "ControlNet/Pose.h"
 #include "ControlNet/Depth.h"
@@ -35,7 +37,7 @@
 namespace iiSharedCanvas {
 
 inline constexpr std::uint16_t CurrentFormatMajor = 1;
-inline constexpr std::uint16_t CurrentFormatMinor = 22;
+inline constexpr std::uint16_t CurrentFormatMinor = 29;
 
 using FrameIndex = std::uint32_t;
 
@@ -62,13 +64,29 @@ struct CanvasRegion {
     bool operator==(const CanvasRegion &) const = default;
 };
 
-// Independent, non-nesting canvas group. Owned layer transforms are local to origin.
+// Editable local rectangle mapped to document space. The containing artboard's
+// integer region encloses all four transformed corners. The transform must be
+// finite and invertible; no external resources or shared mutable state are held.
+struct ArtboardGeometry {
+    CanvasExtent extent;
+    AffineTransform transform;
+    bool operator==(const ArtboardGeometry &other) const noexcept {
+        const auto &a=transform, &b=other.transform;
+        return extent==other.extent && a.m11==b.m11 && a.m12==b.m12 &&
+            a.m21==b.m21 && a.m22==b.m22 && a.translationX==b.translationX &&
+            a.translationY==b.translationY;
+    }
+};
+
+// Independent, non-nesting canvas group. Owned layer transforms are local to
+// geometry's rectangle, or to region.origin when geometry is absent.
 struct Artboard {
     std::string id;
     std::string name;
     CanvasRegion region;
     std::uint32_t backgroundArgb = 0xffffffffU; // Zero alpha is transparent.
     bool visible = true;
+    std::optional<ArtboardGeometry> geometry;
     bool operator==(const Artboard &) const = default;
 };
 
@@ -85,6 +103,14 @@ struct InfiniteCanvas {
 struct FrameRate {
     std::uint32_t numerator = 24;
     std::uint32_t denominator = 1;
+};
+
+// Exact pixel width divided by pixel height. Both components must be positive;
+// consumers retain the original rational rather than rounding to floating point.
+struct DocumentPixelAspectRatio {
+    std::uint32_t numerator = 1;
+    std::uint32_t denominator = 1;
+    bool operator==(const DocumentPixelAspectRatio &) const = default;
 };
 
 struct Timeline {
@@ -125,6 +151,48 @@ struct RasterAsset {
     RasterLayer pixels;
 };
 
+// Editable fill content uses layer-local coordinates and a finite extent. A
+// pattern refers only to a RasterAsset owned by this same document.
+enum class FillLayerKind : std::uint8_t { Solid, LinearGradient, RadialGradient, Pattern };
+enum class FillGradientSpread : std::uint8_t { Pad, Repeat };
+struct FillGradientStop {
+    double position = 0;
+    std::uint32_t argb = 0xff000000U;
+    bool operator==(const FillGradientStop &) const = default;
+};
+struct FillLayerContent {
+    std::string id;
+    CanvasExtent extent;
+    FillLayerKind kind = FillLayerKind::Solid;
+    std::uint32_t color = 0xff000000U;
+    Point start{}, end{1, 0};
+    FillGradientSpread spread = FillGradientSpread::Pad;
+    std::vector<FillGradientStop> stops;
+    std::string patternAssetId;
+    // Pattern origin in layer-local pixels; repetitions are anchored here.
+    Point patternOrigin{};
+    bool operator==(const FillLayerContent &) const = default;
+};
+
+// An adjustment is applied to the already composited backdrop in the current
+// group, covered by this finite layer-local extent and its layer masks.
+struct AdjustmentLayerContent {
+    std::string id;
+    CanvasExtent extent;
+    ColorAdjustment adjustment;
+    bool operator==(const AdjustmentLayerContent &) const = default;
+};
+
+// An independently owned, complete IISC document and its selected frame.
+// Multiple layers can refer to this single internal asset by id; no file path
+// or lifetime of the document from which it was copied is retained.
+struct LinkedCanvasAsset {
+    std::string id;
+    std::vector<std::uint8_t> document;
+    FrameIndex frame = 0;
+    bool operator==(const LinkedCanvasAsset &) const = default;
+};
+
 struct RasterChunk {
     std::int32_t column = 0;
     std::int32_t row = 0;
@@ -136,10 +204,27 @@ struct ChunkedRasterAsset {
     std::vector<RasterChunk> chunks;
 };
 
+// Postorder expression nodes preserve the original path controls and each
+// affine transform without evaluating or rounding their intersections. Binary
+// nodes combine filled regions; Transform nodes apply one recorded transform.
+enum class ShapeExpressionKind : std::uint8_t { Path, Transform, Union, Subtract, Intersect, ExclusiveOr };
+struct ShapeExpressionNode {
+    ShapeExpressionKind kind = ShapeExpressionKind::Path;
+    std::uint32_t first = 0, second = 0;
+    AffineTransform transform;
+};
+// The root identifies an owned expression tree; paths live in VectorAsset and
+// remain independently editable. The color is the resulting region's fill.
+struct ShapeExpression {
+    std::vector<ShapeExpressionNode> nodes;
+    std::uint32_t root = 0;
+    std::uint32_t color = 0xff000000U;
+};
 struct VectorAsset {
     std::string id;
     CanvasExtent viewport;
     std::vector<VectorPath> paths;
+    std::optional<ShapeExpression> shape;
 };
 
 // Self-contained constant-rate display frames; no external decoder is needed to render.
@@ -217,7 +302,7 @@ struct IpAdapterAsset {
     bool operator==(const IpAdapterAsset &) const = default;
 };
 
-using Asset = std::variant<RasterAsset, VectorAsset, ChunkedRasterAsset, VideoAsset, PoseAsset, DepthAsset, LineArtAsset, CannyAsset, ScribbleAsset, MlsdAsset, NormalMapAsset, ShuffleAsset, TileAsset, ReferenceAsset, IpAdapterAsset>;
+using Asset = std::variant<RasterAsset, VectorAsset, ChunkedRasterAsset, VideoAsset, PoseAsset, DepthAsset, LineArtAsset, CannyAsset, ScribbleAsset, MlsdAsset, NormalMapAsset, ShuffleAsset, TileAsset, ReferenceAsset, IpAdapterAsset, LinkedCanvasAsset, FillLayerContent, AdjustmentLayerContent>;
 
 enum class ContentKind {
     Raster,
@@ -492,9 +577,15 @@ struct Document {
     DocumentAuthorship authorship;
     std::vector<Artboard> artboards; // Bottom-to-top group order; no nesting.
     std::optional<PublicationMetadata> publicationMetadata;
+    SelectionLayerRelations relations; // Document-owned selections and layer relationships.
+    DocumentPixelAspectRatio pixelAspectRatio; // Physical pixel width / height.
+    // The sequence model is independent from the canvas frame timeline. Media
+    // bytes are immutable, owned copies whose IDs are resolved by this document.
+    std::optional<TimelineProject> sequenceProject;
+    std::vector<TimelineOwnedMedia> sequenceMedia;
 };
 
-enum class AssetReferenceKind : std::uint8_t { Content, RasterMask, VectorMask, FilterMask, MaskStack };
+enum class AssetReferenceKind : std::uint8_t { Content, RasterMask, VectorMask, FilterMask, MaskStack, FillPattern };
 struct AssetReference {
     std::size_t layerIndex = 0;
     std::optional<std::size_t> frameIndex;

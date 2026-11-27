@@ -292,7 +292,11 @@ MediaIoResult exportVideo(const Document &document, const std::string &path, con
     auto result = checkDestination(path, options.overwrite, absolute);
     if (!result.ok()) { return result; }
     const auto view = documentViewRegion(document);
-    result = checkExtent(view.extent, options.limits);
+    const auto budget=std::size_t(std::min({options.limits.maxPixelsPerFrame,options.limits.maxDecodedBytes/4,
+                                             std::uint64_t(std::numeric_limits<std::size_t>::max())}));
+    const auto display=displayPixelExtent(view.extent,document.pixelAspectRatio,budget);
+    if (!display) return error(MediaIoCode::LimitExceeded,"display extent exceeds export limits");
+    result = checkExtent(*display, options.limits);
     if (!result.ok()) { return result; }
     const auto validation = validate(document);
     if (!validation.ok()) { return {MediaIoCode::InvalidArgument, validation.issues.front().message, {}}; }
@@ -323,7 +327,7 @@ MediaIoResult exportVideo(const Document &document, const std::string &path, con
     const auto rate = rateText(document.timeline.frameRate);
     QStringList arguments{"-v", "error", "-nostdin", "-y", "-filter_threads", "1",
                           "-f", "rawvideo", "-pixel_format", "rgba", "-video_size",
-                          QString::number(view.extent.width) + 'x' + QString::number(view.extent.height),
+                          QString::number(display->width) + 'x' + QString::number(display->height),
                           "-framerate", rate, "-i", "pipe:0", "-an", "-sn", "-dn", "-map", "0:v:0",
                           "-vf", "scale=iw:ih,format=" + pixelFormat, "-c:v", QString::fromStdString(options.codec),
                           "-pix_fmt", '+' + pixelFormat, "-threads", "1", "-fps_mode", "passthrough",
@@ -343,7 +347,8 @@ MediaIoResult exportVideo(const Document &document, const std::string &path, con
             input.result = error(MediaIoCode::LimitExceeded, "encoded video exceeds output byte limit");
             return input;
         }
-        auto rendered = renderFrame(document, FrameIndex(next));
+        auto rendered = document.pixelAspectRatio.numerator==document.pixelAspectRatio.denominator
+            ? renderFrame(document,FrameIndex(next)) : renderDisplayFrame(document,FrameIndex(next),RasterSampling::Smooth,budget);
         if (!rendered.ok()) { input.result = {MediaIoCode::InvalidData, rendered.message, {}}; return input; }
         if (!alphaPixelFormat(pixelFormat)) {
             for (auto &pixel : rendered.pixels.pixels) {

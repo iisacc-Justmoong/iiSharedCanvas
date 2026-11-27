@@ -70,6 +70,7 @@ MediaBytesResult gzipBytes(std::span<const std::uint8_t> input, bool compress, s
 
 MediaIoResult validateVector(const VectorAsset &asset, const MediaLimits &limits)
 {
+    if (asset.shape) return error(MediaIoCode::UnsupportedFeature,"vector export cannot preserve the exact compound expression");
     auto result = checkExtent(asset.viewport, limits);
     if (!result.ok()) { return result; }
     std::uint64_t commands = 0;
@@ -230,6 +231,10 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
     if (!result.ok()) { return result; }
     const auto validation = validate(document);
     if (!validation.ok()) { return {MediaIoCode::InvalidArgument, validation.issues.front().message, {}}; }
+    const double aspect=double(document.pixelAspectRatio.numerator)/document.pixelAspectRatio.denominator;
+    if (!std::isfinite(document.extent.width*0.75*aspect) ||
+        document.extent.width*0.75*aspect>14400 || document.extent.height*0.75>14400)
+        return error(MediaIoCode::UnsupportedFeature,"PDF page dimensions exceed 14400 points");
     if (!document.artboards.empty())
         return {MediaIoCode::UnsupportedFeature, "PDF artboard export is unavailable; use renderArtboard for explicit output", {}};
     const auto last = options.lastFrame.value_or(options.firstFrame);
@@ -250,10 +255,11 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
         QPdfWriter writer(&buffer);
         writer.setResolution(96);
         writer.setCreator("iiSharedCanvas");
-        writer.setPageSize(QPageSize(QSizeF(document.extent.width * 72.0 / 96, document.extent.height * 72.0 / 96), QPageSize::Point));
+        writer.setPageSize(QPageSize(QSizeF(document.extent.width * 72.0 / 96 * aspect, document.extent.height * 72.0 / 96), QPageSize::Point));
         writer.setPageMargins(QMarginsF(0, 0, 0, 0), QPageLayout::Point);
         QPainter painter(&writer);
         if (!painter.isActive()) { return error(MediaIoCode::IoError, "cannot initialize PDF painter"); }
+        painter.scale(aspect,1);
         painter.setRenderHint(QPainter::Antialiasing, true);
         painter.setRenderHint(QPainter::LosslessImageRendering, true);
         for (std::uint64_t frame = options.firstFrame; frame <= last; ++frame) {
@@ -300,7 +306,7 @@ MediaIoResult exportPdf(const Document &document, const std::string &path, const
                     result.warnings.emplace_back("translucent vector layer rasterized to preserve isolated group opacity in PDF");
                 } else {
                     const auto origin = canvasOrigin(document);
-                    painter.setTransform(QTransform(t.m11, t.m12, t.m21, t.m22, t.translationX - origin.x, t.translationY - origin.y));
+                    painter.setTransform(QTransform(t.m11, t.m12, t.m21, t.m22, t.translationX - origin.x, t.translationY - origin.y),true);
                     if (vector) {
                         for (const auto &path : vector->paths) {
                             painter.setBrush(path.fill ? QBrush(QColor::fromRgba(path.fill->argb)) : Qt::NoBrush);

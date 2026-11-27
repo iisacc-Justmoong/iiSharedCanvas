@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/VIDEO_FRAME_DECODER.md",
-    "sha256": "73702f7cab8d7841b2be6f302e949b168f6ff42b18917be06c9d8049a7b9a2f7",
-    "bytes": 4383,
-    "line_count": 49,
+    "sha256": "11b5db914dc290a24917c1d36ddedb1f13259e22c47c2f23dd43dbbe31bb1d76",
+    "bytes": 5552,
+    "line_count": 63,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -98,8 +98,36 @@
       "id": "b000011",
       "kind": "paragraph",
       "start_line": 32,
-      "end_line": 49,
-      "raw": "`example/VisualCodecVideoDecoder.*`는 앱이 캔버스와 iiVisualCodec 0.4.2를\n조합하는 제한된 예시이다. 표시 행렬이 항등이거나 평행이동·반전·크기 변경이\n없는 정확한 90·180·270도 회전이고, 회전 태그가 없거나 0이며, 픽셀이 정사각형이고\n타임스탬프가 일정한 단안 평면 영상을 지원한다. 90도 단위 회전은 디코딩된 픽셀을\n보간 없이 재배열하며 크기와 함께 정규화 경고를 반환한다. 미지정 샘플 종횡비는\n정사각형으로 간주하고 경고한다. 다른 표시 행렬이나 회전 태그·비정사각 픽셀·공간\n영상, 대체 타임스탬프와 가변 속도 또는 요청한 다른 속도는 변환 없이 거부한다.\niiVisualCodec이 디코딩된 프레임에 표시 행렬을 보고하면 스트림 행렬과 비교해\n다르거나 잘린 경우 전체 가져오기를 거부한다. 백엔드가 공개하지 않은 표시\n메타데이터까지 이 검사가 증명하지는 않는다.\niiVisualCodec이 전체 영상을 메모리로 디코딩한 후 요청 구간을 선택하므로, 선택한\n구간이 작더라도 원본 전체가 프레임·디코딩 한도에 들어야 한다. 변환 중 원본 RGBA와\n새 ARGB 프레임을 동시에 보유할 수 있다. 누락된 프레임 지속 시간은 한 프레임으로\n가정하고 경고한다. FFmpeg가 내부적으로 추정한 타임스탬프의 원본 여부는 이 예시가\n증명하지 못한다. 별도 설치 소비자 테스트는 실제 iiVisualCodec FFV1 프레임,\n구간 선택, 90도 단위 표시 행렬의 모든 픽셀과 반전 행렬의 거부를 검사한다. 이 검사는\n`tests/native-video-consumer`를 `build/` 아래에 별도 구성하고 두 SDK의 스테이징된\nCMake 패키지를 지정하여 실행한다.\n"
+      "end_line": 42,
+      "raw": "`example/VisualCodecVideoDecoder.*`는 앱이 캔버스와 iiVisualCodec 0.4.2를\n조합하는 제한된 예시이다. 표시 행렬이 항등이거나 평행이동·반전·크기 변경이\n없는 정확한 90·180·270도 회전이고, 회전 태그가 없거나 0인 단안 평면 영상을\n지원한다. 기본 설정은 정사각 픽셀과 일정한 타임스탬프를 요구한다. 90도 단위 회전은 디코딩된 픽셀을\n보간 없이 재배열하며 크기와 함께 정규화 경고를 반환한다. 미지정 샘플 종횡비는\n정사각형으로 간주하고 경고한다. 다른 표시 행렬이나 회전 태그·공간 영상과 대체\n타임스탬프는 거부한다. 기본 설정에서는 비정사각 픽셀, 가변 속도 또는 요청한 다른\n속도도 변환 없이 거부한다.\niiVisualCodec이 디코딩된 프레임에 표시 행렬을 보고하면 스트림 행렬과 비교해\n다르거나 잘린 경우 전체 가져오기를 거부한다. 백엔드가 공개하지 않은 표시\n메타데이터까지 이 검사가 증명하지는 않는다.\n"
+    },
+    {
+      "id": "b000012",
+      "kind": "blank",
+      "start_line": 43,
+      "end_line": 43,
+      "raw": "\n"
+    },
+    {
+      "id": "b000013",
+      "kind": "paragraph",
+      "start_line": 44,
+      "end_line": 50,
+      "raw": "예시 디코더에서 시간 정규화를 명시적으로 켜면 원본 PTS 순서를 검증한 뒤 요청한\n속도(없으면 원본 명목 속도)의 고정 프레임 시점마다 그 시점에 유효한 마지막 원본\n프레임을 선택한다. 원본 사이의 간격은 마지막 프레임을 유지하고 필요한 경우 복제하며,\n마지막 프레임의 지속 시간 이후는 포함하지 않는다. 구간 선택은 이 변환 이후의\n인덱스를 사용한다. 비정상·역순 타임스탬프나 타임스탬프 대체가 필요한 입력은\n여전히 거부하며, 변환된 프레임의 개수와 픽셀 바이트도 요청 한도를 따른다.\n기존 생성자의 기본 동작은 시간 변환을 하지 않는다.\n"
+    },
+    {
+      "id": "b000014",
+      "kind": "blank",
+      "start_line": 51,
+      "end_line": 51,
+      "raw": "\n"
+    },
+    {
+      "id": "b000015",
+      "kind": "paragraph",
+      "start_line": 52,
+      "end_line": 63,
+      "raw": "별도로 샘플 종횡비 정규화를 켜면 가로 픽셀 수를 종횡비에 따라 가장 가까운\n정수로 계산하고 보간한 뒤, 필요한 90도 단위 표시 회전을 적용한다. 결과는 정사각\n픽셀이며 크기와 전체 출력 바이트는 요청 한도를 따른다. 기본 설정은 기존처럼\n비정사각 픽셀 입력을 거부한다.\niiVisualCodec이 전체 영상을 메모리로 디코딩한 후 요청 구간을 선택하므로, 선택한\n구간이 작더라도 원본 전체가 프레임·디코딩 한도에 들어야 한다. 변환 중 원본 RGBA와\n새 ARGB 프레임을 동시에 보유할 수 있다. 누락된 프레임 지속 시간은 한 프레임으로\n가정하고 경고한다. FFmpeg가 내부적으로 추정한 타임스탬프의 원본 여부는 이 예시가\n증명하지 못한다. 별도 설치 소비자 테스트는 실제 iiVisualCodec FFV1 프레임,\n구간 선택, 90도 단위 표시 행렬의 모든 픽셀과 반전 행렬의 거부를 검사한다. 이 검사는\n`tests/native-video-consumer`를 `build/` 아래에 별도 구성하고 두 SDK의 스테이징된\nCMake 패키지를 지정하여 실행한다.\n"
     }
   ],
   "outline": [
@@ -113,43 +141,14 @@
     }
   ],
   "indexes": {
-    "directive_candidates": [
-      {
-        "block_id": "b000003",
-        "line": 6,
-        "text": "반환한다. 코덱과 파일 접근을 캔버스 모듈이 직접 선택하거나 소유하지 않는다.",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000007",
-        "line": 17,
-        "text": "프레임, 양의 고정 프레임 속도와 요청된 프레임 구간을 포함해야 한다. 캔버스는",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000007",
-        "line": 19,
-        "text": "검사하고 불완전한 결과를 반환하지 않는다. 요청 전후의 취소는 `Cancelled`,",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      },
-      {
-        "block_id": "b000009",
-        "line": 26,
-        "text": "이 경계는 코덱을 내장하지 않고 파일을 읽거나 게시하지 않는다. 회전·샘플 종횡비,",
-        "basis": "lexical_match",
-        "context": "paragraph"
-      }
-    ],
+    "directive_candidates": [],
     "commands": [],
     "links": [],
     "tables": []
   },
   "provenance": {
-    "generator": "workspace-docs",
-    "version": "1.0.0",
+    "generator": "codex",
+    "version": "1.0.0-compatible",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

@@ -43,36 +43,14 @@ void moveElement(std::vector<Value> &values,
     }
 }
 
-void setAssetIdentifier(Asset &asset, std::string identifier)
+// An owned asset contributes one level to the codec's nesting budget.
+bool validLinkedCanvas(const LinkedCanvasAsset &asset)
 {
-    std::visit([&identifier](auto &value) {
-        value.id = std::move(identifier);
-    }, asset);
-}
-
-void replaceAssetReferences(Document &document,
-                            const std::string &from,
-                            const std::string &to)
-{
-    for (Layer &layer : document.layers) {
-        auto &a = layerProperties(layer).appearance;
-        for (auto *mask : {&a.rasterMask, &a.vectorMask, &a.filterMask})
-            if (*mask && (*mask)->assetId == from) (*mask)->assetId = to;
-        for (auto &entry : a.maskStack)
-            if (entry.mask.assetId == from) entry.mask.assetId = to;
-        if (auto *source = staticLayerSource(layer)) {
-            if (source->assetId == from) {
-                source->assetId = to;
-            }
-        }
-    }
-    for (Frame &frame : document.frames) {
-        for (Keyframe &keyframe : frame.keyframes) {
-            if (keyframe.assetId == from) {
-                keyframe.assetId = to;
-            }
-        }
-    }
+    SerializationLimits limits;
+    if (!limits.maximumEmbeddedCanvasDepth || asset.document.size() > limits.maximumEmbeddedCanvasBytes) return false;
+    --limits.maximumEmbeddedCanvasDepth;
+    const auto child = decodeIisc(asset.document, limits);
+    return child.ok() && asset.frame < child.document.timeline.frameCount;
 }
 
 bool sameRaster(const RasterLayer &first, const RasterLayer &second)
@@ -357,6 +335,10 @@ DocumentEditResult DocumentEditor::reframeCanvas(CanvasRegion region)
            ny<std::numeric_limits<std::int32_t>::min() || ny>std::numeric_limits<std::int32_t>::max())
             return reject(DocumentEditCode::InvalidArgument,"artboards","reframed artboard origin is out of range");
         artboard.region.origin={static_cast<std::int32_t>(nx),static_cast<std::int32_t>(ny)};
+        if (artboard.geometry) {
+            artboard.geometry->transform.translationX-=x;
+            artboard.geometry->transform.translationY-=y;
+        }
     }
     for(auto& layer:layers) {
         auto& properties=layerProperties(layer);
@@ -550,6 +532,50 @@ DocumentEditResult DocumentEditor::clearPublicationMetadata()
     return applied();
 }
 
+DocumentEditResult DocumentEditor::setSelectionLayerRelations(SelectionLayerRelations next)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.setSelectionLayerRelations(std::move(next)); });
+    if (!requireValidDocument()) return m_lastResult;
+    const auto &prior=m_document->relations;
+    if (prior==next) return unchanged();
+    // A structural lock protects the whole path and its incident graph edges.
+    // Lock changes themselves remain editable so the user can always unlock.
+    for (const auto &layer:m_document->layers) {
+        const auto &id=layerProperties(layer).id;
+        if (!hasLayerLock(prior.locks.effective(*m_document,id),LayerLock::Structure)) continue;
+        auto oldGroup=prior.groups.groupOf(id), newGroup=next.groups.groupOf(id);
+        if (oldGroup!=newGroup) return reject(DocumentEditCode::LayerLocked,"relations.groups","layer structure is locked");
+        while (!oldGroup.empty()) {
+            const auto *oldValue=prior.groups.find(oldGroup), *newValue=next.groups.find(newGroup);
+            if (!oldValue || !newValue || *oldValue!=*newValue)
+                return reject(DocumentEditCode::LayerLocked,"relations.groups","ancestor group is locked");
+            oldGroup=oldValue->parentId; newGroup=newValue->parentId;
+        }
+        const auto incident=[&](const LayerLinkGraph &graph) {
+            std::vector<LayerLink> result;
+            for (const auto &edge:graph.edges()) if (edge.first==id || edge.second==id) result.push_back(edge);
+            return result;
+        };
+        if (incident(prior.links)!=incident(next.links))
+            return reject(DocumentEditCode::LayerLocked,"relations.links","layer structure is locked");
+    }
+    for (const auto &entry:prior.locks.groups()) {
+        if (!hasLayerLock(entry.flags,LayerLock::Structure)) continue;
+        const auto *oldGroup=prior.groups.find(entry.id), *newGroup=next.groups.find(entry.id);
+        if (!oldGroup || !newGroup || *oldGroup!=*newGroup)
+            return reject(DocumentEditCode::LayerLocked,"relations.groups","group structure is locked");
+    }
+    const auto version=m_document->formatVersion;
+    auto previous=std::move(m_document->relations);
+    m_document->relations=std::move(next);
+    m_document->formatVersion={CurrentFormatMajor,CurrentFormatMinor};
+    if (const auto issue=firstValidationIssue(*m_document)) {
+        m_document->relations=std::move(previous); m_document->formatVersion=version;
+        return reject(DocumentEditCode::ValidationRejected,issue->path,issue->message);
+    }
+    return applied();
+}
+
 DocumentEditResult DocumentEditor::insertRasterAsset(std::string id,
                                                      RasterLayer pixels,
                                                      std::size_t index)
@@ -618,6 +644,9 @@ DocumentEditResult DocumentEditor::replaceMlsdAsset(const std::string &id, MlsdA
         return editFile([&](DocumentEditor &editor) { return editor.replaceMlsdAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findMlsdAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -635,6 +664,85 @@ DocumentEditResult DocumentEditor::replaceMlsdAsset(const std::string &id, MlsdA
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
     return applied();
+}
+
+DocumentEditResult DocumentEditor::insertLinkedCanvasAsset(LinkedCanvasAsset asset, std::size_t index)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.insertLinkedCanvasAsset(std::move(asset), index); });
+    if (!requireValidDocument()) return m_lastResult;
+    if (asset.id.empty()) return reject(DocumentEditCode::InvalidArgument, "asset.id", "asset id must not be empty");
+    if (findAsset(*m_document, asset.id) || findAudioAsset(*m_document, asset.id))
+        return reject(DocumentEditCode::DuplicateAssetId, "asset.id", "asset id already exists");
+    if (!validLinkedCanvas(asset))
+        return reject(DocumentEditCode::InvalidArgument, "asset.document", "invalid embedded document or frame");
+    const auto position = insertionIndex(index, m_document->assets.size());
+    if (position > m_document->assets.size())
+        return reject(DocumentEditCode::IndexOutOfRange, "assets", "asset insertion index is outside the collection");
+    const auto priorVersion = m_document->formatVersion;
+    auto priorAuthorship = m_document->authorship;
+    auto priorResult = m_lastResult;
+    const auto priorRevision = m_revision;
+    bool inserted = false;
+    bool active = true;
+    const auto rollback = [&] {
+        if (inserted) m_document->assets.erase(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position));
+        m_document->formatVersion = priorVersion;
+        using std::swap; swap(m_document->authorship, priorAuthorship);
+        m_revision = priorRevision; m_lastResult = std::move(priorResult);
+    };
+    try {
+        m_document->formatVersion = {CurrentFormatMajor, CurrentFormatMinor};
+        m_document->assets.insert(m_document->assets.begin() + static_cast<std::ptrdiff_t>(position), std::move(asset));
+        inserted = true;
+        if (const auto issue = firstValidationIssue(*m_document)) {
+            rollback(); active = false;
+            return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+        }
+        return applied();
+    } catch (...) {
+        if (active) rollback();
+        throw;
+    }
+}
+
+DocumentEditResult DocumentEditor::replaceLinkedCanvasAsset(const std::string &id, LinkedCanvasAsset asset)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.replaceLinkedCanvasAsset(id, std::move(asset)); });
+    if (!requireValidDocument()) return m_lastResult;
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
+    auto *existing = findAsset(*m_document, id);
+    auto *target = existing ? std::get_if<LinkedCanvasAsset>(existing) : nullptr;
+    if (!target) return reject(existing ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
+                               "assets", "linked canvas asset was not found");
+    if (asset.id != id) return reject(DocumentEditCode::InvalidArgument, "asset.id", "replacement must preserve the asset id");
+    if (!validLinkedCanvas(asset))
+        return reject(DocumentEditCode::InvalidArgument, "asset.document", "invalid embedded document or frame");
+    if (*target == asset) return unchanged();
+    auto priorAuthorship = m_document->authorship;
+    auto priorResult = m_lastResult;
+    const auto priorVersion = m_document->formatVersion;
+    const auto priorRevision = m_revision;
+    auto prior = std::move(*target);
+    *target = std::move(asset);
+    bool changed = true;
+    const auto rollback = [&] {
+        *target = std::move(prior);
+        using std::swap; swap(m_document->authorship, priorAuthorship);
+        m_document->formatVersion = priorVersion;
+        m_revision = priorRevision; m_lastResult = std::move(priorResult);
+    };
+    try {
+        if (const auto issue = firstValidationIssue(*m_document)) {
+            rollback(); changed = false;
+            return reject(codeForValidationIssue(*issue), issue->path, issue->message);
+        }
+        return applied();
+    } catch (...) {
+        if (changed) rollback();
+        throw;
+    }
 }
 
 DocumentEditResult DocumentEditor::insertCannyAsset(CannyAsset asset, std::size_t index)
@@ -668,6 +776,9 @@ DocumentEditResult DocumentEditor::replaceCannyAsset(const std::string &id, Cann
         return editFile([&](DocumentEditor &editor) { return editor.replaceCannyAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findCannyAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -718,6 +829,9 @@ DocumentEditResult DocumentEditor::replaceScribbleAsset(const std::string &id, S
         return editFile([&](DocumentEditor &editor) { return editor.replaceScribbleAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findScribbleAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -768,6 +882,9 @@ DocumentEditResult DocumentEditor::replaceLineArtAsset(const std::string &id, Li
         return editFile([&](DocumentEditor &editor) { return editor.replaceLineArtAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findLineArtAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -818,6 +935,9 @@ DocumentEditResult DocumentEditor::replaceNormalMapAsset(const std::string &id, 
         return editFile([&](DocumentEditor &editor) { return editor.replaceNormalMapAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findNormalMapAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -868,6 +988,9 @@ DocumentEditResult DocumentEditor::replaceShuffleAsset(const std::string &id, Sh
         return editFile([&](DocumentEditor &editor) { return editor.replaceShuffleAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findShuffleAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -918,6 +1041,9 @@ DocumentEditResult DocumentEditor::replaceTileAsset(const std::string &id, TileA
         return editFile([&](DocumentEditor &editor) { return editor.replaceTileAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findTileAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -968,6 +1094,9 @@ DocumentEditResult DocumentEditor::replaceReferenceAsset(const std::string &id, 
         return editFile([&](DocumentEditor &editor) { return editor.replaceReferenceAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findReferenceAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -1018,6 +1147,9 @@ DocumentEditResult DocumentEditor::replaceIpAdapterAsset(const std::string &id, 
         return editFile([&](DocumentEditor &editor) { return editor.replaceIpAdapterAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findIpAdapterAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -1067,6 +1199,9 @@ DocumentEditResult DocumentEditor::replaceDepthAsset(const std::string &id, Dept
         return editFile([&](DocumentEditor &editor) { return editor.replaceDepthAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findDepthAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -1117,6 +1252,9 @@ DocumentEditResult DocumentEditor::replacePoseAsset(const std::string &id, PoseA
         return editFile([&](DocumentEditor &editor) { return editor.replacePoseAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findPoseAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -1192,6 +1330,9 @@ DocumentEditResult DocumentEditor::replaceVideoAsset(const std::string &id, Vide
         return editFile([&](DocumentEditor &editor) { return editor.replaceVideoAsset(id, std::move(asset)); });
     }
     if (!requireValidDocument()) { return m_lastResult; }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     auto *target = findVideoAsset(*m_document, id);
     if (!target) {
         return reject(findAsset(*m_document, id) ? DocumentEditCode::AssetKindMismatch : DocumentEditCode::AssetNotFound,
@@ -1305,6 +1446,18 @@ DocumentEditResult DocumentEditor::replaceRasterPixels(const std::string &id,
     if (sameRaster(raster->pixels, pixels)) {
         return unchanged();
     }
+    const auto flags=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(flags,LayerLock::Pixels) ||
+        (hasLayerLock(flags,LayerLock::Structure) &&
+         (raster->pixels.width!=pixels.width || raster->pixels.height!=pixels.height)))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer is locked");
+    if (hasLayerLock(flags,LayerLock::Transparency)) {
+        if (raster->pixels.width!=pixels.width || raster->pixels.height!=pixels.height ||
+            raster->pixels.pixels.size()!=pixels.pixels.size() ||
+            !std::equal(raster->pixels.pixels.begin(),raster->pixels.pixels.end(),pixels.pixels.begin(),
+                        [](auto a,auto b){return (a>>24)==(b>>24);}))
+            return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer has locked transparency");
+    }
 
     RasterLayer prior = std::move(raster->pixels);
     raster->pixels = std::move(pixels);
@@ -1338,6 +1491,10 @@ DocumentEditResult DocumentEditor::replaceVectorData(const std::string &id,
                       "asset is not vector content");
     }
 
+    const auto flags=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(flags,LayerLock::Pixels) || hasLayerLock(flags,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects its content or transparency");
+
     const CanvasExtent priorViewport = vector->viewport;
     std::vector<VectorPath> priorPaths = std::move(vector->paths);
     vector->viewport = viewport;
@@ -1348,6 +1505,44 @@ DocumentEditResult DocumentEditor::replaceVectorData(const std::string &id,
         return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
     }
     return applied();
+}
+
+DocumentEditResult DocumentEditor::replaceProceduralContent(Asset content)
+{
+    if (m_file) return editFile([&](DocumentEditor &editor) { return editor.replaceProceduralContent(std::move(content)); });
+    if (!requireValidDocument()) return m_lastResult;
+    if (!std::holds_alternative<FillLayerContent>(content) && !std::holds_alternative<AdjustmentLayerContent>(content))
+        return reject(DocumentEditCode::InvalidArgument,"assets","content must be a fill or adjustment");
+    const std::string id=assetId(content);
+    auto *target=findAsset(*m_document,id);
+    if (!target) return reject(DocumentEditCode::AssetNotFound,"assets","content asset was not found");
+    if (target->index()!=content.index()) return reject(DocumentEditCode::AssetKindMismatch,"assets","content kind cannot change");
+    const bool same=std::holds_alternative<FillLayerContent>(content)
+        ? std::get<FillLayerContent>(*target)==std::get<FillLayerContent>(content)
+        : std::get<AdjustmentLayerContent>(*target)==std::get<AdjustmentLayerContent>(content);
+    if (same) return unchanged();
+    const auto locks=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(locks,LayerLock::Pixels) || hasLayerLock(locks,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects its content");
+    const auto version=m_document->formatVersion;
+    auto authorship=m_document->authorship;
+    auto lastResult=m_lastResult;
+    const auto revision=m_revision;
+    using std::swap; swap(*target,content);
+    bool candidateInstalled=true;
+    try {
+        m_document->formatVersion={CurrentFormatMajor,CurrentFormatMinor};
+        if (const auto issue=firstValidationIssue(*m_document)) {
+            swap(*target,content); candidateInstalled=false; m_document->formatVersion=version;
+            return reject(codeForValidationIssue(*issue),issue->path,issue->message);
+        }
+        return applied();
+    } catch (...) {
+        if (candidateInstalled) swap(*target,content);
+        swap(m_document->authorship,authorship);
+        m_document->formatVersion=version; m_lastResult=std::move(lastResult); m_revision=revision;
+        throw;
+    }
 }
 
 DocumentEditResult DocumentEditor::renameAsset(const std::string &id,
@@ -1369,6 +1564,8 @@ DocumentEditResult DocumentEditor::renameAsset(const std::string &id,
     if (id == replacementId) {
         return unchanged();
     }
+    if (hasLayerLock(m_document->relations.locks.assetLocks(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"assets.id","a referencing layer has locked structure");
     if (replacementId.empty()) {
         return reject(DocumentEditCode::InvalidArgument, "asset.id",
                       "replacement asset id must not be empty");
@@ -1378,14 +1575,46 @@ DocumentEditResult DocumentEditor::renameAsset(const std::string &id,
                       "replacement asset id already exists");
     }
 
-    setAssetIdentifier(*asset, replacementId);
-    replaceAssetReferences(*m_document, id, replacementId);
-    if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
-        setAssetIdentifier(*asset, id);
-        replaceAssetReferences(*m_document, replacementId, id);
-        return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
+    // Prepare every replacement string before touching the owner. Swaps are
+    // nonthrowing, so failures in validation, error reporting or authorship
+    // can restore the asset ID and all direct/indirect references exactly.
+    std::vector<std::pair<std::string *,std::string>> changes;
+    const auto add=[&](std::string &value) {
+        if (value==id) changes.emplace_back(&value,replacementId);
+    };
+    add(std::visit([](auto &value)->std::string & { return value.id; },*asset));
+    for (auto &item:m_document->assets)
+        if (auto *fill=std::get_if<FillLayerContent>(&item)) add(fill->patternAssetId);
+    for (auto &layer:m_document->layers) {
+        auto &appearance=layerProperties(layer).appearance;
+        for (auto *mask:{&appearance.rasterMask,&appearance.vectorMask,&appearance.filterMask})
+            if (*mask) add((*mask)->assetId);
+        for (auto &entry:appearance.maskStack) add(entry.mask.assetId);
+        if (auto *source=staticLayerSource(layer)) add(source->assetId);
     }
-    return applied();
+    for (auto &frame:m_document->frames) for (auto &key:frame.keyframes) add(key.assetId);
+    auto authorship=m_document->authorship;
+    auto lastResult=m_lastResult;
+    const auto revision=m_revision;
+    const auto version=m_document->formatVersion;
+    for (auto &[slot,value]:changes) slot->swap(value);
+    bool candidateInstalled=true;
+    const auto restore=[&] {
+        for (auto &[slot,value]:changes) slot->swap(value);
+        candidateInstalled=false;
+    };
+    try {
+        if (const auto issue=firstValidationIssue(*m_document)) {
+            restore();
+            return reject(DocumentEditCode::ValidationRejected,issue->path,issue->message);
+        }
+        return applied();
+    } catch (...) {
+        if (candidateInstalled) restore();
+        using std::swap; swap(m_document->authorship,authorship);
+        m_document->formatVersion=version; m_lastResult=std::move(lastResult); m_revision=revision;
+        throw;
+    }
 }
 
 DocumentEditResult DocumentEditor::moveAsset(const std::string &id,
@@ -2298,6 +2527,8 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
+    if (m_document->relations.locks.effective(*m_document,id)!=LayerLock::None)
+        return reject(DocumentEditCode::LayerLocked,"layers","replacement cannot bypass a layer lock");
     const std::string replacementId = layerProperties(layer).id;
     if (replacementId.empty()) {
         return reject(DocumentEditCode::InvalidArgument, "layer.id",
@@ -2317,12 +2548,16 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
     }
     const std::string priorId = layerProperties(m_document->layers[*position]).id;
     const bool replacementIsKeyframed = (keyframedLayerSource(layer) != nullptr);
+    auto priorRelations=m_document->relations;
+    auto nextRelations=priorRelations;
+    if (priorId!=replacementId) nextRelations.renameLayer(priorId,replacementId);
     Layer prior = std::move(m_document->layers[*position]);
     std::vector<Frame> priorFrames = m_document->frames;
     m_document->layers[*position] = std::move(layer);
     if (priorId != replacementId) {
         renameLayerKeyframes(*m_document, priorId, replacementId);
     }
+    m_document->relations=std::move(nextRelations);
     if (!replacementIsKeyframed) {
         removeLayerKeyframes(*m_document, replacementId);
     } else {
@@ -2331,6 +2566,7 @@ DocumentEditResult DocumentEditor::replaceLayer(const std::string &id, Layer lay
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
         m_document->layers[*position] = std::move(prior);
         m_document->frames = std::move(priorFrames);
+        m_document->relations=std::move(priorRelations);
         m_document->formatVersion = priorVersion;
         return reject(codeForValidationIssue(*issue), issue->path, issue->message);
     }
@@ -2356,6 +2592,8 @@ DocumentEditResult DocumentEditor::renameLayer(const std::string &id,
     if (id == replacementId) {
         return unchanged();
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers.id","layer structure is locked");
     if (replacementId.empty()) {
         return reject(DocumentEditCode::InvalidArgument, "layer.id",
                       "replacement layer id must not be empty");
@@ -2364,9 +2602,12 @@ DocumentEditResult DocumentEditor::renameLayer(const std::string &id,
         return reject(DocumentEditCode::DuplicateLayerId, "layer.id",
                       "replacement layer id already exists");
     }
+    auto relations=m_document->relations;
+    relations.renameLayer(id,replacementId);
     layerProperties(*layer).id = replacementId;
     renameLayerKeyframes(*m_document, id, replacementId);
     rebuildLayerFrameIndex(*m_document, replacementId);
+    m_document->relations=std::move(relations);
     return applied();
 }
 
@@ -2396,6 +2637,8 @@ DocumentEditResult DocumentEditor::setLayerName(const std::string &id,
     if (properties.name == name) {
         return unchanged();
     }
+    if (m_document->relations.locks.effective(*m_document,id)==LayerLock::All)
+        return reject(DocumentEditCode::LayerLocked,"layers.name","layer is fully locked");
     properties.name = std::move(name);
     return applied();
 }
@@ -2425,6 +2668,8 @@ DocumentEditResult DocumentEditor::setLayerVisible(const std::string &id, bool v
     if (properties.visible == visible) {
         return unchanged();
     }
+    if (m_document->relations.locks.effective(*m_document,id)==LayerLock::All)
+        return reject(DocumentEditCode::LayerLocked,"layers.visible","layer is fully locked");
     properties.visible = visible;
     return applied();
 }
@@ -2454,6 +2699,8 @@ DocumentEditResult DocumentEditor::setLayerOpacity(const std::string &id, double
     if (properties.opacity == opacity) {
         return unchanged();
     }
+    if (m_document->relations.locks.effective(*m_document,id)==LayerLock::All)
+        return reject(DocumentEditCode::LayerLocked,"layers.opacity","layer is fully locked");
     const double prior = properties.opacity;
     properties.opacity = opacity;
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
@@ -2489,6 +2736,8 @@ DocumentEditResult DocumentEditor::setLayerTransform(const std::string &id,
     if (sameTransform(properties.transform, transform)) {
         return unchanged();
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Transform))
+        return reject(DocumentEditCode::LayerLocked,"layers.transform","layer transform is locked");
     const AffineTransform prior = properties.transform;
     properties.transform = transform;
     if (const std::optional<ValidationIssue> issue = firstValidationIssue(*m_document)) {
@@ -2524,6 +2773,8 @@ DocumentEditResult DocumentEditor::setLayerBlendMode(const std::string &id,
     if (properties.blendMode == blendMode) {
         return unchanged();
     }
+    if (m_document->relations.locks.effective(*m_document,id)==LayerLock::All)
+        return reject(DocumentEditCode::LayerLocked,"layers.blendMode","layer is fully locked");
     const RasterBlendMode prior = properties.blendMode;
     const auto priorVersion = m_document->formatVersion;
     if (static_cast<unsigned>(blendMode) > 4)
@@ -2545,15 +2796,28 @@ DocumentEditResult DocumentEditor::setLayerAppearance(const std::string &id, Lay
     if (!layer) return reject(DocumentEditCode::LayerNotFound, "layers", "layer was not found");
     auto &current = layerProperties(*layer).appearance;
     if (current == appearance) return unchanged();
-    auto prior = current;
+    const auto locks=m_document->relations.locks.effective(*m_document,id);
+    if (hasLayerLock(locks,LayerLock::Pixels) || hasLayerLock(locks,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"layers.appearance","layer pixel or transparency protection blocks appearance changes");
     const auto version = m_document->formatVersion;
-    current = std::move(appearance);
-    m_document->formatVersion.minor = CurrentFormatMinor;
-    if (const auto issue = firstValidationIssue(*m_document)) {
-        current = std::move(prior); m_document->formatVersion = version;
-        return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
+    auto authorship=m_document->authorship;
+    auto lastResult=m_lastResult;
+    const auto revision=m_revision;
+    using std::swap; swap(current,appearance);
+    bool candidateInstalled=true;
+    try {
+        m_document->formatVersion.minor = CurrentFormatMinor;
+        if (const auto issue = firstValidationIssue(*m_document)) {
+            swap(current,appearance); candidateInstalled=false; m_document->formatVersion = version;
+            return reject(DocumentEditCode::ValidationRejected, issue->path, issue->message);
+        }
+        return applied();
+    } catch (...) {
+        if (candidateInstalled) swap(current,appearance);
+        swap(m_document->authorship,authorship);
+        m_document->formatVersion=version; m_lastResult=std::move(lastResult); m_revision=revision;
+        throw;
     }
-    return applied();
 }
 
 DocumentEditResult DocumentEditor::setLayerFrameRange(
@@ -2577,6 +2841,8 @@ DocumentEditResult DocumentEditor::setLayerFrameRange(
     if (properties.frameRange == frameRange) {
         return unchanged();
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers.frameRange","layer structure is locked");
 
     const FormatVersion priorVersion = m_document->formatVersion;
     std::optional<LayerFrameRange> prior = properties.frameRange;
@@ -2612,6 +2878,8 @@ DocumentEditResult DocumentEditor::setStaticSource(const std::string &id,
         source && source->assetId == assetIdValue) {
         return unchanged();
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers.source","layer structure is locked");
     Layer prior = *layer;
     const std::string layerId = id;
     std::vector<Frame> priorFrames = m_document->frames;
@@ -2650,6 +2918,8 @@ DocumentEditResult DocumentEditor::setKeyframedSource(const std::string &id,
         source && sameKeyframes(keyframePlacements(*m_document, id), keyframes)) {
         return unchanged();
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers.source","layer structure is locked");
     Layer prior = *layer;
     const std::string layerId = id;
     std::vector<Frame> priorFrames = m_document->frames;
@@ -2696,13 +2966,22 @@ DocumentEditResult DocumentEditor::moveLayer(const std::string &id,
     if (*sourceIndex == destinationIndex) {
         return unchanged();
     }
+    for (std::size_t i=std::min(*sourceIndex,destinationIndex);i<=std::max(*sourceIndex,destinationIndex);++i)
+        if (hasLayerLock(m_document->relations.locks.effective(*m_document,layerProperties(m_document->layers[i]).id),LayerLock::Structure))
+            return reject(DocumentEditCode::LayerLocked,"layers","a layer in the affected order is locked");
     moveElement(m_document->layers, *sourceIndex, destinationIndex);
+    if (const auto issue=firstValidationIssue(*m_document)) {
+        moveElement(m_document->layers,destinationIndex,*sourceIndex);
+        return reject(DocumentEditCode::ValidationRejected,issue->path,issue->message);
+    }
     return applied();
 }
 
 DocumentEditResult DocumentEditor::removeLayer(const std::string &id)
 {
     if (m_file) {
+        if (!m_document->relations.empty())
+            return editFile([&](DocumentEditor &editor) { return editor.removeLayer(id); });
 #ifdef IISHAREDCANVAS_NATIVE_API
         return editLayerStructureFile(true, [&](DocumentEditor &editor) {
 #else
@@ -2719,10 +2998,33 @@ DocumentEditResult DocumentEditor::removeLayer(const std::string &id)
         return reject(DocumentEditCode::LayerNotFound, "layers",
                       "layer was not found");
     }
-    removeLayerKeyframes(*m_document, id);
-    m_document->layers.erase(
-        m_document->layers.begin() + static_cast<std::ptrdiff_t>(*position));
-    return applied();
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers","layer structure is locked");
+    auto relations=m_document->relations;
+    relations.removeLayer(id);
+    auto oldRelations=m_document->relations;
+    auto oldLayers=m_document->layers;
+    auto oldFrames=m_document->frames;
+    auto oldAuthorship=m_document->authorship;
+    const auto oldVersion=m_document->formatVersion;
+    bool restored=false;
+    const auto rollback=[&] {
+        if (restored) return;
+        using std::swap;
+        swap(m_document->relations,oldRelations); swap(m_document->layers,oldLayers);
+        swap(m_document->frames,oldFrames); swap(m_document->authorship,oldAuthorship);
+        m_document->formatVersion=oldVersion;
+        restored=true;
+    };
+    try {
+        m_document->relations=std::move(relations);
+        removeLayerKeyframes(*m_document, id);
+        m_document->layers.erase(m_document->layers.begin() + static_cast<std::ptrdiff_t>(*position));
+        if (const auto issue=firstValidationIssue(*m_document)) {
+            rollback(); return reject(DocumentEditCode::ValidationRejected,issue->path,issue->message);
+        }
+        return applied();
+    } catch (...) { rollback(); throw; }
 }
 
 DocumentEditResult DocumentEditor::insertKeyframe(const std::string &id,
@@ -2737,6 +3039,8 @@ DocumentEditResult DocumentEditor::insertKeyframe(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers","layer structure is locked");
     Layer *layer = findLayer(*m_document, id);
     if (!layer) {
         return reject(DocumentEditCode::LayerNotFound, "layers",
@@ -2777,6 +3081,8 @@ DocumentEditResult DocumentEditor::setKeyframeAsset(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers","layer structure is locked");
     Layer *layer = findLayer(*m_document, id);
     if (!layer) {
         return reject(DocumentEditCode::LayerNotFound, "layers",
@@ -2827,6 +3133,8 @@ DocumentEditResult DocumentEditor::setDynamicFrameContentImpl(const std::string 
         });
     }
     if (!requireValidDocument()) return m_lastResult;
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers","layer structure is locked");
     Layer *layer = findLayer(*m_document, id);
     if (!layer) return reject(DocumentEditCode::LayerNotFound, "layers", "layer was not found");
     auto *source = keyframedLayerSource(*layer);
@@ -2869,6 +3177,8 @@ DocumentEditResult DocumentEditor::moveKeyframe(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers","layer structure is locked");
     Layer *layer = findLayer(*m_document, id);
     if (!layer) {
         return reject(DocumentEditCode::LayerNotFound, "layers",
@@ -2918,6 +3228,8 @@ DocumentEditResult DocumentEditor::removeKeyframe(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    if (hasLayerLock(m_document->relations.locks.effective(*m_document,id),LayerLock::Structure))
+        return reject(DocumentEditCode::LayerLocked,"layers","layer structure is locked");
     Layer *layer = findLayer(*m_document, id);
     if (!layer) {
         return reject(DocumentEditCode::LayerNotFound, "layers",
@@ -2956,6 +3268,9 @@ DocumentEditResult DocumentEditor::insertVectorPath(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     Asset *asset = findAsset(*m_document, id);
     if (!asset) {
         return reject(DocumentEditCode::AssetNotFound, "assets",
@@ -2966,6 +3281,9 @@ DocumentEditResult DocumentEditor::insertVectorPath(const std::string &id,
         return reject(DocumentEditCode::AssetKindMismatch, "assets",
                       "asset is not vector content");
     }
+    if (vector->shape)
+        return reject(DocumentEditCode::ValidationRejected,"asset.paths",
+                      "compound shape operand indices must remain stable");
     const std::size_t position = insertionIndex(index, vector->paths.size());
     if (position > vector->paths.size()) {
         return reject(DocumentEditCode::IndexOutOfRange, "asset.paths",
@@ -2994,6 +3312,9 @@ DocumentEditResult DocumentEditor::replaceVectorPath(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     Asset *asset = findAsset(*m_document, id);
     if (!asset) {
         return reject(DocumentEditCode::AssetNotFound, "assets",
@@ -3029,6 +3350,9 @@ DocumentEditResult DocumentEditor::moveVectorPath(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     Asset *asset = findAsset(*m_document, id);
     if (!asset) {
         return reject(DocumentEditCode::AssetNotFound, "assets",
@@ -3039,6 +3363,9 @@ DocumentEditResult DocumentEditor::moveVectorPath(const std::string &id,
         return reject(DocumentEditCode::AssetKindMismatch, "assets",
                       "asset is not vector content");
     }
+    if (vector->shape)
+        return reject(DocumentEditCode::ValidationRejected,"asset.paths",
+                      "compound shape operand indices must remain stable");
     if (index >= vector->paths.size() || destinationIndex >= vector->paths.size()) {
         return reject(DocumentEditCode::IndexOutOfRange, "asset.paths",
                       "path source or destination index is outside the collection");
@@ -3061,6 +3388,9 @@ DocumentEditResult DocumentEditor::removeVectorPath(const std::string &id,
     if (!requireValidDocument()) {
         return m_lastResult;
     }
+    const auto contentLock=m_document->relations.locks.assetLocks(*m_document,id);
+    if (hasLayerLock(contentLock,LayerLock::Pixels) || hasLayerLock(contentLock,LayerLock::Transparency))
+        return reject(DocumentEditCode::LayerLocked,"assets","a referencing layer protects this content");
     Asset *asset = findAsset(*m_document, id);
     if (!asset) {
         return reject(DocumentEditCode::AssetNotFound, "assets",
@@ -3071,6 +3401,9 @@ DocumentEditResult DocumentEditor::removeVectorPath(const std::string &id,
         return reject(DocumentEditCode::AssetKindMismatch, "assets",
                       "asset is not vector content");
     }
+    if (vector->shape)
+        return reject(DocumentEditCode::ValidationRejected,"asset.paths",
+                      "compound shape operand indices must remain stable");
     if (index >= vector->paths.size()) {
         return reject(DocumentEditCode::IndexOutOfRange, "asset.paths",
                       "path index is outside the collection");

@@ -64,6 +64,7 @@ int main()
         visual::video::FrameView{view(blue), 2, 1}};
     visual::video::EncodeOptions options; options.time_base = {1, 25};
     const auto encoded = visual::video::encode(frames, options);
+    if (!encoded) std::cerr << "video fixture encoding: " << encoded.error().message << '\n';
     expect(bool(encoded), "the iiVisualCodec FFV1 fixture is encoded in memory");
     if (!encoded) return 1;
     example::VisualCodecVideoDecoder decoder;
@@ -87,6 +88,32 @@ int main()
     if (irregular)
         expect(decodeVideoAsset(*irregular, decoder, "video", request).result.code == MediaIoCode::UnsupportedFeature,
                "the example rejects uneven source frame timestamps");
+
+    example::VisualCodecVideoDecoder resampling(true);
+    request.frameRate = FrameRate{25, 1};
+    if (irregular) {
+        const auto sampled = decodeVideoAsset(*irregular, resampling, "video", request);
+        expect(sampled.ok() && sampled.asset.frames.size() == 4,
+               "opt-in timing normalization fills the variable-timing gap");
+        if (sampled.ok() && sampled.asset.frames.size() == 4)
+            expect(sampled.asset.frames[0].pixels[0] == 0xffff0000U
+                   && sampled.asset.frames[1].pixels[0] == 0xff00ff00U
+                   && sampled.asset.frames[2].pixels[0] == 0xff00ff00U
+                   && sampled.asset.frames[3].pixels[0] == 0xff0000ffU,
+                   "normalized samples hold the preceding frame until the next PTS");
+    }
+    request.firstFrame = 1; request.frameCount = 1; request.frameRate = FrameRate{24, 1};
+    const auto converted = decodeVideoAsset(*encoded, resampling, "video", request);
+    expect(converted.ok() && converted.asset.frameRate.numerator == 24 && converted.asset.frames.size() == 1
+           && converted.asset.frames.front().pixels[0] == 0xff00ff00U,
+           "frame selection follows the requested normalized rate");
+    request = {}; request.frameRate = FrameRate{1000, 1}; request.limits.maxFrames = 10;
+    expect(decodeVideoAsset(*encoded, resampling, "video", request).result.code == MediaIoCode::LimitExceeded,
+           "frame-rate normalization must enforce its output frame budget");
+    request.frameCount = 1;
+    expect(decodeVideoAsset(*encoded, resampling, "video", request).ok(),
+           "a bounded selection may be taken from a longer normalized timeline");
+    request = {};
 
     std::array<std::uint8_t, 16 * 8 * 4> pattern{};
     for (std::size_t y = 0; y < 8; ++y) for (std::size_t x = 0; x < 16; ++x) {
@@ -176,6 +203,33 @@ int main()
     request = {};
     expect(decodeVideoAsset(fixture("display-sar-2x.mp4"), decoder, "video", request).result.code == MediaIoCode::UnsupportedFeature,
            "the example rejects non-square pixels until it can normalize them");
+    example::VisualCodecVideoDecoder normalizing(true, true);
+    const auto anamorphicBytes = fixture("display-sar-2x.mp4");
+    const auto codedAspect = visual::video::inspect_display(anamorphicBytes);
+    const auto square = decodeVideoAsset(anamorphicBytes, normalizing, "video", request);
+    expect(codedAspect && square.ok() && !square.asset.frames.empty()
+           && square.asset.frames[0].width == int(codedAspect->video.width * 2)
+           && square.asset.frames[0].height == int(codedAspect->video.height)
+           && !square.result.warnings.empty(),
+           "opt-in display normalization preserves non-square video at its square-pixel extent");
+    const auto codedPixels = visual::video::decode(anamorphicBytes);
+    if (codedPixels && square.ok() && !codedPixels->frames.empty() && !square.asset.frames.empty()) {
+        const auto &pixels = codedPixels->frames[0].image.rgba;
+        if (pixels.size() >= 8 && pixels[3] == 255 && pixels[7] == 255) {
+            const auto expected = 0xff000000U
+                | (std::uint32_t(std::lround(pixels[0] * .75 + pixels[4] * .25)) << 16)
+                | (std::uint32_t(std::lround(pixels[1] * .75 + pixels[5] * .25)) << 8)
+                | std::uint32_t(std::lround(pixels[2] * .75 + pixels[6] * .25));
+            expect(square.asset.frames[0].pixels[1] == expected,
+                   "sample aspect normalization interpolates between neighboring source pixels");
+        }
+    }
+    if (codedAspect) {
+        VideoDecodeRequest tight;
+        tight.limits.maxPixelsPerFrame = std::uint64_t(codedAspect->video.width) * codedAspect->video.height;
+        expect(decodeVideoAsset(anamorphicBytes, normalizing, "video", tight).result.code == MediaIoCode::LimitExceeded,
+               "display normalization must enforce its output pixel budget");
+    }
     expect(decodeVideoAsset(fixture("display-tagged.mkv"), decoder, "video", request).result.code == MediaIoCode::UnsupportedFeature,
            "the example rejects tagged video that also has non-square pixels");
     expect(decodeVideoAsset(fixture("display-frame-sei-90.mkv"), decoder, "video", request).result.code == MediaIoCode::UnsupportedFeature,

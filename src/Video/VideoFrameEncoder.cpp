@@ -3,6 +3,7 @@
 #include "Render/FrameRenderer.h"
 #include "Validation/Validation.h"
 
+#include <algorithm>
 #include <limits>
 #include <new>
 #include <stdexcept>
@@ -32,10 +33,11 @@ MediaBytesResult encodeVideoFrames(const Document &document, VideoFrameEncoder &
         const auto count = std::uint64_t(last) - request.firstFrame + 1;
         if (count > request.limits.maxFrames || !request.limits.maxOutputBytes)
             return failure(MediaIoCode::LimitExceeded, "video frame count or output budget exceeds the limit");
-        const auto extent = documentViewRegion(document).extent;
-        if (extent.width <= 0 || extent.height <= 0)
-            return failure(MediaIoCode::InvalidArgument, "video view extent is invalid");
-        const auto pixels = std::uint64_t(extent.width) * std::uint64_t(extent.height);
+        const auto budget=std::size_t(std::min({request.limits.maxPixelsPerFrame,request.limits.maxDecodedBytes/4,
+                                                 std::uint64_t(std::numeric_limits<std::size_t>::max())}));
+        const auto extent=displayPixelExtent(documentViewRegion(document).extent,document.pixelAspectRatio,budget);
+        if (!extent) return failure(MediaIoCode::LimitExceeded, "video display extent exceeds the pixel budget");
+        const auto pixels = std::uint64_t(extent->width) * std::uint64_t(extent->height);
         if (pixels > request.limits.maxPixelsPerFrame || pixels > request.limits.maxDecodedBytes / 4)
             return failure(MediaIoCode::LimitExceeded, "video frame extent exceeds the pixel or byte limit");
         const auto frameBytes = pixels * 4;
@@ -46,7 +48,9 @@ MediaBytesResult encodeVideoFrames(const Document &document, VideoFrameEncoder &
         frames.reserve(static_cast<std::size_t>(count));
         for (std::uint64_t index = request.firstFrame; index <= last; ++index) {
             if (cancelled(request)) return failure(MediaIoCode::Cancelled, "video encoding was cancelled");
-            auto frame = renderFrame(document, static_cast<FrameIndex>(index));
+            auto frame = document.pixelAspectRatio.numerator==document.pixelAspectRatio.denominator
+                ? renderFrame(document,static_cast<FrameIndex>(index))
+                : renderDisplayFrame(document,static_cast<FrameIndex>(index),RasterSampling::Smooth,budget);
             if (!frame.ok()) return failure(MediaIoCode::InvalidData, frame.message);
             frames.push_back(std::move(frame.pixels));
         }

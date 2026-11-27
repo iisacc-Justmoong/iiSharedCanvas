@@ -33,18 +33,16 @@ rejects it. `renderFrame` and `CanvasItem` use this complete workspace region.
 
 Use `DocumentEditor` for both memory and file-bound edits:
 
-| API | Behavior |
-| --- | --- |
-| `insertArtboard(board, index)` | Insert an empty group; default index appends. |
-| `setArtboardName(id, name)` | Rename the display name, preserving the stable id. |
-| `setArtboardRegion(id, region)` | Move/resize the board; local artwork moves with it and is cropped to the new extent. Sources are not resampled or scaled. |
-| `setArtboardBackground(id, argb)` | Set an opaque, translucent or transparent background. |
-| `setArtboardVisible(id, visible)` | Hide/show both background and owned content. |
-| `moveArtboard(id, index)` | Change bottom-to-top group order. |
-| `setLayerArtboard(layerId, optionalId)` | Reparent while preserving world placement at every motion frame; `nullopt` detaches to the loose stack. |
-| `duplicateArtboard(id, newId, origin, index)` | Clone the board, all owned layers, all referenced source states and keyframes, preserving editable independence. |
-| `removeArtboard(id, KeepLayers)` | Default: detach its layers while preserving world placement. |
-| `removeArtboard(id, DeleteLayers)` | Remove owned visual/conditioning layers and their keyframes. |
+- API: `insertArtboard(board, index)`; Behavior: Insert an empty group; default index appends.
+- API: `setArtboardName(id, name)`; Behavior: Rename the display name, preserving the stable id.
+- API: `setArtboardRegion(id, region)`; Behavior: Move/resize the board; local artwork moves with it and is cropped to the new extent. Sources are not resampled or scaled.
+- API: `setArtboardBackground(id, argb)`; Behavior: Set an opaque, translucent or transparent background.
+- API: `setArtboardVisible(id, visible)`; Behavior: Hide/show both background and owned content.
+- API: `moveArtboard(id, index)`; Behavior: Change bottom-to-top group order.
+- API: `setLayerArtboard(layerId, optionalId)`; Behavior: Reparent while preserving world placement at every motion frame; `nullopt` detaches to the loose stack.
+- API: `duplicateArtboard(id, newId, origin, index)`; Behavior: Clone the board, all owned layers, all referenced source states and keyframes, preserving editable independence.
+- API: `removeArtboard(id, KeepLayers)`; Behavior: Default: detach its layers while preserving world placement.
+- API: `removeArtboard(id, DeleteLayers)`; Behavior: Remove owned visual/conditioning layers and their keyframes.
 
 Duplication generates layer ids as `newId + ":" + oldLayerId` and source ids as
 `newId + ":asset:" + oldAssetId`. Each unique source is copied once, so sharing
@@ -168,3 +166,7 @@ mixed compositions with the full native artboard oracle, including negative
 origins, overlapping boards, loose artwork, masks, vectors, nontrivial transforms,
 partial/dynamic timing and Dissolve. A 32768 by 32768 artboard separately verifies
 that a corner request produces exactly one output pixel.
+
+## 중첩 레이어 그룹을 가진 아트보드
+
+현재 아트보드 복제는 중첩 레이어 그룹을 복제하지 못하므로, 그룹에 속한 레이어가 있는 아트보드는 조용히 평탄화하지 않고 거부한다. 그룹과 레이어 잠금은 아트보드에 다시 소속시키거나 아트보드를 삭제하는 편집에도 적용한다. [선택 채널과 레이어 관계](SELECTION_LAYER_RELATIONSHIPS.md)를 참조한다.

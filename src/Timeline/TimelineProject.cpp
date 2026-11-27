@@ -1,4 +1,5 @@
 #include "Timeline/TimelineProject.h"
+#include "Timeline/ExactBezier_p.hpp"
 
 #include <algorithm>
 #include <array>
@@ -702,9 +703,10 @@ void validateTimeMap(const TimelineClipProperties &properties,
     if (properties.timeMap.empty()) {
         return;
     }
+    const auto contentDuration=properties.contentWindow ? properties.contentWindow->durationTicks : properties.timelineRange.duration;
     if (properties.timeMap.front().timelineTicks != 0
         || properties.timeMap.back().timelineTicks
-            != properties.timelineRange.duration) {
+            != contentDuration) {
         addIssue(result, TimelineValidationCode::InvalidClip,
                  path + ".timeMap",
                  "time maps must span from zero through the complete clip duration");
@@ -715,7 +717,7 @@ void validateTimeMap(const TimelineClipProperties &properties,
         const TimelineTimeMapPoint &point = properties.timeMap[index];
         const std::string pointPath = path + ".timeMap[" + std::to_string(index) + "]";
         if (point.timelineTicks < 0
-            || point.timelineTicks > properties.timelineRange.duration
+            || point.timelineTicks > contentDuration
             || (previousOffset && point.timelineTicks <= *previousOffset)) {
             addIssue(result, TimelineValidationCode::InvalidClip,
                      pointPath + ".timelineTicks",
@@ -731,6 +733,13 @@ void validateTimeMap(const TimelineClipProperties &properties,
         if (!finite(point.incoming) || !finite(point.outgoing)) {
             addIssue(result, TimelineValidationCode::InvalidNumericValue,
                      pointPath, "time-map Bezier tangents must be finite");
+        }
+        if (point.interpolation==TimelineKeyframeInterpolation::Bezier && index+1<properties.timeMap.size() &&
+            point.timelineTicks<properties.timeMap[index+1].timelineTicks && finite(point.outgoing) &&
+            finite(properties.timeMap[index+1].incoming) &&
+            !exact_timeline::monotoneTime(point,properties.timeMap[index+1])) {
+            addIssue(result, TimelineValidationCode::InvalidClip,pointPath,
+                     "Bezier time must not run backwards within a segment");
         }
         previousOffset = point.timelineTicks;
     }
@@ -754,6 +763,17 @@ void validateClipProperties(const TimelineClipProperties &properties,
                  path + ".timelineRange",
                  "clip timeline ranges must be positive and fit the sequence");
     }
+    if(properties.contentWindow){
+        const auto window=*properties.contentWindow;
+        const bool looping=properties.loopMode!=TimelineLoopMode::None && properties.timeMap.empty();
+        const bool badRange=window.durationTicks<=0 || !rangeEnd({window.offsetTicks,properties.timelineRange.duration});
+        const bool outside=!looping && (window.offsetTicks<0 || window.offsetTicks>window.durationTicks ||
+            (window.offsetTicks>=0 && window.offsetTicks<=window.durationTicks &&
+             properties.timelineRange.duration>window.durationTicks-window.offsetTicks));
+        if(badRange || outside)addIssue(result,TimelineValidationCode::InvalidClip,path+".contentWindow",
+            "the visible clip must fit its original content window unless it loops without a time map");
+    }
+    const auto contentDuration=properties.contentWindow ? properties.contentWindow->durationTicks : properties.timelineRange.duration;
     if (properties.sourceRange.duration <= 0 || !rangeEnd(properties.sourceRange)) {
         addIssue(result, TimelineValidationCode::InvalidClip,
                  path + ".sourceRange", "clip source trims must have a positive safe range");
@@ -853,7 +873,7 @@ void validateClipProperties(const TimelineClipProperties &properties,
         }
     } else if (properties.loopMode == TimelineLoopMode::None
                && sourceTimeBase
-               && !clipDurationsMatch(properties.timelineRange.duration,
+               && !clipDurationsMatch(contentDuration,
                                       sequence.timeBase,
                                       properties.sourceRange.duration,
                                       *sourceTimeBase,
@@ -864,10 +884,10 @@ void validateClipProperties(const TimelineClipProperties &properties,
     }
 
     validateTimeMap(properties, sourceStream, path, result);
-    validateEffects(properties.effects, properties.timelineRange.duration,
+    validateEffects(properties.effects, contentDuration,
                     path + ".effects", result);
     validateMarkerCollection(properties.markers,
-                             properties.timelineRange.duration,
+                             contentDuration,
                              path + ".markers", result);
     validateProperties(properties.metadata, path + ".metadata", result);
 }
@@ -883,6 +903,10 @@ void validateTypedClip(const Clip &clip,
     validateClipProperties(clip.properties, expectedKind, project, sequence,
                            path + ".properties", result);
     if constexpr (std::is_same_v<Clip, TimelineVideoClip>) {
+        if(clip.editableOriginal && (clip.editableOriginal->ownedSnapshotId.empty() ||
+           clip.editableOriginal->sequenceId.empty() || clip.editableOriginal->clipId.empty()))
+            addIssue(result,TimelineValidationCode::InvalidClip,path+".editableOriginal",
+                     "editable source references require document-owned snapshot, sequence and clip identities");
         const TimelineTransform &transform = clip.transform;
         if (!finite(transform.position) || !finite(transform.anchor)
             || !finite(transform.scale) || !finite(transform.skew)
@@ -905,8 +929,8 @@ void validateTypedClip(const Clip &clip,
         if (!finite(mix.gainDb) || !finite(mix.pan)
             || mix.pan < -1.0 || mix.pan > 1.0
             || mix.fadeInTicks < 0 || mix.fadeOutTicks < 0
-            || mix.fadeInTicks > clip.properties.timelineRange.duration
-            || mix.fadeOutTicks > clip.properties.timelineRange.duration
+            || mix.fadeInTicks > (clip.properties.contentWindow ? clip.properties.contentWindow->durationTicks : clip.properties.timelineRange.duration)
+            || mix.fadeOutTicks > (clip.properties.contentWindow ? clip.properties.contentWindow->durationTicks : clip.properties.timelineRange.duration)
             || !std::all_of(mix.channelMatrix.begin(), mix.channelMatrix.end(),
                             [](double value) { return finite(value); })) {
             addIssue(result, TimelineValidationCode::InvalidNumericValue,
@@ -970,7 +994,24 @@ void validateTrack(const Track &track,
                  path + ".properties",
                  "track opacity and color label must be finite normalized values");
     }
-    validateEffects(track.properties.effects, sequence.durationTicks,
+    if(track.properties.effectTimeMap){
+        const auto &map=*track.properties.effectTimeMap;
+        if(map.sourceDurationTicks<=0 || map.segments.size()>1000000)
+            addIssue(result,TimelineValidationCode::InvalidAutomation,path+".properties.effectTimeMap",
+                     "the original effect duration and mapping size must be valid");
+        std::int64_t previousEnd=0;
+        for(const auto &segment:map.segments){
+            const auto end=rangeEnd(segment.outputRange);
+            if(!rangeInside(segment.outputRange,0,sequence.durationTicks,false) || !end ||
+               segment.outputRange.start<previousEnd ||
+               !rangeInside({segment.sourceStartTicks,segment.outputRange.duration},0,map.sourceDurationTicks,false))
+                addIssue(result,TimelineValidationCode::InvalidAutomation,path+".properties.effectTimeMap",
+                         "effect time segments must be ordered and remain inside both time domains");
+            if(end)previousEnd=*end;
+        }
+    }
+    const auto effectDuration=track.properties.effectTimeMap ? track.properties.effectTimeMap->sourceDurationTicks : sequence.durationTicks;
+    validateEffects(track.properties.effects, effectDuration,
                     path + ".properties.effects", result);
     validateMarkerCollection(track.properties.markers, sequence.durationTicks,
                              path + ".properties.markers", result);
@@ -2087,11 +2128,14 @@ TimelineValidationResult validateTimelineProject(const TimelineProject &project)
             const std::string representationPath = sourcePath + ".representations["
                 + std::to_string(representationIndex) + "]";
             if (representation.role != TimelineMediaRepresentationRole::OfflinePlaceholder
-                && representation.uri.empty()) {
+                && representation.uri.empty() && representation.ownedMediaId.empty()) {
                 addIssue(result, TimelineValidationCode::InvalidRepresentation,
                          representationPath + ".uri",
-                         "online representations require a URI");
+                         "online representations require a URI or owned media identity");
             }
+            if (!representation.uri.empty() && !representation.ownedMediaId.empty())
+                addIssue(result, TimelineValidationCode::InvalidRepresentation,
+                         representationPath, "a representation cannot use both a URI and owned media identity");
             validateContainer(representation.container,
                               representationPath + ".container", result,
                               TimelineValidationCode::InvalidRepresentation);

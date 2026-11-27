@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/PSD_EXPORT.md",
-    "sha256": "57065d46d994b60913252712347482cd5dc262f5669380fcd68df714b8874975",
-    "bytes": 12892,
-    "line_count": 66,
+    "sha256": "cce7e50dbc1d6b4b39430061aa918725dfd52f62d71e87f0a1985acde2a35f8d",
+    "bytes": 13292,
+    "line_count": 70,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -474,6 +474,36 @@
       "start_line": 66,
       "end_line": 66,
       "raw": "See [Native layer compositing](LAYER_COMPOSITING.md) for IISC 1.20 appearance and the updated interchange boundary. PSD supports 27 pixel-layer blend keys, ORA supports 15 baseline blend functions, and PSD/timeline appearance projection rejects unsupported native state instead of discarding it.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 67,
+      "end_line": 67,
+      "raw": "\n"
+    },
+    {
+      "id": "b000065",
+      "kind": "heading",
+      "start_line": 68,
+      "end_line": 68,
+      "raw": "## 네이티브 레이어 그룹 제한\n",
+      "level": 2,
+      "title": "네이티브 레이어 그룹 제한"
+    },
+    {
+      "id": "b000066",
+      "kind": "blank",
+      "start_line": 69,
+      "end_line": 69,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "paragraph",
+      "start_line": 70,
+      "end_line": 70,
+      "raw": "통과·격리 방식의 네이티브 `LayerGroupTree`를 PSD 그룹으로 보존하는 기능은 아직 없다. 그룹이 있는 문서는 조용히 평탄화하지 않고 `UnsupportedFeature`로 거부한다. 그룹과 관계 상태를 보존하는 문서 이동에는 `.iisc`를 사용한다. 실행 중인 Undo/Redo 이력은 별도 세션 상태이다.\n"
     }
   ],
   "outline": [
@@ -524,6 +554,14 @@
       "title": "인증된 애플리케이션 확인 ( 2026-09-03 )",
       "anchor": "인증된-애플리케이션-확인--2026-09-03-",
       "start_line": 58
+    },
+    {
+      "block_id": "b000065",
+      "parent_id": "b000003",
+      "level": 2,
+      "title": "네이티브 레이어 그룹 제한",
+      "anchor": "네이티브-레이어-그룹-제한",
+      "start_line": 68
     }
   ],
   "indexes": {
@@ -577,7 +615,7 @@
   },
   "provenance": {
     "generator": "workspace-docs",
-    "version": "1.0.0",
+    "version": "1.0.0-compatible",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

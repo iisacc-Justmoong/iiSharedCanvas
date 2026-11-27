@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 project(iiSharedCanvasFiniteChunkConsumer LANGUAGES CXX)
-find_package(iiSharedCanvasNative 0.35.36 CONFIG REQUIRED)
+find_package(iiSharedCanvasNative 0.40 CONFIG REQUIRED)
 if(NOT DEFINED IISC_FINITE_CONSUMER_RESOURCES)
   message(FATAL_ERROR "IISC_FINITE_CONSUMER_RESOURCES must point to an existing workspace resources directory")
 endif()

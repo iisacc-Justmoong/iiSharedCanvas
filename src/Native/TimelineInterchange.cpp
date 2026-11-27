@@ -181,10 +181,21 @@ Prepared prepare(const Document &document, const TimelineInterchangeOptions &opt
     }
     const auto valid = validate(document);
     if (!valid.ok()) { fail(MediaIoCode::InvalidArgument, "invalid source document: " + valid.issues.front().message); }
+    if (std::any_of(document.assets.begin(),document.assets.end(),[](const Asset &asset) {
+            const auto *vector=std::get_if<VectorAsset>(&asset);
+            return std::holds_alternative<FillLayerContent>(asset) || std::holds_alternative<AdjustmentLayerContent>(asset) ||
+                   (vector && vector->shape.has_value());
+        })) fail(MediaIoCode::UnsupportedFeature,"timeline interchange cannot preserve procedural or compound vector content; use .iisc");
     if (!document.artboards.empty())
         fail(MediaIoCode::UnsupportedFeature, "timeline interchange cannot preserve artboard groups; select an artboard explicitly");
+    if (!document.relations.groups.groups().empty())
+        fail(MediaIoCode::UnsupportedFeature, "timeline interchange cannot preserve layer group composition; use .iisc");
     checked(media_detail::checkExtent(document.extent, options.limits));
-    if (document.extent.width > 16384 || document.extent.height > 16384) {
+    const auto outputExtent = displayPixelExtent(document.extent, document.pixelAspectRatio,
+                                                  options.limits.maxPixelsPerFrame);
+    if (!outputExtent) fail(MediaIoCode::LimitExceeded, "display aspect exceeds the timeline pixel budget");
+    checked(media_detail::checkExtent(*outputExtent, options.limits));
+    if (outputExtent->width > 16384 || outputExtent->height > 16384) {
         fail(MediaIoCode::UnsupportedFeature, "timeline interchange supports canvas dimensions up to 16384 pixels");
     }
     xmlText(options.sequenceName);
@@ -193,7 +204,9 @@ Prepared prepare(const Document &document, const TimelineInterchangeOptions &opt
     plan.name = options.sequenceName; plan.frameRate = document.timeline.frameRate;
     const auto divisor = std::gcd(plan.frameRate.numerator, plan.frameRate.denominator);
     plan.frameRate.numerator /= divisor; plan.frameRate.denominator /= divisor;
-    plan.extent = document.extent; plan.frameCount = document.timeline.frameCount;
+    plan.extent = *outputExtent; plan.frameCount = document.timeline.frameCount;
+    if (document.pixelAspectRatio.numerator != document.pixelAspectRatio.denominator)
+        warn(result, "Nonsquare pixels are rendered as square-pixel media; source.iisc retains the original pixel aspect");
     std::uint64_t clipCount = 0;
     for (std::size_t layerIndex = 0; layerIndex < document.layers.size(); ++layerIndex) {
         const auto &layer = document.layers[layerIndex]; const auto &properties = layerProperties(layer);
@@ -307,7 +320,7 @@ void checkRenderBudget(const Asset &asset, std::uint64_t canvasBytes, std::uint6
         }
     }
 }
-RasterLayer renderMedia(const Document &document, const MediaTask &task)
+RasterLayer renderMedia(const Document &document, const MediaTask &task, CanvasExtent outputExtent)
 {
     Document isolated; isolated.extent = document.extent; isolated.canvasMode = document.canvasMode;
     isolated.infiniteCanvas = document.infiniteCanvas; isolated.assets.push_back(*task.asset);
@@ -316,7 +329,7 @@ RasterLayer renderMedia(const Document &document, const MediaTask &task)
     auto &properties = layerProperties(isolated.layers[0]); properties = layerProperties(source);
     properties.visible = true; properties.opacity = 1; properties.blendMode = RasterBlendMode::SourceOver;
     properties.frameRange.reset(); setLayerSource(isolated.layers[0], StaticSource{assetId(*task.asset)});
-    auto rendered = renderFrameLayerTiles(isolated, 0, 0, {{canvasRegion(isolated), isolated.extent}});
+    auto rendered = renderFrameLayerTiles(isolated, 0, 0, {{canvasRegion(isolated), outputExtent, RasterSampling::Smooth}});
     if (!rendered.ok() || rendered.tiles.size() != 1) { fail(MediaIoCode::InvalidData, "cannot render timeline media: " + rendered.message); }
     return std::move(rendered.tiles[0].pixels);
 }
@@ -467,12 +480,13 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
                 return layerRole(layer) == LayerRole::ControlNet || !layerProperties(layer).motion.empty();
             })) {
             fail(MediaIoCode::UnsupportedFeature,
-                 "ControlNet content, native video and motion are not supported by timeline XML interchange; use .iisc or exportVideo");
+                 "This timeline interchange does not preserve linked canvases, ControlNet content, native video or motion; use .iisc or exportVideo");
         }
         const auto snapshotBytes = sourceSnapshotUpperBound(document, options.limits.maxDecodedBytes / 4);
         auto prepared = prepare(document, options, result);
         for (const auto &task : prepared.tasks) {
-            checkRenderBudget(*task.asset, std::uint64_t(document.extent.width) * document.extent.height * 4,
+            checkRenderBudget(*task.asset, std::max(std::uint64_t(document.extent.width) * document.extent.height,
+                                                   std::uint64_t(prepared.plan.extent.width) * prepared.plan.extent.height) * 4,
                               prepared.metadataBytes, options);
         }
         const auto serializationBudget = (options.limits.maxDecodedBytes - prepared.metadataBytes) / 4;
@@ -509,7 +523,7 @@ MediaIoResult exportTimelineInterchange(const Document &document, const std::str
         for (std::size_t index = 0; index < prepared.tasks.size(); ++index) {
             BitmapExportOptions bitmap; bitmap.extendedCodecs = false; bitmap.limits = options.limits;
             bitmap.limits.maxOutputBytes = std::min(options.limits.maxOutputBytes - used, serializationBudget);
-            const auto pixels = renderMedia(document, prepared.tasks[index]);
+            const auto pixels = renderMedia(document, prepared.tasks[index], prepared.plan.extent);
             const auto png = encodeBitmap(pixels, bitmap); checked(png.result);
             write(stage.path() / utf8Path(prepared.plan.media[index].relativePath), png.bytes, used, options.limits.maxOutputBytes);
         }

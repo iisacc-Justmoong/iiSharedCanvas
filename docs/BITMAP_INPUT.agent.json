@@ -10,9 +10,9 @@
   },
   "source": {
     "path": "docs/BITMAP_INPUT.md",
-    "sha256": "fddb17a72957de8d5b30371a6fe41f81c74f1d8859b6ae166e983a24c2378aca",
-    "bytes": 11863,
-    "line_count": 146,
+    "sha256": "ba8a2f6290fc462c8756520755b2186726d3ece9c89bcfaddbe453c0748c71b6",
+    "bytes": 12572,
+    "line_count": 155,
     "encoding": "utf-8",
     "language": "ko"
   },
@@ -516,6 +516,36 @@
       "start_line": 142,
       "end_line": 146,
       "raw": "문서에 직접 바인딩된 `ChunkedBitmapEditor`의 활성 획에서는\n`currentStrokeBrushState()`가 해당 획의 유효한 브러시 설정과 시드를 반환한다.\n획이 없거나 파일 바인딩 편집기의 임시 트랜잭션에서는 빈 값을 반환한다.\n호출자는 획 종료 전에 상태를 얻어야 하며 원본 타일과 입력 표본 보존,\n재생의 메모리 예산 및 결과 적용은 호출자가 담당한다.\n"
+    },
+    {
+      "id": "b000064",
+      "kind": "blank",
+      "start_line": 147,
+      "end_line": 147,
+      "raw": "\n"
+    },
+    {
+      "id": "b000065",
+      "kind": "heading",
+      "start_line": 148,
+      "end_line": 148,
+      "raw": "## 변경 영역과 타일 표시\n",
+      "level": 2,
+      "title": "변경 영역과 타일 표시"
+    },
+    {
+      "id": "b000066",
+      "kind": "blank",
+      "start_line": 149,
+      "end_line": 149,
+      "raw": "\n"
+    },
+    {
+      "id": "b000067",
+      "kind": "paragraph",
+      "start_line": 150,
+      "end_line": 155,
+      "raw": "유한 비트맵의 일반 픽셀 갱신은 각 갱신에서 실제로 값이 달라진 픽셀의 경계 상자를\n`dirtyBounds()`에 누적한다. 내부 이력 패치가 더 넓은 타일을 포함하더라도\n변경되지 않은 좌우 픽셀까지 무조건 더하지 않는다. 직사각형 내부의 빈 공간은\n포함할 수 있고, 누적 중 되돌려진 픽셀이나 크기 변경 등 구조 변경은 더 넓은 영역을 보고할 수 있다.\n`clearDirtyBounds()` 이후 새 편집과 실행 취소가 보고하는 영역을 따로 사용할 수\n있으며, 레이어 변환을 적용한 문서 좌표 계산과 화면 갱신 순서는 호출자 책임이다.\n"
     }
   ],
   "outline": [
@@ -582,6 +612,14 @@
       "title": "청크 획 재생 상태",
       "anchor": "청크-획-재생-상태",
       "start_line": 140
+    },
+    {
+      "block_id": "b000065",
+      "parent_id": "b000001",
+      "level": 2,
+      "title": "변경 영역과 타일 표시",
+      "anchor": "변경-영역과-타일-표시",
+      "start_line": 148
     }
   ],
   "indexes": {
@@ -705,8 +743,8 @@
     "tables": []
   },
   "provenance": {
-    "generator": "workspace-docs",
-    "version": "1.0.0",
+    "generator": "codex",
+    "version": "1.0.0-compatible",
     "profile": "lossless-blocks-v1",
     "derived": true
   }

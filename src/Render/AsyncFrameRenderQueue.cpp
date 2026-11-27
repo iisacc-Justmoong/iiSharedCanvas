@@ -79,6 +79,7 @@ struct AsyncFrameRenderQueue::State final {
             result.requestId = job->request.id;
             result.layers.requests = job->request.tiles;
             result.layers.artboards = job->request.document->artboards;
+            result.layers.groups = job->request.document->relations.groups;
             result.layers.layers.reserve(job->layers.size());
             for (auto &layer : job->layers) {
                 if (!layer) throw std::runtime_error("parallel rendering ended without a layer result");

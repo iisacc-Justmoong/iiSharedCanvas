@@ -3,12 +3,10 @@
 The artwork model has exactly four concrete C++ alternatives. Each owns its own
 content type; there is no mutable static/dynamic source variant inside them.
 
-| Layer | Content | Allowed payload | Frame sampling |
-| --- | --- | --- | --- |
-| `StaticBitmapLayer` | `StaticBitmapContent` | `RasterAsset` or `ChunkedRasterAsset` | One asset throughout the active range |
-| `StaticVectorLayer` | `StaticVectorContent` | `VectorAsset` with native paths/paint | One asset throughout the active range |
-| `DynamicBitmapLayer` | `DynamicBitmapContent` | Frame-selected raster or chunked raster assets | Each content key selects pixels |
-| `DynamicVectorLayer` | `DynamicVectorContent` | Frame-selected native vector assets | Each content key selects paths/paint |
+- Layer: `StaticBitmapLayer`; Content: `StaticBitmapContent`; Allowed payload: `RasterAsset` or `ChunkedRasterAsset`; Frame sampling: One asset throughout the active range
+- Layer: `StaticVectorLayer`; Content: `StaticVectorContent`; Allowed payload: `VectorAsset` with native paths/paint; Frame sampling: One asset throughout the active range
+- Layer: `DynamicBitmapLayer`; Content: `DynamicBitmapContent`; Allowed payload: Frame-selected raster or chunked raster assets; Frame sampling: Each content key selects pixels
+- Layer: `DynamicVectorLayer`; Content: `DynamicVectorContent`; Allowed payload: Frame-selected native vector assets; Frame sampling: Each content key selects paths/paint
 
 `content.assetId` belongs to either static content type. `content.frameIndices`
 belongs to either dynamic content type. The common source bases only share

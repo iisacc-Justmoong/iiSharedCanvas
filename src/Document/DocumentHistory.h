@@ -2,6 +2,9 @@
 
 #include "Bitmap/BitmapEdit.h"
 #include "Document/DocumentEditor.h"
+#include "Document/LayerLayout.h"
+#include "Document/CanvasGeometry.h"
+#include "Document/LayerTransactions.h"
 #include "iiSharedCanvas/Export.h"
 
 #include <cstddef>
@@ -52,9 +55,12 @@ struct DocumentHistoryStatistics {
 // A document-domain layer change. It contains no history cursor, UI selection,
 // file owner or application policy, so one definition can be used by any
 // coordinator that needs to order changes with other commands.
-enum class LayerChangeField { Name, Visible, Opacity, Transform, Blend, Order };
+enum class LayerChangeField { Name, Visible, Opacity, Transform, Blend, Order, Appearance };
+// Appearance snapshots are immutable and separately owned so scalar history
+// entries do not inherit the size of the complete appearance value.
+using LayerAppearanceValue = std::shared_ptr<const LayerAppearance>;
 using LayerChangeValue = std::variant<std::string, bool, double, AffineTransform,
-                                      RasterBlendMode, std::size_t>;
+                                      RasterBlendMode, std::size_t, LayerAppearanceValue>;
 struct IISHAREDCANVAS_EXPORT LayerChange final {
     std::string id;
     LayerChangeField field;
@@ -70,7 +76,8 @@ struct IISHAREDCANVAS_EXPORT LayerChange final {
 };
 
 // Restores one property and document metadata unless explicitly committed.
-// The document and layer must outlive the guard. Structural order is excluded.
+// The document and layer must outlive the guard. Structural order and the
+// immutable appearance snapshot use their own edit transactions.
 class IISHAREDCANVAS_EXPORT LayerPropertyGuard final {
 public:
     LayerPropertyGuard(Document &, Layer &, LayerChangeField);
@@ -109,6 +116,12 @@ public:
     // Views stay valid until the next mutating history call or destruction.
     [[nodiscard]] std::string_view undoLabel() const noexcept;
     [[nodiscard]] std::string_view redoLabel() const noexcept;
+    // Stable for the lifetime of an entry, including movement between stacks.
+    // IDs are never reused by this history, even after reset or branch changes.
+    [[nodiscard]] std::optional<std::uint64_t> undoEntryId() const noexcept;
+    [[nodiscard]] std::optional<std::uint64_t> redoEntryId() const noexcept;
+    // Borrowed read-only owner; null after a file binding is closed or replaced.
+    [[nodiscard]] const Document *document() const noexcept;
     [[nodiscard]] DocumentHistoryStatistics statistics() const noexcept;
     [[nodiscard]] const DocumentHistoryLimits &limits() const noexcept;
 
@@ -116,6 +129,25 @@ public:
     // only for this call and become one compact, reversible history entry.
     DocumentHistoryResult replaceBitmapPatches(std::string_view assetId,
         std::span<const BitmapPatch> patches, std::string_view label = "Bitmap edit");
+    // Publish detached pixels only for the selected layer and frame. A fresh
+    // asset ID isolates shared data; unchanged surrounding frames retain their
+    // original exposure. A static multi-frame layer becomes dynamic if needed.
+    // The caller supplies its immutable original pixels; they are compared
+    // exactly as well as the source revision to reject an out-of-band edit.
+    // Dimensions, pixel/transparency/structure locks, history budgets and
+    // durable writes are checked atomically before publication.
+    DocumentHistoryResult replaceLayerFrameRaster(std::string_view layerId, FrameIndex frame,
+        const RasterLayer &expectedSource, RasterAsset content, std::uint64_t expectedRevision,
+        std::string_view label = "Apply image");
+    // Atomically publish a complete sequence project and its owned source media.
+    // Incoming new bytes are copied before publication; existing immutable
+    // payloads may be reused. The owner and this history must outlive the call.
+    // Unchanged document-owned media is shared and is not recharged per edit;
+    // added or removed payloads count against the history byte budget. A failed
+    // validation, conflict, persistence error or budget limit leaves the owner
+    // unchanged; one undo restores the prior bundle.
+    DocumentHistoryResult setSequenceProject(std::optional<TimelineProject> project,
+        std::vector<TimelineOwnedMedia> media, std::string_view label = "Edit sequence");
     // The live result is written to the owner on every successful replacement.
     // Resolve the session explicitly before destroying this history object.
     // For live replacement and cancellation, changed reports a document
@@ -176,10 +208,46 @@ public:
     DocumentHistoryResult setLayerOpacity(std::string_view id, double opacity);
     DocumentHistoryResult setLayerTransform(std::string_view id, AffineTransform transform);
     DocumentHistoryResult setLayerBlendMode(std::string_view id, RasterBlendMode mode);
+    // Atomically publish an appearance prepared by a mask or style operation.
+    // The existing layer lock, document validation and history budget apply.
+    DocumentHistoryResult setLayerAppearance(std::string_view id, LayerAppearance appearance);
     DocumentHistoryResult moveLayer(std::string_view id, std::size_t destinationIndex);
+    // Apply the complete bottom-to-top order as one reversible transaction.
+    // IDs must be a permutation of the current layers; structural locks and
+    // document group/clipping validation are checked before publication.
+    DocumentHistoryResult applyLayerOrder(std::span<const std::string> order,
+        std::string_view label = "Arrange layers");
+    // Apply caller-computed world-space displacements as a single history entry.
+    // A locked, missing, duplicate or non-finite member rejects the entire edit.
+    DocumentHistoryResult translateLayers(std::span<const LayerOffset> offsets,
+        std::string_view label = "Align layers");
+    // Commit an externally prepared merge or flatten as one budgeted entry.
+    // Removed assets are captured losslessly; stale plans, locks, validation,
+    // allocation and durable-write failures leave both document and cursor intact.
+    DocumentHistoryResult applyLayerTransaction(LayerTransactionPlan plan,
+        std::string_view label = "Layer transaction");
+    // Publish a non-destructive canvas resize or crop as one reversible edit.
+    // Source revision, transform locks, coordinate bounds and history budgets
+    // are checked before any memory or file state is committed.
+    DocumentHistoryResult applyCanvasGeometry(const CanvasGeometryPlan &plan,
+        std::string_view label = "Resize canvas");
+    // Commit a detached whole-document transform as one reversible edit.
+    // Publication rejects stale plans, locked layers and unsupported raster replacement.
+    DocumentHistoryResult applyCanvasAffine(const CanvasAffinePlan &plan,
+        std::string_view label = "Transform canvas");
+    // Preserve the exact positive rational as one reversible document edit.
+    DocumentHistoryResult setPixelAspectRatio(DocumentPixelAspectRatio ratio,
+        std::string_view label = "Pixel aspect ratio");
+    // Replace one path in a vector asset as an undoable, lock-aware operation.
+    // Compound-shape expressions retain their node indices and other operands.
+    DocumentHistoryResult replaceVectorPath(std::string_view assetId,std::size_t index,VectorPath path,
+        std::string_view label = "Edit vector path");
     // Frame rate and frame count change together as one validated command.
     // Existing frames, motion keys and audio clips are never silently trimmed.
     DocumentHistoryResult setTimeline(Timeline timeline, std::string_view label = "Document timing");
+    // Publishes all selection and layer relationships as one budgeted command.
+    DocumentHistoryResult setSelectionLayerRelations(SelectionLayerRelations relations,
+        std::string_view label = "Selection and layer relationships");
     // A layer references already existing assets. Removing it retains those
     // assets and records its frame-owned keys for an atomic undo.
     DocumentHistoryResult insertLayer(Layer layer, std::size_t index = AppendDocumentIndex,
@@ -187,17 +255,23 @@ public:
     DocumentHistoryResult insertKeyframedLayer(Layer layer, std::vector<KeyframePlacement> keyframes,
         std::size_t index = AppendDocumentIndex, std::string_view label = "Add layer");
     DocumentHistoryResult removeLayer(std::string_view id, std::string_view label = "Remove layer");
-    // Atomically creates one static layer and its new raster, chunked raster,
-    // or vector asset. Undo removes both; redo restores the lossless content.
+    // Atomically creates one static layer and its raster, chunked raster,
+    // vector or owned linked-canvas asset. Undo/redo restore lossless content.
     DocumentHistoryResult insertLayerWithAsset(Asset asset, Layer layer,
         std::size_t layerIndex = AppendDocumentIndex,
         std::size_t assetIndex = AppendDocumentIndex,
         std::string_view label = "Create layer");
-    // Remove a static raster, chunked raster or vector layer and its asset as
+    // Remove a static raster, chunked raster, vector or linked layer and its asset as
     // one command. An asset referenced by any other layer is retained and the
     // command returns Conflict; removeLayer can remove only the layer instead.
     DocumentHistoryResult removeLayerWithAsset(std::string_view id,
         std::string_view label = "Delete layer and asset");
+    // Replace the shared owned copy as one reversible, budgeted command.
+    DocumentHistoryResult replaceLinkedCanvasAsset(LinkedCanvasAsset asset,
+        std::string_view label = "Replace linked canvas");
+    // Replaces a document-owned fill or adjustment as a single budgeted edit.
+    DocumentHistoryResult replaceProceduralContent(Asset content,
+        std::string_view label = "Edit layer content");
     DocumentHistoryResult undo();
     DocumentHistoryResult redo();
     // Discards both stacks and adopts the owner's current revision without
